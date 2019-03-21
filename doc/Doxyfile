@@ -1,0 +1,11 @@
+PROJECT_NAME            = "Yggdrasil Kernel"
+INPUT                   = $(S)
+RECURSIVE               = YES
+EXTRACT_STATIC          = YES
+EXTRACT_PRIVATE         = YES
+EXTRACT_ALL             = YES
+HIDE_UNDOC_MEMBERS      = YES
+HIDE_UNDOC_CLASSES      = YES
+ENABLE_PREPROCESSING    = YES
+HAVE_DOT                = NO
+SORT_MEMBER_DOCS        = NO

@@ -1,0 +1,4 @@
+build
+.env
+doc/html
+doc/latex
