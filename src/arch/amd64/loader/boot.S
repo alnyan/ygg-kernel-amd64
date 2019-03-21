@@ -21,8 +21,8 @@ _start:
     // Setup stack
     mov $stack_top, %esp
 
-    //push %ebx
-    //push %eax
+    push %ebx
+    push %eax
 
     // Check if the CPU supports long mode
     mov $0x80000001, %eax
@@ -30,11 +30,23 @@ _start:
     test $(1 << 29), %edx
     jz .not_supported
 
-    // call loader_entry
-    // add $8, %esp
+    call loader_main
+    add $8, %esp
+
+    push $_msg_failure
+    call panic
+    add $4, %esp
 1:
     cli
     hlt
     jmp 1b
 .not_supported:
+    push $_msg_not_supported
+    call panic
+    add $4, %esp
     jmp 1b
+
+_msg_not_supported:
+    .string "Long mode is not supported by the CPU"
+_msg_failure:
+    .string "Unknown error"
