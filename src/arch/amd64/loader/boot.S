@@ -50,3 +50,55 @@ _msg_not_supported:
     .string "Long mode is not supported by the CPU"
 _msg_failure:
     .string "Unknown error"
+
+.global long_entry
+long_entry:
+    cli
+
+    // Enable PSE and PAE
+    mov %cr4, %eax
+    or $((1 << 5) | (1 << 4)), %eax
+    mov %eax, %cr4
+
+    // Load PML4 address into cr3
+    mov $pml4, %eax
+    mov %eax, %cr3
+
+    // Enable EFER.LME
+    mov $0xC0000080, %ecx
+    rdmsr
+    or $(1 << 8), %eax
+    wrmsr
+
+    // Enable paging
+    mov %cr0, %eax
+    or $(1 << 31), %eax
+    mov %eax, %cr0
+
+    // Load 64-bit GDT
+    lgdt (gdtr64)
+    ljmp $0x08, $.long_reload
+
+.long_reload:
+    mov $0x10, %ax
+    mov %ax, %ds
+    mov %ax, %es
+    mov %ax, %fs
+    mov %ax, %gs
+    mov %ax, %ss
+
+.code64
+    movq 4(%rsp), %rax
+    jmp *%rax
+.code32
+
+.align 16
+gdt64:
+    .quad 0
+    .quad 0x00209A0000000000
+    .quad 0x0000920000000000
+gdt_end64:
+.align 16
+gdtr64:
+    .short gdt_end64 - gdt64 - 1
+    .long gdt64

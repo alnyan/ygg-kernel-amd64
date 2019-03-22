@@ -1,9 +1,18 @@
 all:
 ### Kernel build
-OBJS+=
+OBJS+=$(O)/arch/amd64/entry.o
+kernel_LINKER=$(S)/arch/amd64/link.ld
+kernel_LDFLAGS=-nostdlib -T$(kernel_LINKER)
+kernel_CFLAGS=-ffreestanding -I$(S)
+
+$(O)/kernel.elf: $(OBJS) $(kernel_LINKER)
+	$(CROSSLD) $(kernel_LDFLAGS)  -o $@ $(OBJS)
+
+$(O)/arch/amd64/%.o: $(S)/arch/amd64/%.S
+	$(CROSSCC) $(kernel_CFLAGS) -c -o $@ $<
 
 ### Kernel loader build
-TARGETS+=$(O)/loader.elf
+TARGETS+=$(O)/loader.elf $(O)/kernel.elf
 DIRS+=$(O)/arch/amd64/loader
 loader_OBJS+=$(O)/arch/amd64/loader/boot.o \
 			 $(O)/arch/amd64/loader/loader.o \
@@ -25,4 +34,4 @@ $(O)/arch/amd64/loader/%.o: $(S)/arch/amd64/loader/%.c $(HEADERS)
 	@$(CROSSCC) $(loader_CFLAGS) -c -o $@ $<
 
 qemu: all
-	@qemu-system-x86_64 -kernel $(O)/loader.elf -serial mon:stdio
+	@qemu-system-x86_64 -kernel $(O)/loader.elf -initrd $(O)/kernel.elf -serial mon:stdio

@@ -8,6 +8,8 @@ ENTRY(_start)
 SECTIONS {
 	. = 0x100000;
 
+    _loader_start = .;
+
 	.text : ALIGN(4K)
 	{
 		*(.multiboot)
@@ -29,4 +31,6 @@ SECTIONS {
 		*(COMMON)
 		*(.bss)
 	}
+
+    _loader_end = .;
 }
