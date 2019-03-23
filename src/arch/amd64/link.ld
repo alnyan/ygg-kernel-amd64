@@ -25,6 +25,7 @@ SECTIONS {
 	.data ALIGN(4K) : AT(ADDR(.data) - _kernel_base)
 	{
 		*(.data)
+        *(.data.rel.local)
 	}
 
 	.bss ALIGN(4K) : AT(ADDR(.bss) - _kernel_base)
