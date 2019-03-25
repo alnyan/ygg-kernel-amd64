@@ -3,6 +3,7 @@ HEADERS=$(shell find $(S) -name "*.h")
 CFLAGS+=-Wall \
 		-Wextra \
 		-Werror \
+		-Wpedantic \
 		-Wno-unused-parameter
 
 DIRS+=$(O)/sys

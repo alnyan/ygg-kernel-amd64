@@ -6,24 +6,30 @@ OBJS+=$(O)/arch/amd64/kernel.o \
 	  $(O)/arch/amd64/mm/mm.o \
 	  $(O)/arch/amd64/hw/rs232.o \
 	  $(O)/arch/amd64/hw/gdt.o \
-	  $(O)/arch/amd64/hw/gdt_s.o
+	  $(O)/arch/amd64/hw/gdt_s.o \
+	  $(O)/arch/amd64/hw/idt.o \
+	  $(O)/arch/amd64/hw/ints.o \
+	  $(O)/arch/amd64/hw/exc.o \
+	  $(O)/arch/amd64/hw/regs.o
 kernel_OBJS=$(O)/arch/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=$(S)/arch/amd64/link.ld
 kernel_LDFLAGS=-nostdlib -T$(kernel_LINKER)
-kernel_CFLAGS=-ffreestanding -I$(S) $(DEFINES) $(CFLAGS)
+kernel_CFLAGS=-ffreestanding -I$(S) $(DEFINES) $(CFLAGS) -mcmodel=large
 DIRS+=$(O)/arch/amd64/mm \
 	  $(O)/arch/amd64/hw
+# add .inc includes for asm
+HEADERS+=$(shell find $(S) -name "*.inc")
 
 $(O)/kernel.elf: $(kernel_OBJS) $(kernel_LINKER)
 	@printf " LD\t%s\n" $@
 	@$(CROSSLD) $(kernel_LDFLAGS)  -o $@ $(kernel_OBJS)
 
-$(O)/%.o: $(S)/%.S
+$(O)/%.o: $(S)/%.S $(HEADERS)
 	@printf " AS\t%s\n" $@
 	@$(CROSSCC) $(kernel_CFLAGS) -c -o $@ $<
 
-$(O)/%.o: $(S)/%.c
+$(O)/%.o: $(S)/%.c $(HEADERS)
 	@printf " CC\t%s\n" $@
 	@$(CROSSCC) $(kernel_CFLAGS) -c -o $@ $<
 
