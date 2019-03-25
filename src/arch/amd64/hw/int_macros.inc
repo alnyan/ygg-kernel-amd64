@@ -35,3 +35,39 @@
     mov %ds, %rax
     pushq %rax
 .endm
+
+.macro __int_pop_ctx
+    // segments
+    pop %rax
+    mov %rax, %ds
+    pop %rax
+    mov %rax, %es
+    pop %rax
+    mov %rax, %fs
+    pop %rax
+    mov %rax, %gs
+
+    // cr3
+    pop %rax
+    mov %rax, %cr3
+
+    // r15-r8
+    pop %r15
+    pop %r14
+    pop %r13
+    pop %r12
+    pop %r11
+    pop %r10
+    pop %r9
+    pop %r8
+
+    // popal
+    pop %rdi
+    pop %rsi
+    pop %rbp
+    pop %rax    // Ignore rsp
+    pop %rbx
+    pop %rdx
+    pop %rcx
+    pop %rax
+.endm

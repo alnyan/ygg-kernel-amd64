@@ -1,4 +1,5 @@
 #include "ints.h"
+#include "pic8259.h"
 #include "sys/mem.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -51,6 +52,9 @@ extern void amd64_isr_28();
 extern void amd64_isr_29();
 extern void amd64_isr_30();
 extern void amd64_isr_31();
+
+// 8259 PIC IRQs
+extern void amd64_irq_0();
 
 typedef struct {
     uint16_t base_lo;
@@ -118,6 +122,8 @@ void amd64_idt_init(void) {
     amd64_idt_set(29, (uintptr_t) amd64_isr_29, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(30, (uintptr_t) amd64_isr_30, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(31, (uintptr_t) amd64_isr_31, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+
+    amd64_idt_set(IRQ_BASE + 0, (uintptr_t) amd64_irq_0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 
     asm volatile ("lea idtr(%%rip), %%rax; lidt (%%rax)":::"memory");
 }
