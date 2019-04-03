@@ -16,6 +16,7 @@ void kernel_main(void) {
     pic8259_init();
     amd64_idt_init();
 
+
     while (1) {
         __wfe();
     }

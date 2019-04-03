@@ -1,6 +1,7 @@
 #include "sys/mem.h"
 #include "sys/debug.h"
 #include "sys/mm.h"
+#include "pool.h"
 
 mm_space_t mm_kernel;
 
@@ -25,4 +26,18 @@ void amd64_mm_init(void) {
 
     // Load the new table
     asm volatile ("mov %0, %%cr3"::"a"(pml4):"memory");
+
+    amd64_mm_pool_init(0x200000, 0x200000 * 8);
+
+    uint64_t *p[] = {
+        amd64_mm_pool_alloc(),
+        amd64_mm_pool_alloc(),
+        amd64_mm_pool_alloc(),
+        amd64_mm_pool_alloc()
+    };
+
+    for (size_t i = 0; i < sizeof(p) / sizeof(p[0]); ++i) {
+        kdebug(" %p\n", p[i]);
+        amd64_mm_pool_free(p[i]);
+    }
 }
