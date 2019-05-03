@@ -7,6 +7,9 @@
 ///  stripped down to only 48 bits
 #define AMD64_MM_MASK(a)        ((uintptr_t) (a) & 0xFFFFFFFFFFFF)
 
+#define MM_VIRTUALIZE(a)        ((uintptr_t) (a) + 0xFFFFFF0000000000)
+#define MM_PHYS(a)              ((uintptr_t) (a) - 0xFFFFFF0000000000)
+
 /// Page map level 4
 typedef uint64_t *mm_pml4_t;
 /// Page directory pointer table

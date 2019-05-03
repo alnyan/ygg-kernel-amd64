@@ -12,7 +12,8 @@ OBJS+=$(O)/arch/amd64/kernel.o \
 	  $(O)/arch/amd64/hw/exc.o \
 	  $(O)/arch/amd64/hw/regs.o \
 	  $(O)/arch/amd64/hw/irq0.o \
-	  $(O)/arch/amd64/hw/pic8259.o
+	  $(O)/arch/amd64/hw/pic8259.o \
+	  $(O)/arch/amd64/mm/map.o
 kernel_OBJS=$(O)/arch/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=$(S)/arch/amd64/link.ld
@@ -58,4 +59,4 @@ $(O)/arch/amd64/loader/%.o: $(S)/arch/amd64/loader/%.c $(HEADERS)
 	@$(CROSSCC) $(loader_CFLAGS) -c -o $@ $<
 
 qemu: all
-	@qemu-system-x86_64 -kernel $(O)/loader.elf -initrd $(O)/kernel.elf -serial mon:stdio
+	@qemu-system-x86_64 -kernel $(O)/loader.elf -initrd $(O)/kernel.elf -serial mon:stdio -m 512

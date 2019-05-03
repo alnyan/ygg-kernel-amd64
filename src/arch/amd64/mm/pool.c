@@ -1,6 +1,7 @@
 #include "pool.h"
 #include "sys/debug.h"
 #include "sys/mem.h"
+#include "../mm.h"
 
 static struct {
     uint64_t track[512];
@@ -10,12 +11,16 @@ static struct {
 } amd64_mm_pool;
 
 uint64_t *amd64_mm_pool_alloc(void) {
+    uint64_t *r = NULL;
+
     for (size_t i = amd64_mm_pool.index_last; i < amd64_mm_pool.size >> 18; ++i) {
         for (size_t j = amd64_mm_pool.index_last; j < 64; ++j) {
             if (!(amd64_mm_pool.track[i] & (1ULL << j))) {
+                r = (uint64_t *) (amd64_mm_pool.start + ((i << 18) + (j << 12)));
                 amd64_mm_pool.track[i] |= (1ULL << j);
                 amd64_mm_pool.index_last = i;
-                return (uint64_t *) (amd64_mm_pool.start + ((i << 18) + (j << 12)));
+                memset(r, 0, 4096);
+                return r;
             }
         }
     }
@@ -23,9 +28,11 @@ uint64_t *amd64_mm_pool_alloc(void) {
     for (size_t i = 0; i < amd64_mm_pool.index_last; ++i) {
         for (size_t j = amd64_mm_pool.index_last; j < 64; ++j) {
             if (!(amd64_mm_pool.track[i] & (1ULL << j))) {
+                r = (uint64_t *) (amd64_mm_pool.start + ((i << 18) + (j << 12)));
                 amd64_mm_pool.track[i] |= (1ULL << j);
                 amd64_mm_pool.index_last = i;
-                return (uint64_t *) (amd64_mm_pool.start + ((i << 18) + (j << 12)));
+                memset(r, 0, 4096);
+                return r;
             }
         }
     }

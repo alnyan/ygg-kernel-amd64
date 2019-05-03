@@ -20,24 +20,18 @@ void amd64_mm_init(void) {
 
     memset((void *) (0x200000 - 2 * 0x1000), 0, 0x1000 * 2);
 
-    // 0xFFFFFF0000000000 -> 0 (1GiB) mapping
+    // 0xFFFFFF0000000000 -> 0 (512GiB) mapping
     pml4[AMD64_MM_MASK(KERNEL_VIRT_BASE) >> 39] = (uint64_t) pdpt | 1 | 2;
-    pdpt[(AMD64_MM_MASK(KERNEL_VIRT_BASE) >> 30) & 0x1FF] = 1 | 2 | (1 << 7);
+    for (int i = 0; i < 512; ++i) {
+        pdpt[(AMD64_MM_MASK((KERNEL_VIRT_BASE) >> 30) + i) & 0x1FF] = 1 | 2 | (1 << 7);
+    }
 
     // Load the new table
     asm volatile ("mov %0, %%cr3"::"a"(pml4):"memory");
 
-    amd64_mm_pool_init(0x200000, 0x200000 * 8);
+    // Create a pool located right after kernel image
+    amd64_mm_pool_init(MM_VIRTUALIZE(0x400000), MM_POOL_SIZE);
 
-    uint64_t *p[] = {
-        amd64_mm_pool_alloc(),
-        amd64_mm_pool_alloc(),
-        amd64_mm_pool_alloc(),
-        amd64_mm_pool_alloc()
-    };
-
-    for (size_t i = 0; i < sizeof(p) / sizeof(p[0]); ++i) {
-        kdebug(" %p\n", p[i]);
-        amd64_mm_pool_free(p[i]);
-    }
+    mm_kernel = (mm_space_t) (MM_VIRTUALIZE(pml4));
+    mm_map_pages_contiguous(mm_kernel, 0x4000, 0x1000, 2, 0);
 }
