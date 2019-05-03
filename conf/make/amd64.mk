@@ -13,6 +13,7 @@ OBJS+=$(O)/arch/amd64/kernel.o \
 	  $(O)/arch/amd64/hw/regs.o \
 	  $(O)/arch/amd64/hw/irq0.o \
 	  $(O)/arch/amd64/hw/pic8259.o \
+	  $(O)/arch/amd64/hw/irqs.o \
 	  $(O)/arch/amd64/mm/map.o
 kernel_OBJS=$(O)/arch/amd64/entry.o \
 			$(OBJS)

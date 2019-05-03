@@ -54,7 +54,22 @@ extern void amd64_isr_30();
 extern void amd64_isr_31();
 
 // 8259 PIC IRQs
-extern void amd64_irq_0();
+extern void amd64_irq_0();  // Timer
+extern void amd64_irq_1();  // TODO
+extern void amd64_irq_2();  // TODO
+extern void amd64_irq_3();  // TODO
+extern void amd64_irq_4();  // TODO
+extern void amd64_irq_5();  // TODO
+extern void amd64_irq_6();  // TODO
+extern void amd64_irq_7();  // TODO
+extern void amd64_irq_8();  // TODO
+extern void amd64_irq_9();  // TODO
+extern void amd64_irq_10(); // TODO
+extern void amd64_irq_11(); // TODO
+extern void amd64_irq_12(); // TODO
+extern void amd64_irq_13(); // TODO
+extern void amd64_irq_14(); // TODO
+extern void amd64_irq_15(); // TODO
 
 typedef struct {
     uint16_t base_lo;
@@ -123,7 +138,22 @@ void amd64_idt_init(void) {
     amd64_idt_set(30, (uintptr_t) amd64_isr_30, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(31, (uintptr_t) amd64_isr_31, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 
-    amd64_idt_set(IRQ_BASE + 0, (uintptr_t) amd64_irq_0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 0 , (uintptr_t) amd64_irq_0 , 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 1 , (uintptr_t) amd64_irq_1 , 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 2 , (uintptr_t) amd64_irq_2 , 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 3 , (uintptr_t) amd64_irq_3 , 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 4 , (uintptr_t) amd64_irq_4 , 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 5 , (uintptr_t) amd64_irq_5 , 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 6 , (uintptr_t) amd64_irq_6 , 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 7 , (uintptr_t) amd64_irq_7 , 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 8 , (uintptr_t) amd64_irq_8 , 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 9 , (uintptr_t) amd64_irq_9 , 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 10, (uintptr_t) amd64_irq_10, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 11, (uintptr_t) amd64_irq_11, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 12, (uintptr_t) amd64_irq_12, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 13, (uintptr_t) amd64_irq_13, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 14, (uintptr_t) amd64_irq_14, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(IRQ_BASE + 15, (uintptr_t) amd64_irq_15, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 
     asm volatile ("lea idtr(%%rip), %%rax; lidt (%%rax)":::"memory");
 }
