@@ -34,6 +34,7 @@
 uint64_t amd64_timer_ticks = 0;
 
 void amd64_timer_configure(void) {
+    // TODO: HPET init
     uint32_t div = PIT_FREQ_BASE / 1000;
 
     outb(PIT_CMD, PIT_CH0 | PIT_BCD_NO | PIT_ACC_16 | PIT_MODE_RATEG);

@@ -15,14 +15,17 @@ OBJS+=$(O)/arch/amd64/kernel.o \
 	  $(O)/arch/amd64/hw/pic8259.o \
 	  $(O)/arch/amd64/hw/irqs.o \
 	  $(O)/arch/amd64/mm/map.o \
-	  $(O)/arch/amd64/hw/timer.o
+	  $(O)/arch/amd64/hw/timer.o \
+	  $(O)/arch/amd64/acpi/tables.o \
+	  $(O)/arch/amd64/acpi/hpet.o
 kernel_OBJS=$(O)/arch/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=$(S)/arch/amd64/link.ld
 kernel_LDFLAGS=-nostdlib -T$(kernel_LINKER)
 kernel_CFLAGS=-ffreestanding -I. $(DEFINES) $(CFLAGS) -mcmodel=large -m64
 DIRS+=$(O)/arch/amd64/mm \
-	  $(O)/arch/amd64/hw
+	  $(O)/arch/amd64/hw \
+	  $(O)/arch/amd64/acpi
 # add .inc includes for asm
 HEADERS+=$(shell find $(S) -name "*.inc")
 

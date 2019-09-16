@@ -4,6 +4,7 @@
 #include "arch/amd64/hw/pic8259.h"
 #include "arch/amd64/hw/ints.h"
 #include "arch/amd64/hw/timer.h"
+#include "arch/amd64/acpi/tables.h"
 
 // TODO: move to some util header
 #define __wfe() asm volatile ("sti; hlt")
@@ -19,6 +20,7 @@ void kernel_main(void) {
     amd64_mm_init();
     amd64_gdt_init();
     pic8259_init();
+    acpi_tables_init();
     amd64_timer_configure();
     amd64_idt_init();
 
