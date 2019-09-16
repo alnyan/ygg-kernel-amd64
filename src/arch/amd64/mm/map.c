@@ -51,6 +51,9 @@ static int amd64_mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t p
         panic("map: entry already present\n");
     }
 
+#if defined(KERNEL_TEST_MODE)
+    kdebug("map %p -> %p\n", virt_addr, phys);
+#endif
     pt[pti] = (phys & ~0xFFF) | flags | 1;
     asm volatile("invlpg (%0)"::"a"(virt_addr):"memory");
 

@@ -21,6 +21,7 @@ void kernel_main(void) {
     amd64_idt_init();
 
 #if defined(KERNEL_TEST_MODE)
+    kdebug("mm_kernel after basic init\n");
     mm_describe(mm_kernel);
 #endif
 
