@@ -1,4 +1,4 @@
-#include "gdt.h"
+#include "arch/amd64/hw/gdt.h"
 
 extern void amd64_reload_segs(void);
 

@@ -1,5 +1,5 @@
-#include "rs232.h"
-#include "io.h"
+#include "arch/amd64/hw/rs232.h"
+#include "arch/amd64/hw/io.h"
 
 void rs232_init(uint16_t port) {
     // Do nothing yet

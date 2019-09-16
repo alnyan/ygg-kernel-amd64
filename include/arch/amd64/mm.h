@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 
 /// The place where the kernel pages are virtually mapped to
 #define KERNEL_VIRT_BASE        0xFFFFFF0000000000

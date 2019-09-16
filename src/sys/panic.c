@@ -1,5 +1,5 @@
-#include "panic.h"
-#include "debug.h"
+#include "sys/panic.h"
+#include "sys/debug.h"
 
 void panicf(const char *fmt, ...) {
     va_list args;

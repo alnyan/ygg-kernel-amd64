@@ -4,7 +4,8 @@ CFLAGS+=-Wall \
 		-Wextra \
 		-Werror \
 		-Wpedantic \
-		-Wno-unused-parameter
+		-Wno-unused-parameter \
+		-Iinclude
 
 DIRS+=$(O)/sys
 OBJS+=$(O)/sys/mem.o \

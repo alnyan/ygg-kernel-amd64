@@ -1,4 +1,4 @@
-#include "int_macros.inc"
+#include "arch/amd64/hw/int_macros.inc"
 
 .section .text
 .global amd64_irq_0

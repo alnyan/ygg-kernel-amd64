@@ -1,7 +1,7 @@
-#include "pool.h"
+#include "arch/amd64/mm/pool.h"
+#include "arch/amd64/mm.h"
 #include "sys/debug.h"
 #include "sys/mem.h"
-#include "../mm.h"
 
 static struct {
     uint64_t track[512];

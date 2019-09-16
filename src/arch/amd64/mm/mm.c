@@ -1,7 +1,7 @@
 #include "sys/mem.h"
 #include "sys/debug.h"
 #include "sys/mm.h"
-#include "pool.h"
+#include "arch/amd64/mm/pool.h"
 
 mm_space_t mm_kernel;
 

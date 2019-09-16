@@ -1,5 +1,5 @@
-#include "ints.h"
-#include "pic8259.h"
+#include "arch/amd64/hw/ints.h"
+#include "arch/amd64/hw/pic8259.h"
 #include "sys/mem.h"
 #include <stdint.h>
 #include <stddef.h>

@@ -19,7 +19,7 @@ kernel_OBJS=$(O)/arch/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=$(S)/arch/amd64/link.ld
 kernel_LDFLAGS=-nostdlib -T$(kernel_LINKER)
-kernel_CFLAGS=-ffreestanding -I$(S) $(DEFINES) $(CFLAGS) -mcmodel=large
+kernel_CFLAGS=-ffreestanding -I. $(DEFINES) $(CFLAGS) -mcmodel=large -m64
 DIRS+=$(O)/arch/amd64/mm \
 	  $(O)/arch/amd64/hw
 # add .inc includes for asm
@@ -44,7 +44,7 @@ loader_OBJS+=$(O)/arch/amd64/loader/boot.o \
 			 $(O)/arch/amd64/loader/loader.o \
 			 $(O)/arch/amd64/loader/util.o
 loader_LINKER=$(S)/arch/amd64/loader/link.ld
-loader_CFLAGS=-ffreestanding -nostdlib -I$(S) -m32
+loader_CFLAGS=-ffreestanding -nostdlib -I. -Iinclude -m32
 loader_LDFLAGS=-nostdlib -melf_i386 -T$(loader_LINKER)
 
 $(O)/loader.elf: $(loader_OBJS) $(loader_LINKER)

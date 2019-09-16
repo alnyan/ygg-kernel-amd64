@@ -1,5 +1,5 @@
-#include "multiboot.h"
-#include "util.h"
+#include "arch/amd64/loader/multiboot.h"
+#include "arch/amd64/loader/util.h"
 #include "elf.h"
 
 #define KERNEL_VIRT_BASE        0xFFFFFF0000000000

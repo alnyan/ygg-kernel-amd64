@@ -1,4 +1,4 @@
-#include "int_macros.inc"
+#include "arch/amd64/hw/int_macros.inc"
 .section .text
 .extern amd64_err_num
 

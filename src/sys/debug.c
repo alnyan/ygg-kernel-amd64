@@ -1,4 +1,4 @@
-#include "debug.h"
+#include "sys/debug.h"
 #include "string.h"
 #include <stdint.h>
 #include "sys/attr.h"

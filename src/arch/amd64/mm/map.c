@@ -2,7 +2,7 @@
 #include "sys/debug.h"
 #include "sys/panic.h"
 #include "sys/mem.h"
-#include "pool.h"
+#include "arch/amd64/mm/pool.h"
 
 static int amd64_mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint32_t flags) {
     size_t pml4i = (virt_addr >> 39) & 0x1FF;

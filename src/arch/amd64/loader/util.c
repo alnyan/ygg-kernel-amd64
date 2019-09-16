@@ -1,4 +1,4 @@
-#include "util.h"
+#include "arch/amd64/loader/util.h"
 
 void *memset(void *blk, int v, size_t sz) {
     for (size_t i = 0; i < sz; ++i) {
