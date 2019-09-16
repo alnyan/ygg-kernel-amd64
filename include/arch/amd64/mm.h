@@ -1,3 +1,4 @@
+/* vim: set ft=cpp.doxygen : */
 #pragma once
 #include <stdint.h>
 
@@ -22,5 +23,8 @@ typedef uint64_t *mm_pagetab_t;
 
 /// Virtual memory space
 typedef mm_pml4_t mm_space_t;
+
+/// Kernel memory space
+extern mm_space_t mm_kernel;
 
 void amd64_mm_init(void);

@@ -33,5 +33,4 @@ void amd64_mm_init(void) {
     amd64_mm_pool_init(MM_VIRTUALIZE(0x400000), MM_POOL_SIZE);
 
     mm_kernel = (mm_space_t) (MM_VIRTUALIZE(pml4));
-    mm_map_pages_contiguous(mm_kernel, 0x4000, 0x1000, 2, 0);
 }

@@ -1,3 +1,4 @@
+/* vim: set ft=cpp.doxygen : */
 #pragma once
 #include <stddef.h>
 #include <stdint.h>
@@ -48,6 +49,12 @@ int mm_space_fork(mm_space_t dst, const mm_space_t src, uint32_t flags);
  * @param pd - Virtual memory space
  */
 void mm_space_free(mm_space_t pd);
+
+/**
+ * @brief Dump debug information about the memory space
+ * @param pd - Virtual memory space
+ */
+void mm_describe(const mm_space_t pd);
 
 
 /**

@@ -68,3 +68,63 @@ int mm_map_pages_contiguous(mm_space_t pml4, uintptr_t virt_base, uintptr_t phys
 
     return 0;
 }
+
+void mm_describe(const mm_space_t pml4) {
+    kdebug("Memory space V:%p:\n", pml4);
+
+    mm_pdpt_t pdpt;
+    mm_pagedir_t pd;
+    mm_pagetab_t pt;
+
+    for (size_t pml4i = 0; pml4i < 512; ++pml4i) {
+        if (!(pml4[pml4i] & 1)) {
+            continue;
+        }
+
+        if (pml4[pml4i] & (1 << 7)) {
+            kdebug("`- PHYS %p\n", pml4[pml4i] & ~0xFFF);
+            continue;
+        }
+
+        pdpt = (mm_pdpt_t) MM_VIRTUALIZE(pml4[pml4i] & ~0xFFF);
+        kdebug("`- PDPT %p\n", pdpt);
+
+        for (size_t pdpti = 0; pdpti < 512; ++pdpti) {
+            if (!(pdpt[pdpti] & 1)) {
+                continue;
+            }
+
+            if (pdpt[pdpti] & (1 << 7)) {
+                if (pml4i < 510) {
+                    kdebug("`- PHYS %p\n", pdpt[pdpti] & ~0xFFF);
+                }
+                continue;
+            }
+
+            pd = (mm_pagedir_t) MM_VIRTUALIZE(pdpt[pdpti] & ~0xFFF);
+            kdebug(" `- PDIR %p\n", pd);
+
+            for (size_t pdi = 0; pdi < 512; ++pdi) {
+                if (!(pd[pdi] & 1)) {
+                    continue;
+                }
+
+                if (pd[pdi] & (1 << 7)) {
+                    kdebug("`- PHYS %p\n", pdpt[pdpti] & ~0xFFF);
+                    continue;
+                }
+
+                pt = (mm_pagetab_t) MM_VIRTUALIZE(pd[pdi] & ~0xFFF);
+                kdebug("  `- PTAB %p\n", pt);
+
+                for (size_t pti = 0; pti < 512; ++pti) {
+                    if (!(pt[pti] & 1)) {
+                        continue;
+                    }
+
+                    kdebug("   `- PHYS %p\n", pt[pti] & ~0xFFF);
+                }
+            }
+        }
+    }
+}

@@ -10,12 +10,19 @@
 void kernel_main(void) {
     kdebug("Booting\n");
 
+#if defined(KERNEL_TEST_MODE)
+    kdebug("Kernel testing mode enabled\n");
+#endif
+
     // Memory management
     amd64_mm_init();
     amd64_gdt_init();
     pic8259_init();
     amd64_idt_init();
 
+#if defined(KERNEL_TEST_MODE)
+    mm_describe(mm_kernel);
+#endif
 
     while (1) {
         __wfe();
