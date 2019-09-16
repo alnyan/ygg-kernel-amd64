@@ -7,6 +7,8 @@ amd64_irq_0:
 
     __int_push_ctx
 
+    call amd64_timer_tick
+
     // EOI
     mov $0x20, %dx
     mov $0x20, %al
