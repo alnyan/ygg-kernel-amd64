@@ -1,4 +1,6 @@
 .section .text
+// Args:
+// %rdi - Address of loader's information struct
 .global _start
 _start:
     cli

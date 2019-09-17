@@ -1,11 +1,13 @@
 #include "arch/amd64/loader/multiboot.h"
 #include "arch/amd64/loader/util.h"
+#include "arch/amd64/loader/data.h"
 #include "elf.h"
 
 #define KERNEL_VIRT_BASE        0xFFFFFF0000000000
 
 extern void long_entry(uint64_t v);
 
+struct amd64_loader_data loader_data;
 uint64_t pml4[512] __attribute__((aligned(0x1000)));
 static uint64_t loader_pdpt[512] __attribute__((aligned(0x1000)));
 static uint64_t kernel_pdpt[512] __attribute__((aligned(0x1000)));
@@ -85,6 +87,9 @@ void loader_main(uint32_t magic, struct multiboot_info *mb_info) {
         panic("Invalid bootloader magic");
     }
 
+    // Setup loader_data
+    loader_data.multiboot_info_ptr = (uint64_t) mb_info;
+
     struct multiboot_mod_list *mod_list = (struct multiboot_mod_list *) mb_info->mods_addr;
 
     if (mb_info->mods_count != 1) {
@@ -109,5 +114,13 @@ void loader_main(uint32_t magic, struct multiboot_info *mb_info) {
     paging_init();
 
     uint64_t entry = elf_load(mod_list[0].mod_start);
+
+    // Calculate checksum for loader_data
+    uint8_t checksum = 0;
+    for (size_t i = 0; i < sizeof(struct amd64_loader_data) - sizeof(uint8_t); ++i) {
+        checksum += ((uint8_t *) &loader_data)[i];
+    }
+    loader_data.checksum = -checksum;
+
     long_entry(entry);
 }

@@ -88,6 +88,7 @@ long_entry:
     mov %ax, %ss
 
 .code64
+    leaq loader_data(%rip), %rdi
     movq 4(%rsp), %rax
     jmp *%rax
 .code32
