@@ -40,11 +40,15 @@ Virtual mappings
 
     Static:
 
-    0xFFFF'0000'0000'0000 - 0xFFFF'0080'0000'0000               | Upper mapping of 0 address (512GiB)
+    0xFFFF'FF00'0000'0000 - 0xFFFF'FF80'0000'0000               | Upper mapping of 0 address (512GiB)
                           V                                     | for easier kernel access to its
     0x0000'0000'0000'0000 - 0x0000'0080'0000'0000               | allocated structures.
         Additionally, after loading the kernel, the bootloader jumps to 0xFFFF'...., which is actually
             the kernel entry point in higher address space.
+
+    0x0000'7FFF'FFFF'F000 - 0x0000'8000'0000'0000
+                          V
+                         HPET
 
 2. User space
 ,,,,,,,,,,,,,

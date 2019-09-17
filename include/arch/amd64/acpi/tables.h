@@ -1,6 +1,14 @@
 #pragma once
 #include <stdint.h>
 
+struct acpi_gas {
+    char space_id;
+    char reg_bit_width;
+    char reg_bit_offset;
+    char res;
+    uint64_t pointer;
+} __attribute__((packed));
+
 struct acpi_rsdp {
     char signature[8];
     char checksum;
@@ -83,7 +91,16 @@ struct acpi_fadt {
     char reset_value;
     uint16_t arm_boot_arch;
     char fadt_minor_version;
+    // ...
 };
+
+struct acpi_hpet {
+    struct acpi_sdt_header header;
+    uint32_t event_timer_blk_id;
+    struct acpi_gas base_address;
+    char hpet_number;
+    // ...
+} __attribute__((packed));
 
 enum acpi_table_type {
     ACPI_FADT,

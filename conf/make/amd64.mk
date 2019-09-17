@@ -63,5 +63,7 @@ $(O)/arch/amd64/loader/%.o: $(S)/arch/amd64/loader/%.c $(HEADERS)
 	@printf " CC\t%s\n" $@
 	@$(CROSSCC) $(loader_CFLAGS) -c -o $@ $<
 
+QEMU_BIN?=qemu-system-x86_64
+
 qemu: all
-	@qemu-system-x86_64 -kernel $(O)/loader.elf -initrd $(O)/kernel.elf -serial mon:stdio -m 512
+	@$(QEMU_BIN) -kernel $(O)/loader.elf -initrd $(O)/kernel.elf -serial mon:stdio -m 512

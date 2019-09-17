@@ -1,5 +1,6 @@
 #include "arch/amd64/hw/timer.h"
 #include "arch/amd64/hw/io.h"
+#include "arch/amd64/acpi/hpet.h"
 #include "sys/debug.h"
 
 // IO ports
@@ -32,9 +33,9 @@
 #define PIT_FREQ_BASE   1193182
 
 uint64_t amd64_timer_ticks = 0;
+void (*amd64_timer_tick) (void) = NULL;
 
-void amd64_timer_configure(void) {
-    // TODO: HPET init
+static void pit8253_init(void) {
     uint32_t div = PIT_FREQ_BASE / 1000;
 
     outb(PIT_CMD, PIT_CH0 | PIT_BCD_NO | PIT_ACC_16 | PIT_MODE_RATEG);
@@ -42,6 +43,14 @@ void amd64_timer_configure(void) {
     outb(PIT_CH0, (div >> 8) & 0xFF);
 }
 
-void amd64_timer_tick(void) {
+static void pit8253_tick(void) {
     ++amd64_timer_ticks;
+}
+
+void amd64_timer_configure(void) {
+    if (acpi_hpet_init() != 0) {
+        kdebug("HPET is not available, falling back to PIT\n");
+        amd64_timer_tick = pit8253_tick;
+        pit8253_init();
+    }
 }

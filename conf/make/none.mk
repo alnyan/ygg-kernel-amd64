@@ -5,7 +5,8 @@ CFLAGS+=-Wall \
 		-Werror \
 		-Wpedantic \
 		-Wno-unused-parameter \
-		-Iinclude
+		-Iinclude \
+		-Wno-unused-variable
 
 ifdef KERNEL_TEST_MODE
 CFLAGS+=-DKERNEL_TEST_MODE
