@@ -1,6 +1,7 @@
 #include "arch/amd64/mm/pool.h"
 #include "arch/amd64/mm.h"
 #include "sys/debug.h"
+#include "sys/panic.h"
 #include "sys/mem.h"
 
 static struct {
@@ -44,11 +45,7 @@ void amd64_mm_pool_free(uint64_t *page) {
     uintptr_t a = (uintptr_t) page;
 
     if (a < amd64_mm_pool.start || a >= (amd64_mm_pool.start + amd64_mm_pool.size)) {
-        // TODO: panic
-        kfatal("The page does not belong to the pool\n");
-        while (1) {
-            asm volatile ("cli; hlt");
-        }
+        panic("The page does not belong to the pool\n");
     }
 
     a -= amd64_mm_pool.start;
@@ -57,11 +54,7 @@ void amd64_mm_pool_free(uint64_t *page) {
     size_t j = (a >> 12) & 0x3F;
 
     if (!(amd64_mm_pool.track[i] & (1ULL << j))) {
-        // TODO: panic
-        kfatal("Invalid free() of pool page\n");
-        while (1) {
-            asm volatile ("cli; hlt");
-        }
+        panic("Invalid free() of pool page\n");
     }
 
     amd64_mm_pool.track[i] &= ~(1ULL << j);
