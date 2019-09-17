@@ -52,6 +52,11 @@ static int acpi_rsdp_read(const struct acpi_rsdp *rsdp) {
         for (size_t j = 0; j < ACPI_TABLE_TYPE_COUNT; ++j) {
             if (!strncmp(header->signature, acpi_table_type_name[j], 4)) {
                 kdebug("%u: %s @ %p\n", i, acpi_table_type_name[j], header);
+
+                if (acpi_checksum(header, header->length)) {
+                    panic("RSDT contains invalid table: %s\n", acpi_table_type_name[j]);
+                }
+
                 acpi_tables[j] = (uintptr_t) header;
                 continue;
             }
@@ -121,7 +126,6 @@ int acpi_tables_init(void) {
             return -1;
         }
     }
-    // TODO: FADT does not validate on qemu, neither have I tested ACPI > 1.0
 
     // Extract HPET
     if (acpi_tables[ACPI_HPET] != MM_NADDR) {
