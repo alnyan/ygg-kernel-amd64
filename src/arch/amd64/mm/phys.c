@@ -14,6 +14,7 @@
 
 // TODO: this could be a better allocator
 //     + Support more memory
+// 1 index is 64 pages - 256KiB
 #define PHYS_MAX_INDEX              16384       // Gives exactly 4GiB available for allocation
 #define PHYS_TRACK_INDEX(page)      ((page) >> 18)
 #define PHYS_TRACK_BIT(page)        (((page) >> 12) & 0x3F)
@@ -63,6 +64,43 @@ void amd64_phys_free(uintptr_t page) {
     }
 
     amd64_phys_memory_track[index] &= ~bit;
+}
+
+// XXX: very slow impl.
+uintptr_t amd64_phys_alloc_contiguous(size_t count) {
+    uintptr_t addr = 0;
+    kdebug("Requested %luKiB\n", count << 2);
+
+    if (count >= (PHYS_MAX_INDEX << 6)) {
+        // The requested range is too large
+        return MM_NADDR;
+    }
+
+    while (addr < (((uint64_t) (PHYS_MAX_INDEX - (count >> 6) - 1)) << 18)) {
+        // Check if we can allocate these pages
+        for (size_t i = 0; i < count; ++i) {
+            uintptr_t page = (i << 12) + addr;
+            if (amd64_phys_memory_track[PHYS_TRACK_INDEX(page)] & (1ULL << PHYS_TRACK_BIT(page))) {
+                // When reaching unavailable page, just start searching beyond its address
+                addr = page + 0x1000;
+                goto no_match;
+            }
+        }
+        // All pages are available
+        for (size_t i = 0; i < count; ++i) {
+            uintptr_t page = (i << 12) + addr;
+            amd64_phys_memory_track[PHYS_TRACK_INDEX(page)] |= (1ULL << PHYS_TRACK_BIT(page));
+        }
+
+        kdebug("== %p\n", addr + PHYS_ALLOWED_BEGIN);
+        return PHYS_ALLOWED_BEGIN + addr;
+
+        // Found unavailable page in the range, continue searching
+no_match:
+        continue;
+    }
+
+    return MM_NADDR;
 }
 
 void amd64_phys_memory_map(const multiboot_memory_map_t *mmap, size_t length) {

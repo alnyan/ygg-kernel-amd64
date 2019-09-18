@@ -30,3 +30,7 @@ void heap_free(heap_t *heap, void *ptr);
  * @return Approximate number of usable bytes
  */
 size_t heap_info_free(heap_t *heap);
+
+#if defined(ARCH_AMD64)
+#include "arch/amd64/mm/heap.h"
+#endif

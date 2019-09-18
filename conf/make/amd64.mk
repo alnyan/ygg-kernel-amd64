@@ -18,7 +18,8 @@ OBJS+=$(O)/arch/amd64/kernel.o \
 	  $(O)/arch/amd64/hw/timer.o \
 	  $(O)/arch/amd64/acpi/tables.o \
 	  $(O)/arch/amd64/acpi/hpet.o \
-	  $(O)/arch/amd64/mm/phys.o
+	  $(O)/arch/amd64/mm/phys.o \
+	  $(O)/arch/amd64/mm/heap.o
 kernel_OBJS=$(O)/arch/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=$(S)/arch/amd64/link.ld

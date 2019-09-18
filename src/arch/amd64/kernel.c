@@ -13,6 +13,12 @@
 // TODO: move to some util header
 #define __wfe() asm volatile ("sti; hlt")
 
+// For the sake of log readability
+#define kernel_startup_section(text) \
+    kdebug("\n"); \
+    kdebug("====== " text "\n"); \
+    kdebug("\n")
+
 static struct amd64_loader_data *loader_data = 0;
 static multiboot_info_t *multiboot_info;
 
@@ -46,8 +52,11 @@ void kernel_main(uintptr_t loader_info_phys_ptr) {
     amd64_loader_data_process();
 
     // Memory management
-    amd64_mm_init();
+    kernel_startup_section("Memory management");
     amd64_phys_memory_map((multiboot_memory_map_t *) MM_VIRTUALIZE(multiboot_info->mmap_addr), multiboot_info->mmap_length);
+    amd64_mm_init();
+
+    kernel_startup_section("Basic hardware");
     amd64_gdt_init();
     pic8259_init();
     acpi_tables_init();
@@ -55,7 +64,7 @@ void kernel_main(uintptr_t loader_info_phys_ptr) {
     amd64_idt_init();
 
 #if defined(KERNEL_TEST_MODE)
-    kdebug("mm_kernel after basic init\n");
+    kernel_startup_section("Test dumps");
     mm_describe(mm_kernel);
 #endif
 

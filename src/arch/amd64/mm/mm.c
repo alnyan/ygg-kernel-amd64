@@ -1,7 +1,10 @@
-#include "sys/mem.h"
-#include "sys/debug.h"
-#include "sys/mm.h"
 #include "arch/amd64/mm/pool.h"
+#include "arch/amd64/mm/phys.h"
+#include "sys/debug.h"
+#include "sys/panic.h"
+#include "sys/heap.h"
+#include "sys/mem.h"
+#include "sys/mm.h"
 
 mm_space_t mm_kernel;
 
@@ -33,4 +36,14 @@ void amd64_mm_init(void) {
     amd64_mm_pool_init(MM_VIRTUALIZE(0x400000), MM_POOL_SIZE);
 
     mm_kernel = (mm_space_t) (MM_VIRTUALIZE(pml4));
+
+    // Allocate some pages for kernel heap (base size: 16MiB)
+    uintptr_t heap_base_phys = amd64_phys_alloc_contiguous(KERNEL_HEAP >> 12);
+    if (heap_base_phys == MM_NADDR) {
+        // TODO: pretty-print sizes
+        panic("Could not allocate %uKiB of memory for kernel heap\n", KERNEL_HEAP >> 10);
+    }
+    kdebug("Setting up kernel heap of %uKiB @ %p\n", KERNEL_HEAP >> 10, heap_base_phys);
+    amd64_heap_init(heap_global, heap_base_phys, KERNEL_HEAP);
+    amd64_heap_dump(heap_global);
 }
