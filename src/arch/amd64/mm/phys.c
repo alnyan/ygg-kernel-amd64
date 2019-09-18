@@ -2,6 +2,7 @@
 #include "arch/amd64/mm/pool.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
+#include "sys/mem.h"
 #include "sys/mm.h"
 
 // Roughly 36MiB of lower memory is occupied by kernel so far:
@@ -13,16 +14,16 @@
 
 // TODO: this could be a better allocator
 //     + Support more memory
-#define PHYS_MAX_PAGES              16384       // Gives exactly 4GiB available for allocation
+#define PHYS_MAX_INDEX              16384       // Gives exactly 4GiB available for allocation
 #define PHYS_TRACK_INDEX(page)      ((page) >> 18)
 #define PHYS_TRACK_BIT(page)        (((page) >> 12) & 0x3F)
 
-static uint64_t amd64_phys_memory_track[PHYS_MAX_PAGES];
+static uint64_t amd64_phys_memory_track[PHYS_MAX_INDEX];
 static uint64_t amd64_phys_last_index = 0;
 
 // Allocate a single 4K page
 uintptr_t amd64_phys_alloc_page(void) {
-    for (uint64_t i = amd64_phys_last_index; i < (PHYS_MAX_PAGES >> 6); ++i) {
+    for (uint64_t i = amd64_phys_last_index; i < PHYS_MAX_INDEX; ++i) {
         for (uint64_t j = 0; j < 64; ++j) {
             if (!(amd64_phys_memory_track[i] & (1ULL << j))) {
                 amd64_phys_memory_track[i] |= (1ULL << j);
@@ -49,7 +50,7 @@ void amd64_phys_free(uintptr_t page) {
         panic("Tried to free kernel physical pages\n");
     }
     // Address is too high
-    if (PHYS_TRACK_INDEX(page) >= (PHYS_MAX_PAGES >> 6)) {
+    if (PHYS_TRACK_INDEX(page) >= PHYS_MAX_INDEX) {
         panic("Tried to free non-available physical page\n");
     }
 
@@ -67,8 +68,10 @@ void amd64_phys_free(uintptr_t page) {
 void amd64_phys_memory_map(const multiboot_memory_map_t *mmap, size_t length) {
     kdebug("Kernel table pool ends @ %p\n", PHYS_ALLOWED_BEGIN);
     kdebug("Memory map @ %p\n", mmap);
+    memset(amd64_phys_memory_track, 0xFF, sizeof(amd64_phys_memory_track));
     uintptr_t curr_item = (uintptr_t) mmap;
     uintptr_t mmap_end = length + curr_item;
+    size_t total_phys = 0;
 
     // Collect usable physical memory information
     while (curr_item < mmap_end) {
@@ -80,8 +83,22 @@ void amd64_phys_memory_map(const multiboot_memory_map_t *mmap, size_t length) {
         if (entry->type == 1 && page_aligned_end > page_aligned_begin) {
             // TODO: size pretty-printing
             kdebug("+++ %uKiB @ %p\n", (page_aligned_end - page_aligned_begin) / 1024, page_aligned_begin);
+
+            for (uintptr_t addr = page_aligned_begin - PHYS_ALLOWED_BEGIN;
+                 addr < (page_aligned_end - PHYS_ALLOWED_BEGIN); addr += 0x1000) {
+                uintptr_t index = PHYS_TRACK_INDEX(addr);
+                if (index >= PHYS_MAX_INDEX) {
+                    kdebug("Too high: %p\n", addr);
+                    break;
+                }
+                amd64_phys_memory_track[index] &= ~(1ULL << PHYS_TRACK_BIT(addr));
+                ++total_phys;
+            }
         }
 
         curr_item += entry->size + sizeof(uint32_t);
     }
+
+    // TODO: size pretty-printing
+    kdebug("%uKiB available\n", total_phys << 2);
 }
