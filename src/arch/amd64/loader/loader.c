@@ -88,9 +88,9 @@ void loader_main(uint32_t magic, struct multiboot_info *mb_info) {
     }
 
     // Setup loader_data
-    loader_data.multiboot_info_ptr = (uint64_t) mb_info;
+    loader_data.multiboot_info_ptr = (uintptr_t) mb_info;
 
-    struct multiboot_mod_list *mod_list = (struct multiboot_mod_list *) mb_info->mods_addr;
+    struct multiboot_mod_list *mod_list = (struct multiboot_mod_list *) (uintptr_t) mb_info->mods_addr;
 
     if (mb_info->mods_count != 1) {
         panic("Expected 1 module");

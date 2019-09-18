@@ -49,7 +49,16 @@ loader_OBJS+=$(O)/arch/amd64/loader/boot.o \
 			 $(O)/arch/amd64/loader/loader.o \
 			 $(O)/arch/amd64/loader/util.o
 loader_LINKER=$(S)/arch/amd64/loader/link.ld
-loader_CFLAGS=-ffreestanding -nostdlib -I. -Iinclude -m32
+loader_CFLAGS=-ffreestanding \
+			  -nostdlib \
+			  -I. \
+			  -Iinclude \
+			  -m32 \
+			  -Wall \
+			  -Wextra \
+			  -Wpedantic \
+			  -Wno-unused-argument \
+			  -Werror
 loader_LDFLAGS=-nostdlib -melf_i386 -T$(loader_LINKER)
 
 $(O)/loader.elf: $(loader_OBJS) $(loader_LINKER)
@@ -64,7 +73,13 @@ $(O)/arch/amd64/loader/%.o: $(S)/arch/amd64/loader/%.c $(HEADERS)
 	@printf " CC\t%s\n" $@
 	@$(CROSSCC) $(loader_CFLAGS) -c -o $@ $<
 
+### Debugging and emulation
 QEMU_BIN?=qemu-system-x86_64
+QEMU_OPTS?=-nographic \
+		   -serial mon:stdio \
+		   -m 512
 
 qemu: all
-	@$(QEMU_BIN) -kernel $(O)/loader.elf -initrd $(O)/kernel.elf -serial mon:stdio -m 512
+	@$(QEMU_BIN) \
+		-kernel $(O)/loader.elf \
+		-initrd $(O)/kernel.elf $(QEMU_OPTS)
