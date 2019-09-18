@@ -1,4 +1,4 @@
-HEADERS=$(shell find $(S) -name "*.h")
+HEADERS=$(shell find ./include -name "*.h")
 
 CFLAGS+=-Wall \
 		-Wextra \
