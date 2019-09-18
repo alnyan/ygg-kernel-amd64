@@ -1,4 +1,7 @@
-/* vim: set ft=cpp.doxygen : */
+/** vim: set ft=cpp.doxygen :
+ * @file sys/mm.h
+ * @brief Virtual memory space management functions
+ */
 #pragma once
 #include <stddef.h>
 #include <stdint.h>

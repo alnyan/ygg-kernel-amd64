@@ -1,3 +1,7 @@
+/** vim: set ft=cpp.doxygen :
+ * @file sys/panic.h
+ * @brief Kernel assertion-testing and critical failure functions
+ */
 #pragma once
 #include <stdarg.h>
 #include <stdint.h>

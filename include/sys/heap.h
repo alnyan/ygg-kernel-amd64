@@ -1,5 +1,7 @@
-// vim: set ft=cpp.doxygen :
-// Platform-generic kernel heap header
+/** vim: set ft=cpp.doxygen :
+ * @file sys/heap.h
+ * @brief Kernel heap memory managament functions
+ */
 #pragma once
 #include <sys/types.h>
 

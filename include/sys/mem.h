@@ -1,3 +1,7 @@
+/** vim: set ft=cpp.doxygen :
+ * @file sys/mem.h
+ * @brief Generic memory operations
+ */
 #pragma once
 #include <stdint.h>
 #include <stddef.h>

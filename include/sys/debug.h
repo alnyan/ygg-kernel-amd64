@@ -1,3 +1,7 @@
+/** vim: set ft=cpp.doxygen :
+ * @file sys/debug.h
+ * @brief Kernel debug output functions
+ */
 #pragma once
 #include <stdarg.h>
 #include <stdint.h>
