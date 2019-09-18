@@ -3,9 +3,7 @@
  * @brief Kernel heap memory managament functions
  */
 #pragma once
-//#include <sys/types.h>
-#include <stdint.h>
-typedef uintptr_t size_t;
+#include "sys/types.h"
 
 /**
  * @brief Common kernel heap alloc
