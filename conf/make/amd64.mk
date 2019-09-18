@@ -1,3 +1,5 @@
+include conf/make/amd64_compiler.mk
+
 all:
 ### Kernel build
 DEFINES+=-DARCH_AMD64
@@ -45,8 +47,7 @@ kernel_CFLAGS=-ffreestanding \
 			  -mno-mmx \
 			  -mno-sse \
 			  -mno-sse2 \
-			  -z max-page-size=0x1000 \
-			  -m64
+			  -z max-page-size=0x1000
 DIRS+=$(O)/arch/amd64/mm \
 	  $(O)/arch/amd64/hw \
 	  $(O)/arch/amd64/acpi
@@ -55,15 +56,15 @@ HEADERS+=$(shell find $(S) -name "*.inc")
 
 $(O)/kernel.elf: $(kernel_OBJS) $(kernel_LINKER)
 	@printf " LD\t%s\n" $@
-	@$(CROSSCC) $(kernel_LDFLAGS)  -o $@ $(kernel_OBJS)
+	@$(CC64) $(kernel_LDFLAGS)  -o $@ $(kernel_OBJS)
 
 $(O)/%.o: $(S)/%.S $(HEADERS)
 	@printf " AS\t%s\n" $@
-	@$(CROSSCC) $(kernel_CFLAGS) -c -o $@ $<
+	@$(CC64) $(kernel_CFLAGS) -c -o $@ $<
 
 $(O)/%.o: $(S)/%.c $(HEADERS)
 	@printf " CC\t%s\n" $@
-	@$(CROSSCC) $(kernel_CFLAGS) -c -o $@ $<
+	@$(CC64) $(kernel_CFLAGS) -c -o $@ $<
 
 ### Kernel loader build
 TARGETS+=$(O)/loader.elf $(O)/kernel.elf
@@ -76,26 +77,25 @@ loader_CFLAGS=-ffreestanding \
 			  -nostdlib \
 			  -I. \
 			  -Iinclude \
-			  -m32 \
 			  -Wall \
 			  -Wextra \
 			  -Wpedantic \
 			  -Wno-unused-argument \
 			  -Werror \
 			  -Wno-language-extension-token
-loader_LDFLAGS=-nostdlib -melf_i386 -T$(loader_LINKER)
+loader_LDFLAGS=-nostdlib -T$(loader_LINKER)
 
 $(O)/loader.elf: $(loader_OBJS) $(loader_LINKER)
 	@printf " LD\t%s\n" $@
-	@$(CROSSLD) $(loader_LDFLAGS) -o $@ $(loader_OBJS)
+	@$(CC86) $(loader_LDFLAGS) -o $@ $(loader_OBJS)
 
 $(O)/arch/amd64/loader/%.o: $(S)/arch/amd64/loader/%.S $(HEADERS)
 	@printf " AS\t%s\n" $@
-	@$(CROSSCC) $(loader_CFLAGS) -c -o $@ $<
+	@$(CC86) $(loader_CFLAGS) -c -o $@ $<
 
 $(O)/arch/amd64/loader/%.o: $(S)/arch/amd64/loader/%.c $(HEADERS)
 	@printf " CC\t%s\n" $@
-	@$(CROSSCC) $(loader_CFLAGS) -c -o $@ $<
+	@$(CC86) $(loader_CFLAGS) -c -o $@ $<
 
 ### Debugging and emulation
 QEMU_BIN?=qemu-system-x86_64

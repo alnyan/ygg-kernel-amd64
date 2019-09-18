@@ -7,10 +7,6 @@ ifeq ($(ARCH),amd64)
 CFLAGS+=-DARCH_AMD64
 endif
 
-export CC?=$(CC)
-export CROSSCC?=$(CROSS_COMPILE)$(CC)
-export LD?=$(LD)
-export CROSSLD?=$(CROSS_COMPILE)$(LD)
 export S=$(abspath src)
 export O?=$(abspath build)
 

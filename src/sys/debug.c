@@ -1,7 +1,7 @@
+#include "sys/string.h"
 #include "sys/debug.h"
-#include "string.h"
-#include <stdint.h>
 #include "sys/attr.h"
+#include <stdint.h>
 
 #if defined(ARCH_AMD64)
 #include "arch/amd64/hw/rs232.h"
