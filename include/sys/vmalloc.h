@@ -1,5 +1,4 @@
-// vim: set ft=cpp.doxygen :
-/**
+/** vim: set ft=cpp.doxygen :
  * @file sys/vmalloc.h
  * @brief Contiguous virtual memory range management functions
  */
