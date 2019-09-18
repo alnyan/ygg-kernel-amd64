@@ -22,8 +22,30 @@ OBJS+=$(O)/arch/amd64/kernel.o \
 kernel_OBJS=$(O)/arch/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=$(S)/arch/amd64/link.ld
-kernel_LDFLAGS=-nostdlib -T$(kernel_LINKER)
-kernel_CFLAGS=-ffreestanding -I. $(DEFINES) $(CFLAGS) -mcmodel=large -m64
+kernel_LDFLAGS=-nostdlib \
+			   -fPIE \
+			   -fno-plt \
+			   -fno-pic \
+			   -static \
+			   -Wl,--build-id=none \
+			   -z max-page-size=0x1000 \
+			   -T$(kernel_LINKER)
+kernel_CFLAGS=-ffreestanding \
+			  -I. \
+			  $(DEFINES) \
+			  $(CFLAGS) \
+			  -fPIE \
+			  -fno-plt \
+			  -fno-pic \
+			  -static \
+			  -fno-asynchronous-unwind-tables \
+			  -mcmodel=large \
+			  -mno-red-zone \
+			  -mno-mmx \
+			  -mno-sse \
+			  -mno-sse2 \
+			  -z max-page-size=0x1000 \
+			  -m64
 DIRS+=$(O)/arch/amd64/mm \
 	  $(O)/arch/amd64/hw \
 	  $(O)/arch/amd64/acpi
@@ -32,7 +54,7 @@ HEADERS+=$(shell find $(S) -name "*.inc")
 
 $(O)/kernel.elf: $(kernel_OBJS) $(kernel_LINKER)
 	@printf " LD\t%s\n" $@
-	@$(CROSSLD) $(kernel_LDFLAGS)  -o $@ $(kernel_OBJS)
+	@$(CROSSCC) $(kernel_LDFLAGS)  -o $@ $(kernel_OBJS)
 
 $(O)/%.o: $(S)/%.S $(HEADERS)
 	@printf " AS\t%s\n" $@
@@ -58,7 +80,8 @@ loader_CFLAGS=-ffreestanding \
 			  -Wextra \
 			  -Wpedantic \
 			  -Wno-unused-argument \
-			  -Werror
+			  -Werror \
+			  -Wno-language-extension-token
 loader_LDFLAGS=-nostdlib -melf_i386 -T$(loader_LINKER)
 
 $(O)/loader.elf: $(loader_OBJS) $(loader_LINKER)

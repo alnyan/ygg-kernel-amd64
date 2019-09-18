@@ -6,7 +6,9 @@ CFLAGS+=-Wall \
 		-Wpedantic \
 		-Wno-unused-parameter \
 		-Iinclude \
-		-Wno-unused-variable
+		-Wno-unused-variable \
+		-Wno-language-extension-token \
+		-Wno-gnu-zero-variadic-macro-arguments
 
 ifdef KERNEL_TEST_MODE
 CFLAGS+=-DKERNEL_TEST_MODE
