@@ -24,4 +24,7 @@ void amd64_heap_init(heap_t *heap, uintptr_t phys_base, size_t sz);
  */
 size_t amd64_heap_blocks(const heap_t *heap);
 
+/**
+ * @brief Print kernel heap block list to debug output
+ */
 void amd64_heap_dump(const heap_t *heap);

@@ -1,3 +1,4 @@
+.PHONY: doc
 ifeq ($(ARCH),)
 $(error Target architecture is not specified: $${ARCH})
 endif
@@ -25,5 +26,5 @@ clean:
 mkdirs:
 	@mkdir -p $(O) $(DIRS)
 
-_doc:
+doc:
 	@make -sC doc all
