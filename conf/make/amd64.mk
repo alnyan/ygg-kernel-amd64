@@ -56,15 +56,15 @@ DIRS+=$(O)/arch/amd64/mm \
 HEADERS+=$(shell find $(S) -name "*.inc")
 
 $(O)/kernel.elf: $(kernel_OBJS) $(kernel_LINKER)
-	@printf " LD\t%s\n" $@
+	@printf " LD\t%s\n" $(@:$(O)/%=%)
 	@$(CC64) $(kernel_LDFLAGS)  -o $@ $(kernel_OBJS)
 
 $(O)/%.o: $(S)/%.S $(HEADERS)
-	@printf " AS\t%s\n" $@
+	@printf " AS\t%s\n" $(@:$(O)/%=%)
 	@$(CC64) $(kernel_CFLAGS) -c -o $@ $<
 
 $(O)/%.o: $(S)/%.c $(HEADERS)
-	@printf " CC\t%s\n" $@
+	@printf " CC\t%s\n" $(@:$(O)/%=%)
 	@$(CC64) $(kernel_CFLAGS) -c -o $@ $<
 
 ### Kernel loader build
@@ -87,15 +87,15 @@ loader_CFLAGS=-ffreestanding \
 loader_LDFLAGS=-nostdlib -T$(loader_LINKER)
 
 $(O)/loader.elf: $(loader_OBJS) $(loader_LINKER)
-	@printf " LD\t%s\n" $@
+	@printf " LD\t%s\n" $(@:$(O)/%=%)
 	@$(CC86) $(loader_LDFLAGS) -o $@ $(loader_OBJS)
 
 $(O)/arch/amd64/loader/%.o: $(S)/arch/amd64/loader/%.S $(HEADERS)
-	@printf " AS\t%s\n" $@
+	@printf " AS\t%s\n" $(@:$(O)/%=%)
 	@$(CC86) $(loader_CFLAGS) -c -o $@ $<
 
 $(O)/arch/amd64/loader/%.o: $(S)/arch/amd64/loader/%.c $(HEADERS)
-	@printf " CC\t%s\n" $@
+	@printf " CC\t%s\n" $(@:$(O)/%=%)
 	@$(CC86) $(loader_CFLAGS) -c -o $@ $<
 
 ### Debugging and emulation
