@@ -1,5 +1,6 @@
 #include "arch/amd64/mm/pool.h"
 #include "arch/amd64/mm/phys.h"
+#include "sys/vmalloc.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
 #include "sys/heap.h"

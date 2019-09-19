@@ -4,7 +4,118 @@
 #include "sys/mem.h"
 #include "arch/amd64/mm/pool.h"
 
-static int amd64_mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint32_t flags) {
+uintptr_t amd64_map_get(const mm_space_t pml4, uintptr_t vaddr, uint64_t *flags) {
+    size_t pml4i = (vaddr >> 39) & 0x1FF;
+    size_t pdpti = (vaddr >> 30) & 0x1FF;
+    size_t pdi = (vaddr >> 21) & 0x1FF;
+    size_t pti = (vaddr >> 12) & 0x1FF;
+
+    mm_pdpt_t pdpt;
+    mm_pagedir_t pd;
+    mm_pagetab_t pt;
+
+    if (!(pml4[pml4i] & 1)) {
+        return MM_NADDR;
+    }
+
+    if (pml4[pml4i] & (1 << 7)) {
+        panic("NYI\n");
+    }
+
+    pdpt = (mm_pdpt_t) MM_VIRTUALIZE(pml4[pml4i] & ~0xFFF);
+
+    if (!(pdpt[pdpti] & 1)) {
+        return MM_NADDR;
+    }
+
+    if (pdpt[pdpti] & (1 << 7)) {
+        if (flags) {
+            *flags = 2;
+        }
+        return (pdpt[pdpti] & ~0xFFF) | (vaddr & ((1 << 30) - 1));
+    }
+
+    pd = (mm_pagedir_t) MM_VIRTUALIZE(pdpt[pdpti] & ~0xFFF);
+
+    if (!(pd[pdi] & 1)) {
+        return MM_NADDR;
+    }
+
+    if (pd[pdi] & (1 << 7)) {
+        if (flags) {
+            *flags = 1;
+        }
+        return (pd[pti] & ~0xFFF) | (vaddr & ((1 << 21) - 1));
+    }
+
+    pt = (mm_pagetab_t) MM_VIRTUALIZE(pd[pdi] & ~0xFFF);
+
+    if (!(pt[pti] & 1)) {
+        return MM_NADDR;
+    }
+
+    if (flags) {
+        *flags = 0;
+    }
+
+    return (pt[pti] & ~0xFFF) | (vaddr & 0xFFF);
+}
+
+uintptr_t amd64_map_umap(mm_space_t pml4, uintptr_t vaddr, uint32_t size) {
+    // TODO: support page sizes other than 4KiB
+    // (Though I can't think of any reason to use it)
+    size_t pml4i = (vaddr >> 39) & 0x1FF;
+    size_t pdpti = (vaddr >> 30) & 0x1FF;
+    size_t pdi = (vaddr >> 21) & 0x1FF;
+    size_t pti = (vaddr >> 12) & 0x1FF;
+
+    mm_pdpt_t pdpt;
+    mm_pagedir_t pd;
+    mm_pagetab_t pt;
+
+    if (!(pml4[pml4i] & 1)) {
+        return MM_NADDR;
+    }
+
+    if (pml4[pml4i] & (1 << 7)) {
+        panic("NYI\n");
+    }
+
+    pdpt = (mm_pdpt_t) MM_VIRTUALIZE(pml4[pml4i] & ~0xFFF);
+
+    if (!(pdpt[pdpti] & 1)) {
+        return MM_NADDR;
+    }
+
+    if (pdpt[pdpti] & (1 << 7)) {
+        panic("NYI\n");
+    }
+
+    pd = (mm_pagedir_t) MM_VIRTUALIZE(pdpt[pdpti] & ~0xFFF);
+
+    if (!(pd[pdi] & 1)) {
+        return MM_NADDR;
+    }
+
+    if (pd[pdi] & (1 << 7)) {
+        panic("NYI\n");
+    }
+
+    pt = (mm_pagetab_t) MM_VIRTUALIZE(pd[pdi] & ~0xFFF);
+
+    if (!(pt[pti] & 1)) {
+        return MM_NADDR;
+    }
+
+    uint64_t old = pt[pti] & ~0xFFF;
+    pt[pti] = 0;
+    asm volatile("invlpg (%0)"::"a"(vaddr):"memory");
+    return old;
+}
+
+int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint32_t flags) {
+    // TODO: support page sizes other than 4KiB
+    // (Though I can't think of any reason to use it)
     size_t pml4i = (virt_addr >> 39) & 0x1FF;
     size_t pdpti = (virt_addr >> 30) & 0x1FF;
     size_t pdi = (virt_addr >> 21) & 0x1FF;
@@ -64,7 +175,7 @@ int mm_map_pages_contiguous(mm_space_t pml4, uintptr_t virt_base, uintptr_t phys
     for (size_t i = 0; i < count; ++i) {
         uintptr_t virt_addr = virt_base + (i << 12);
 
-        if (amd64_mm_map_single(pml4, virt_addr, phys_base + (i << 12), flags) != 0) {
+        if (amd64_map_single(pml4, virt_addr, phys_base + (i << 12), flags) != 0) {
             return -1;
         }
     }

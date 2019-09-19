@@ -5,6 +5,9 @@
 #pragma once
 #include "sys/mm.h"
 
+#define VM_ALLOC_USER   (1 << 0)
+#define VM_ALLOC_WRITE  (1 << 1)
+
 /**
  * @brief Find a free contiguous memory range inside a given one
  *        in a virtual memory space.
@@ -15,7 +18,7 @@
  * @return Address of the resulting range on success,
  *         MM_NADDR if such range cannot be allocated
  */
-uintptr_t vmfind(mm_space_t pd, uintptr_t from, uintptr_t to, size_t npages);
+uintptr_t vmfind(const mm_space_t pd, uintptr_t from, uintptr_t to, size_t npages);
 
 /**
  * @brief Allocate a contiguous virtual memory range in a space

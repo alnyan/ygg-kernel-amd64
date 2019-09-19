@@ -50,6 +50,7 @@ void amd64_phys_free(uintptr_t page) {
     if (page < PHYS_ALLOWED_BEGIN) {
         panic("Tried to free kernel physical pages\n");
     }
+    page -= PHYS_ALLOWED_BEGIN;
     // Address is too high
     if (PHYS_TRACK_INDEX(page) >= PHYS_MAX_INDEX) {
         panic("Tried to free non-available physical page\n");
