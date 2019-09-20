@@ -1,4 +1,5 @@
 #include "arch/amd64/mm/heap.h"
+#include "sys/assert.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
 #include "sys/mm.h"
@@ -72,13 +73,8 @@ void heap_free(heap_t *heap, void *ptr) {
     // Check if ptr is in a valid block
     heap_block_t *block = (heap_block_t *) (((uintptr_t) ptr) - sizeof(heap_block_t));
 
-    if ((block->magic & HEAP_MAGIC) != HEAP_MAGIC) {
-        panic("The pointer is from an invalid block\n");
-    }
-
-    if (!(block->magic & 1)) {
-        panic("Double free\n");
-    }
+    assert((block->magic & HEAP_MAGIC) == HEAP_MAGIC, "Corrupted heap block magic\n");
+    assert(block->magic & 1, "Double free error (kheap): %p\n", ptr);
 
     block->magic = HEAP_MAGIC;
     kdebug("%p is free\n", block);
@@ -111,9 +107,7 @@ size_t amd64_heap_blocks(const heap_t *heap) {
     size_t c = 0;
     for (const heap_block_t *block = (heap_block_t *) MM_VIRTUALIZE(heap->phys_base);
          block; block = block->next) {
-        if ((block->magic & HEAP_MAGIC) != HEAP_MAGIC) {
-            panic("Invalid block %u\n", c);
-        }
+        assert((block->magic & HEAP_MAGIC) == HEAP_MAGIC, "Corrupted heap block magic\n");
         ++c;
     }
     return c;
@@ -122,9 +116,7 @@ size_t amd64_heap_blocks(const heap_t *heap) {
 void amd64_heap_dump(const heap_t *heap) {
     for (const heap_block_t *block = (heap_block_t *) MM_VIRTUALIZE(heap->phys_base);
          block; block = block->next) {
-        if ((block->magic & HEAP_MAGIC) != HEAP_MAGIC) {
-            panic("Invalid block %p\n", block);
-        }
+        assert((block->magic & HEAP_MAGIC) == HEAP_MAGIC, "Corrupted heap block magic\n");
 
         kdebug("%p: %u %s%s\n", block, block->size, (block->magic & 1 ? "USED" : "FREE"), (block->next ? " -> " : ""));
     }

@@ -1,6 +1,7 @@
 #include "sys/mm.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
+#include "sys/assert.h"
 #include "sys/mem.h"
 #include "arch/amd64/mm/pool.h"
 
@@ -128,7 +129,7 @@ int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint3
     if (!(pml4[pml4i] & 1)) {
         // Allocate PDPT
         pdpt = (mm_pdpt_t) amd64_mm_pool_alloc();
-        if (!pdpt) panic("PDPT alloc failed\n");
+        assert(pdpt, "PDPT alloc failed\n");
         kdebug("Allocated PDPT = %p\n", pdpt);
 
         pml4[pml4i] = MM_PHYS(pdpt) | 1;
@@ -139,7 +140,7 @@ int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint3
     if (!(pdpt[pdpti] & 1)) {
         // Allocate PD
         pd = (mm_pagedir_t) amd64_mm_pool_alloc();
-        if (!pd) panic("PD alloc failed\n");
+        assert(pd, "PD alloc failed\n");
         kdebug("Allocated PD = %p\n", pd);
 
         pdpt[pdpti] = MM_PHYS(pd) | 1;
@@ -150,7 +151,7 @@ int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint3
     if (!(pd[pdi] & 1)) {
         // Allocate PT
         pt = (mm_pagetab_t) amd64_mm_pool_alloc();
-        if (!pt) panic("PT alloc failed\n");
+        assert(pt, "PT alloc failed\n");
         kdebug("Allocated PT = %p\n", pt);
 
         pd[pdi] = MM_PHYS(pt) | 1;
@@ -158,9 +159,7 @@ int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint3
         pt = (mm_pagetab_t) MM_VIRTUALIZE(pd[pdi] & ~0xFFF);
     }
 
-    if (pt[pti] & 1) {
-        panic("map: entry already present\n");
-    }
+    assert(!(pt[pti] & 1), "Entry already present for %p\n", virt_addr);
 
 #if defined(KERNEL_TEST_MODE)
     kdebug("map %p -> %p\n", virt_addr, phys);

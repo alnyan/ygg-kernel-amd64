@@ -1,5 +1,6 @@
 #include "arch/amd64/mm/phys.h"
 #include "arch/amd64/mm/pool.h"
+#include "sys/assert.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
 #include "sys/mem.h"
@@ -47,22 +48,16 @@ uintptr_t amd64_phys_alloc_page(void) {
 
 void amd64_phys_free(uintptr_t page) {
     // Address is too low
-    if (page < PHYS_ALLOWED_BEGIN) {
-        panic("Tried to free kernel physical pages\n");
-    }
+    assert(page >= PHYS_ALLOWED_BEGIN, "The page is outside the physical range: %p\n", page);
     page -= PHYS_ALLOWED_BEGIN;
     // Address is too high
-    if (PHYS_TRACK_INDEX(page) >= PHYS_MAX_INDEX) {
-        panic("Tried to free non-available physical page\n");
-    }
+    assert(PHYS_TRACK_INDEX(page) < PHYS_MAX_INDEX, "The page is outside the physical range: %p\n", page + PHYS_ALLOWED_BEGIN);
 
     uint64_t bit = 1ULL << PHYS_TRACK_BIT(page);
     uint64_t index = PHYS_TRACK_INDEX(page);
 
     // Double free error
-    if (!(amd64_phys_memory_track[index] & bit)) {
-        panic("Tried to free non-allocated physical page\n");
-    }
+    assert(amd64_phys_memory_track[index] & bit, "Double free error (phys): %p\n", page + PHYS_ALLOWED_BEGIN);
 
     amd64_phys_memory_track[index] &= ~bit;
 }

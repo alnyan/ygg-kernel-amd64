@@ -1,6 +1,7 @@
 #include "arch/amd64/acpi/tables.h"
 #include "arch/amd64/acpi/hpet.h"
 #include "sys/string.h"
+#include "sys/assert.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
 #include "sys/mem.h"
@@ -34,13 +35,8 @@ static int acpi_xsdp_read(const struct acpi_rsdp_extended *xsdp) {
 static int acpi_rsdp_read(const struct acpi_rsdp *rsdp) {
     struct acpi_rsdt *rsdt = (struct acpi_rsdt *) MM_VIRTUALIZE(rsdp->rsdt_addr);
 
-    if (strncmp(rsdt->header.signature, "RSDT", 4)) {
-        panic("RSDP does not point to a valid RSDT\n");
-    }
-
-    if (acpi_checksum(rsdt, rsdt->header.length)) {
-        panic("RSDT checksum is invalid\n");
-    }
+    assert(!strncmp(rsdt->header.signature, "RSDT", 4), "RSDP does not point to a valid RSDT\n");
+    assert(acpi_checksum(rsdt, rsdt->header.length) == 0, "RSDT checksum is invalid\n");
 
     uint32_t nentr = (rsdt->header.length - sizeof(struct acpi_sdt_header)) / 4;
     kdebug("RSDT contains %u entries\n", nentr);
@@ -53,9 +49,7 @@ static int acpi_rsdp_read(const struct acpi_rsdp *rsdp) {
             if (!strncmp(header->signature, acpi_table_type_name[j], 4)) {
                 kdebug("%u: %s @ %p\n", i, acpi_table_type_name[j], header);
 
-                if (acpi_checksum(header, header->length)) {
-                    panic("RSDT contains invalid table: %s\n", acpi_table_type_name[j]);
-                }
+                assert(acpi_checksum(header, header->length) == 0, "Table is invalid: %s\n", acpi_table_type_name[j]);
 
                 acpi_tables[j] = (uintptr_t) header;
                 continue;
@@ -65,10 +59,7 @@ static int acpi_rsdp_read(const struct acpi_rsdp *rsdp) {
     }
 
     // Must have FADT table
-    if (acpi_tables[ACPI_FADT] == MM_NADDR) {
-        panic("RSDT contained no FADT pointer\n");
-    }
-
+    assert(acpi_tables[ACPI_FADT] != MM_NADDR, "RSDT is missing FADT\n");
     return 0;
 }
 
@@ -130,14 +121,10 @@ int acpi_tables_init(void) {
     // Extract HPET
     if (acpi_tables[ACPI_HPET] != MM_NADDR) {
         struct acpi_hpet *hpet_table = (struct acpi_hpet *) acpi_tables[ACPI_HPET];
-
-        if (hpet_table->base_address.space_id != 0) {
-            panic("HPET is not memory-mapped (what?)\n");
-        }
+        assert(hpet_table->base_address.space_id == 0, "HPET is not memory-mapped (what?)\n");
 
         acpi_hpet_set_base(hpet_table->base_address.pointer);
     }
-    kdebug("AAAA\n");
 
     return 0;
 }

@@ -2,6 +2,7 @@
 #include "sys/debug.h"
 
 void panicf(const char *fmt, ...) {
+    asm volatile ("cli");
     va_list args;
     kfatal("--- Panic ---\n");
 

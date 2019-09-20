@@ -1,5 +1,6 @@
 #include "arch/amd64/mm/pool.h"
 #include "arch/amd64/mm.h"
+#include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
 #include "sys/mem.h"
@@ -45,7 +46,7 @@ void amd64_mm_pool_free(uint64_t *page) {
     uintptr_t a = (uintptr_t) page;
 
     if (a < amd64_mm_pool.start || a >= (amd64_mm_pool.start + amd64_mm_pool.size)) {
-        panic("The page does not belong to the pool\n");
+        panic("The page does not belong to the pool: %p\n", a);
     }
 
     a -= amd64_mm_pool.start;
@@ -53,9 +54,7 @@ void amd64_mm_pool_free(uint64_t *page) {
     size_t i = (a >> 18) & 0x1FF;
     size_t j = (a >> 12) & 0x3F;
 
-    if (!(amd64_mm_pool.track[i] & (1ULL << j))) {
-        panic("Invalid free() of pool page\n");
-    }
+    assert(amd64_mm_pool.track[i] & (1ULL << j), "Double free error (pool): %p\n", page);
 
     amd64_mm_pool.track[i] &= ~(1ULL << j);
 }

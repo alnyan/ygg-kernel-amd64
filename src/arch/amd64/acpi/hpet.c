@@ -1,6 +1,7 @@
 #include "arch/amd64/acpi/hpet.h"
 #include "arch/amd64/acpi/tables.h"
 #include "arch/amd64/hw/timer.h"
+#include "sys/assert.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
 #include "sys/mm.h"
@@ -73,16 +74,12 @@ int acpi_hpet_init(void) {
     mm_map_pages_contiguous(mm_kernel, addr, hpet_base, 1, 0);
 
     uint64_t hpet_clk = (hpet->caps >> 32) & 0xFFFFFFFF;
-    if (hpet_clk == 0) {
-        panic("HPET does not work correctly\n");
-    }
+    assert(hpet_clk != 0, "HPET does not work correctly\n");
     hpet_freq = 1000000000000000ULL / hpet_clk;
     // TODO: specify desired frequency as function param
     uint32_t desired_freq = SYSTICK_FREQ;
 
-    if (!(hpet->timers[0].ctrl & HPET_Tn_PER_INT_CAP)) {
-        panic("AAAAA\n");
-    }
+    assert(hpet->timers[0].ctrl & HPET_Tn_PER_INT_CAP, "HPET does not support periodic interrupts\n");
 
     hpet->ctrl |= HPET_ENABLE_CNF | HPET_LEG_RT_CNF;
     hpet->timers[0].ctrl = HPET_Tn_INT_ENB_CNF | HPET_Tn_VAL_SET_CNF | HPET_Tn_TYPE_CNF;

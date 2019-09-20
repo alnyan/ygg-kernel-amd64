@@ -1,5 +1,6 @@
 #include "sys/thread.h"
 #include "sys/panic.h"
+#include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
 
@@ -35,10 +36,8 @@ void thread_set_ip(thread_t *t, uintptr_t ip) {
 }
 
 void thread_set_space(thread_t *t, mm_space_t pd) {
-    // TODO: assert
-    if (((uintptr_t) pd) < 0xFFFFFF0000000000) {
-        panic("Invalid PML4 address provided\n");
-    }
+    assert(((uintptr_t) pd) > 0xFFFFFF0000000000, "Invalid PML4 address provided: %p\n", pd);
+
     t->info.space = pd;
     ctx0(t)->cr3 = ((uintptr_t) pd) - 0xFFFFFF0000000000;
 }

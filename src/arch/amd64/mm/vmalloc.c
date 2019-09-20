@@ -1,5 +1,6 @@
 #include "arch/amd64/mm/phys.h"
 #include "arch/amd64/mm/map.h"
+#include "sys/assert.h"
 #include "sys/vmalloc.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
@@ -53,10 +54,8 @@ uintptr_t vmalloc(mm_space_t pml4, uintptr_t from, uintptr_t to, size_t npages, 
                 // Deallocate physical pages that've already been mapped
                 // We've mapped only 4KiB pages, so expect to unmap only
                 // 4KiB pages
-                // TODO: use assert
-                if ((phys_page = amd64_map_umap(pml4, virt_page, 1)) == MM_NADDR) {
-                    panic("Failed to deallocate page after a failed allocation\n");
-                }
+                assert((phys_page = amd64_map_umap(pml4, virt_page, 1)) != MM_NADDR,
+                        "Failed to deallocate page when cleaning up botched alloc: %p\n", virt_page);
 
                 amd64_phys_free(phys_page);
             }
@@ -64,10 +63,7 @@ uintptr_t vmalloc(mm_space_t pml4, uintptr_t from, uintptr_t to, size_t npages, 
         }
 
         // Succeeded, map the page
-        // TODO: use assert
-        if (amd64_map_single(pml4, virt_page, phys_page, 0) != 0) {
-            panic("Failed to map page\n");
-        }
+        assert(amd64_map_single(pml4, virt_page, phys_page, 0) == 0, "Failed to map page: %p\n", virt_page);
     }
 
     return addr;

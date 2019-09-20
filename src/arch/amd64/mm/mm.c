@@ -1,6 +1,7 @@
 #include "arch/amd64/mm/pool.h"
 #include "arch/amd64/mm/phys.h"
 #include "sys/vmalloc.h"
+#include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
 #include "sys/heap.h"
@@ -40,10 +41,8 @@ void amd64_mm_init(void) {
 
     // Allocate some pages for kernel heap (base size: 16MiB)
     uintptr_t heap_base_phys = amd64_phys_alloc_contiguous(KERNEL_HEAP >> 12);
-    if (heap_base_phys == MM_NADDR) {
-        // TODO: pretty-print sizes
-        panic("Could not allocate %uKiB of memory for kernel heap\n", KERNEL_HEAP >> 10);
-    }
+    // TODO: pretty-print sizes
+    assert(heap_base_phys != MM_NADDR, "Could not allocate %uKiB of memory for kernel heap\n", KERNEL_HEAP >> 10);
     kdebug("Setting up kernel heap of %uKiB @ %p\n", KERNEL_HEAP >> 10, heap_base_phys);
     amd64_heap_init(heap_global, heap_base_phys, KERNEL_HEAP);
     amd64_heap_dump(heap_global);
