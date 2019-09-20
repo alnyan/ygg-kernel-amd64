@@ -140,7 +140,7 @@ void amd64_idt_init(void) {
     amd64_idt_set(30, (uintptr_t) amd64_isr_30, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(31, (uintptr_t) amd64_isr_31, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 
-    amd64_idt_set(0x80, (uintptr_t) amd64_isr_syscall, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(0x80, (uintptr_t) amd64_isr_syscall, 0x08, IDT_FLG_P | IDT_FLG_R3 | IDT_FLG_INT32);
 
     amd64_idt_set(IRQ_BASE + 0 , (uintptr_t) amd64_irq_0 , 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(IRQ_BASE + 1 , (uintptr_t) amd64_irq_1 , 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);

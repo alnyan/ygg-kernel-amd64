@@ -26,9 +26,9 @@ void amd64_mm_init(void) {
     memset((void *) (0x200000 - 2 * 0x1000), 0, 0x1000 * 2);
 
     // 0xFFFFFF0000000000 -> 0 (512GiB) mapping
-    pml4[AMD64_MM_MASK(KERNEL_VIRT_BASE) >> 39] = (uint64_t) pdpt | 1 | 2;
+    pml4[AMD64_MM_MASK(KERNEL_VIRT_BASE) >> 39] = (uint64_t) pdpt | 1 | 2 | 4;
     for (int i = 0; i < 512; ++i) {
-        pdpt[(AMD64_MM_MASK((KERNEL_VIRT_BASE) >> 30) + i) & 0x1FF] = 1 | 2 | (1 << 7);
+        pdpt[(AMD64_MM_MASK((KERNEL_VIRT_BASE) >> 30) + i) & 0x1FF] = 1 | 2 | 4 | (1 << 7);
     }
 
     // Load the new table

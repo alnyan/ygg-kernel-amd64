@@ -10,22 +10,24 @@ thread_t *amd64_thread_last = NULL;
 
 static thread_t threads[2];
 static char kstacks[2 * KSTACK_SIZE];
+static char ustacks[2 * 32768];
 
 static void kthread0(void) {
     while (1) {
         asm volatile ("int $0x80");
-        kdebug("A\n");
-        for (int i = 0; i < 10000000; ++i);
+        //kdebug("A\n");
+        //for (int i = 0; i < 10000000; ++i);
     }
 }
 
 static void kthread1(void) {
-    kdebug("Start\n");
+    asm volatile ("int $0x80");
+    //kdebug("Start\n");
     while (1) {
-        kdebug("B\n");
-        for (int i = 0; i < 10000000; ++i);
-        kdebug("C\n");
-        for (int i = 0; i < 10000000; ++i);
+        //kdebug("B\n");
+        //for (int i = 0; i < 10000000; ++i);
+        //kdebug("C\n");
+        //for (int i = 0; i < 10000000; ++i);
     }
 }
 
@@ -46,6 +48,7 @@ void amd64_ctx_add(thread_t *t) {
 
 void amd64_init_test_threads(void) {
     amd64_thread_current = NULL;
+    amd64_thread_context_t *ctx;
 
     for (size_t i = 0; i < (sizeof(threads) / sizeof(threads[0])); ++i) {
         thread_info_init(&threads[i].info);
@@ -53,11 +56,21 @@ void amd64_init_test_threads(void) {
         threads[i].kstack_base = (uintptr_t) &kstacks[i * KSTACK_SIZE];
         threads[i].kstack_size = KSTACK_SIZE;
         threads[i].kstack_ptr = threads[i].kstack_base + threads[i].kstack_size - sizeof(amd64_thread_context_t);
+        ctx = (amd64_thread_context_t *) threads[i].kstack_ptr;
 
-        threads[i].info.flags = THREAD_KERNEL;
+        //threads[i].info.flags = THREAD_KERNEL;
+        ctx->cr3 = (uintptr_t) mm_kernel - 0xFFFFFF0000000000;
+        ctx->rip = (uintptr_t) kthread_funcs[i];
+        ctx->cs = 0x1B;
+        ctx->rsp = (uintptr_t) &ustacks[(i + 1) * 32768];
+        ctx->ss = 0x23;
 
-        thread_set_ip(&threads[i], (uintptr_t) kthread_funcs[i]);
-        thread_set_space(&threads[i], mm_kernel);
+        ctx->rflags = 0x248;
+
+        threads[i].next = NULL;
+
+        //thread_set_ip(&threads[i], (uintptr_t) kthread_funcs[i]);
+        //thread_set_space(&threads[i], mm_kernel);
 
         amd64_ctx_add(&threads[i]);
     }
