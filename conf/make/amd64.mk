@@ -22,7 +22,9 @@ OBJS+=$(O)/arch/amd64/kernel.o \
 	  $(O)/arch/amd64/acpi/hpet.o \
 	  $(O)/arch/amd64/mm/phys.o \
 	  $(O)/arch/amd64/mm/heap.o \
-	  $(O)/arch/amd64/mm/vmalloc.o
+	  $(O)/arch/amd64/mm/vmalloc.o \
+	  $(O)/arch/amd64/sys/thread.o \
+	  $(O)/arch/amd64/ctxsw.o
 kernel_OBJS=$(O)/arch/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=$(S)/arch/amd64/link.ld
@@ -51,7 +53,8 @@ kernel_CFLAGS=-ffreestanding \
 			  -z max-page-size=0x1000
 DIRS+=$(O)/arch/amd64/mm \
 	  $(O)/arch/amd64/hw \
-	  $(O)/arch/amd64/acpi
+	  $(O)/arch/amd64/acpi \
+	  $(O)/arch/amd64/sys
 # add .inc includes for asm
 HEADERS+=$(shell find $(S) -name "*.inc")
 

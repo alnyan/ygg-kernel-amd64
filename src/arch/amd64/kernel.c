@@ -68,6 +68,9 @@ void kernel_main(uintptr_t loader_info_phys_ptr) {
     mm_describe(mm_kernel);
 #endif
 
+    extern void amd64_init_test_threads(void);
+    amd64_init_test_threads();
+
     while (1) {
         __wfe();
     }

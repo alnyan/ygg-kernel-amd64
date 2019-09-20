@@ -38,17 +38,17 @@
 
 .macro __int_pop_ctx
     // segments
-    pop %rax
+    popq %rax
     mov %rax, %ds
-    pop %rax
+    popq %rax
     mov %rax, %es
-    pop %rax
+    popq %rax
     mov %rax, %fs
-    pop %rax
+    popq %rax
     mov %rax, %gs
 
     // cr3
-    pop %rax
+    popq %rax
     mov %rax, %cr3
 
     // r15-r8
