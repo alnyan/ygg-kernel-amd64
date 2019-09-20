@@ -70,6 +70,8 @@ void kernel_main(uintptr_t loader_info_phys_ptr) {
 
     extern void amd64_init_test_threads(void);
     amd64_init_test_threads();
+    extern void amd64_setup_syscall(void);
+    amd64_setup_syscall();
 
     while (1) {
         __wfe();

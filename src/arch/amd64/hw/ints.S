@@ -73,12 +73,3 @@ __isr_nerr 28
 __isr_nerr 29
 __isr_yerr 30
 __isr_nerr 31
-
-amd64_isr_syscall:
-    cli
-
-    __int_push_ctx
-    call amd64_syscall_int
-    __int_pop_ctx
-
-    iretq

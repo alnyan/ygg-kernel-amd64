@@ -48,9 +48,9 @@ void amd64_gdt_init(void) {
                   GDT_ACC_PR | GDT_ACC_R0 | GDT_ACC_EX | GDT_ACC_S | GDT_ACC_RW);   // 0x08
     amd64_gdt_set(2, 0, 0, 0,
                   GDT_ACC_PR | GDT_ACC_R0 | GDT_ACC_S | GDT_ACC_RW);                // 0x10
-    amd64_gdt_set(3, 0, 0, GDT_FLG_LONG,
+    amd64_gdt_set(4, 0, 0, GDT_FLG_LONG,
                   GDT_ACC_PR | GDT_ACC_R3 | GDT_ACC_EX | GDT_ACC_S | GDT_ACC_RW);   // 0x18
-    amd64_gdt_set(4, 0, 0, 0,
+    amd64_gdt_set(3, 0, 0, 0,
                   GDT_ACC_PR | GDT_ACC_R3 | GDT_ACC_S | GDT_ACC_RW);                // 0x20
     amd64_gdt_set(5, ((uintptr_t) &amd64_tss) & 0xFFFFFFFF, sizeof(amd64_tss) - 1, GDT_FLG_LONG,
                   GDT_ACC_PR | GDT_ACC_AC | GDT_ACC_EX);

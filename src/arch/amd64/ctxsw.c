@@ -14,16 +14,16 @@ static char ustacks[2 * 32768];
 
 static void kthread0(void) {
     while (1) {
-        asm volatile ("int $0x80");
+        asm volatile ("syscall");
         //kdebug("A\n");
         //for (int i = 0; i < 10000000; ++i);
     }
 }
 
 static void kthread1(void) {
-    asm volatile ("int $0x80");
     //kdebug("Start\n");
     while (1) {
+        asm volatile ("syscall");
         //kdebug("B\n");
         //for (int i = 0; i < 10000000; ++i);
         //kdebug("C\n");
@@ -61,9 +61,9 @@ void amd64_init_test_threads(void) {
         //threads[i].info.flags = THREAD_KERNEL;
         ctx->cr3 = (uintptr_t) mm_kernel - 0xFFFFFF0000000000;
         ctx->rip = (uintptr_t) kthread_funcs[i];
-        ctx->cs = 0x1B;
+        ctx->cs = 0x23;
         ctx->rsp = (uintptr_t) &ustacks[(i + 1) * 32768];
-        ctx->ss = 0x23;
+        ctx->ss = 0x1B;
 
         ctx->rflags = 0x248;
 
