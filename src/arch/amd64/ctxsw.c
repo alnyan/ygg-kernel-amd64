@@ -8,9 +8,9 @@ thread_t *amd64_thread_current = NULL;
 thread_t *amd64_thread_first = NULL;
 thread_t *amd64_thread_last = NULL;
 
-static thread_t threads[2];
-static char kstacks[2 * KSTACK_SIZE];
-static char ustacks[2 * 32768];
+static thread_t threads[3];
+static char kstacks[3 * KSTACK_SIZE];
+static char ustacks[3 * 32768];
 
 static void kthread0(void) {
     while (1) {
@@ -28,6 +28,13 @@ static void kthread1(void) {
         //for (int i = 0; i < 10000000; ++i);
         //kdebug("C\n");
         //for (int i = 0; i < 10000000; ++i);
+    }
+}
+
+static void kthread2(void) {
+    while (1) {
+        for (int i = 0; i < 10000000; ++i);
+        kdebug("Kthread\n");
     }
 }
 
@@ -50,7 +57,7 @@ void amd64_init_test_threads(void) {
     amd64_thread_current = NULL;
     amd64_thread_context_t *ctx;
 
-    for (size_t i = 0; i < (sizeof(threads) / sizeof(threads[0])); ++i) {
+    for (size_t i = 0; i < 2; ++i) {
         thread_info_init(&threads[i].info);
 
         threads[i].kstack_base = (uintptr_t) &kstacks[i * KSTACK_SIZE];
@@ -74,6 +81,29 @@ void amd64_init_test_threads(void) {
 
         amd64_ctx_add(&threads[i]);
     }
+
+    thread_info_init(&threads[2].info);
+
+    threads[2].kstack_base = (uintptr_t) &kstacks[2 * KSTACK_SIZE];
+    threads[2].kstack_size = KSTACK_SIZE;
+    threads[2].kstack_ptr = threads[2].kstack_base + threads[2].kstack_size - sizeof(amd64_thread_context_t);
+    ctx = (amd64_thread_context_t *) threads[2].kstack_ptr;
+
+    //threads[i].info.flags = THREAD_KERNEL;
+    ctx->cr3 = (uintptr_t) mm_kernel - 0xFFFFFF0000000000;
+    ctx->rip = (uintptr_t) kthread2;
+    ctx->cs = 0x08;
+    ctx->rsp = threads[2].kstack_ptr;
+    ctx->ss = 0x10;
+
+    ctx->rflags = 0x248;
+
+    threads[2].next = NULL;
+
+    //thread_set_ip(&threads[i], (uintptr_t) kthread_funcs[i]);
+    //thread_set_space(&threads[i], mm_kernel);
+
+    amd64_ctx_add(&threads[2]);
 }
 
 int amd64_ctx_switch(void) {
