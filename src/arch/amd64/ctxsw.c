@@ -1,23 +1,31 @@
 #include "sys/debug.h"
 #include "sys/thread.h"
 
+#define KSTACK_SIZE 32768
+
 // TODO: move to sched.c
 thread_t *amd64_thread_current = NULL;
 thread_t *amd64_thread_first = NULL;
 thread_t *amd64_thread_last = NULL;
 
 static thread_t threads[2];
-static char kstacks[2 * 16384];
+static char kstacks[2 * KSTACK_SIZE];
 
 static void kthread0(void) {
     while (1) {
+        asm volatile ("int $0x80");
         kdebug("A\n");
+        for (int i = 0; i < 10000000; ++i);
     }
 }
 
 static void kthread1(void) {
+    kdebug("Start\n");
     while (1) {
         kdebug("B\n");
+        for (int i = 0; i < 10000000; ++i);
+        kdebug("C\n");
+        for (int i = 0; i < 10000000; ++i);
     }
 }
 
@@ -37,16 +45,14 @@ void amd64_ctx_add(thread_t *t) {
 }
 
 void amd64_init_test_threads(void) {
+    amd64_thread_current = NULL;
+
     for (size_t i = 0; i < (sizeof(threads) / sizeof(threads[0])); ++i) {
         thread_info_init(&threads[i].info);
 
-        threads[i].kstack_base = (uintptr_t) &kstacks[i * 16384];
-        threads[i].kstack_size = 16384;
+        threads[i].kstack_base = (uintptr_t) &kstacks[i * KSTACK_SIZE];
+        threads[i].kstack_size = KSTACK_SIZE;
         threads[i].kstack_ptr = threads[i].kstack_base + threads[i].kstack_size - sizeof(amd64_thread_context_t);
-        kdebug("base = %p, kstacks = %p, ptr = %p\n", threads[i].kstack_base,
-                                                      kstacks,
-                                                      threads[i].kstack_ptr);
-
 
         threads[i].info.flags = THREAD_KERNEL;
 

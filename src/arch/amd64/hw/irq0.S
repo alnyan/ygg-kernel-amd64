@@ -7,6 +7,14 @@ amd64_irq_0:
 
     __int_push_ctx
 
+    // Store current RSP
+    movq %rsp, %rax
+    movq amd64_thread_current(%rip), %rdi
+    test %rdi, %rdi
+    jz 1f
+    movq %rax, (%rdi)
+1:
+
     movq amd64_timer_tick(%rip), %rax
     callq *%rax
 

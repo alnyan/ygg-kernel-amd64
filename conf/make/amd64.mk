@@ -24,7 +24,8 @@ OBJS+=$(O)/arch/amd64/kernel.o \
 	  $(O)/arch/amd64/mm/heap.o \
 	  $(O)/arch/amd64/mm/vmalloc.o \
 	  $(O)/arch/amd64/sys/thread.o \
-	  $(O)/arch/amd64/ctxsw.o
+	  $(O)/arch/amd64/ctxsw.o \
+	  $(O)/arch/amd64/sys/syscall.o
 kernel_OBJS=$(O)/arch/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=$(S)/arch/amd64/link.ld
