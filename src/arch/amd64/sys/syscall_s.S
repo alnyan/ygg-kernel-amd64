@@ -54,7 +54,7 @@ amd64_syscall_entry:
     // 1. Load kernRSP from amd64_thread_current->kstack_ptr,
     //    userRSP is stored in %rax before being pushed
     movq %rsp, %rax
-    movq amd64_thread_current(%rip), %rsi
+    movq sched_current(%rip), %rsi
     movq (%rsi), %rsp
 
     // syscall handlers may mess up this in SysV amd64 ABI, store

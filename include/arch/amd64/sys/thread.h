@@ -5,6 +5,9 @@
 #pragma once
 #include "sys/thread.h"
 
+#define thread_next(t)      ((t)->next)
+#define thread_get(t)       (&(t)->info)
+
 /**
  * @brief amd64 task kernel stack/context storage
  */

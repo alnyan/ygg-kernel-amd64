@@ -19,4 +19,5 @@ OBJS+=$(O)/sys/mem.o \
 	  $(O)/sys/string.o \
 	  $(O)/sys/debug.o \
 	  $(O)/sys/panic.o \
-	  $(O)/sys/thread.o
+	  $(O)/sys/thread.o \
+	  $(O)/sys/sched.o

@@ -9,6 +9,7 @@
 #include "arch/amd64/loader/multiboot.h"
 #include "arch/amd64/mm/phys.h"
 #include "arch/amd64/acpi/tables.h"
+#include "sys/kidle.h"
 
 // TODO: move to some util header
 #define __wfe() asm volatile ("sti; hlt")
@@ -68,11 +69,12 @@ void kernel_main(uintptr_t loader_info_phys_ptr) {
     mm_describe(mm_kernel);
 #endif
 
-    extern void amd64_init_test_threads(void);
-    amd64_init_test_threads();
     extern void amd64_setup_syscall(void);
     amd64_setup_syscall();
 
+    kidle_init();
+
+    // Wait until entering [kidle]
     while (1) {
         __wfe();
     }

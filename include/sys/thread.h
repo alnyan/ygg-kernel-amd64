@@ -39,6 +39,11 @@ typedef struct thread_info {
 ////////
 
 /**
+ * @brief Current thread context
+ */
+extern thread_t *sched_current;
+
+/**
  * @brief Initialize thread information struct
  * @param info Thread info struct
  */

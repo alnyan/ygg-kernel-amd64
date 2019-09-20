@@ -10,7 +10,7 @@ amd64_irq_0:
 
     // Store current RSP
     movq %rsp, %rax
-    movq amd64_thread_current(%rip), %rdi
+    movq sched_current(%rip), %rdi
     test %rdi, %rdi
     jz 1f
     movq %rax, (%rdi)
@@ -19,12 +19,12 @@ amd64_irq_0:
     movq amd64_timer_tick(%rip), %rax
     callq *%rax
 
-    callq amd64_ctx_switch
-    cmpq $-1, %rax
-    je __no_switch
+    callq sched
+    test %rax, %rax
+    jnz __no_switch
 
     // Load next task's RSP
-    movq amd64_thread_current(%rip), %rsi
+    movq sched_current(%rip), %rsi
     test %rsi, %rsi
     jz __no_switch
     movq (%rsi), %rsp
