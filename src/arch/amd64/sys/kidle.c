@@ -2,12 +2,20 @@
 #include "sys/sched.h"
 #include "sys/kidle.h"
 #include "sys/debug.h"
+#include "sys/time.h"
 
-static char kidle_kstack[4096];
+static char kidle_kstack[8192];
 static thread_t kidle_thread;
 
 static void kidle(void) {
+    // Debug: print time ~each second
+    uint32_t v_p = 0;
     while (1) {
+        uint32_t v = systick / SYSTICK_RES;
+        if (v != v_p) {
+            kdebug("%d\n", v);
+            v_p = v;
+        }
         asm volatile ("sti; hlt");
     }
 }

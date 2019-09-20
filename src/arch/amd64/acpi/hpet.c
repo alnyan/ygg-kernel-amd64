@@ -4,6 +4,7 @@
 #include "sys/assert.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
+#include "sys/time.h"
 #include "sys/mm.h"
 
 #define HPET_ENABLE_CNF     (1 << 0)
@@ -19,8 +20,6 @@
 #define HPET_Tn_INT_ROUTE_OFF   (9)
 #define HPET_Tn_FSB_EN_CNF      (1 << 14)
 #define HPET_Tn_FSB_INT_DEL_CAP (1 << 15)
-
-#define SYSTICK_FREQ            1000
 
 struct hpet_timer_block {
     uint64_t ctrl;
@@ -44,7 +43,6 @@ struct hpet {
 static uint64_t hpet_freq;
 static uint64_t hpet_last;
 static uint64_t hpet_systick_res;
-static uint64_t systime = 0, systime_prev = 0;
 static uintptr_t hpet_base = 0;
 static struct hpet *volatile hpet;
 
@@ -54,13 +52,8 @@ void acpi_hpet_set_base(uintptr_t v) {
 
 static void acpi_hpet_tick(void) {
     uint64_t hpet_count = hpet->count;
-    systime += (hpet_count - hpet_last) / hpet_systick_res;
+    systick += (hpet_count - hpet_last) / hpet_systick_res;
     hpet_last = hpet_count;
-
-    // if (systime - systime_prev > SYSTICK_FREQ) {
-    //     // Should be 1s tick here
-    //     systime_prev = systime;
-    // }
 
     hpet->intr |= 1;
 }
@@ -76,16 +69,13 @@ int acpi_hpet_init(void) {
     uint64_t hpet_clk = (hpet->caps >> 32) & 0xFFFFFFFF;
     assert(hpet_clk != 0, "HPET does not work correctly\n");
     hpet_freq = 1000000000000000ULL / hpet_clk;
-    // TODO: specify desired frequency as function param
-    uint32_t desired_freq = SYSTICK_FREQ;
-
     assert(hpet->timers[0].ctrl & HPET_Tn_PER_INT_CAP, "HPET does not support periodic interrupts\n");
 
     hpet->ctrl |= HPET_ENABLE_CNF | HPET_LEG_RT_CNF;
     hpet->timers[0].ctrl = HPET_Tn_INT_ENB_CNF | HPET_Tn_VAL_SET_CNF | HPET_Tn_TYPE_CNF;
-    hpet->timers[0].value = hpet->count + hpet_freq / desired_freq;
+    hpet->timers[0].value = hpet->count + hpet_freq / SYSTICK_RES;
     hpet_last = hpet->count;
-    hpet_systick_res = hpet_freq / SYSTICK_FREQ;
+    hpet_systick_res = hpet_freq / SYSTICK_RES;
 
     amd64_timer_tick = acpi_hpet_tick;
 
