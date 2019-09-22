@@ -3,6 +3,7 @@
 #include "sys/panic.h"
 #include "sys/assert.h"
 #include "sys/mem.h"
+#include "arch/amd64/mm/map.h"
 #include "arch/amd64/mm/pool.h"
 
 uintptr_t amd64_map_get(const mm_space_t pml4, uintptr_t vaddr, uint64_t *flags) {
@@ -182,6 +183,23 @@ int mm_map_pages_contiguous(mm_space_t pml4, uintptr_t virt_base, uintptr_t phys
     return 0;
 }
 
+int mm_space_clone(mm_space_t dst_pml4, const mm_space_t src_pml4, uint32_t flags) {
+    if ((flags & MM_CLONE_FLG_USER)) {
+        panic("NYI\n");
+    }
+
+    if ((flags & MM_CLONE_FLG_KERNEL)) {
+        // Kernel table references may be cloned verbatim, as they're guarannteed to be
+        // shared across all the spaces.
+        // This allows to save some resources on allocating the actual PDPT/PD/PTs
+        for (size_t i = AMD64_PML4I_USER_END; i < 512; ++i) {
+            dst_pml4[i] = src_pml4[i];
+        }
+    }
+
+    return 0;
+}
+
 void mm_describe(const mm_space_t pml4) {
     kdebug("Memory space V:%p:\n", pml4);
 
@@ -189,7 +207,9 @@ void mm_describe(const mm_space_t pml4) {
     mm_pagedir_t pd;
     mm_pagetab_t pt;
 
-    for (size_t pml4i = 0; pml4i < 512; ++pml4i) {
+    // Dump everything except kernel-space mappings
+    kdebug("- Userspace:\n");
+    for (size_t pml4i = 0; pml4i < 255; ++pml4i) {
         if (!(pml4[pml4i] & 1)) {
             continue;
         }
@@ -208,9 +228,7 @@ void mm_describe(const mm_space_t pml4) {
             }
 
             if (pdpt[pdpti] & (1 << 7)) {
-                if (pml4i < 510) {
-                    kdebug("`- PHYS %p\n", pdpt[pdpti] & ~0xFFF);
-                }
+                kdebug("`- PHYS %p\n", pdpt[pdpti] & ~0xFFF);
                 continue;
             }
 
@@ -235,7 +253,58 @@ void mm_describe(const mm_space_t pml4) {
                         continue;
                     }
 
-                    kdebug("   `- PHYS %p\n", pt[pti] & ~0xFFF);
+                    kdebug("   `- %p - %p (4KiB)\n", (pml4i << 39) | (pdpti << 30) | (pdi << 21) | (pti << 12), pt[pti] & ~0xFFF);
+                }
+            }
+        }
+    }
+
+    kdebug("- Kernelspace:\n");
+    for (size_t pml4i = 255; pml4i < 510; ++pml4i) {
+        if (!(pml4[pml4i] & 1)) {
+            continue;
+        }
+
+        if (pml4[pml4i] & (1 << 7)) {
+            kdebug("`- PHYS %p\n", pml4[pml4i] & ~0xFFF);
+            continue;
+        }
+
+        pdpt = (mm_pdpt_t) MM_VIRTUALIZE(pml4[pml4i] & ~0xFFF);
+        kdebug("`- PDPT %p\n", pdpt);
+
+        for (size_t pdpti = 0; pdpti < 512; ++pdpti) {
+            if (!(pdpt[pdpti] & 1)) {
+                continue;
+            }
+
+            if (pdpt[pdpti] & (1 << 7)) {
+                kdebug("`- PHYS %p\n", pdpt[pdpti] & ~0xFFF);
+                continue;
+            }
+
+            pd = (mm_pagedir_t) MM_VIRTUALIZE(pdpt[pdpti] & ~0xFFF);
+            kdebug(" `- PDIR %p\n", pd);
+
+            for (size_t pdi = 0; pdi < 512; ++pdi) {
+                if (!(pd[pdi] & 1)) {
+                    continue;
+                }
+
+                if (pd[pdi] & (1 << 7)) {
+                    kdebug("`- PHYS %p\n", pdpt[pdpti] & ~0xFFF);
+                    continue;
+                }
+
+                pt = (mm_pagetab_t) MM_VIRTUALIZE(pd[pdi] & ~0xFFF);
+                kdebug("  `- PTAB %p\n", pt);
+
+                for (size_t pti = 0; pti < 512; ++pti) {
+                    if (!(pt[pti] & 1)) {
+                        continue;
+                    }
+
+                    kdebug("   `- %p - %p (4KiB)\n", (pml4i << 39) | (pdpti << 30) | (pdi << 21) | (pti << 12), pt[pti] & ~0xFFF);
                 }
             }
         }

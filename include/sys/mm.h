@@ -11,7 +11,10 @@
 #endif
 
 /// An invalid address analogous to NULL
-#define MM_NADDR    ((uintptr_t) -1)
+#define MM_NADDR                ((uintptr_t) -1)
+
+#define MM_CLONE_FLG_KERNEL     (1 << 0)
+#define MM_CLONE_FLG_USER       (1 << 1)
 
 #define userspace
 

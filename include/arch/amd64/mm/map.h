@@ -6,6 +6,9 @@
 #include "sys/types.h"
 #include "sys/mm.h"
 
+/// Splits userspace mappings and kernelspace ones
+#define AMD64_PML4I_USER_END    255
+
 /**
  * @brief Translate a virtual address in `space' to its physical mapping (if one exists).
  *        May optionally return access flags in `flags' if non-NULL
