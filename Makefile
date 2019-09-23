@@ -7,11 +7,12 @@ ifeq ($(ARCH),amd64)
 CFLAGS+=-DARCH_AMD64
 endif
 
-export S=$(abspath src)
 export O?=$(abspath build)
 
-include conf/make/none.mk
-include conf/make/$(ARCH).mk
+# Include base system
+include sys/conf.mk
+# Arch details
+include sys/$(ARCH)/conf.mk
 
 
 all: mkdirs $(TARGETS)
@@ -21,6 +22,3 @@ clean:
 
 mkdirs:
 	@mkdir -p $(O) $(DIRS)
-
-doc:
-	@make -sC doc all
