@@ -1,5 +1,5 @@
-#include "arch/amd64/acpi/tables.h"
-#include "arch/amd64/acpi/hpet.h"
+#include "sys/amd64/acpi/tables.h"
+#include "sys/amd64/acpi/hpet.h"
 #include "sys/string.h"
 #include "sys/assert.h"
 #include "sys/panic.h"

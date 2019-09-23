@@ -7,7 +7,7 @@
 #include <stdint.h>
 
 #if defined(ARCH_AMD64)
-#include "arch/amd64/mm.h"
+#include "sys/amd64/mm.h"
 #endif
 
 /// An invalid address analogous to NULL

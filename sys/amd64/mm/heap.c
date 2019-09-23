@@ -1,4 +1,4 @@
-#include "arch/amd64/mm/heap.h"
+#include "sys/amd64/mm/heap.h"
 #include "sys/assert.h"
 #include "sys/panic.h"
 #include "sys/debug.h"

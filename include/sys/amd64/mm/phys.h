@@ -1,5 +1,5 @@
 #pragma once
-#include "arch/amd64/loader/multiboot.h"
+#include "sys/amd64/loader/multiboot.h"
 #include "sys/types.h"
 #include <stdint.h>
 

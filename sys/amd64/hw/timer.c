@@ -1,6 +1,6 @@
-#include "arch/amd64/hw/timer.h"
-#include "arch/amd64/hw/io.h"
-#include "arch/amd64/acpi/hpet.h"
+#include "sys/amd64/hw/timer.h"
+#include "sys/amd64/hw/io.h"
+#include "sys/amd64/acpi/hpet.h"
 #include "sys/debug.h"
 
 // IO ports

@@ -1,5 +1,5 @@
-#include "arch/amd64/mm/pool.h"
-#include "arch/amd64/mm.h"
+#include "sys/amd64/mm/pool.h"
+#include "sys/amd64/mm.h"
 #include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/panic.h"

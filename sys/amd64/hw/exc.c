@@ -1,5 +1,5 @@
-#include "arch/amd64/hw/ints.h"
-#include "arch/amd64/regs.h"
+#include "sys/amd64/hw/ints.h"
+#include "sys/amd64/regs.h"
 #include "sys/debug.h"
 
 int amd64_err_num;

@@ -1,5 +1,5 @@
-#include "arch/amd64/hw/pic8259.h"
-#include "arch/amd64/hw/io.h"
+#include "sys/amd64/hw/pic8259.h"
+#include "sys/amd64/hw/io.h"
 
 #define PIC_MCMD    0x20
 #define PIC_MDAT    0x21

@@ -49,5 +49,5 @@ void heap_free(heap_t *heap, void *ptr);
 size_t heap_info_free(heap_t *heap);
 
 #if defined(ARCH_AMD64)
-#include "arch/amd64/mm/heap.h"
+#include "sys/amd64/mm/heap.h"
 #endif

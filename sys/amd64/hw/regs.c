@@ -1,4 +1,4 @@
-#include "arch/amd64/regs.h"
+#include "sys/amd64/regs.h"
 #include "sys/debug.h"
 
 void amd64_ctx_dump(int level, const amd64_ctx_regs_t *regs) {

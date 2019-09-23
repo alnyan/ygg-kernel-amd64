@@ -1,5 +1,5 @@
-#include "arch/amd64/mm/pool.h"
-#include "arch/amd64/mm/phys.h"
+#include "sys/amd64/mm/pool.h"
+#include "sys/amd64/mm/phys.h"
 #include "sys/vmalloc.h"
 #include "sys/assert.h"
 #include "sys/debug.h"

@@ -3,8 +3,8 @@
 #include "sys/panic.h"
 #include "sys/assert.h"
 #include "sys/mem.h"
-#include "arch/amd64/mm/map.h"
-#include "arch/amd64/mm/pool.h"
+#include "sys/amd64/mm/map.h"
+#include "sys/amd64/mm/pool.h"
 
 uintptr_t amd64_map_get(const mm_space_t pml4, uintptr_t vaddr, uint64_t *flags) {
     size_t pml4i = (vaddr >> 39) & 0x1FF;

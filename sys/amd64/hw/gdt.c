@@ -1,4 +1,4 @@
-#include "arch/amd64/hw/gdt.h"
+#include "sys/amd64/hw/gdt.h"
 #include "sys/mem.h"
 
 extern void amd64_reload_segs(void);

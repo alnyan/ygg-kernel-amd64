@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #if defined(ARCH_AMD64)
-#include "arch/amd64/hw/rs232.h"
+#include "sys/amd64/hw/rs232.h"
 #endif
 
 static const char *s_debug_xs_set0 = "0123456789abcdef";

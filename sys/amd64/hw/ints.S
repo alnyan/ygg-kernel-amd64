@@ -1,4 +1,4 @@
-#include "arch/amd64/hw/int_macros.inc"
+#include "sys/amd64/hw/int_macros.inc"
 .section .text
 .extern amd64_err_num
 // For legacy system call interface (via int $0x80)

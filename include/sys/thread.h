@@ -33,7 +33,7 @@ typedef struct thread_info {
 } thread_info_t;
 
 #if defined(ARCH_AMD64)
-#include "arch/amd64/sys/thread.h"
+#include "sys/amd64/sys/thread.h"
 #endif
 
 ////////
