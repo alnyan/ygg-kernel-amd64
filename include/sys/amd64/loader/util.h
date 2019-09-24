@@ -6,6 +6,7 @@
 void *memset(void *blk, int v, size_t sz);
 void *memcpy(void *dst, const void *src, size_t sz);
 int strcmp(const char *a, const char *b);
+int strncmp(const char *a, const char *b, size_t lim);
 
 // Debug utils
 void panic(const char *s);

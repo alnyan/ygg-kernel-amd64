@@ -91,9 +91,37 @@ void loader_main(uint32_t magic, struct multiboot_info *mb_info) {
     loader_data.multiboot_info_ptr = (uintptr_t) mb_info;
 
     struct multiboot_mod_list *mod_list = (struct multiboot_mod_list *) (uintptr_t) mb_info->mods_addr;
+    const char *kernel_cmdline = NULL;
+    uintptr_t kernel_mod = 0;
+    uintptr_t initrd_mod = 0;
 
-    if (mb_info->mods_count != 1) {
-        panic("Expected 1 module");
+    if (mb_info->mods_count == 1) {
+        // Only kernel is provided, ignore cmdline
+        kernel_mod = mod_list[0].mod_start;
+    } else if (mb_info->mods_count == 2) {
+        // initrd and kernel provided
+        // Find out which is which
+
+        for (size_t i = 0; i < mb_info->mods_count; ++i) {
+            if (!strncmp((const char *) (uintptr_t) mod_list[i].cmdline, "kernel", 6)) {
+                if (kernel_mod) {
+                    panic("Two \"kernel\"s provided!");
+                }
+                kernel_mod = mod_list[i].mod_start;
+                kernel_cmdline = (const char *) (uintptr_t) mod_list[i].cmdline;
+            } else {
+                if (initrd_mod) {
+                    panic("Two \"initrd\"s provided!");
+                }
+                initrd_mod = mod_list[i].mod_start;
+            }
+        }
+    } else {
+        panic("More than two modules provided");
+    }
+
+    if (!kernel_mod) {
+        panic("No kernel to load");
     }
 
     // Calculate boundaries so we don't overwrite something accidentally
@@ -103,6 +131,11 @@ void loader_main(uint32_t magic, struct multiboot_info *mb_info) {
         }
     }
 
+    if (kernel_cmdline) {
+        puts("Kernel cmdline: ");
+        puts(kernel_cmdline);
+        putc('\n');
+    }
     puts("Modules end addr: ");
     putx(modules_end);
     putc('\n');

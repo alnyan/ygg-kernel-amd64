@@ -23,6 +23,16 @@ int strcmp(const char *a, const char *b) {
     return *a != *b;
 }
 
+int strncmp(const char *a, const char *b, size_t n) {
+    size_t c = 0;
+    for (; c < n && (*a || *b); ++c, ++a, ++b) {
+        if (*a != *b) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
 static inline void outb(uint16_t addr, uint8_t v) {
     asm volatile("outb %0, %1"::"a"(v), "Nd"(addr));
 }
@@ -74,6 +84,7 @@ void putx(uint64_t v) {
 
 void panic(const char *s) {
     memset((void *) 0xB8000, 0, 80 * 25 * 2);
+    puts(s);
 
     for (size_t i = 0; *s; ++i, ++s) {
         ((uint16_t *) 0xB8000)[i] = *s | 0x700;

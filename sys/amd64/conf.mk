@@ -56,7 +56,8 @@ kernel_CFLAGS=-ffreestanding \
 DIRS+=$(O)/sys/amd64/mm \
 	  $(O)/sys/amd64/hw \
 	  $(O)/sys/amd64/acpi \
-	  $(O)/sys/amd64/sys
+	  $(O)/sys/amd64/sys \
+	  $(O)/sys/amd64/image/boot/grub
 # add .inc includes for asm
 HEADERS+=$(shell find include -name "*.inc")
 
@@ -73,7 +74,7 @@ $(O)/sys/%.o: sys/%.c $(HEADERS)
 	@$(CC64) $(kernel_CFLAGS) -c -o $@ $<
 
 ### Kernel loader build
-TARGETS+=$(O)/sys/amd64/loader.elf $(O)/sys/amd64/kernel.elf
+TARGETS+=$(O)/sys/amd64/image.iso
 DIRS+=$(O)/sys/amd64/loader
 loader_OBJS+=$(O)/sys/amd64/loader/boot.o \
 			 $(O)/sys/amd64/loader/loader.o \
@@ -109,7 +110,14 @@ QEMU_OPTS?=-nographic \
 		   -serial mon:stdio \
 		   -m 512
 
+$(O)/sys/amd64/image.iso: $(O)/sys/amd64/kernel.elf $(O)/sys/amd64/loader.elf sys/amd64/grub.cfg
+	@printf " ISO\t%s\n" $(@:$(O)/%=%)
+	@cp sys/amd64/grub.cfg $(O)/sys/amd64/image/boot/grub/grub.cfg
+	@cp $(O)/sys/amd64/kernel.elf $(O)/sys/amd64/image/boot/kernel
+	@cp $(O)/sys/amd64/loader.elf $(O)/sys/amd64/image/boot/loader
+	@grub-mkrescue -o $(O)/sys/amd64/image.iso $(O)/sys/amd64/image 2>/dev/null
+
 qemu: all
 	@$(QEMU_BIN) \
-		-kernel $(O)/sys/amd64/loader.elf \
-		-initrd $(O)/sys/amd64/kernel.elf $(QEMU_OPTS)
+		-cdrom $(O)/sys/amd64/image.iso \
+		$(QEMU_OPTS)
