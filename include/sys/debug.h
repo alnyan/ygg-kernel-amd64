@@ -23,6 +23,8 @@
 #define kfatal(f, ...) debugf(DEBUG_FATAL, "[%s] " f, __func__, ##__VA_ARGS__)
 #define kprint(l, f, ...) debugf(l, "[%s] " f, __func__, ##__VA_ARGS__)
 
+void fmtsiz(char *buf, size_t sz);
+
 void debugc(int level, char c);
 void debugs(int level, const char *s);
 

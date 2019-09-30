@@ -65,7 +65,7 @@ void amd64_phys_free(uintptr_t page) {
 // XXX: very slow impl.
 uintptr_t amd64_phys_alloc_contiguous(size_t count) {
     uintptr_t addr = 0;
-    kdebug("Requested %luKiB\n", count << 2);
+    kdebug("Requested %S\n", count << 12);
 
     if (count >= (PHYS_MAX_INDEX << 6)) {
         // The requested range is too large
@@ -115,8 +115,7 @@ void amd64_phys_memory_map(const multiboot_memory_map_t *mmap, size_t length) {
         uintptr_t page_aligned_end = (entry->addr + entry->len) & ~0xFFF;
 
         if (entry->type == 1 && page_aligned_end > page_aligned_begin) {
-            // TODO: size pretty-printing
-            kdebug("+++ %uKiB @ %p\n", (page_aligned_end - page_aligned_begin) / 1024, page_aligned_begin);
+            kdebug("+++ %S @ %p\n", page_aligned_end - page_aligned_begin, page_aligned_begin);
 
             for (uintptr_t addr = page_aligned_begin - PHYS_ALLOWED_BEGIN;
                  addr < (page_aligned_end - PHYS_ALLOWED_BEGIN); addr += 0x1000) {
@@ -133,6 +132,5 @@ void amd64_phys_memory_map(const multiboot_memory_map_t *mmap, size_t length) {
         curr_item += entry->size + sizeof(uint32_t);
     }
 
-    // TODO: size pretty-printing
-    kdebug("%uKiB available\n", total_phys << 2);
+    kdebug("%S available\n", total_phys << 12);
 }

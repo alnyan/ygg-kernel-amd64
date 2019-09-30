@@ -10,6 +10,34 @@
 static const char *s_debug_xs_set0 = "0123456789abcdef";
 static const char *s_debug_xs_set1 = "0123456789ABCDEF";
 
+void fmtsiz(char *out, size_t sz) {
+    static const char sizs[] = "KMGTPE???";
+    size_t f = sz, r = 0;
+    int pwr = 0;
+    size_t l = 0;
+
+    while (f >= 1536) {
+        r = ((f % 1024) * 10) / 1024;
+        f /= 1024;
+        ++pwr;
+    }
+
+    debug_ds(f, out, 0, 0);
+    l = strlen(out);
+
+    if (pwr) {
+        out[l++] = '.';
+        out[l++] = '0' + r;
+
+        out[l++] = sizs[pwr - 1];
+
+        out[l++] = 'i';
+    }
+
+    out[l++] = 'B';
+    out[l++] = 0;
+}
+
 // TODO: make debugc a __weak function of a character
 void debugc(int level, char c) {
 #if defined(ARCH_AMD64)
@@ -232,6 +260,11 @@ void debugfv(int level, const char *fmt, va_list args) {
                         debugc(level, 'x');
                         debug_xs(value.v_ptr, buf, s_debug_xs_set0);
                         debugspl(level, buf, '0', sizeof(uintptr_t) * 2);
+                        break;
+                    case 'S':
+                        value.v_ptr = va_arg(args, uintptr_t);
+                        fmtsiz(buf, value.v_ptr);
+                        debugsp(level, buf, padc, padn);
                         break;
                     case 's':
                         value.v_string = va_arg(args, const char *);

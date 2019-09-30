@@ -118,6 +118,6 @@ void amd64_heap_dump(const heap_t *heap) {
          block; block = block->next) {
         assert((block->magic & HEAP_MAGIC) == HEAP_MAGIC, "Corrupted heap block magic\n");
 
-        kdebug("%p: %u %s%s\n", block, block->size, (block->magic & 1 ? "USED" : "FREE"), (block->next ? " -> " : ""));
+        kdebug("%p: %S %s%s\n", block, block->size, (block->magic & 1 ? "USED" : "FREE"), (block->next ? " -> " : ""));
     }
 }
