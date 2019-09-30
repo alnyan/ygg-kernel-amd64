@@ -55,7 +55,14 @@ int thread_info_init(thread_info_t *info);
  * @brief Setup thread data structures
  * @param t Thread
  */
-int thread_init(thread_t *t);
+int thread_init(thread_t *t,
+                mm_space_t space,
+                uintptr_t ip,
+                uintptr_t kstack_base,
+                size_t kstack_size,
+                uintptr_t ustack_base,
+                size_t ustack_size,
+                uint32_t flags);
 
 /**
  * @brief Set thread instruction pointer
