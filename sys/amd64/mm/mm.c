@@ -10,7 +10,9 @@
 
 mm_space_t mm_kernel;
 
-void amd64_mm_init(void) {
+extern int _kernel_end;
+
+void amd64_mm_init(struct amd64_loader_data *data) {
     kdebug("Memory manager init\n");
 
     // Physical memory at this point:
@@ -26,16 +28,17 @@ void amd64_mm_init(void) {
     memset((void *) (0x200000 - 2 * 0x1000), 0, 0x1000 * 2);
 
     // 0xFFFFFF0000000000 -> 0 (512GiB) mapping
-    pml4[AMD64_MM_MASK(KERNEL_VIRT_BASE) >> 39] = (uint64_t) pdpt | 1 | 2 | 4;
-    for (int i = 0; i < 512; ++i) {
-        pdpt[(AMD64_MM_MASK((KERNEL_VIRT_BASE) >> 30) + i) & 0x1FF] = 1 | 2 | 4 | (1 << 7);
+    pml4[AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 39] = ((uintptr_t) pdpt) | 1 | 2 | 4;
+    for (uint64_t i = 0; i < 4; ++i) {
+        kdebug("Mapping %p -> %p\n", KERNEL_VIRT_BASE | (i << 30), i << 30);
+        pdpt[((AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 30) + i) & 0x1FF] = (i << 30) | 1 | 2 | 4 | (1 << 7);
     }
 
     // Load the new table
     asm volatile ("mov %0, %%cr3"::"a"(pml4):"memory");
 
     // Create a pool located right after kernel image
-    amd64_mm_pool_init(MM_VIRTUALIZE(0x400000), MM_POOL_SIZE);
+    amd64_mm_pool_init((uintptr_t) &_kernel_end, MM_POOL_SIZE);
 
     mm_kernel = (mm_space_t) (MM_VIRTUALIZE(pml4));
 

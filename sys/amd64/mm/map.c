@@ -7,6 +7,7 @@
 #include "sys/amd64/mm/pool.h"
 
 uintptr_t amd64_map_get(const mm_space_t pml4, uintptr_t vaddr, uint64_t *flags) {
+    vaddr = AMD64_MM_STRIPSX(vaddr);
     size_t pml4i = (vaddr >> 39) & 0x1FF;
     size_t pdpti = (vaddr >> 30) & 0x1FF;
     size_t pdi = (vaddr >> 21) & 0x1FF;
@@ -64,6 +65,7 @@ uintptr_t amd64_map_get(const mm_space_t pml4, uintptr_t vaddr, uint64_t *flags)
 }
 
 uintptr_t amd64_map_umap(mm_space_t pml4, uintptr_t vaddr, uint32_t size) {
+    vaddr = AMD64_MM_STRIPSX(vaddr);
     // TODO: support page sizes other than 4KiB
     // (Though I can't think of any reason to use it)
     size_t pml4i = (vaddr >> 39) & 0x1FF;
@@ -116,6 +118,7 @@ uintptr_t amd64_map_umap(mm_space_t pml4, uintptr_t vaddr, uint32_t size) {
 }
 
 int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint32_t flags) {
+    virt_addr = AMD64_MM_STRIPSX(virt_addr);
     // TODO: support page sizes other than 4KiB
     // (Though I can't think of any reason to use it)
     size_t pml4i = (virt_addr >> 39) & 0x1FF;
@@ -200,6 +203,69 @@ int mm_space_clone(mm_space_t dst_pml4, const mm_space_t src_pml4, uint32_t flag
     return 0;
 }
 
+static void amd64_mm_describe_range(const mm_space_t pml4, uintptr_t start_addr, uintptr_t end_addr) {
+    uintptr_t addr = AMD64_MM_STRIPSX(start_addr);
+
+    size_t range_length = 0;
+    uintptr_t virt_range_begin = MM_NADDR;
+    uint32_t range_flags = 0;
+
+    mm_pdpt_t pdpt;
+
+    while (addr < AMD64_MM_STRIPSX(end_addr)) {
+        size_t pml4i = (addr >> 39) & 0x1FF;
+        size_t pdpti = (addr >> 30) & 0x1FF;
+        size_t pdi = (addr >> 21) & 0x1FF;
+        size_t pti = (addr >> 12) & 0x1FF;
+        size_t page_size = 1ULL << 39;
+
+        if (pml4[pml4i] & 1) {
+            if (pml4[pml4i] & (1 << 7)) {
+                panic("Found a huge page in PML4 (shouldn't be possible): %p\n", AMD64_MM_ADDRSX(addr));
+            }
+
+            page_size = 1ULL << 30;
+            pdpt = (mm_pdpt_t) MM_VIRTUALIZE(pml4[pml4i] & ~0xFFF);
+
+            if (pdpt[pdpti] & 1) {
+                if (pdpt[pdpti] & (1 << 7)) {
+                    if (virt_range_begin == MM_NADDR) {
+                        virt_range_begin = addr;
+                        range_length = 0;
+                        range_flags = pdpt[pdpti] & 5;
+                    }
+
+                    goto found;
+                }
+
+                panic("TODO: implement smaller page description\n");
+            }
+        }
+
+        if (virt_range_begin != MM_NADDR) {
+            kdebug("Range %p .. %p (%c%c) %S\n",
+                virt_range_begin,
+                virt_range_begin + range_length,
+                (range_flags & (1 << 2) ? 'u' : '-'),
+                (range_flags & (1 << 1) ? 'w' : '-'),
+                range_length);
+        }
+
+found:
+        addr += page_size;
+        range_length += page_size;
+    }
+
+    if (virt_range_begin != MM_NADDR) {
+        kdebug("Range %p .. %p (%c%c) %S\n",
+            virt_range_begin,
+            virt_range_begin + range_length,
+            (range_flags & (1 << 2) ? 'u' : '-'),
+            (range_flags & (1 << 1) ? 'w' : '-'),
+            range_length);
+    }
+}
+
 void mm_describe(const mm_space_t pml4) {
     kdebug("Memory space V:%p:\n", pml4);
 
@@ -209,104 +275,7 @@ void mm_describe(const mm_space_t pml4) {
 
     // Dump everything except kernel-space mappings
     kdebug("- Userspace:\n");
-    for (size_t pml4i = 0; pml4i < 255; ++pml4i) {
-        if (!(pml4[pml4i] & 1)) {
-            continue;
-        }
-
-        if (pml4[pml4i] & (1 << 7)) {
-            kdebug("`- PHYS %p\n", pml4[pml4i] & ~0xFFF);
-            continue;
-        }
-
-        pdpt = (mm_pdpt_t) MM_VIRTUALIZE(pml4[pml4i] & ~0xFFF);
-        kdebug("`- PDPT %p\n", pdpt);
-
-        for (size_t pdpti = 0; pdpti < 512; ++pdpti) {
-            if (!(pdpt[pdpti] & 1)) {
-                continue;
-            }
-
-            if (pdpt[pdpti] & (1 << 7)) {
-                kdebug("`- PHYS %p\n", pdpt[pdpti] & ~0xFFF);
-                continue;
-            }
-
-            pd = (mm_pagedir_t) MM_VIRTUALIZE(pdpt[pdpti] & ~0xFFF);
-            kdebug(" `- PDIR %p\n", pd);
-
-            for (size_t pdi = 0; pdi < 512; ++pdi) {
-                if (!(pd[pdi] & 1)) {
-                    continue;
-                }
-
-                if (pd[pdi] & (1 << 7)) {
-                    kdebug("`- PHYS %p\n", pdpt[pdpti] & ~0xFFF);
-                    continue;
-                }
-
-                pt = (mm_pagetab_t) MM_VIRTUALIZE(pd[pdi] & ~0xFFF);
-                kdebug("  `- PTAB %p\n", pt);
-
-                for (size_t pti = 0; pti < 512; ++pti) {
-                    if (!(pt[pti] & 1)) {
-                        continue;
-                    }
-
-                    kdebug("   `- %p - %p (4KiB)\n", (pml4i << 39) | (pdpti << 30) | (pdi << 21) | (pti << 12), pt[pti] & ~0xFFF);
-                }
-            }
-        }
-    }
-
+    amd64_mm_describe_range(pml4, 0, 0xFFFFFF0000000000);
     kdebug("- Kernelspace:\n");
-    for (size_t pml4i = 255; pml4i < 510; ++pml4i) {
-        if (!(pml4[pml4i] & 1)) {
-            continue;
-        }
-
-        if (pml4[pml4i] & (1 << 7)) {
-            kdebug("`- PHYS %p\n", pml4[pml4i] & ~0xFFF);
-            continue;
-        }
-
-        pdpt = (mm_pdpt_t) MM_VIRTUALIZE(pml4[pml4i] & ~0xFFF);
-        kdebug("`- PDPT %p\n", pdpt);
-
-        for (size_t pdpti = 0; pdpti < 512; ++pdpti) {
-            if (!(pdpt[pdpti] & 1)) {
-                continue;
-            }
-
-            if (pdpt[pdpti] & (1 << 7)) {
-                kdebug("`- PHYS %p\n", pdpt[pdpti] & ~0xFFF);
-                continue;
-            }
-
-            pd = (mm_pagedir_t) MM_VIRTUALIZE(pdpt[pdpti] & ~0xFFF);
-            kdebug(" `- PDIR %p\n", pd);
-
-            for (size_t pdi = 0; pdi < 512; ++pdi) {
-                if (!(pd[pdi] & 1)) {
-                    continue;
-                }
-
-                if (pd[pdi] & (1 << 7)) {
-                    kdebug("`- PHYS %p\n", pdpt[pdpti] & ~0xFFF);
-                    continue;
-                }
-
-                pt = (mm_pagetab_t) MM_VIRTUALIZE(pd[pdi] & ~0xFFF);
-                kdebug("  `- PTAB %p\n", pt);
-
-                for (size_t pti = 0; pti < 512; ++pti) {
-                    if (!(pt[pti] & 1)) {
-                        continue;
-                    }
-
-                    kdebug("   `- %p - %p (4KiB)\n", (pml4i << 39) | (pdpti << 30) | (pdi << 21) | (pti << 12), pt[pti] & ~0xFFF);
-                }
-            }
-        }
-    }
+    amd64_mm_describe_range(pml4, 0xFFFFFF0000000000, 0xFFFFFF00FFFFFFFF);
 }

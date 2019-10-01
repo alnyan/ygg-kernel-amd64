@@ -55,7 +55,7 @@ void kernel_main(uintptr_t loader_info_phys_ptr) {
     // Memory management
     kernel_startup_section("Memory management");
     amd64_phys_memory_map((multiboot_memory_map_t *) MM_VIRTUALIZE(multiboot_info->mmap_addr), multiboot_info->mmap_length);
-    amd64_mm_init();
+    amd64_mm_init(loader_data);
 
     kernel_startup_section("Basic hardware");
     amd64_gdt_init();

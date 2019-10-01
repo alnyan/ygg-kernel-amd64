@@ -62,9 +62,8 @@ int acpi_hpet_init(void) {
     if (!hpet_base) {
         return -1;
     }
-    uint64_t addr = 0x7FFFFFFFF000ULL;
-    hpet = (struct hpet *) addr;
-    mm_map_pages_contiguous(mm_kernel, addr, hpet_base, 1, 0);
+    hpet = (struct hpet *) MM_VIRTUALIZE(hpet_base);
+    kdebug("HPET = %p\n", hpet);
 
     uint64_t hpet_clk = (hpet->caps >> 32) & 0xFFFFFFFF;
     assert(hpet_clk != 0, "HPET does not work correctly\n");

@@ -6,7 +6,7 @@
 ENTRY(_start)
 
 _kernel_base = 0xFFFFFF0000000000;
-_kernel_base_phys = 0x200000;
+_kernel_base_phys = 0x4000000;
 
 SECTIONS {
 	. = _kernel_base + _kernel_base_phys;
@@ -29,5 +29,9 @@ SECTIONS {
 		*(COMMON)
 		*(.bss)
 	}
+
+    . = ALIGN(4K);
+    _kernel_end = .;
+    _kernel_end_phys = . - _kernel_base;
 }
 
