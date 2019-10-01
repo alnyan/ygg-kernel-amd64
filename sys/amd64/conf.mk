@@ -58,6 +58,7 @@ DIRS+=$(O)/sys/amd64/mm \
 	  $(O)/sys/amd64/acpi \
 	  $(O)/sys/amd64/sys \
 	  $(O)/sys/amd64/image/boot/grub
+
 # add .inc includes for asm
 HEADERS+=$(shell find include -name "*.inc")
 
@@ -104,17 +105,31 @@ $(O)/sys/amd64/loader/%.o: sys/amd64/loader/%.c $(HEADERS)
 	@printf " CC\t%s\n" $(@:$(O)/%=%)
 	@$(CC86) $(loader_CFLAGS) -c -o $@ $<
 
+### Initrd building
+amd64_mkstage:
+	@rm -rf $(O)/sys/amd64/stage
+	@mkdir -p $(O)/sys/amd64/stage
+	@cp -r etc $(O)/sys/amd64/stage/etc
+
+$(O)/sys/amd64/initrd.img: amd64_mkstage
+	@cd $(O)/sys/amd64/stage && tar czf $@ *
+	@du -sh $@
+
 ### Debugging and emulation
 QEMU_BIN?=qemu-system-x86_64
 QEMU_OPTS?=-nographic \
 		   -serial mon:stdio \
 		   -m 512
 
-$(O)/sys/amd64/image.iso: $(O)/sys/amd64/kernel.elf $(O)/sys/amd64/loader.elf sys/amd64/grub.cfg
+$(O)/sys/amd64/image.iso: $(O)/sys/amd64/kernel.elf \
+						  $(O)/sys/amd64/loader.elf \
+						  $(O)/sys/amd64/initrd.img \
+						  sys/amd64/grub.cfg
 	@printf " ISO\t%s\n" $(@:$(O)/%=%)
 	@cp sys/amd64/grub.cfg $(O)/sys/amd64/image/boot/grub/grub.cfg
 	@cp $(O)/sys/amd64/kernel.elf $(O)/sys/amd64/image/boot/kernel
 	@cp $(O)/sys/amd64/loader.elf $(O)/sys/amd64/image/boot/loader
+	@cp $(O)/sys/amd64/initrd.img $(O)/sys/amd64/image/boot/initrd.img
 	@grub-mkrescue -o $(O)/sys/amd64/image.iso $(O)/sys/amd64/image 2>/dev/null
 
 qemu: all

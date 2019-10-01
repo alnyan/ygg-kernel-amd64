@@ -1,12 +1,15 @@
 /*
- * amd64 loader linker script
- * (this is not kernel)
+ * amd64 kernel linker script
  */
 
 ENTRY(_start)
 
 _kernel_base = 0xFFFFFF0000000000;
-_kernel_base_phys = 0x4000000;
+/*
+ * This will allow us to have initrds up to 32MiB
+ * loaded below
+ */
+_kernel_base_phys = 0x2200000;
 
 SECTIONS {
 	. = _kernel_base + _kernel_base_phys;
