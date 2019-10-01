@@ -1,10 +1,16 @@
 .section .text
 .global _start
 _start:
-    movq $100, %rcx
+0:
+    movq $1, %rdi
+    movq $2, %rsi
+    movq $3, %rdx
+    movq $4, %r10
+    movq $5, %r8
+    movq $6, %r9
+    syscall
+    movq $10000000, %rcx
 1:
     dec %rcx
     jnz 1b
-    // XXX: Syscall fucks up kstack?
-    //syscall
-    jmp _start
+    jmp 0b

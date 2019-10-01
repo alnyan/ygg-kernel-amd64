@@ -28,7 +28,7 @@ amd64_setup_syscall:
     movl $AMD64_MSR_LSTAR, %ecx
     wrmsr
 
-    movl $0x0, %eax
+    movl $0x0200, %eax
     movl $0x0, %edx
     movl $AMD64_MSR_SFMASK, %ecx
     wrmsr
@@ -42,7 +42,6 @@ amd64_setup_syscall:
     retq
 
 amd64_syscall_entry:
-    cli
     // R11 = RFLAGS
     // RCX = userRIP
     // RSP = userRSP
@@ -54,14 +53,17 @@ amd64_syscall_entry:
     // 1. Load kernRSP from amd64_thread_current->kstack_ptr,
     //    userRSP is stored in %rax before being pushed
     movq %rsp, %rax
-    movq sched_current(%rip), %rsi
-    movq (%rsi), %rsp
+    movq sched_current(%rip), %rsp
+    movq (%rsp), %rsp
 
     // syscall handlers may mess up this in SysV amd64 ABI, store
     // these on stack
     pushq %rax
     pushq %r11
     pushq %rcx
+
+    // Move arguments
+    movq %r10, %rcx
 
     call amd64_syscall
 

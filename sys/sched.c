@@ -44,6 +44,7 @@ int sched(void) {
     if (to == from) {
         return -1;
     }
+    sched_current = to;
 
     return 0;
 }

@@ -31,9 +31,11 @@ int thread_init(thread_t *t,
             panic("Failed to allocate thread kstack\n");
         }
     }
+
     t->kstack_base = kstack_base;
     t->kstack_size = kstack_size;
     t->kstack_ptr = t->kstack_base + t->kstack_size - sizeof(amd64_thread_context_t);
+    kdebug("KSTACK %p\n", t->kstack_ptr);
 
     // If we're not kernel, additionally set the ustack
     if (!(flags & THREAD_KERNEL)) {
