@@ -9,14 +9,30 @@ amd64_irq_nyi_msg:
 .global amd64_irq_\n
 amd64_irq_\n:
     cli
+    __int_push_ctx
+    // Store current RSP
+    movq sched_current(%rip), %rdi
+    test %rdi, %rdi
+    jz 1f
+    movq %rsp, (%rdi)
 
-    // Don't care about the stack now, won't return
-    leaq amd64_irq_nyi_msg(%rip), %rdi
-    movq $\n, %rsi
-    xor %rax, %rax
-    call panicf
+    movq $\n, %rdi
+    call amd64_irq_handler
 
-    hlt
+    // Load next task's RSP
+    movq sched_current(%rip), %rsi
+    test %rsi, %rsi
+    jz 1f
+    movq (%rsi), %rsp
+
+    movq %rsp, %rax
+    addq $((8 + 8 + 5 + 5) * 8), %rax
+    leaq amd64_tss(%rip), %rdi
+    movq %rax, 4(%rdi)
+
+1:
+    __int_pop_ctx
+    iretq
 .endm
 
 __irq_nyi_stub 1

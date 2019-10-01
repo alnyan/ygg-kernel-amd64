@@ -26,7 +26,8 @@ OBJS+=$(O)/sys/amd64/kernel.o \
 	  $(O)/sys/amd64/sys/thread.o \
 	  $(O)/sys/amd64/sys/syscall.o \
 	  $(O)/sys/amd64/sys/syscall_s.o \
-	  $(O)/sys/amd64/sys/kidle.o
+	  $(O)/sys/amd64/sys/kidle.o \
+	  $(O)/sys/amd64/hw/irq.o
 kernel_OBJS=$(O)/sys/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=sys/amd64/link.ld
@@ -118,8 +119,7 @@ $(O)/sys/amd64/initrd.img: amd64_mkstage
 
 ### Debugging and emulation
 QEMU_BIN?=qemu-system-x86_64
-QEMU_OPTS?=-nographic \
-		   -serial mon:stdio \
+QEMU_OPTS?=-serial mon:stdio \
 		   -m 512
 
 $(O)/sys/amd64/image.iso: $(O)/sys/amd64/kernel.elf \
