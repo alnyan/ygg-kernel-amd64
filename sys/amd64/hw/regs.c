@@ -1,7 +1,12 @@
 #include "sys/amd64/regs.h"
+#include "sys/mm.h"
 #include "sys/debug.h"
 
 void amd64_ctx_dump(int level, const amd64_ctx_regs_t *regs) {
+    if (regs->cr3 == MM_PHYS(mm_kernel)) {
+        kprint(level, "(CR3 points to kernel PML4)\n");
+    }
+
     kprint(level, "rax = %p (%ld)\n", regs->gp.rax, regs->gp.rax);
     kprint(level, "rcx = %p (%ld)\n", regs->gp.rcx, regs->gp.rcx);
     kprint(level, "rdx = %p (%ld)\n", regs->gp.rdx, regs->gp.rdx);

@@ -11,6 +11,8 @@ __isr_generic:
     pushq %rax
     mov 8(%rsp), %rax
     mov %rax, amd64_err_num(%rip)
+    mov 16(%rsp), %rax
+    mov %rax, amd64_err_code(%rip)
     popq %rax
     add $16, %rsp
 

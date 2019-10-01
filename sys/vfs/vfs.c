@@ -268,6 +268,7 @@ static int vfs_find_tree(struct vfs_node *root_node, const char *path, struct vf
         //      the vnode for the path element given
         vnode_t *child_vnode = NULL;
         struct vfs_node *child_node = NULL;
+        _assert(root_vnode->op && root_vnode->op->find);
 
         //printf("Calling op->find on %s\n", root_node->name);
         if ((res = root_vnode->op->find(root_vnode, path_element, &child_vnode)) != 0) {

@@ -28,6 +28,9 @@ struct thread {
     uintptr_t kstack_base;
     size_t kstack_size;
 
+    uintptr_t ustack_base;
+    size_t ustack_size;
+
     thread_info_t info;
 
     thread_t *next;

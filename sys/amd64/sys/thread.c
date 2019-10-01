@@ -3,6 +3,7 @@
 #include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
+#include "sys/amd64/mm/phys.h"
 
 #define AMD64_DEFAULT_KSTACK_SIZE   0x4000
 
@@ -36,9 +37,17 @@ int thread_init(thread_t *t,
 
     // If we're not kernel, additionally set the ustack
     if (!(flags & THREAD_KERNEL)) {
-        assert(ustack_base, "Tried to create an userspace task, but passed no ustack\n");
+        if (ustack_base == 0) {
+            // Allocate an ustack
+            ustack_base = amd64_phys_alloc_page();
+            if (ustack_base == MM_NADDR) {
+                panic("Failed to allocate thread ustack\n");
+            }
+            ustack_size = 0x1000;
+        }
 
-        panic("Not implemented\n");
+        t->ustack_size = ustack_size;
+        t->ustack_base = ustack_base;
     }
 
     // Set CS:RIP
@@ -49,7 +58,11 @@ int thread_init(thread_t *t,
         ctx0(t)->rflags = 0x248;
         ctx0(t)->rip = ip;
     } else {
-        panic("Not implemented\n");
+        ctx0(t)->cs = 0x23;
+        ctx0(t)->ss = 0x1B;
+        ctx0(t)->rsp = t->ustack_size + t->ustack_base;
+        ctx0(t)->rflags = 0x248;
+        ctx0(t)->rip = ip;
     }
 
     assert(((uintptr_t) space) > 0xFFFFFF0000000000,
@@ -72,7 +85,11 @@ void thread_set_ip(thread_t *t, uintptr_t ip) {
         ctx0(t)->rflags = 0x248;
         ctx0(t)->rip = ip;
     } else {
-        panic("Userspace threads are not supported yet\n");
+        ctx0(t)->cs = 0x23;
+        ctx0(t)->ss = 0x1B;
+        ctx0(t)->rsp = t->ustack_size + t->ustack_base;
+        ctx0(t)->rflags = 0x248;
+        ctx0(t)->rip = ip;
     }
 }
 

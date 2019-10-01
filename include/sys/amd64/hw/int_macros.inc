@@ -41,11 +41,11 @@
     popq %rax
     mov %rax, %ds
     popq %rax
-    mov %rax, %es
+    //mov %rax, %es
     popq %rax
-    mov %rax, %fs
+    //mov %rax, %fs
     popq %rax
-    mov %rax, %gs
+    //mov %rax, %gs
 
     // cr3
     popq %rax

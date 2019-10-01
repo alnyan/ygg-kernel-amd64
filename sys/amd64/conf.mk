@@ -37,6 +37,7 @@ kernel_LDFLAGS=-nostdlib \
 			   -static \
 			   -Wl,--build-id=none \
 			   -z max-page-size=0x1000 \
+			   -ggdb \
 			   -T$(kernel_LINKER)
 kernel_CFLAGS=-ffreestanding \
 			  -I. \

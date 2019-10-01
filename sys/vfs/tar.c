@@ -225,8 +225,29 @@ static struct fs_class _tarfs = {
 
 // Vnode operations
 
-static int tarfs_vnode_stat(vnode_t *vnode, struct stat *st) {
-    return -ENOENT;
+static int tarfs_vnode_stat(vnode_t *vn, struct stat *st) {
+    _assert(vn && st);
+    _assert(vn->fs_data);
+    struct tarfs_vnode_attr *attr = (struct tarfs_vnode_attr *) vn->fs_data;
+
+    st->st_atime = 0;
+    st->st_mtime = 0;
+    st->st_ctime = 0;
+    st->st_dev = 0;
+    st->st_rdev = 0;
+
+    st->st_gid = attr->gid;
+    st->st_uid = attr->uid;
+    st->st_mode = (attr->type_perm & 0x1FF) | ((attr->type_perm & (1 << 16)) ? S_IFDIR : S_IFREG);
+
+    st->st_ino = (attr->block / 512) - 1;
+    st->st_nlink = 1;
+
+    st->st_blksize = 512;
+    st->st_blocks = (attr->size + 511) & ~511;
+    st->st_size = attr->size;
+
+    return 0;
 }
 
 static int tarfs_vnode_open(vnode_t *vnode, int opt) {

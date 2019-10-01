@@ -35,3 +35,4 @@
 #define EDOM            33
 #define ERANGE          34
 
+const char *kstrerror(int e);

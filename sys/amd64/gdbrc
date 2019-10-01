@@ -1,2 +1,2 @@
 target remote localhost:1234
-symbol-file build/kernel.elf
+symbol-file build/sys/amd64/kernel.elf

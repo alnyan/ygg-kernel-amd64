@@ -136,7 +136,7 @@ int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint3
         assert(pdpt, "PDPT alloc failed\n");
         kdebug("Allocated PDPT = %p\n", pdpt);
 
-        pml4[pml4i] = MM_PHYS(pdpt) | 1;
+        pml4[pml4i] = MM_PHYS(pdpt) | (1 << 2) | (1 << 1) | 1;
     } else {
         pdpt = (mm_pdpt_t) MM_VIRTUALIZE(pml4[pml4i] & ~0xFFF);
     }
@@ -147,7 +147,7 @@ int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint3
         assert(pd, "PD alloc failed\n");
         kdebug("Allocated PD = %p\n", pd);
 
-        pdpt[pdpti] = MM_PHYS(pd) | 1;
+        pdpt[pdpti] = MM_PHYS(pd) | (1 << 2) | (1 << 1) | 1;
     } else {
         pd = (mm_pagedir_t) MM_VIRTUALIZE(pdpt[pdpti] & ~0xFFF);
     }
@@ -158,7 +158,7 @@ int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint3
         assert(pt, "PT alloc failed\n");
         kdebug("Allocated PT = %p\n", pt);
 
-        pd[pdi] = MM_PHYS(pt) | 1;
+        pd[pdi] = MM_PHYS(pt) | (1 << 2) | (1 << 1) | 1;
     } else {
         pt = (mm_pagetab_t) MM_VIRTUALIZE(pd[pdi] & ~0xFFF);
     }
