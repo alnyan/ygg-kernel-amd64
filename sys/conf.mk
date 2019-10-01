@@ -16,7 +16,8 @@ endif
 
 DIRS+=$(O)/sys \
 	  $(O)/sys/vfs \
-	  $(O)/sys/vfs/ext2
+	  $(O)/sys/vfs/ext2 \
+	  $(O)/sys/blk
 OBJS+=$(O)/sys/mem.o \
 	  $(O)/sys/string.o \
 	  $(O)/sys/debug.o \
@@ -32,4 +33,6 @@ OBJS+=$(O)/sys/mem.o \
 	  $(O)/sys/vfs/ext2/ext2blk.o \
 	  $(O)/sys/vfs/ext2/ext2alloc.o \
 	  $(O)/sys/vfs/ext2/ext2vnop.o \
-	  $(O)/sys/vfs/ext2/ext2dir.o
+	  $(O)/sys/vfs/ext2/ext2dir.o \
+	  $(O)/sys/blk/ram.o \
+	  $(O)/sys/vfs/tar.o

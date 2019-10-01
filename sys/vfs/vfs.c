@@ -400,17 +400,17 @@ static int vfs_mount_internal(struct vfs_node *at, void *blkdev, const char *fs_
         return -EINVAL;
     }
 
-    _assert(fs_class->get_root);
-    if ((fs_class->mount != NULL) && (fs_class->mount(fs, opt) != 0)) {
-        return -1;
-    }
-
     if (!at) {
         at = &vfs_root_node;
     }
 
-    vnode_t *fs_root;
     vnode_t *old_vnode = at->vnode;
+    vnode_t *fs_root;
+    int res;
+
+    if ((fs_class->mount != NULL) && (fs_class->mount(fs, opt) != 0)) {
+        return -1;
+    }
 
     if (at->child) {
         // Target directory already has child nodes loaded in memory, return "busy"
@@ -423,10 +423,39 @@ static int vfs_mount_internal(struct vfs_node *at, void *blkdev, const char *fs_
         panic("Trying to mount a filesystem at a destination which already is a mount\n");
     }
 
-    // Try to get root
-    if ((fs_root = fs_class->get_root(fs)) == NULL) {
-        // TODO: report error and destroy fs
-        panic("Failed to get root node of the filesystem\n");
+
+    if (fs->cls->opt & FS_NODE_MAPPER) {
+        _assert(fs_class->mapper);
+        // Request the driver to map VFS tree for us
+        struct vfs_node *fs_root_node;
+
+        if ((res = fs_class->mapper(fs, &fs_root_node)) < 0) {
+            panic("Node mapper function failed\n");
+        }
+
+        _assert(fs_root_node);
+        _assert(fs_root_node->vnode);
+        fs_root = fs_root_node->vnode;
+
+        // Reparent vnode to the actual mountpoint
+        fs_root->tree_node = at;
+
+        // Reparent fs_root_node children to the actual mountpoint
+        for (struct vfs_node *child = fs_root_node->child; child; child = child->cdr) {
+            child->parent = at;
+            child->cdr = at->child;
+            at->child = child;
+        }
+
+        // Root node can be freed
+        kfree(fs_root_node);
+    } else {
+        _assert(fs_class->get_root);
+        // Try to get root
+        if ((fs_root = fs_class->get_root(fs)) == NULL) {
+            // TODO: report error and destroy fs
+            panic("Failed to get root node of the filesystem\n");
+        }
     }
 
     // If it's a root mount, set root vnode

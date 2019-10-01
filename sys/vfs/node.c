@@ -1,5 +1,6 @@
 #include "sys/fs/node.h"
 #include "sys/fs/vfs.h"
+#include "sys/fs/fs.h"
 
 #include "sys/mem.h"
 #include "sys/debug.h"
@@ -65,6 +66,15 @@ void vnode_ref(vnode_t *vn) {
 //    char buf[1024];
 //    vfs_vnode_path(buf, vn);
 //    printf("++refcount for %s\n", buf);
+    _assert(vn);
+    _assert(vn->fs);
+    _assert(vn->fs->cls);
+
+    // FS_NODE_MAPPER means persistent vnodes
+    if (vn->fs->cls->opt & FS_NODE_MAPPER) {
+        return;
+    }
+
     struct vfs_node *node = (struct vfs_node *) vn->tree_node;
     if (node && !node->parent) {
         // Don't change refcounter for root nodes
@@ -75,6 +85,15 @@ void vnode_ref(vnode_t *vn) {
 }
 
 void vnode_unref(vnode_t *vn) {
+    _assert(vn);
+    _assert(vn->fs);
+    _assert(vn->fs->cls);
+
+    // FS_NODE_MAPPER means persistent vnodes
+    if (vn->fs->cls->opt & FS_NODE_MAPPER) {
+        return;
+    }
+
     // TODO: don't free root nodes
     char buf[1024];
     vfs_vnode_path(buf, vn);

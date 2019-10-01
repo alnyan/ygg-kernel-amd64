@@ -9,6 +9,10 @@
 #include "sys/amd64/loader/multiboot.h"
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/acpi/tables.h"
+#include "sys/fs/tar.h"
+#include "sys/fs/vfs.h"
+#include "sys/fs/fcntl.h"
+#include "sys/blk/ram.h"
 #include "sys/kidle.h"
 
 // TODO: move to some util header
@@ -71,6 +75,40 @@ void kernel_main(uintptr_t loader_info_phys_ptr) {
 
     extern void amd64_setup_syscall(void);
     amd64_setup_syscall();
+
+    // Setup /dev/ram0
+    // As we don't yet support booting with rootfs on disk
+    if (!loader_data->initrd_len) {
+        panic("Failed to init /dev/ram0: no initrd\n");
+    }
+
+    kdebug("initrd: %p, %S\n", loader_data->initrd_ptr, loader_data->initrd_len);
+    ramblk_init(MM_VIRTUALIZE(loader_data->initrd_ptr), loader_data->initrd_len);
+
+    // Setup tarfs class
+    tarfs_init();
+    struct vfs_ioctx ioctx = {
+        NULL, 0, 0
+    };
+
+    // Mount tarfs@ram0 as root
+    if (vfs_mount(&ioctx, "/", ramblk0, "ustar", NULL) < 0) {
+        panic("Failed to mount root\n");
+    }
+
+    // Try finding /etc/file.txt
+    struct ofile fd;
+    int res;
+    if ((res = vfs_open(&ioctx, &fd, "/etc/file.txt", 0, O_RDONLY)) < 0) {
+        panic("Could not open the file\n");
+    }
+    char buf[128];
+
+    while ((res = vfs_read(&ioctx, &fd, buf, 128)) > 0) {
+        kdebug("Read bytes: %s\n", buf);
+    }
+
+    vfs_close(&ioctx, &fd);
 
     kidle_init();
 

@@ -95,6 +95,9 @@ void loader_main(uint32_t magic, struct multiboot_info *mb_info) {
     uintptr_t kernel_mod = 0;
     uintptr_t initrd_mod = 0;
 
+    loader_data.initrd_ptr = 0;
+    loader_data.initrd_len = 0;
+
     if (mb_info->mods_count == 1) {
         // Only kernel is provided, ignore cmdline
         kernel_mod = mod_list[0].mod_start;
@@ -114,6 +117,9 @@ void loader_main(uint32_t magic, struct multiboot_info *mb_info) {
                     panic("Two \"initrd\"s provided!");
                 }
                 initrd_mod = mod_list[i].mod_start;
+
+                loader_data.initrd_len = mod_list[i].mod_end - mod_list[i].mod_start;
+                loader_data.initrd_ptr = mod_list[i].mod_start;
             }
         }
     } else {
