@@ -244,7 +244,6 @@ static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
     struct tarfs_vnode_attr *attr = (struct tarfs_vnode_attr *) vn->fs_data;
 
     if (fd->pos >= attr->size) {
-        kwarn("tar: read beyond file end\n");
         return -1;
     }
 
