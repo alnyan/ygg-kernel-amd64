@@ -163,12 +163,14 @@ int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint3
         pt = (mm_pagetab_t) MM_VIRTUALIZE(pd[pdi] & ~0xFFF);
     }
 
-    assert(!(pt[pti] & 1), "Entry already present for %p\n", virt_addr);
+    if (!(flags & (1 << 31))) {
+        assert(!(pt[pti] & 1), "Entry already present for %p\n", virt_addr);
+    }
 
 #if defined(KERNEL_TEST_MODE)
     kdebug("map %p -> %p\n", virt_addr, phys);
 #endif
-    pt[pti] = (phys & ~0xFFF) | flags | 1;
+    pt[pti] = (phys & ~0xFFF) | (flags & 0xFFF) | 1;
     asm volatile("invlpg (%0)"::"a"(virt_addr):"memory");
 
     return 0;

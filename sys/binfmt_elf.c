@@ -59,18 +59,24 @@ int elf_load(thread_t *thr, const void *from) {
             }
 
             uintptr_t page_virt = shdr->sh_addr & ~0xFFF;
+            uintptr_t page_offset = shdr->sh_addr & 0xFFF;
 
             kdebug("%s base page is VMA %p\n", name, page_virt);
 
-            uintptr_t page_phys = amd64_phys_alloc_page();
-            uintptr_t page_offset = shdr->sh_addr & 0xFFF;
+            uintptr_t page_phys;
 
-            if (page_phys == MM_NADDR) {
-                panic("elf: out of memory\n");
-            }
+            if ((page_phys = amd64_map_get(thri->space, page_virt, NULL)) == MM_NADDR) {
+                page_phys = amd64_phys_alloc_page();
 
-            if (amd64_map_single(thri->space, page_virt, page_phys, (1 << 1) | (1 << 2)) != 0) {
-                panic("elf: map failed\n");
+                if (page_phys == MM_NADDR) {
+                    panic("elf: out of memory\n");
+                }
+
+                if (amd64_map_single(thri->space, page_virt, page_phys, (1 << 1) | (1 << 2)) != 0) {
+                    panic("elf: map failed\n");
+                }
+            } else {
+                kdebug("Not mapping\n");
             }
 
             if (shdr->sh_type == SHT_PROGBITS) {

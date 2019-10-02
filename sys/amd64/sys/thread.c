@@ -4,6 +4,7 @@
 #include "sys/debug.h"
 #include "sys/heap.h"
 #include "sys/amd64/mm/phys.h"
+#include "sys/amd64/mm/map.h"
 
 #define AMD64_DEFAULT_KSTACK_SIZE   0x4000
 
@@ -41,11 +42,16 @@ int thread_init(thread_t *t,
     if (!(flags & THREAD_KERNEL)) {
         if (ustack_base == 0) {
             // Allocate an ustack
-            ustack_base = amd64_phys_alloc_page();
-            if (ustack_base == MM_NADDR) {
+            uintptr_t ustack_base_phys = amd64_phys_alloc_page();
+            if (ustack_base_phys == MM_NADDR) {
                 panic("Failed to allocate thread ustack\n");
             }
             ustack_size = 0x1000;
+
+            ustack_base = 0x80000000;
+            if (amd64_map_single(space, ustack_base, ustack_base_phys, (1 << 2) | (1 << 1)) < 0) {
+                panic("Failed to map thread ustack\n");
+            }
         }
 
         t->ustack_size = ustack_size;
