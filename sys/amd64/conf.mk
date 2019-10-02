@@ -27,7 +27,8 @@ OBJS+=$(O)/sys/amd64/kernel.o \
 	  $(O)/sys/amd64/sys/syscall.o \
 	  $(O)/sys/amd64/sys/syscall_s.o \
 	  $(O)/sys/amd64/sys/kidle.o \
-	  $(O)/sys/amd64/hw/irq.o
+	  $(O)/sys/amd64/hw/irq.o \
+	  $(O)/sys/amd64/hw/ps2.o
 kernel_OBJS=$(O)/sys/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=sys/amd64/link.ld

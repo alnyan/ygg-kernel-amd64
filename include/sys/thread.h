@@ -4,6 +4,8 @@
  * @note For now, let's define `thread' the same as `process'
  */
 #pragma once
+#include "sys/fs/ofile.h"
+#include "sys/fs/vfs.h"
 #include "sys/types.h"
 #include "sys/mm.h"
 
@@ -29,6 +31,8 @@ typedef struct thread_info {
     pid_t parent;
     uint32_t flags;
     uint32_t status;
+    struct ofile fds[8];
+    struct vfs_ioctx ioctx;
     mm_space_t space;
 } thread_info_t;
 

@@ -49,6 +49,8 @@ amd64_syscall_entry:
     // %rdi, %rsi, %rdx, %r10, %r8, %r9
     // Preserved:
     // %r12-%r15, %rbx
+    // Result:
+    // %rax
 
     // 1. Load kernRSP from amd64_thread_current->kstack_ptr,
     //    userRSP is stored in %rax before being pushed
@@ -66,6 +68,8 @@ amd64_syscall_entry:
     movq %r10, %rcx
     movq %rax, %r9
 
+    // Args:
+    // %rdi %rsi, %rdx, %rcx
     call amd64_syscall
 
     popq %rcx

@@ -65,6 +65,11 @@ struct vnode {
     // Private filesystem-specific number (like inode number)
     uint32_t fs_number;
 
+    /*
+     * (struct blkdev *) if type == VN_BLK
+     * (struct chrdev *) if type == VN_CHR
+     */
+    void *dev;
     void *tree_node;
 
     struct vnode_operations *op;

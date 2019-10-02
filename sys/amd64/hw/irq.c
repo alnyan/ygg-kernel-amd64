@@ -2,13 +2,11 @@
 #include "sys/debug.h"
 #include "sys/panic.h"
 #include "sys/amd64/hw/io.h"
+#include "sys/amd64/hw/ps2.h"
 
 void amd64_irq_handler(uint64_t n) {
-    kdebug("IRQ #%ld\n", n);
-
     if (n == 1) {
-        // Pop event from keyboard buffer
-        inb(0x60);
+        amd64_irq1();
     }
 
     // EOI

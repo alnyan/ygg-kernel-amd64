@@ -8,6 +8,7 @@
 #include "sys/panic.h"
 #include "sys/heap.h"
 #include "sys/mem.h"
+#include "sys/chr.h"
 
 // #include <stddef.h>
 // #include <string.h>
@@ -802,9 +803,11 @@ int vfs_open_node(struct vfs_ioctx *ctx, struct ofile *of, vnode_t *vn, int opt)
         }
     }
 
-    // TODO: check permissions here
     if (vn->type == VN_DIR) {
         return -EISDIR;
+    }
+    if (vn->type != VN_REG) {
+        panic("Not implemented\n");
     }
 
     of->vnode = vn;
@@ -897,52 +900,84 @@ int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st) {
 ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t count) {
     _assert(fd);
     vnode_t *vn = fd->vnode;
-    _assert(vn && vn->op);
-    // XXX: should these be checked on every read?
-    if (vfs_vnode_access(ctx, vn, R_OK) < 0) {
-        return -EACCES;
-    }
+    _assert(vn);
 
-    if (fd->flags & O_DIRECTORY) {
-        return -EISDIR;
-    }
-    if ((fd->flags & O_ACCMODE) == O_WRONLY) {
-        return -EINVAL;
-    }
-    if (vn->op->read == NULL) {
-        return -EINVAL;
-    }
+    switch (vn->type) {
+    case VN_REG:
+        _assert(vn->op);
+        // XXX: should these be checked on every read?
+        if (vfs_vnode_access(ctx, vn, R_OK) < 0) {
+            return -EACCES;
+        }
 
-    ssize_t nr = vn->op->read(fd, buf, count);
+        if (fd->flags & O_DIRECTORY) {
+            return -EISDIR;
+        }
+        if ((fd->flags & O_ACCMODE) == O_WRONLY) {
+            return -EINVAL;
+        }
+        if (vn->op->read == NULL) {
+            return -EINVAL;
+        }
 
-    if (nr > 0) {
-        fd->pos += nr;
+        ssize_t nr = vn->op->read(fd, buf, count);
+
+        if (nr > 0) {
+            fd->pos += nr;
+        }
+
+        return nr;
+
+    // We don't need filesystem at all to read from devices
+    case VN_BLK:
+        _assert(vn->dev);
+        return blk_read((struct blkdev *) vn->dev, buf, fd->pos, count);
+    case VN_CHR:
+        _assert(vn->dev);
+        return chr_read((struct chrdev *) vn->dev, buf, fd->pos, count);
+
+    default:
+        panic("Not supported\n");
     }
-
-    return nr;
 }
 
 ssize_t vfs_write(struct vfs_ioctx *ctx, struct ofile *fd, const void *buf, size_t count) {
     _assert(fd);
     vnode_t *vn = fd->vnode;
-    _assert(vn && vn->op);
+    _assert(vn);
 
-    // XXX: should these be checked on every write?
-    if (vfs_vnode_access(ctx, vn, W_OK) < 0) {
-        return -EACCES;
-    }
+    switch (vn->type) {
+    case VN_REG:
+        _assert(vn->op);
 
-    if (fd->flags & O_DIRECTORY) {
-        return -EISDIR;
-    }
-    if ((fd->flags & O_ACCMODE) == O_RDONLY) {
-        return -EINVAL;
-    }
-    if (vn->op->write == NULL) {
-        return -EINVAL;
-    }
+        // XXX: should these be checked on every write?
+        if (vfs_vnode_access(ctx, vn, W_OK) < 0) {
+            return -EACCES;
+        }
 
-    return vn->op->write(fd, buf, count);
+        if (fd->flags & O_DIRECTORY) {
+            return -EISDIR;
+        }
+        if ((fd->flags & O_ACCMODE) == O_RDONLY) {
+            return -EINVAL;
+        }
+        if (vn->op->write == NULL) {
+            return -EINVAL;
+        }
+
+        return vn->op->write(fd, buf, count);
+
+    // We don't need filesystem at all to write to devices
+    case VN_BLK:
+        _assert(vn->dev);
+        return blk_write((struct blkdev *) vn->dev, buf, fd->pos, count);
+    case VN_CHR:
+        _assert(vn->dev);
+        return chr_write((struct chrdev *) vn->dev, buf, fd->pos, count);
+
+    default:
+        panic("Not supported\n");
+    }
 }
 
 int vfs_truncate(struct vfs_ioctx *ctx, struct ofile *of, size_t length) {

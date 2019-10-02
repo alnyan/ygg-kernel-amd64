@@ -21,6 +21,7 @@
 #include "sys/blk/ram.h"
 #include "sys/thread.h"
 #include "sys/binfmt_elf.h"
+#include "sys/tty.h"
 #include "sys/kidle.h"
 
 // TODO: move to some util header
@@ -104,6 +105,16 @@ static int init_start(void) {
     if ((res = elf_load(init_thread, exec_buf)) < 0) {
         return res;
     }
+
+    // Setup stdout file descriptor
+    struct thread_info *tinfo = thread_get(init_thread);
+    tinfo->fds[0].flags = O_RDONLY;
+    tinfo->fds[0].pos = 0;
+    tinfo->fds[0].vnode = tty0;
+
+    tinfo->fds[1].flags = O_WRONLY;
+    tinfo->fds[1].pos = 0;
+    tinfo->fds[1].vnode = tty0;
 
     sched_add(init_thread);
 

@@ -38,4 +38,6 @@ OBJS+=$(O)/sys/mem.o \
 	  $(O)/sys/blk/ram.o \
 	  $(O)/sys/vfs/tar.o \
 	  $(O)/sys/binfmt_elf.o \
-	  $(O)/sys/errno.o
+	  $(O)/sys/errno.o \
+	  $(O)/sys/tty.o \
+	  $(O)/sys/chr.o
