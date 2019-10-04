@@ -6,12 +6,18 @@ _start:
     cli
     movabsq $kernel_stack_top, %rsp
 
-    call kernel_main
+    leaq _msg_entry(%rip), %rsi
+    xorq %rdi, %rdi
+    call debugf
 
 1:
     cli
     hlt
     jmp 1b
+
+.section .rodata
+_msg_entry:
+    .string "Entered kernel\n"
 
 .section .bss
 kernel_stack_bottom:

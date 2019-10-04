@@ -3,32 +3,8 @@ include sys/amd64/compiler.mk
 all:
 ### Kernel build
 DEFINES+=-DARCH_AMD64
-OBJS+=$(O)/sys/amd64/kernel.o \
-	  $(O)/sys/amd64/mm/pool.o \
-	  $(O)/sys/amd64/mm/mm.o \
-	  $(O)/sys/amd64/hw/rs232.o \
-	  $(O)/sys/amd64/hw/gdt.o \
-	  $(O)/sys/amd64/hw/gdt_s.o \
-	  $(O)/sys/amd64/hw/idt.o \
-	  $(O)/sys/amd64/hw/ints.o \
-	  $(O)/sys/amd64/hw/exc.o \
-	  $(O)/sys/amd64/hw/regs.o \
-	  $(O)/sys/amd64/hw/irq0.o \
-	  $(O)/sys/amd64/hw/pic8259.o \
-	  $(O)/sys/amd64/hw/irqs.o \
-	  $(O)/sys/amd64/mm/map.o \
-	  $(O)/sys/amd64/hw/timer.o \
-	  $(O)/sys/amd64/acpi/tables.o \
-	  $(O)/sys/amd64/acpi/hpet.o \
-	  $(O)/sys/amd64/mm/phys.o \
-	  $(O)/sys/amd64/mm/heap.o \
-	  $(O)/sys/amd64/mm/vmalloc.o \
-	  $(O)/sys/amd64/sys/thread.o \
-	  $(O)/sys/amd64/sys/syscall.o \
-	  $(O)/sys/amd64/sys/syscall_s.o \
-	  $(O)/sys/amd64/sys/kidle.o \
-	  $(O)/sys/amd64/hw/irq.o \
-	  $(O)/sys/amd64/hw/ps2.o
+OBJS+=$(O)/sys/amd64/hw/rs232.o \
+	  $(O)/sys/amd64/string.o
 kernel_OBJS=$(O)/sys/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=sys/amd64/link.ld
@@ -56,11 +32,8 @@ kernel_CFLAGS=-ffreestanding \
 			  -mno-sse \
 			  -mno-sse2 \
 			  -z max-page-size=0x1000
-DIRS+=$(O)/sys/amd64/mm \
-	  $(O)/sys/amd64/hw \
-	  $(O)/sys/amd64/acpi \
-	  $(O)/sys/amd64/sys \
-	  $(O)/sys/amd64/image/boot/grub
+DIRS+=$(O)/sys/amd64/image/boot/grub \
+	  $(O)/sys/amd64/hw
 
 # add .inc includes for asm
 HEADERS+=$(shell find include -name "*.inc")
