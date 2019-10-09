@@ -42,4 +42,5 @@ endif
 # 	  $(O)/sys/tty.o \
 # 	  $(O)/sys/chr.o
 
-OBJS+=$(O)/sys/debug.o
+OBJS+=$(O)/sys/debug.o \
+	  $(O)/sys/string.o

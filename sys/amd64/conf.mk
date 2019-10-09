@@ -4,7 +4,15 @@ all:
 ### Kernel build
 DEFINES+=-DARCH_AMD64
 OBJS+=$(O)/sys/amd64/hw/rs232.o \
-	  $(O)/sys/amd64/string.o
+	  $(O)/sys/amd64/kernel.o \
+	  $(O)/sys/amd64/hw/gdt.o \
+	  $(O)/sys/amd64/hw/gdt_s.o \
+	  $(O)/sys/amd64/hw/acpi.o \
+	  $(O)/sys/amd64/mm/mm.o \
+	  $(O)/sys/amd64/hw/apic.o \
+	  $(O)/sys/amd64/hw/idt.o \
+	  $(O)/sys/amd64/hw/exc_s.o \
+	  $(O)/sys/amd64/hw/irq0.o
 kernel_OBJS=$(O)/sys/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=sys/amd64/link.ld
@@ -33,7 +41,8 @@ kernel_CFLAGS=-ffreestanding \
 			  -mno-sse2 \
 			  -z max-page-size=0x1000
 DIRS+=$(O)/sys/amd64/image/boot/grub \
-	  $(O)/sys/amd64/hw
+	  $(O)/sys/amd64/hw \
+	  $(O)/sys/amd64/mm
 
 # add .inc includes for asm
 HEADERS+=$(shell find include -name "*.inc")
@@ -94,7 +103,10 @@ $(O)/sys/amd64/initrd.img: amd64_mkstage
 ### Debugging and emulation
 QEMU_BIN?=qemu-system-x86_64
 QEMU_OPTS?=-serial mon:stdio \
-		   -m 512
+		   -m 512 \
+		   --accel tcg,thread=multi \
+		   -cpu core2duo \
+		   -smp 2
 
 $(O)/sys/amd64/image.iso: $(O)/sys/amd64/kernel.elf \
 						  $(O)/sys/amd64/loader.elf \
