@@ -2,11 +2,6 @@
 .global amd64_irq0
 amd64_irq0:
     pushq %rax
-    movq $0xFFFFFF00FEE000B0, %rax
-    movl $0, (%rax)
-    popq %rax
-
-    pushq %rax
     pushq %rcx
     pushq %rdx
     pushq %rbx
@@ -14,9 +9,9 @@ amd64_irq0:
     pushq %rdi
     pushq %rsi
 
-    xorq %rdi, %rdi
-    leaq _tmr_msg(%rip), %rsi
-    call debugs
+    // EOI
+    movq $0xFFFFFF00FEE000B0, %rax
+    movl $0, (%rax)
 
     popq %rsi
     popq %rdi
@@ -27,6 +22,3 @@ amd64_irq0:
     popq %rax
 
     iretq
-
-_tmr_msg:
-    .string "T!\n"

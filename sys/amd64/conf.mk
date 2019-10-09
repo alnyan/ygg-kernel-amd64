@@ -1,5 +1,7 @@
 include sys/amd64/compiler.mk
 
+.PHONY+=$(O)/sys/amd64/hw/ap_code_blob.o
+
 all:
 ### Kernel build
 DEFINES+=-DARCH_AMD64
@@ -12,7 +14,8 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/hw/apic.o \
 	  $(O)/sys/amd64/hw/idt.o \
 	  $(O)/sys/amd64/hw/exc_s.o \
-	  $(O)/sys/amd64/hw/irq0.o
+	  $(O)/sys/amd64/hw/irq0.o \
+	  $(O)/sys/amd64/hw/ap_code_blob.o
 kernel_OBJS=$(O)/sys/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=sys/amd64/link.ld
@@ -58,6 +61,14 @@ $(O)/sys/%.o: sys/%.S $(HEADERS)
 $(O)/sys/%.o: sys/%.c $(HEADERS)
 	@printf " CC\t%s\n" $(@:$(O)/%=%)
 	@$(CC64) $(kernel_CFLAGS) -c -o $@ $<
+
+$(O)/sys/amd64/hw/ap_code_blob.o: $(O)/sys/amd64/hw/ap_code.bin
+	@printf " AS\t%s\n" $(@:$(O)/%=%)
+	@$(CC64) $(kernel_CFLAGS) -c -DAP_CODE_BIN='"$<"' -o $@ sys/amd64/hw/ap_code_blob.S
+
+$(O)/sys/amd64/hw/ap_code.bin: sys/amd64/hw/ap_code.nasm
+	@printf " NASM\t%s\n" $(@:$(O)/%=%)
+	@nasm -f bin -o $@ $<
 
 ### Kernel loader build
 TARGETS+=$(O)/sys/amd64/image.iso

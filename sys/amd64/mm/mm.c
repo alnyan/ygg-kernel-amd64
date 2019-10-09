@@ -27,6 +27,8 @@ void amd64_mm_init(struct amd64_loader_data *data) {
 
     memset((void *) (0x200000 - 2 * 0x1000), 0, 0x1000 * 2);
 
+    // 0x0000000000000000 -> 0 Mapping for AP bootstrapping
+    pml4[0] = ((uintptr_t) pdpt) | 1 | 2 | 4;
     // 0xFFFFFF0000000000 -> 0 (512GiB) mapping
     pml4[AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 39] = ((uintptr_t) pdpt) | 1 | 2 | 4;
     for (uint64_t i = 0; i < 4; ++i) {
@@ -40,7 +42,7 @@ void amd64_mm_init(struct amd64_loader_data *data) {
     // Create a pool located right after kernel image
     // amd64_mm_pool_init((uintptr_t) &_kernel_end, MM_POOL_SIZE);
 
-    // mm_kernel = (mm_space_t) (MM_VIRTUALIZE(pml4));
+    mm_kernel = (mm_space_t) (MM_VIRTUALIZE(pml4));
 
     // // Allocate some pages for kernel heap (base size: 16MiB)
     // uintptr_t heap_base_phys = amd64_phys_alloc_contiguous(KERNEL_HEAP >> 12);

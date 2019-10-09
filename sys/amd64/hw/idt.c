@@ -27,10 +27,7 @@ static struct amd64_idt_entry {
     uint32_t zero1;
 } __attribute__((packed)) idt[256] __attribute__((aligned(0x10)));
 
-static const struct {
-    uint16_t size;
-    uintptr_t offset;
-} __attribute__((packed)) idtr __attribute__((aligned(0x10))) = {
+const struct amd64_idtr amd64_idtr = {
     .size = sizeof(idt) - 1,
     .offset = (uintptr_t) idt
 };
@@ -52,5 +49,5 @@ void amd64_idt_init(void) {
     }
     amd64_idt_set(32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 
-    asm volatile ("lidt idtr(%rip)");
+    asm volatile ("lidt amd64_idtr(%rip)");
 }

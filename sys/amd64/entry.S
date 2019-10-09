@@ -13,7 +13,15 @@ _start:
     hlt
     jmp 1b
 
+// Entrypoint for AP bootstrap code
+.global ap_kernel_stacks_top
+
 .section .bss
 kernel_stack_bottom:
     .skip 65536
 kernel_stack_top:
+
+.set MAX_CPUS, 4
+ap_kernel_stacks_bottom:
+    .skip 65536 * (MAX_CPUS - 1)
+ap_kernel_stacks_top:

@@ -4,7 +4,7 @@
 extern void amd64_gdt_load(void *p);
 
 static amd64_gdt_entry_t gdt[GDT_SIZE] = { 0 };
-static amd64_gdt_ptr_t gdtr = {
+amd64_gdt_ptr_t amd64_gdtr = {
     sizeof(gdt) - 1,
     (uintptr_t) gdt
 };
@@ -42,5 +42,5 @@ void amd64_gdt_init(void) {
                   0,
                   GDT_ACC_PR | GDT_ACC_S | GDT_ACC_RW);
 
-    amd64_gdt_load(&gdtr);
+    amd64_gdt_load(&amd64_gdtr);
 }
