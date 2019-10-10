@@ -5,6 +5,7 @@ include sys/amd64/compiler.mk
 all:
 ### Kernel build
 DEFINES+=-DARCH_AMD64
+
 OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/kernel.o \
 	  $(O)/sys/amd64/hw/gdt.o \
@@ -17,6 +18,13 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/hw/irq0.o \
 	  $(O)/sys/amd64/hw/ap_code_blob.o \
 	  $(O)/sys/amd64/hw/con.o
+
+### From config
+ifdef AMD64_TRACE_IRQ
+DEFINES+=-DAMD64_TRACE_IRQ
+OBJS+=$(O)/sys/amd64/hw/irq_trace.o
+endif
+
 kernel_OBJS=$(O)/sys/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=sys/amd64/link.ld
@@ -51,23 +59,23 @@ DIRS+=$(O)/sys/amd64/image/boot/grub \
 # add .inc includes for asm
 HEADERS+=$(shell find include -name "*.inc")
 
-$(O)/sys/amd64/kernel.elf: $(kernel_OBJS) $(kernel_LINKER)
+$(O)/sys/amd64/kernel.elf: $(kernel_OBJS) $(kernel_LINKER) config
 	@printf " LD\t%s\n" $(@:$(O)/%=%)
 	@$(CC64) $(kernel_LDFLAGS)  -o $@ $(kernel_OBJS)
 
-$(O)/sys/%.o: sys/%.S $(HEADERS)
+$(O)/sys/%.o: sys/%.S $(HEADERS) config
 	@printf " AS\t%s\n" $(@:$(O)/%=%)
 	@$(CC64) $(kernel_CFLAGS) -D__ASM__ -c -o $@ $<
 
-$(O)/sys/%.o: sys/%.c $(HEADERS)
+$(O)/sys/%.o: sys/%.c $(HEADERS) config
 	@printf " CC\t%s\n" $(@:$(O)/%=%)
 	@$(CC64) $(kernel_CFLAGS) -c -o $@ $<
 
-$(O)/sys/amd64/hw/ap_code_blob.o: $(O)/sys/amd64/hw/ap_code.bin
+$(O)/sys/amd64/hw/ap_code_blob.o: $(O)/sys/amd64/hw/ap_code.bin config
 	@printf " AS\t%s\n" $(@:$(O)/%=%)
 	@$(CC64) $(kernel_CFLAGS) -c -DAP_CODE_BIN='"$<"' -o $@ sys/amd64/hw/ap_code_blob.S
 
-$(O)/sys/amd64/hw/ap_code.bin: sys/amd64/hw/ap_code.nasm
+$(O)/sys/amd64/hw/ap_code.bin: sys/amd64/hw/ap_code.nasm config
 	@printf " NASM\t%s\n" $(@:$(O)/%=%)
 	@nasm -f bin -o $@ $<
 
@@ -90,15 +98,15 @@ loader_CFLAGS=-ffreestanding \
 			  -Wno-language-extension-token
 loader_LDFLAGS=-nostdlib -T$(loader_LINKER)
 
-$(O)/sys/amd64/loader.elf: $(loader_OBJS) $(loader_LINKER)
+$(O)/sys/amd64/loader.elf: $(loader_OBJS) $(loader_LINKER) config
 	@printf " LD\t%s\n" $(@:$(O)/%=%)
 	@$(CC86) $(loader_LDFLAGS) -o $@ $(loader_OBJS)
 
-$(O)/sys/amd64/loader/%.o: sys/amd64/loader/%.S $(HEADERS)
+$(O)/sys/amd64/loader/%.o: sys/amd64/loader/%.S $(HEADERS) config
 	@printf " AS\t%s\n" $(@:$(O)/%=%)
 	@$(CC86) $(loader_CFLAGS) -D__ASM__ -c -o $@ $<
 
-$(O)/sys/amd64/loader/%.o: sys/amd64/loader/%.c $(HEADERS)
+$(O)/sys/amd64/loader/%.o: sys/amd64/loader/%.c $(HEADERS) config
 	@printf " CC\t%s\n" $(@:$(O)/%=%)
 	@$(CC86) $(loader_CFLAGS) -c -o $@ $<
 

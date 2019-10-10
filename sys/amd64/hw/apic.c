@@ -97,10 +97,23 @@ static void amd64_pic8259_disable(void) {
 
 static void amd64_ap_code_entry(void) {
     // Can do this as core should've bootstrapped BEFORE BSP checks this value again
+    // {{{ CRITICAL BLOCK
     ++started_up_aps;
+    // }}}
+
+    // Enable LAPIC timer
+    kdebug("AP %d startup\n", started_up_aps);
+
+    // Enable LAPIC.SVR.SoftwareEnable bit
+    // And set spurious interrupt mapping to 0xFF
+    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_SVR) |= (1 << 8) | (0xFF);
+
+    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_LVTT) = 32 | 0x20000;
+    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRDIV) = 1;
+    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRINITCNT) = 0xFFFFFFF;
 
     while (1) {
-        asm ("cli; hlt");
+        asm ("sti; hlt");
     }
 }
 
@@ -177,7 +190,7 @@ void amd64_apic_init(struct acpi_madt *madt) {
     amd64_pic8259_disable();
 
     // Determine the BSP LAPIC ID
-    bsp_lapic_id = *(uint32_t *) (lapic_base + IA32_LAPIC_REG_ID);
+    bsp_lapic_id = (*(uint32_t *) (lapic_base + IA32_LAPIC_REG_ID) >> 24);
     kdebug("BSP Local APIC ID: %d\n", bsp_lapic_id);
 
     // Enable LAPIC.SVR.SoftwareEnable bit
@@ -207,6 +220,6 @@ void amd64_apic_init(struct acpi_madt *madt) {
 
     // Enable LAPIC timer
     *(uint32_t *) (lapic_base + IA32_LAPIC_REG_LVTT) = 32 | 0x20000;
-    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRDIV) = 2;
-    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRINITCNT) = 100000;
+    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRDIV) = 1;
+    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRINITCNT) = 0xFFFFFFF;
 }

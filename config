@@ -1,0 +1,2 @@
+# vi: ft=make :
+export AMD64_TRACE_IRQ=1

@@ -2,9 +2,20 @@
 
 #define AMD64_STACK_CTX_CANARY      0xBAD57AC6BAD57AC6
 // TODO: use base + off instead of an absolute address
+#define AMD64_LAPIC_REG_ID_ABS      0xFFFFFF00FEE00020
 #define AMD64_LAPIC_REG_EOI_ABS     0xFFFFFF00FEE000B0
 
 #if defined(__ASM__)
+
+.macro irq_trace, n
+#if defined(AMD64_TRACE_IRQ)
+    // Assuming we're entering from safe context
+    movq $\n, %rdi
+    call amd64_irq_trace
+#else
+#endif
+.endm
+
 .macro irq_push_ctx
     pushq %rax
     pushq %rcx
