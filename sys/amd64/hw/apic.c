@@ -114,7 +114,7 @@ static void amd64_ap_code_entry(void) {
     *(uint32_t *) (lapic_base + IA32_LAPIC_REG_SVR) |= (1 << 8) | (0xFF);
 
     // Enable LAPIC timer
-    amd64_timer_init(1000);
+    amd64_timer_init();
 
     while (1) {
         asm ("sti; hlt");
@@ -266,5 +266,5 @@ void amd64_apic_init(struct acpi_madt *madt) {
     amd64_acpi_smp(madt);
 #endif
 
-    amd64_timer_init(1000);
+    amd64_timer_init();
 }
