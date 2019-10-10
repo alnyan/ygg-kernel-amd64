@@ -1,6 +1,7 @@
 #include "sys/string.h"
 #include "sys/debug.h"
 #include "sys/attr.h"
+#include "sys/spin.h"
 #include <stdint.h>
 
 #if defined(ARCH_AMD64)
@@ -10,6 +11,10 @@
 
 static const char *s_debug_xs_set0 = "0123456789abcdef";
 static const char *s_debug_xs_set1 = "0123456789ABCDEF";
+
+// Don't know if it's a best idea, but at least guarantees
+// non-overlapping debug lines
+static spin_t debug_spin = 0;
 
 void fmtsiz(char *out, size_t sz) {
     static const char sizs[] = "KMGTPE???";
@@ -155,6 +160,8 @@ void debugf(int level, const char *f, ...) {
 }
 
 void debugfv(int level, const char *fmt, va_list args) {
+    spin_lock(&debug_spin);
+
     char c;
     union {
         const char *v_string;
@@ -285,5 +292,7 @@ void debugfv(int level, const char *fmt, va_list args) {
 
         ++fmt;
     }
+
+    spin_release(&debug_spin);
 }
 

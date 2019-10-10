@@ -16,7 +16,8 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/hw/con.o \
 	  $(O)/sys/amd64/hw/timer.o \
 	  $(O)/sys/amd64/hw/ioapic.o \
-	  $(O)/sys/amd64/hw/irqs_s.o
+	  $(O)/sys/amd64/hw/irqs_s.o \
+	  $(O)/sys/amd64/sys/spin_s.o
 
 kernel_OBJS=$(O)/sys/amd64/entry.o \
 			$(OBJS)
@@ -47,4 +48,5 @@ kernel_CFLAGS=-ffreestanding \
 			  -z max-page-size=0x1000
 DIRS+=$(O)/sys/amd64/image/boot/grub \
 	  $(O)/sys/amd64/hw \
+	  $(O)/sys/amd64/sys \
 	  $(O)/sys/amd64/mm
