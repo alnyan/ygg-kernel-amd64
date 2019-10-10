@@ -124,12 +124,13 @@ $(O)/sys/amd64/initrd.img: amd64_mkstage
 	@du -sh $@
 
 ### Debugging and emulation
+QEMU_SMP?=2
+QEMU_MEM?=512
 QEMU_BIN?=qemu-system-x86_64
 QEMU_OPTS?=-serial mon:stdio \
-		   -m 512 \
+		   -m $(QEMU_MEM) \
 		   --accel tcg,thread=multi \
-		   -cpu core2duo \
-		   -smp 2
+		   -smp $(QEMU_SMP)
 
 $(O)/sys/amd64/image.iso: $(O)/sys/amd64/kernel.elf \
 						  $(O)/sys/amd64/loader.elf \
