@@ -15,7 +15,8 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/hw/idt.o \
 	  $(O)/sys/amd64/hw/exc_s.o \
 	  $(O)/sys/amd64/hw/irq0.o \
-	  $(O)/sys/amd64/hw/ap_code_blob.o
+	  $(O)/sys/amd64/hw/ap_code_blob.o \
+	  $(O)/sys/amd64/hw/con.o
 kernel_OBJS=$(O)/sys/amd64/entry.o \
 			$(OBJS)
 kernel_LINKER=sys/amd64/link.ld

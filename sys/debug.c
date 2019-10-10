@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #if defined(ARCH_AMD64)
+#include "sys/amd64/hw/con.h"
 #include "sys/amd64/hw/rs232.h"
 #endif
 
@@ -42,6 +43,7 @@ void fmtsiz(char *out, size_t sz) {
 void debugc(int level, char c) {
 #if defined(ARCH_AMD64)
     rs232_send(RS232_COM0, c);
+    amd64_con_putc(c);
 #endif
 }
 
