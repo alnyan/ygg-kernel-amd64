@@ -19,5 +19,9 @@ _start:
 
 .section .bss
 kernel_stacks_bottom:
+#if defined(AMD64_SMP)
     .skip AMD64_KERNEL_STACK * AMD64_MAX_SMP
+#else
+    .skip AMD64_KERNEL_STACK
+#endif
 kernel_stacks_top:

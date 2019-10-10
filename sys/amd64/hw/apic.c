@@ -100,6 +100,7 @@ static void amd64_pic8259_disable(void) {
     );
 }
 
+#if defined(AMD64_SMP)
 static void amd64_ap_code_entry(void) {
     // Can do this as core should've bootstrapped BEFORE BSP checks this value again
     // {{{ CRITICAL BLOCK
@@ -183,6 +184,66 @@ static void amd64_core_wakeup(uint8_t core_id) {
     }
 }
 
+void amd64_acpi_smp(struct acpi_madt *madt) {
+    // Load the code APs are expected to run
+    amd64_load_ap_code();
+    // Get other LAPICs from MADT
+    size_t offset = 0;
+    size_t ncpu = 1;
+    size_t ncpu_real = 1;
+
+    while (offset < madt->hdr.length - sizeof(struct acpi_madt)) {
+        struct acpi_apic_field_type *ent_hdr = (struct acpi_apic_field_type *) &madt->entry[offset];
+
+        if (ent_hdr->type == 0) {
+            // LAPIC entry
+            struct acpi_lapic_entry *ent = (struct acpi_lapic_entry *) ent_hdr;
+
+            // It's not us
+            if (ent->apic_id != bsp_lapic_id) {
+                ++ncpu_real;
+
+                if (ncpu == AMD64_MAX_SMP) {
+                    kwarn("Kernel does not support more than %d CPUs (Skipping %d)\n", ncpu, ncpu_real);
+                } else {
+                    // Initiate wakeup sequence
+                    ++ncpu;
+                    amd64_core_wakeup(ent->apic_id);
+                }
+            }
+        }
+
+        offset += ent_hdr->length;
+    }
+}
+#endif
+
+void amd64_acpi_ioapic(struct acpi_madt *madt) {
+    size_t offset = 0;
+
+    while (offset < madt->hdr.length - sizeof(struct acpi_madt)) {
+        struct acpi_apic_field_type *ent_hdr = (struct acpi_apic_field_type *) &madt->entry[offset];
+        if (ent_hdr->type == 1) {
+            // Found I/O APIC
+            struct acpi_ioapic_entry *ent = (struct acpi_ioapic_entry *) ent_hdr;
+            amd64_ioapic_set(ent->ioapic_addr + 0xFFFFFF0000000000);
+        }
+
+        offset += ent_hdr->length;
+    }
+
+    offset = 0;
+    while (offset < madt->hdr.length - sizeof(struct acpi_madt)) {
+        struct acpi_apic_field_type *ent_hdr = (struct acpi_apic_field_type *) &madt->entry[offset];
+        if (ent_hdr->type == 2) {
+            struct acpi_int_src_override_entry *ent = (struct acpi_int_src_override_entry *) ent_hdr;
+            amd64_ioapic_int_src_override(ent->bus_src, ent->irq_src, ent->gsi, ent->flags);
+        }
+
+        offset += ent_hdr->length;
+    }
+}
+
 void amd64_apic_init(struct acpi_madt *madt) {
     // Get LAPIC base
     lapic_base = amd64_apic_base() + 0xFFFFFF0000000000;
@@ -200,47 +261,10 @@ void amd64_apic_init(struct acpi_madt *madt) {
     // And set spurious interrupt mapping to 0xFF
     *(uint32_t *) (lapic_base + IA32_LAPIC_REG_SVR) |= (1 << 8) | (0xFF);
 
-    // Load the code APs are expected to run
-    amd64_load_ap_code();
-    // Get other LAPICs from MADT
-    size_t offset = 0;
-    size_t ncpu = 1;
-
-    while (offset < madt->hdr.length - sizeof(struct acpi_madt)) {
-        struct acpi_apic_field_type *ent_hdr = (struct acpi_apic_field_type *) &madt->entry[offset];
-        if (ent_hdr->type == 1) {
-            // Found I/O APIC
-            struct acpi_ioapic_entry *ent = (struct acpi_ioapic_entry *) ent_hdr;
-            amd64_ioapic_set(ent->ioapic_addr + 0xFFFFFF0000000000);
-        }
-
-        offset += ent_hdr->length;
-    }
-
-    offset = 0;
-    while (offset < madt->hdr.length - sizeof(struct acpi_madt)) {
-        struct acpi_apic_field_type *ent_hdr = (struct acpi_apic_field_type *) &madt->entry[offset];
-
-        if (ent_hdr->type == 0) {
-            // LAPIC entry
-            struct acpi_lapic_entry *ent = (struct acpi_lapic_entry *) ent_hdr;
-
-            // It's not us
-            if (ent->apic_id != bsp_lapic_id) {
-                if (ncpu == AMD64_MAX_SMP) {
-                    kdebug("Kernel does not support %d CPUs\n", ncpu + 1);
-                    while (1);
-                }
-                // Initiate wakeup sequence
-                amd64_core_wakeup(ent->apic_id);
-            }
-        } else if (ent_hdr->type == 2) {
-            struct acpi_int_src_override_entry *ent = (struct acpi_int_src_override_entry *) ent_hdr;
-            amd64_ioapic_int_src_override(ent->bus_src, ent->irq_src, ent->gsi, ent->flags);
-        }
-
-        offset += ent_hdr->length;
-    }
+    amd64_acpi_ioapic(madt);
+#if defined(AMD64_SMP)
+    amd64_acpi_smp(madt);
+#endif
 
     amd64_timer_init(1000);
 }

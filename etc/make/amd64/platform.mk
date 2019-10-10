@@ -13,7 +13,6 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/hw/idt.o \
 	  $(O)/sys/amd64/hw/exc_s.o \
 	  $(O)/sys/amd64/hw/irq0.o \
-	  $(O)/sys/amd64/hw/ap_code_blob.o \
 	  $(O)/sys/amd64/hw/con.o \
 	  $(O)/sys/amd64/hw/timer.o \
 	  $(O)/sys/amd64/hw/ioapic.o \
