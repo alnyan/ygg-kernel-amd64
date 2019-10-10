@@ -57,7 +57,7 @@ $(O)/sys/amd64/kernel.elf: $(kernel_OBJS) $(kernel_LINKER)
 
 $(O)/sys/%.o: sys/%.S $(HEADERS)
 	@printf " AS\t%s\n" $(@:$(O)/%=%)
-	@$(CC64) $(kernel_CFLAGS) -c -o $@ $<
+	@$(CC64) $(kernel_CFLAGS) -D__ASM__ -c -o $@ $<
 
 $(O)/sys/%.o: sys/%.c $(HEADERS)
 	@printf " CC\t%s\n" $(@:$(O)/%=%)
@@ -96,7 +96,7 @@ $(O)/sys/amd64/loader.elf: $(loader_OBJS) $(loader_LINKER)
 
 $(O)/sys/amd64/loader/%.o: sys/amd64/loader/%.S $(HEADERS)
 	@printf " AS\t%s\n" $(@:$(O)/%=%)
-	@$(CC86) $(loader_CFLAGS) -c -o $@ $<
+	@$(CC86) $(loader_CFLAGS) -D__ASM__ -c -o $@ $<
 
 $(O)/sys/amd64/loader/%.o: sys/amd64/loader/%.c $(HEADERS)
 	@printf " CC\t%s\n" $(@:$(O)/%=%)
