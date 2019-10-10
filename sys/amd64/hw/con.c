@@ -6,12 +6,12 @@ static uint16_t *con_buffer = (uint16_t *) (0xB8000 + 0xFFFFFF0000000000);
 static uint16_t x = 0, y = 0;
 
 static void amd64_con_scroll(void) {
-    if (y == 24) {
+    if (y == 23) {
         for (int i = 0; i < 22; ++i) {
             memcpy(&con_buffer[i * 80], &con_buffer[(i + 1) * 80], 80 * 2);
         }
-        memset(&con_buffer[23 * 80], 0, 80 * 2);
-        y = 23;
+        memset(&con_buffer[22 * 80], 0, 80 * 2);
+        y = 22;
     }
 }
 
