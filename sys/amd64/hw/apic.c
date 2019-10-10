@@ -1,4 +1,5 @@
 #include "sys/amd64/hw/apic.h"
+#include "sys/amd64/hw/timer.h"
 #include "sys/amd64/hw/gdt.h"
 #include "sys/amd64/hw/idt.h"
 #include "sys/amd64/mm/mm.h"
@@ -13,12 +14,6 @@
 #define IA32_LAPIC_REG_TPR          0x80
 #define IA32_LAPIC_REG_EOI          0xB0
 #define IA32_LAPIC_REG_SVR          0xF0
-
-#define IA32_LAPIC_REG_LVTT         0x320
-
-#define IA32_LAPIC_REG_TMRINITCNT   0x380
-#define IA32_LAPIC_REG_TMRCURRCNT   0x390
-#define IA32_LAPIC_REG_TMRDIV       0x3E0
 
 #define IA32_LAPIC_REG_CMD0         0x300
 #define IA32_LAPIC_REG_CMD1         0x310
@@ -101,16 +96,14 @@ static void amd64_ap_code_entry(void) {
     ++started_up_aps;
     // }}}
 
-    // Enable LAPIC timer
     kdebug("AP %d startup\n", started_up_aps);
 
     // Enable LAPIC.SVR.SoftwareEnable bit
     // And set spurious interrupt mapping to 0xFF
     *(uint32_t *) (lapic_base + IA32_LAPIC_REG_SVR) |= (1 << 8) | (0xFF);
 
-    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_LVTT) = 32 | 0x20000;
-    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRDIV) = 1;
-    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRINITCNT) = 0xFFFFFFF;
+    // Enable LAPIC timer
+    amd64_timer_init(1000);
 
     while (1) {
         asm ("sti; hlt");
@@ -218,8 +211,5 @@ void amd64_apic_init(struct acpi_madt *madt) {
         offset += ent_hdr->length;
     }
 
-    // Enable LAPIC timer
-    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_LVTT) = 32 | 0x20000;
-    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRDIV) = 1;
-    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRINITCNT) = 0xFFFFFFF;
+    amd64_timer_init(1000);
 }
