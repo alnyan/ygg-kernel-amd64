@@ -12,9 +12,9 @@ include config
 export O?=$(abspath build)
 
 # Include base system
-include sys/conf.mk
+include etc/make/conf.mk
 # Arch details
-include sys/$(ARCH)/conf.mk
+include etc/make/$(ARCH)/conf.mk
 
 all: mkdirs config $(TARGETS)
 

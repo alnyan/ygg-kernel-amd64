@@ -1,4 +1,4 @@
-include sys/amd64/compiler.mk
+include etc/make/amd64/compiler.mk
 
 .PHONY+=$(O)/sys/amd64/hw/ap_code_blob.o
 
