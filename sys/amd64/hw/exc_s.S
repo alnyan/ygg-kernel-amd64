@@ -1,3 +1,4 @@
+// vi: ft=asm :
 .macro amd64_isr_nerr, n
 amd64_exc_isr_\n:
     cli
@@ -17,14 +18,15 @@ amd64_exc_isr_\n:
 amd64_exc_generic:
     // TODO: exception handling
     leaq _amd64_exc_str(%rip), %rsi
+    movq (%rsp), %rdx
     xorq %rdi, %rdi
-    call debugs
+    call debugf
 1:
     cli
     hlt
     jmp 1b
 _amd64_exc_str:
-    .string "Error: unhandled exception\n"
+    .string "Error: unhandled exception: %d\n"
 
 amd64_isr_nerr 0
 amd64_isr_nerr 1

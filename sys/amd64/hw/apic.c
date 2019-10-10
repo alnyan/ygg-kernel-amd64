@@ -82,6 +82,13 @@ static int amd64_apic_status(void) {
 static void amd64_pic8259_disable(void) {
     // Mask everything
     asm volatile (
+        "mov $(0x01 | 0x10), %al \n"
+        "outb %al, $0x20 \n"
+        "outb %al, $0xA0 \n"
+        "mov $32, %al \n"
+        "outb %al, $0x21 \n"
+        "mov $(32 + 8), %al \n"
+        "outb %al, $0xA1 \n"
         "mov $0xFF, %al \n"
         "outb %al, $0xA1 \n"
         "outb %al, $0x21"
@@ -133,6 +140,8 @@ static void amd64_set_ap_params(void) {
 }
 
 static void amd64_core_wakeup(uint8_t core_id) {
+    kdebug("Waking up LAPIC ID %d\n", core_id);
+
     amd64_set_ap_params();
 
     uint8_t entry_vector = 0x7000 >> 12;
@@ -175,15 +184,11 @@ void amd64_apic_init(struct acpi_madt *madt) {
     // And set spurious interrupt mapping to 0xFF
     *(uint32_t *) (lapic_base + IA32_LAPIC_REG_SVR) |= (1 << 8) | (0xFF);
 
-    // Enable LAPIC timer
-    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_LVTT) = 32 | 0x20000;
-    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRDIV) = 0x3;
-    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRINITCNT) = 100000;
-
     // Load the code APs are expected to run
     amd64_load_ap_code();
     // Get other LAPICs from MADT
     size_t offset = 0;
+
     while (offset < madt->hdr.length - sizeof(struct acpi_madt)) {
         struct acpi_apic_field_type *ent_hdr = (struct acpi_apic_field_type *) &madt->entry[offset];
 
@@ -197,7 +202,11 @@ void amd64_apic_init(struct acpi_madt *madt) {
                 amd64_core_wakeup(ent->apic_id);
             }
         }
-
         offset += ent_hdr->length;
     }
+
+    // Enable LAPIC timer
+    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_LVTT) = 32 | 0x20000;
+    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRDIV) = 2;
+    *(uint32_t *) (lapic_base + IA32_LAPIC_REG_TMRINITCNT) = 100000;
 }

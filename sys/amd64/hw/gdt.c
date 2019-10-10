@@ -41,6 +41,12 @@ void amd64_gdt_init(void) {
     amd64_gdt_set(2, 0, 0,
                   0,
                   GDT_ACC_PR | GDT_ACC_S | GDT_ACC_RW);
+    amd64_gdt_set(3, 0, 0,
+                  GDT_FLG_LONG,
+                  GDT_ACC_PR | GDT_ACC_R3 | GDT_ACC_S | GDT_ACC_EX);
+    amd64_gdt_set(4, 0, 0,
+                  0,
+                  GDT_ACC_PR | GDT_ACC_R3 | GDT_ACC_S | GDT_ACC_RW);
 
     amd64_gdt_load(&amd64_gdtr);
 }
