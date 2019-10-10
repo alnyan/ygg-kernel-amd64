@@ -1,4 +1,5 @@
 #include "sys/amd64/hw/apic.h"
+#include "sys/amd64/hw/ioapic.h"
 #include "sys/amd64/hw/timer.h"
 #include "sys/amd64/hw/gdt.h"
 #include "sys/amd64/hw/idt.h"
@@ -48,6 +49,15 @@ struct acpi_ioapic_entry {
     uint8_t res;
     uint32_t ioapic_addr;
     uint32_t gsi_base;
+} __attribute__((packed));
+
+struct acpi_int_src_override_entry {
+    struct acpi_apic_field_type hdr;
+
+    uint8_t bus_src;
+    uint8_t irq_src;
+    uint32_t gsi;
+    uint16_t flags;
 } __attribute__((packed));
 
 /////
@@ -197,6 +207,18 @@ void amd64_apic_init(struct acpi_madt *madt) {
 
     while (offset < madt->hdr.length - sizeof(struct acpi_madt)) {
         struct acpi_apic_field_type *ent_hdr = (struct acpi_apic_field_type *) &madt->entry[offset];
+        if (ent_hdr->type == 1) {
+            // Found I/O APIC
+            struct acpi_ioapic_entry *ent = (struct acpi_ioapic_entry *) ent_hdr;
+            amd64_ioapic_set(ent->ioapic_addr + 0xFFFFFF0000000000);
+        }
+
+        offset += ent_hdr->length;
+    }
+
+    offset = 0;
+    while (offset < madt->hdr.length - sizeof(struct acpi_madt)) {
+        struct acpi_apic_field_type *ent_hdr = (struct acpi_apic_field_type *) &madt->entry[offset];
 
         if (ent_hdr->type == 0) {
             // LAPIC entry
@@ -207,7 +229,11 @@ void amd64_apic_init(struct acpi_madt *madt) {
                 // Initiate wakeup sequence
                 amd64_core_wakeup(ent->apic_id);
             }
+        } else if (ent_hdr->type == 2) {
+            struct acpi_int_src_override_entry *ent = (struct acpi_int_src_override_entry *) ent_hdr;
+            amd64_ioapic_int_src_override(ent->bus_src, ent->irq_src, ent->gsi, ent->flags);
         }
+
         offset += ent_hdr->length;
     }
 

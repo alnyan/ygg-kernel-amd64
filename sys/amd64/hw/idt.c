@@ -1,4 +1,5 @@
 #include "sys/amd64/hw/idt.h"
+#include "asm/asm_irq.h"
 #include "sys/string.h"
 #include "sys/types.h"
 
@@ -15,7 +16,6 @@
 #define IDT_FLG_P           (1 << 7)
 
 extern uintptr_t amd64_exception_vectors[32];
-extern void amd64_irq0(void);
 
 static struct amd64_idt_entry {
     uint16_t base_lo;
@@ -48,6 +48,7 @@ void amd64_idt_init(void) {
         amd64_idt_set(i, amd64_exception_vectors[i], 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     }
     amd64_idt_set(32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(33, (uintptr_t) amd64_irq1, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 
     asm volatile ("lidt amd64_idtr(%rip)");
 }

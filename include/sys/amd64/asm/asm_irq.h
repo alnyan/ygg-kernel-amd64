@@ -94,4 +94,8 @@
     movq $AMD64_LAPIC_REG_EOI_ABS, %rax
     movl $0, (%rax)
 .endm
+#else
+// Externs for C code
+extern void amd64_irq0();
+extern void amd64_irq1();
 #endif
