@@ -4,7 +4,8 @@
 .global _start
 _start:
     cli
-    leaq kernel_stack_top(%rip), %rsp
+    leaq kernel_stacks_bottom(%rip), %rsp
+    addq $AMD64_KERNEL_STACK, %rsp
 
     call kernel_main
 
@@ -14,14 +15,9 @@ _start:
     jmp 1b
 
 // Entrypoint for AP bootstrap code
-.global ap_kernel_stacks_top
+.global kernel_stacks_top
 
 .section .bss
-kernel_stack_bottom:
-    .skip 65536
-kernel_stack_top:
-
-.set MAX_CPUS, 4
-ap_kernel_stacks_bottom:
-    .skip 65536 * (MAX_CPUS - 1)
-ap_kernel_stacks_top:
+kernel_stacks_bottom:
+    .skip AMD64_KERNEL_STACK * AMD64_MAX_SMP
+kernel_stacks_top:

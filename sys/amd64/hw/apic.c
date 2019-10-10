@@ -68,7 +68,7 @@ static uint32_t bsp_lapic_id;
 // (mapped to per-CPU LAPICs, while the address is the same)
 static uintptr_t lapic_base;
 
-extern char ap_kernel_stacks_top[];
+extern char kernel_stacks_top[];
 // TODO: use mutual exclusion for this
 static size_t started_up_aps = 0;
 
@@ -150,7 +150,7 @@ static void amd64_load_ap_code(void) {
 
 static void amd64_set_ap_params(void) {
     // Allocate a new AP kernel stack
-    uintptr_t stack_ptr = (uintptr_t) ap_kernel_stacks_top - started_up_aps * 65536;
+    uintptr_t stack_ptr = (uintptr_t) kernel_stacks_top - started_up_aps * 65536;
     // 0x7FE0 - stack_ptr
     *((uint64_t *) 0xFFFFFF0000007FE0) = stack_ptr;
 }
@@ -204,6 +204,7 @@ void amd64_apic_init(struct acpi_madt *madt) {
     amd64_load_ap_code();
     // Get other LAPICs from MADT
     size_t offset = 0;
+    size_t ncpu = 1;
 
     while (offset < madt->hdr.length - sizeof(struct acpi_madt)) {
         struct acpi_apic_field_type *ent_hdr = (struct acpi_apic_field_type *) &madt->entry[offset];
@@ -226,6 +227,10 @@ void amd64_apic_init(struct acpi_madt *madt) {
 
             // It's not us
             if (ent->apic_id != bsp_lapic_id) {
+                if (ncpu == AMD64_MAX_SMP) {
+                    kdebug("Kernel does not support %d CPUs\n", ncpu + 1);
+                    while (1);
+                }
                 // Initiate wakeup sequence
                 amd64_core_wakeup(ent->apic_id);
             }
