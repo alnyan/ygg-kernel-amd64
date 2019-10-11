@@ -31,6 +31,12 @@ amd64_irq0:
     // rsi = thread structure pointer
     movq get_cpu(0x08), %rsi
     movq 0(%rsi), %rsp
+
+    // Write TSS entry
+    movq get_cpu(0x18), %rdi
+    movq %rsp, %rax
+    addq $(25 * 8), %rax
+    movq %rax, 4(%rdi)
 1:
     // Assume we're now on TASK2's stack
 

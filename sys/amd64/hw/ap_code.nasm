@@ -76,6 +76,8 @@ ap_startup_long:
     add rax, rcx
 
     lgdt [rax]
+    mov ax, 0x28
+    ltr ax
 
     mov rax, 0x10
     mov ds, rax

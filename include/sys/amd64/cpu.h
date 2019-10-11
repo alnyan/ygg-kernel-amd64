@@ -1,5 +1,6 @@
 #pragma once
 #include "sys/amd64/asm/asm_irq.h"
+#include "sys/amd64/hw/gdt.h"
 #include "sys/types.h"
 #include "sys/thread.h"
 
@@ -9,6 +10,7 @@ struct cpu {
 
     struct thread *thread;      // 0x08
     uint64_t ticks;             // 0x10
+    amd64_tss_t *tss;           // 0x18
 
     // No need to define offsets for these: ther're not accessed
     // from assembly

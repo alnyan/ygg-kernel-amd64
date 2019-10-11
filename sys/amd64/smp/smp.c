@@ -141,6 +141,7 @@ void amd64_smp_add(uint8_t apic_id) {
     cpus[i].self = &cpus[i];
     cpus[i].apic_id = (uint64_t) apic_id;
     cpus[i].processor_id = i;
+    cpus[i].tss = amd64_tss_get(i);
 }
 
 static void amd64_smp_bsp_configure(void) {
@@ -149,6 +150,7 @@ static void amd64_smp_bsp_configure(void) {
     cpus[0].self = &cpus[0];
     cpus[0].processor_id = 0;
     cpus[0].apic_id = 0 /* TODO: apic_id may be different from 0 for BSP */;
+    cpus[0].tss = amd64_tss_get(0);
     set_cpu((uintptr_t) &cpus[0]);
 }
 

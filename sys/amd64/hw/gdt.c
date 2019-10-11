@@ -1,5 +1,5 @@
 #include "sys/amd64/hw/gdt.h"
-#define GDT_SIZE    3
+#define GDT_SIZE    7
 
 extern void amd64_gdt_load(void *p);
 
@@ -35,6 +35,10 @@ amd64_gdt_ptr_t *amd64_gdtr_get(int cpu) {
     return &amd64_gdtr[cpu];
 }
 
+amd64_tss_t *amd64_tss_get(int cpu) {
+    return &amd64_tss[cpu];
+}
+
 void amd64_gdt_init(void) {
     for (size_t i = 0; i < AMD64_MAX_SMP; ++i) {
         amd64_gdt_set(i, 0, 0, 0, 0, 0);
@@ -44,14 +48,18 @@ void amd64_gdt_init(void) {
         amd64_gdt_set(i, 2, 0, 0,
                       0,
                       GDT_ACC_PR | GDT_ACC_S | GDT_ACC_RW);
-        //amd64_gdt_set(i, 3, 0, 0,
-        //              0,
-        //              GDT_ACC_PR | GDT_ACC_R3 | GDT_ACC_S | GDT_ACC_RW);
-        //amd64_gdt_set(i, 4, 0, 0,
-        //              GDT_FLG_LONG,
-        //              GDT_ACC_PR | GDT_ACC_R3 | GDT_ACC_S | GDT_ACC_EX);
+        amd64_gdt_set(i, 3, 0, 0,
+                      0,
+                      GDT_ACC_PR | GDT_ACC_R3 | GDT_ACC_S | GDT_ACC_RW);
+        amd64_gdt_set(i, 4, 0, 0,
+                      GDT_FLG_LONG,
+                      GDT_ACC_PR | GDT_ACC_R3 | GDT_ACC_S | GDT_ACC_EX);
+        amd64_gdt_set(i, 5, ((uintptr_t) &amd64_tss[i]) & 0xFFFFFFFF, sizeof(amd64_tss_t) - 1,
+                      GDT_FLG_LONG,
+                      GDT_ACC_PR | GDT_ACC_AC | GDT_ACC_EX);
+        *(uint64_t *) &gdt[i * GDT_SIZE + 6] = ((uintptr_t) &amd64_tss[i]) >> 32;
 
-        amd64_gdtr[i].size = sizeof(GDT_SIZE) * sizeof(amd64_gdt_entry_t) - 1;
+        amd64_gdtr[i].size = GDT_SIZE * sizeof(amd64_gdt_entry_t) - 1;
         amd64_gdtr[i].offset = (uintptr_t) &gdt[GDT_SIZE * i];
     }
 
