@@ -10,7 +10,6 @@
 
 static spin_t amd64_timer_spin = 0;
 // TODO: proper GS-based smp_per_cpu(x) macro for per-CPU variable access
-uint64_t amd64_timer_counter[AMD64_MAX_SMP] = {0};
 extern uint64_t amd64_irq0_counting;
 
 void amd64_timer_init(void) {

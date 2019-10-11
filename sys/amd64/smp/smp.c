@@ -4,6 +4,7 @@
 #include "sys/amd64/hw/gdt.h"
 #include "sys/amd64/hw/idt.h"
 #include "sys/amd64/mm/mm.h"
+#include "sys/amd64/cpu.h"
 #include "sys/string.h"
 #include "sys/debug.h"
 
@@ -24,13 +25,7 @@ struct ap_param_block {
 extern char kernel_stacks_top[];
 // TODO: use mutual exclusion for this
 static size_t ncpus = 1;
-static struct cpu cpus[AMD64_MAX_SMP] = { 0 };
-
-static inline struct cpu *get_cpu(void) {
-    struct cpu *cpu;
-    asm volatile ("movq %%gs:0, %0":"=r"(cpu));
-    return cpu;
-}
+struct cpu cpus[AMD64_MAX_SMP] = { 0 };
 
 static inline void wrmsr(uint32_t addr, uint64_t v) {
     uint32_t low = (v & 0xFFFFFFFF), high = v >> 32;
