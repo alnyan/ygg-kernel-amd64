@@ -1,5 +1,6 @@
 #include "sys/amd64/hw/apic.h"
 #include "sys/amd64/smp/smp.h"
+#include "sys/amd64/mm/mm.h"
 #include "sys/amd64/hw/ioapic.h"
 #include "sys/amd64/hw/timer.h"
 #include "sys/string.h"
@@ -168,4 +169,8 @@ void amd64_apic_init(struct acpi_madt *madt) {
 #endif
 
     amd64_timer_init();
+
+    extern mm_space_t mm_kernel;
+    // Initialization finished, can unmap 0 -> 0 mapping now
+    mm_kernel[0] = 0;
 }

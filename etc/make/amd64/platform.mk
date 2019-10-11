@@ -17,7 +17,8 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/hw/timer.o \
 	  $(O)/sys/amd64/hw/ioapic.o \
 	  $(O)/sys/amd64/hw/irqs_s.o \
-	  $(O)/sys/amd64/sys/spin_s.o
+	  $(O)/sys/amd64/sys/spin_s.o \
+	  $(O)/sys/amd64/cpu.o
 
 kernel_OBJS=$(O)/sys/amd64/entry.o \
 			$(OBJS)

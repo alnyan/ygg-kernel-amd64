@@ -25,8 +25,6 @@ struct ap_param_block {
 extern char kernel_stacks_top[];
 // TODO: use mutual exclusion for this
 static size_t ncpus = 1;
-struct cpu cpus[AMD64_MAX_SMP] = { 0 };
-
 static inline void wrmsr(uint32_t addr, uint64_t v) {
     uint32_t low = (v & 0xFFFFFFFF), high = v >> 32;
     asm volatile ("wrmsr"::"c"(addr),"a"(low),"d"(high));
@@ -162,8 +160,5 @@ void amd64_smp_init(void) {
     for (size_t i = 1; i < ncpus; ++i) {
         amd64_smp_ap_initialize(i);
     }
-
-    // Initialization finished, can unmap 0 -> 0 mapping now
-    mm_kernel[0] = 0;
 }
 

@@ -5,6 +5,8 @@
 
 amd64_irq0:
     cli
+    swapgs
+
     // Interrupt entry:
     // rsp should be one of the following:
     //  The one specified in the TSS.RSP0
@@ -15,10 +17,10 @@ amd64_irq0:
     movq %rsp, %rbp
 
     // Increment tick counter
-    incq %gs:0x20
-    testq $(1 << 5), %gs:0x20
+    incq get_cpu(0x10)
+    testq $(1 << 5), get_cpu(0x10)
     jz 1f
-    movq $0, %gs:0x20
+    movq $0, get_cpu(0x10)
     irq_trace 0
 1:
 
@@ -28,4 +30,6 @@ amd64_irq0:
     irq_eoi_lapic 0
 
     irq_pop_ctx
+
+    swapgs
     iretq

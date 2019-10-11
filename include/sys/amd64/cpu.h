@@ -1,14 +1,19 @@
 #pragma once
+#include "sys/types.h"
 
 struct cpu {
     // TODO: somehow export offsets to asm
     struct cpu *self;           // 0x00
-    uint64_t flags;             // 0x08
 
-    uint64_t processor_id;      // 0x10
-    uint64_t apic_id;           // 0x18
+    void *thread;               // 0x08
+    uint64_t ticks;             // 0x10
 
-    uint64_t ticks;             // 0x20
+    // No need to define offsets for these: ther're not accessed
+    // from assembly
+    uint64_t flags;
+
+    uint64_t processor_id;
+    uint64_t apic_id;
 };
 
 #if defined(AMD64_SMP)
