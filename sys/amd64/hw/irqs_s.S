@@ -1,6 +1,6 @@
 // Temporary file where I play with
 // Generic IRQ handlers
-#include "asm/asm_irq.h"
+#include "sys/amd64/asm/asm_irq.h"
 
 .section .text
 

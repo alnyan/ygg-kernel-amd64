@@ -61,9 +61,9 @@
 
     // XXX: should they be popped this way?
     popq %rax
-    movq %rax, %gs
+    //movq %rax, %gs
     popq %rax
-    movq %rax, %fs
+    //movq %rax, %fs
 
     popq %rax
     movq %rax, %es

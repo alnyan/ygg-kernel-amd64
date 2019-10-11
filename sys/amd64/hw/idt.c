@@ -1,5 +1,5 @@
 #include "sys/amd64/hw/idt.h"
-#include "asm/asm_irq.h"
+#include "sys/amd64/asm/asm_irq.h"
 #include "sys/string.h"
 #include "sys/types.h"
 

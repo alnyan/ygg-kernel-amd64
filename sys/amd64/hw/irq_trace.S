@@ -1,4 +1,4 @@
-#include "asm/asm_irq.h"
+#include "sys/amd64/asm/asm_irq.h"
 
 .section .text
 .global amd64_irq_trace

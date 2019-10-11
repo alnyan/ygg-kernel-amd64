@@ -18,6 +18,6 @@ void amd64_timer_init(void) {
     //      PIT will be used for proper
     //      timer calibration
     LAPIC(LAPIC_REG_TMRDIV) = 0x3;
-    LAPIC(LAPIC_REG_TMRINITCNT) = 10000000;
+    LAPIC(LAPIC_REG_TMRINITCNT) = 1000000;
     LAPIC(LAPIC_REG_LVTT) = 32 | (1 << 17);
 }
