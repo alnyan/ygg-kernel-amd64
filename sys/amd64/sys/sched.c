@@ -17,6 +17,7 @@ static struct thread t_idle[AMD64_MAX_SMP] = {0};
 void idle_func(uintptr_t id) {
     while (1) {
         kdebug("%d\n", id);
+        asm volatile ("sti; hlt");
     }
 }
 

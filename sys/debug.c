@@ -160,9 +160,8 @@ void debugf(int level, const char *f, ...) {
 }
 
 void debugfv(int level, const char *fmt, va_list args) {
-    // FIXME Problem: if this code gets interrupted while
-    //       inside the locked region, the CPU freezes
-    spin_lock(&debug_spin);
+    uintptr_t irq;
+    spin_lock_irqsave(&debug_spin, &irq);
 
     char c;
     union {
@@ -295,6 +294,6 @@ void debugfv(int level, const char *fmt, va_list args) {
         ++fmt;
     }
 
-    spin_release(&debug_spin);
+    spin_release_irqrestore(&debug_spin, &irq);
 }
 
