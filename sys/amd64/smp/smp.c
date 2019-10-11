@@ -81,12 +81,9 @@ void amd64_load_ap_code(void) {
     struct ap_param_block *appb = (struct ap_param_block *) SMP_AP_BOOTSTRAP_DATA;
     extern mm_space_t mm_kernel;
     uintptr_t mm_kernel_phys = (uintptr_t) mm_kernel - 0xFFFFFF0000000000;
-    uintptr_t amd64_gdtr_phys = (uintptr_t) &amd64_gdtr - 0xFFFFFF0000000000;
 
     // 0x7FC0 - MM_PHYS(mm_kernel)
     appb->cr3 = mm_kernel_phys;
-    // 0x7FC8 - MM_PHYS(amd64_gdtr)
-    appb->gdtr_phys = amd64_gdtr_phys;
     // 0x7FD0 - amd64_idtr
     appb->idtr = (uintptr_t) &amd64_idtr;
     // 0x7FD8 - amd64_core_entry
@@ -96,7 +93,10 @@ void amd64_load_ap_code(void) {
 static void amd64_set_ap_params(uint8_t cpu_no) {
     // Allocate a new AP kernel stack
     uintptr_t stack_ptr = (uintptr_t) kernel_stacks_top - (cpu_no - 1) * 65536;
+    uintptr_t amd64_gdtr_phys = (uintptr_t) amd64_gdtr_get(cpu_no) - 0xFFFFFF0000000000;
     struct ap_param_block *appb = (struct ap_param_block *) SMP_AP_BOOTSTRAP_DATA;
+    // 0x7FC8 - MM_PHYS(amd64_gdtr)
+    appb->gdtr_phys = amd64_gdtr_phys;
     // 0x7FE0 - stack_ptr
     appb->rsp = stack_ptr;
     // 0x7FE8

@@ -34,6 +34,6 @@ typedef struct {
     uintptr_t offset;
 } __attribute__((packed)) amd64_gdt_ptr_t;
 
-extern amd64_gdt_ptr_t amd64_gdtr;
+amd64_gdt_ptr_t *amd64_gdtr_get(int cpu);
 
 void amd64_gdt_init(void);

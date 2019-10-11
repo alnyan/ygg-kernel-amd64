@@ -11,30 +11,35 @@ static spin_t sched_lock = 0;
 #define TEST_STACK  65536
 
 // Testing
-static char t_stack[TEST_STACK * AMD64_MAX_SMP] = {0};
+static char t_stack0[TEST_STACK * AMD64_MAX_SMP] = {0};
+static char t_stack3[TEST_STACK * AMD64_MAX_SMP] = {0};
 static struct thread t_idle[AMD64_MAX_SMP] = {0};
 
 void idle_func(uintptr_t id) {
     while (1) {
-        kdebug("%d\n", id);
-        asm volatile ("sti; hlt");
+        //kdebug("%d\n", id);
+        //asm volatile ("sti; hlt");
     }
 }
 
 static void make_idle_task(int cpu) {
     struct thread *t = &t_idle[cpu];
 
-    uintptr_t stack_base = (uintptr_t) t_stack + cpu * TEST_STACK;
+    uintptr_t stack0_base = (uintptr_t) t_stack0 + cpu * TEST_STACK;
+    uintptr_t stack3_base = (uintptr_t) t_stack3 + cpu * TEST_STACK;
 
-    t->data.stack0_base = stack_base;
+    t->data.stack0_base = stack0_base;
     t->data.stack0_size = TEST_STACK;
-    t->data.rsp0 = stack_base + TEST_STACK - sizeof(struct cpu_context);
+    t->data.rsp0 = stack0_base + TEST_STACK - sizeof(struct cpu_context);
+
+    t->data.stack3_base = stack3_base;
+    t->data.stack3_size = TEST_STACK;
 
     // Setup context
     struct cpu_context *ctx = (struct cpu_context *) t->data.rsp0;
 
     ctx->rip = (uintptr_t) idle_func;
-    ctx->rsp = t->data.rsp0;
+    ctx->rsp = t->data.stack3_base + t->data.stack3_size;
     ctx->cs = 0x08;
     ctx->ss = 0x10;
     ctx->rflags = 0x248;

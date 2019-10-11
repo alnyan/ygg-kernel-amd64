@@ -3,11 +3,9 @@
 
 extern void amd64_gdt_load(void *p);
 
-static amd64_gdt_entry_t gdt[GDT_SIZE] = { 0 };
-amd64_gdt_ptr_t amd64_gdtr = {
-    sizeof(gdt) - 1,
-    (uintptr_t) gdt
-};
+static amd64_gdt_entry_t gdt[GDT_SIZE * AMD64_MAX_SMP] = { 0 };
+static amd64_gdt_ptr_t amd64_gdtr[AMD64_MAX_SMP];
+static amd64_tss_t amd64_tss[AMD64_MAX_SMP] = { 0 };
 
 #define GDT_ACC_AC      (1 << 0)
 #define GDT_ACC_RW      (1 << 1)
@@ -24,29 +22,38 @@ amd64_gdt_ptr_t amd64_gdtr = {
 #define GDT_FLG_SZ      (1 << 6)
 #define GDT_FLG_GR      (1 << 7)
 
-static void amd64_gdt_set(int idx, uint32_t base, uint32_t limit, uint8_t flags, uint8_t access) {
-    gdt[idx].base_lo = base & 0xFFFF;
-    gdt[idx].base_mi = (base >> 16) & 0xFF;
-    gdt[idx].base_hi = (base >> 24) & 0xFF;
-    gdt[idx].access = access;
-    gdt[idx].flags = (flags & 0xF0) | ((limit >> 16) & 0xF);
-    gdt[idx].limit_lo = limit & 0xFFFF;
+static void amd64_gdt_set(int cpu, int idx, uint32_t base, uint32_t limit, uint8_t flags, uint8_t access) {
+    gdt[idx + cpu * GDT_SIZE].base_lo = base & 0xFFFF;
+    gdt[idx + cpu * GDT_SIZE].base_mi = (base >> 16) & 0xFF;
+    gdt[idx + cpu * GDT_SIZE].base_hi = (base >> 24) & 0xFF;
+    gdt[idx + cpu * GDT_SIZE].access = access;
+    gdt[idx + cpu * GDT_SIZE].flags = (flags & 0xF0) | ((limit >> 16) & 0xF);
+    gdt[idx + cpu * GDT_SIZE].limit_lo = limit & 0xFFFF;
+}
+
+amd64_gdt_ptr_t *amd64_gdtr_get(int cpu) {
+    return &amd64_gdtr[cpu];
 }
 
 void amd64_gdt_init(void) {
-    amd64_gdt_set(0, 0, 0, 0, 0);
-    amd64_gdt_set(1, 0, 0,
-                  GDT_FLG_LONG,
-                  GDT_ACC_PR | GDT_ACC_S | GDT_ACC_EX);
-    amd64_gdt_set(2, 0, 0,
-                  0,
-                  GDT_ACC_PR | GDT_ACC_S | GDT_ACC_RW);
-    amd64_gdt_set(3, 0, 0,
-                  GDT_FLG_LONG,
-                  GDT_ACC_PR | GDT_ACC_R3 | GDT_ACC_S | GDT_ACC_EX);
-    amd64_gdt_set(4, 0, 0,
-                  0,
-                  GDT_ACC_PR | GDT_ACC_R3 | GDT_ACC_S | GDT_ACC_RW);
+    for (size_t i = 0; i < AMD64_MAX_SMP; ++i) {
+        amd64_gdt_set(i, 0, 0, 0, 0, 0);
+        amd64_gdt_set(i, 1, 0, 0,
+                      GDT_FLG_LONG,
+                      GDT_ACC_PR | GDT_ACC_S | GDT_ACC_EX);
+        amd64_gdt_set(i, 2, 0, 0,
+                      0,
+                      GDT_ACC_PR | GDT_ACC_S | GDT_ACC_RW);
+        //amd64_gdt_set(i, 3, 0, 0,
+        //              0,
+        //              GDT_ACC_PR | GDT_ACC_R3 | GDT_ACC_S | GDT_ACC_RW);
+        //amd64_gdt_set(i, 4, 0, 0,
+        //              GDT_FLG_LONG,
+        //              GDT_ACC_PR | GDT_ACC_R3 | GDT_ACC_S | GDT_ACC_EX);
+
+        amd64_gdtr[i].size = sizeof(GDT_SIZE) * sizeof(amd64_gdt_entry_t) - 1;
+        amd64_gdtr[i].offset = (uintptr_t) &gdt[GDT_SIZE * i];
+    }
 
     amd64_gdt_load(&amd64_gdtr);
 }
