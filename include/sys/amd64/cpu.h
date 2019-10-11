@@ -1,11 +1,13 @@
 #pragma once
+#include "sys/amd64/asm/asm_irq.h"
 #include "sys/types.h"
+#include "sys/thread.h"
 
 struct cpu {
     // TODO: somehow export offsets to asm
     struct cpu *self;           // 0x00
 
-    void *thread;               // 0x08
+    struct thread *thread;      // 0x08
     uint64_t ticks;             // 0x10
 
     // No need to define offsets for these: ther're not accessed
@@ -14,6 +16,19 @@ struct cpu {
 
     uint64_t processor_id;
     uint64_t apic_id;
+};
+
+struct cpu_context {
+#if defined(AMD64_STACK_CTX_CANARY)
+    uintptr_t __canary;
+#endif
+    uintptr_t fs, es, ds;
+    uintptr_t cr3;
+    uintptr_t r15, r14, r13, r12;
+    uintptr_t r11, r10, r9, r8;
+    uintptr_t rdi, rsi, rbp;
+    uintptr_t rbx, rdx, rcx, rax;
+    uintptr_t rip, cs, rflags, rsp, ss;
 };
 
 #if defined(AMD64_SMP)

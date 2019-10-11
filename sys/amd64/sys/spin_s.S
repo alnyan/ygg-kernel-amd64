@@ -6,7 +6,6 @@
 //       the locks that consume too much CPU time
 spin_lock:
     // %rdi - spinlock
-
     lock bts $1, (%rdi)
     jc 1f
     retq

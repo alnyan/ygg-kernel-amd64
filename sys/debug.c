@@ -160,6 +160,8 @@ void debugf(int level, const char *f, ...) {
 }
 
 void debugfv(int level, const char *fmt, va_list args) {
+    // FIXME Problem: if this code gets interrupted while
+    //       inside the locked region, the CPU freezes
     spin_lock(&debug_spin);
 
     char c;

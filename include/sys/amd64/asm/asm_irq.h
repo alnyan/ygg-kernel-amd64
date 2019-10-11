@@ -36,13 +36,14 @@
     pushq %r14
     pushq %r15
 
+    movq %cr3, %rax
+    pushq %rax
+
     movq %ds, %rax
     pushq %rax
     movq %es, %rax
     pushq %rax
     movq %fs, %rax
-    pushq %rax
-    movq %gs, %rax
     pushq %rax
 
 #if defined(AMD64_STACK_CTX_CANARY)
@@ -61,14 +62,15 @@
 
     // XXX: should they be popped this way?
     popq %rax
-    //movq %rax, %gs
-    popq %rax
     //movq %rax, %fs
 
     popq %rax
     movq %rax, %es
     popq %rax
     movq %rax, %ds
+
+    popq %rax
+    movq %rax, %cr3
 
     popq %r15
     popq %r14

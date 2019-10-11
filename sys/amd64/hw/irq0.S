@@ -16,15 +16,23 @@ amd64_irq0:
     // Let's adhere to the amd64 ABI
     movq %rsp, %rbp
 
-    // Increment tick counter
-    incq get_cpu(0x10)
-    testq $(1 << 5), get_cpu(0x10)
+    // Store old ctx
+    movq get_cpu(0x08), %rdi
+    test %rdi, %rdi
     jz 1f
-    movq $0, get_cpu(0x10)
-    irq_trace 0
+    movq %rsp, (%rdi)
 1:
 
-    // TODO: call sched here, do something
+    call sched
+    // Non-zero return code means no sched happened
+    test %rax, %rax
+    jnz 1f
+
+    // rsi = thread structure pointer
+    movq get_cpu(0x08), %rsi
+    movq 0(%rsi), %rsp
+1:
+    // Assume we're now on TASK2's stack
 
     // EOI
     irq_eoi_lapic 0
@@ -33,3 +41,6 @@ amd64_irq0:
 
     swapgs
     iretq
+
+_fmt0:
+    .string "RSP = %p\n"
