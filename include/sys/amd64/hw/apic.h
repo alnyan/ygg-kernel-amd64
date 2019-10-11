@@ -1,4 +1,10 @@
 #pragma once
 #include "sys/amd64/hw/acpi.h"
+#include "sys/amd64/asm/asm_apic.h"
+
+#define LAPIC(reg) \
+    (*(uint32_t *) ((reg) + local_apic))
+
+extern uintptr_t local_apic;
 
 void amd64_apic_init(struct acpi_madt *madt);

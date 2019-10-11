@@ -1,11 +1,11 @@
 #pragma once
+#include "sys/amd64/asm/asm_apic.h"
 
 #define AMD64_STACK_CTX_CANARY      0xBAD57AC6BAD57AC6
 // TODO: use base + off instead of an absolute address
-#define AMD64_LAPIC_REG_ID_ABS      0xFFFFFF00FEE00020
-#define AMD64_LAPIC_REG_EOI_ABS     0xFFFFFF00FEE000B0
 
 #if defined(__ASM__)
+.extern local_apic
 
 .macro irq_trace, n
 #if defined(AMD64_TRACE_IRQ)
@@ -91,7 +91,8 @@
 
 .macro irq_eoi_lapic, n
     // n is actually ignored for APIC
-    movq $AMD64_LAPIC_REG_EOI_ABS, %rax
+    movq local_apic(%rip), %rax
+    addq $LAPIC_REG_EOI, %rax
     movl $0, (%rax)
 .endm
 #else

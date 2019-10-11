@@ -8,7 +8,8 @@ amd64_irq_trace:
 
     // Get LAPIC ID
     // TODO: support non-APIC configs
-    movq $AMD64_LAPIC_REG_ID_ABS, %rax
+    movq local_apic(%rip), %rax
+    addq $LAPIC_REG_ID, %rax
     movl (%rax), %edx
     shrl $24, %edx
 

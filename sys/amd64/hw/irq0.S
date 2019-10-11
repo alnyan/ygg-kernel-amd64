@@ -18,11 +18,7 @@ amd64_irq0:
     // Let's adhere to the amd64 ABI
     movq %rsp, %rbp
 
-    decq amd64_irq0_reload(%rip)
-    jg 1f
-    movq $10000, amd64_irq0_reload(%rip)
     irq_trace 0
-1:
 
     // TODO: call sched here, do something
 
@@ -47,5 +43,3 @@ amd64_irq0_count:
 .section .data
 amd64_irq0_counting:
     .quad 0
-amd64_irq0_reload:
-    .quad 10000

@@ -90,6 +90,7 @@ ap_startup_long:
 
     ; Load stack
     mov rsp, qword [0x7FE0]
+    mov rbp, rsp
 
     ; Jump to kernel entry
     mov rax, qword [0x7FD8]
