@@ -1,12 +1,14 @@
-// #include "sys/vmalloc.h"
-// #include "sys/assert.h"
+#include "sys/vmalloc.h"
+#include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/string.h"
 #include "sys/amd64/mm/mm.h"
-// #include "sys/panic.h"
-// #include "sys/heap.h"
+#include "sys/panic.h"
+#include "sys/heap.h"
+#include "sys/amd64/mm/pool.h"
+#include "sys/amd64/mm/phys.h"
 // #include "sys/mem.h"
-// #include "sys/mm.h"
+#include "sys/mm.h"
 
 mm_space_t mm_kernel;
 
@@ -40,15 +42,15 @@ void amd64_mm_init(struct amd64_loader_data *data) {
     asm volatile ("mov %0, %%cr3"::"a"(pml4):"memory");
 
     // Create a pool located right after kernel image
-    // amd64_mm_pool_init((uintptr_t) &_kernel_end, MM_POOL_SIZE);
+    amd64_mm_pool_init((uintptr_t) &_kernel_end, MM_POOL_SIZE);
 
     mm_kernel = (mm_space_t) (MM_VIRTUALIZE(pml4));
 
     // // Allocate some pages for kernel heap (base size: 16MiB)
-    // uintptr_t heap_base_phys = amd64_phys_alloc_contiguous(KERNEL_HEAP >> 12);
-    // assert(heap_base_phys != MM_NADDR, "Could not allocate %S of memory for kernel heap\n", KERNEL_HEAP);
-    // kdebug("Setting up kernel heap of %S @ %p\n", KERNEL_HEAP, heap_base_phys);
-    // amd64_heap_init(heap_global, heap_base_phys, KERNEL_HEAP);
+    uintptr_t heap_base_phys = amd64_phys_alloc_contiguous(KERNEL_HEAP >> 12);
+    assert(heap_base_phys != MM_NADDR, "Could not allocate %S of memory for kernel heap\n", KERNEL_HEAP);
+    kdebug("Setting up kernel heap of %S @ %p\n", KERNEL_HEAP, heap_base_phys);
+    amd64_heap_init(heap_global, heap_base_phys, KERNEL_HEAP);
 
-    // amd64_heap_dump(heap_global);
+    amd64_heap_dump(heap_global);
 }

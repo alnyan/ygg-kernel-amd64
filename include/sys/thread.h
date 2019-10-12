@@ -19,3 +19,12 @@ struct thread {
     // TODO: maybe __sched_thread
     struct thread *next;
 };
+
+int thread_init(struct thread *t,
+                mm_space_t *space,
+                uintptr_t entry,
+                uintptr_t stack0_base,
+                size_t stack0_size,
+                uintptr_t stack3_base,
+                size_t stack3_size,
+                uint32_t flags);
