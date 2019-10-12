@@ -1,6 +1,7 @@
 #include "sys/debug.h"
 #include "sys/amd64/loader/multiboot.h"
 #include "sys/amd64/hw/gdt.h"
+#include "sys/amd64/syscall.h"
 #include "sys/amd64/hw/idt.h"
 #include "sys/amd64/mm/mm.h"
 #include "sys/amd64/mm/phys.h"
@@ -22,6 +23,8 @@ void kernel_main(struct amd64_loader_data *data) {
     extern void sched_init(void);
     sched_init();
     amd64_acpi_init();
+
+    amd64_syscall_init();
 
     while (1) {
         asm ("sti; hlt");

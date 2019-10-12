@@ -4,6 +4,7 @@
 #include "sys/amd64/hw/gdt.h"
 #include "sys/amd64/hw/idt.h"
 #include "sys/amd64/mm/mm.h"
+#include "sys/amd64/syscall.h"
 #include "sys/amd64/cpu.h"
 #include "sys/string.h"
 #include "sys/debug.h"
@@ -61,6 +62,8 @@ static void amd64_ap_code_entry(void) {
 
     // Enable LAPIC timer
     amd64_timer_init();
+
+    amd64_syscall_init();
 
     while (1) {
         asm ("sti; hlt");
