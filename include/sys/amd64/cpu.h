@@ -11,6 +11,7 @@ struct cpu {
     struct thread *thread;      // 0x08
     uint64_t ticks;             // 0x10
     amd64_tss_t *tss;           // 0x18
+    uint64_t syscall_rsp;       // 0x20
 
     // No need to define offsets for these: ther're not accessed
     // from assembly

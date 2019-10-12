@@ -5,7 +5,13 @@
 
 amd64_irq0:
     cli
-    swapgs
+    // Stack:
+    // ss
+    // rsp
+    // rflags
+    // cs
+    // rip
+    swapgs_if_needed
 
     // Interrupt entry:
     // rsp should be one of the following:
@@ -45,7 +51,7 @@ amd64_irq0:
 
     irq_pop_ctx
 
-    swapgs
+    swapgs_if_needed
     iretq
 
 _fmt0:

@@ -1,3 +1,5 @@
+#include "sys/amd64/asm/asm_cpu.h"
+
 .section .text
 .global amd64_syscall_init
 
@@ -40,5 +42,34 @@ amd64_syscall_init:
 
 // Entrypoint of SYSCALL instruction
 amd64_syscall_entry:
-    xchgw %bx, %bx
+    // R11 = rflags3
+    // RSP = rsp3
+    // RCX = rip3
+
+    swapgs
+
+    // // 1. Switch to kernel context
+    // // 1.1. Store rsp3 in CPU struct
+    movq %rsp, get_cpu(0x20)
+    // 1.2. Load rsp0 from CPU struct
+    movq get_cpu(0x08), %rsp
+    movq (%rsp), %rsp
+
+    pushq %rax
+    movq get_cpu(0x20), %rax
+    pushq %rax
+
+    movq $100000000, %rax
+    sti
+
+1:
+    decq %rax
+    jnz 1b
+    cli
+
+    popq %rdi
+    popq %rax
+    movq %rdi, %rsp
+
+    swapgs
     sysretq
