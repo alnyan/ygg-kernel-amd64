@@ -43,4 +43,5 @@ endif
 # 	  $(O)/sys/chr.o
 
 OBJS+=$(O)/sys/debug.o \
-	  $(O)/sys/string.o
+	  $(O)/sys/string.o \
+	  $(O)/sys/panic.o

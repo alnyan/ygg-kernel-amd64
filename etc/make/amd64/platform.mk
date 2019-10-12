@@ -19,7 +19,12 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/hw/irqs_s.o \
 	  $(O)/sys/amd64/sys/spin_s.o \
 	  $(O)/sys/amd64/cpu.o \
-	  $(O)/sys/amd64/sys/sched.o
+	  $(O)/sys/amd64/sys/sched.o \
+	  $(O)/sys/amd64/mm/heap.o \
+	  $(O)/sys/amd64/mm/map.o \
+	  $(O)/sys/amd64/mm/phys.o \
+	  $(O)/sys/amd64/mm/vmalloc.o \
+	  $(O)/sys/amd64/mm/pool.o
 
 kernel_OBJS=$(O)/sys/amd64/entry.o \
 			$(OBJS)
