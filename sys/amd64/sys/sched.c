@@ -6,45 +6,38 @@
 
 static struct thread *sched_queue_heads[AMD64_MAX_SMP] = { 0 };
 static struct thread *sched_queue_tails[AMD64_MAX_SMP] = { 0 };
+static size_t sched_queue_sizes[AMD64_MAX_SMP] = { 0 };
 static spin_t sched_lock = 0;
 
-#define TEST_STACK  65536
+#define IDLE_STACK  32768
 
 // Testing
-static char t_stack0[TEST_STACK * AMD64_MAX_SMP] = {0};
-static char t_stack3[TEST_STACK * AMD64_MAX_SMP] = {0};
+static char t_stack0[IDLE_STACK * AMD64_MAX_SMP] = {0};
 static struct thread t_idle[AMD64_MAX_SMP] = {0};
 
 void idle_func(uintptr_t id) {
-    int v = 0;
+    kdebug("Entering [idle] for cpu%d\n", id);
     while (1) {
-        // Cannot call kernel functions directly - they use privileged insns.
-        *((uint16_t *) 0xFFFFFF00000B8000 + id) = v * 0x700 | ('A' + id);
-        v = !v;
-        for (size_t i = 0; i < 100000000; ++i);
+        asm volatile ("sti; hlt");
     }
 }
 
 static void make_idle_task(int cpu) {
     struct thread *t = &t_idle[cpu];
 
-    uintptr_t stack0_base = (uintptr_t) t_stack0 + cpu * TEST_STACK;
-    uintptr_t stack3_base = (uintptr_t) t_stack3 + cpu * TEST_STACK;
+    uintptr_t stack0_base = (uintptr_t) t_stack0 + cpu * IDLE_STACK;
 
     t->data.stack0_base = stack0_base;
-    t->data.stack0_size = TEST_STACK;
-    t->data.rsp0 = stack0_base + TEST_STACK - sizeof(struct cpu_context);
-
-    t->data.stack3_base = stack3_base;
-    t->data.stack3_size = TEST_STACK;
+    t->data.stack0_size = IDLE_STACK;
+    t->data.rsp0 = stack0_base + IDLE_STACK - sizeof(struct cpu_context);
 
     // Setup context
     struct cpu_context *ctx = (struct cpu_context *) t->data.rsp0;
 
     ctx->rip = (uintptr_t) idle_func;
-    ctx->rsp = t->data.stack3_base + t->data.stack3_size;
-    ctx->cs = 0x23;
-    ctx->ss = 0x1B;
+    ctx->rsp = t->data.stack0_base + t->data.stack0_size;
+    ctx->cs = 0x08;
+    ctx->ss = 0x10;
     ctx->rflags = 0x248;
 
     ctx->rax = 0;
@@ -68,8 +61,8 @@ static void make_idle_task(int cpu) {
     ctx->r14 = 0;
     ctx->r15 = 0;
 
-    ctx->ds = 0x1B;
-    ctx->es = 0x1B;
+    ctx->ds = 0x10;
+    ctx->es = 0x10;
     ctx->fs = 0;
 
     ctx->__canary = AMD64_STACK_CTX_CANARY;
@@ -85,7 +78,22 @@ void sched_add_to(int cpu, struct thread *t) {
         sched_queue_heads[cpu] = t;
     }
     sched_queue_tails[cpu] = t;
+    ++sched_queue_sizes[cpu];
     spin_release(&sched_lock);
+}
+
+void sched_add(struct thread *t) {
+    int min_i = -1;
+    size_t min = 0xFFFFFFFF;
+    spin_lock(&sched_lock);
+    for (int i = 0; i < AMD64_MAX_SMP; ++i) {
+        if (sched_queue_sizes[i] < min) {
+            min = sched_queue_sizes[i];
+            min_i = i;
+        }
+    }
+    spin_release(&sched_lock);
+    sched_add_to(min_i, t);
 }
 
 void sched_init(void) {
