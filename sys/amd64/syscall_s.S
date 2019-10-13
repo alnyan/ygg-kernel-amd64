@@ -55,21 +55,54 @@ amd64_syscall_entry:
     movq get_cpu(0x08), %rsp
     movq (%rsp), %rsp
 
-    pushq %rax
-    movq get_cpu(0x20), %rax
-    pushq %rax
+    pushq %rcx
+    movq get_cpu(0x20), %rcx
+    pushq %rcx
+    pushq %r11
 
-    movq $100000000, %rax
+    // Safe for interrupts now
     sti
 
-1:
-    decq %rax
-    jnz 1b
+    // Userspace:
+    //  %rdi %rsi %rdx %rcx %8 %r9
+    // Syscall:
+    //  %rdi %rsi %rdx %r10 %r8 %r9
+    //  %rax
+    // Now it's done like
+    //  %rdi -> %rdi
+    //  %rsi -> %rsi
+    //  %rdx -> %rdx
+    //  %r10 -> %rcx
+    //  %r8  -> %r8
+    //  %rax -> %r9
+    // FIXME: use %rax properly and
+    //        have a table of system calls
+
+    movq %r10, %rcx
+    movq %rax, %r9
+    call amd64_syscall
+
+    // Disable interrupts
     cli
 
+    popq %r11
     popq %rdi
-    popq %rax
+    popq %rcx
+
+    // We could've been interrupted by irq0, which could've
+    // scheduled a new task, which could've rewritten the TSS/RSP0
+    // with weird values, so just fix that up
+    movq %rsp, %rdx
+    movq get_cpu(0x08), %rsi
+    movq %rdx, (%rsi)
+    movq get_cpu(0x18), %rsi
+    addq $(25 * 8), %rdx
+    movq %rdx, 4(%rsi)
+
     movq %rdi, %rsp
 
     swapgs
     sysretq
+
+_fmt0:
+    .string "rsp = %p\n"

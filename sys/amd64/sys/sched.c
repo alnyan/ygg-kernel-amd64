@@ -19,10 +19,23 @@ static char t_stack3[IDLE_STACK * AMD64_MAX_SMP] = {0};
 static struct thread t_idle[AMD64_MAX_SMP] = {0};
 
 void func0(uintptr_t id, int state) {
+    uintptr_t a0 = 0, a1 = 0;
     uint16_t attr = (id + 0x2) << 8;
     uint16_t letter = '0' + id;
     *((uint16_t *) MM_VIRTUALIZE(0xB8000) + 80 * 0 + id) = state * attr | letter;
+    {
+        register uintptr_t rsp asm ("rsp");
+        a0 = rsp;
+    }
     asm volatile ("syscall");
+    {
+        register uintptr_t rsp asm ("rsp");
+        a1 = rsp;
+    }
+
+    if (a0 != a1) {
+        while (1);
+    }
 }
 
 void idle_func(uintptr_t id) {
@@ -31,7 +44,6 @@ void idle_func(uintptr_t id) {
     uintptr_t a0 = 0, a1 = 0;
 
     *((uint16_t *) MM_VIRTUALIZE(0xB8000) + 80 * 1 + id) = (id + 'A') | ((id + 0x9) << 8);
-
     {
         register uintptr_t rsp asm ("rsp");
         a0 = rsp;
@@ -48,7 +60,19 @@ void idle_func(uintptr_t id) {
 
     while (1) {
         func0(id, state);
-        asm volatile ("syscall");
+    {
+        register uintptr_t rsp asm ("rsp");
+        a0 = rsp;
+    }
+    asm volatile ("syscall");
+    {
+        register uintptr_t rsp asm ("rsp");
+        a1 = rsp;
+    }
+
+    if (a0 != a1) {
+        while (1);
+    }
         state = !state;
         for (size_t i = 0; i < 10000000; ++i);
     }
