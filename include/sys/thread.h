@@ -1,6 +1,7 @@
 #pragma once
 #include "sys/types.h"
-// TODO: port mm.h
+
+#define THREAD_KERNEL       (1 << 31)
 
 #if defined(ARCH_AMD64)
 typedef uint64_t *mm_space_t;
@@ -21,10 +22,11 @@ struct thread {
 };
 
 int thread_init(struct thread *t,
-                mm_space_t *space,
+                mm_space_t space,
                 uintptr_t entry,
                 uintptr_t stack0_base,
                 size_t stack0_size,
                 uintptr_t stack3_base,
                 size_t stack3_size,
-                uint32_t flags);
+                uint32_t flags,
+                void *arg);
