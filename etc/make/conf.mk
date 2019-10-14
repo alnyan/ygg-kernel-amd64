@@ -3,7 +3,6 @@ HEADERS=$(shell find ./include -name "*.h")
 CFLAGS+=-Wall \
 		-Wextra \
 		-Werror \
-		-Wpedantic \
 		-Wno-unused-parameter \
 		-Iinclude \
 		-Wno-unused-variable \

@@ -18,6 +18,7 @@ amd64_irq1:
 
     // Read from keyboard buffer
     inb $0x60, %al
+    movb %al, irq1_key(%rip)
 
     irq_eoi_lapic 1
 

@@ -18,61 +18,48 @@ static char t_stack3[IDLE_STACK * AMD64_MAX_SMP] = {0};
 #endif
 static struct thread t_idle[AMD64_MAX_SMP] = {0};
 
+#define ASM_SYSCALL3(n, r0, r1, r2) ( \
+        { \
+            register int64_t rax asm ("rax") = (int64_t) (n); \
+            register int64_t rdi asm ("rdi") = (int64_t) (r0); \
+            register int64_t rsi asm ("rsi") = (int64_t) (r1); \
+            register int64_t rdx asm ("rdx") = (int64_t) (r2); \
+            asm volatile ("syscall");\
+            rax; \
+        } \
+    )
+
+static inline int sc_write(int fd, const void *buf, size_t count) {
+    return ASM_SYSCALL3(1, fd, buf, count);
+}
+
+static inline int sc_read(int fd, void *buf, size_t count) {
+    return ASM_SYSCALL3(0, fd, buf, count);
+}
+
 void func0(uintptr_t id, int state) {
     uintptr_t a0 = 0, a1 = 0;
     uint16_t attr = (id + 0x2) << 8;
     uint16_t letter = '0' + id;
     *((uint16_t *) MM_VIRTUALIZE(0xB8000) + 80 * 0 + id) = state * attr | letter;
-    {
-        register uintptr_t rsp asm ("rsp");
-        a0 = rsp;
-    }
-    asm volatile ("syscall");
-    {
-        register uintptr_t rsp asm ("rsp");
-        a1 = rsp;
-    }
-
-    if (a0 != a1) {
-        while (1);
-    }
 }
 
 void idle_func(uintptr_t id) {
 #if defined(AMD64_IDLE_RING3)
     int state = 0;
     uintptr_t a0 = 0, a1 = 0;
+    char c;
 
     *((uint16_t *) MM_VIRTUALIZE(0xB8000) + 80 * 1 + id) = (id + 'A') | ((id + 0x9) << 8);
-    {
-        register uintptr_t rsp asm ("rsp");
-        a0 = rsp;
-    }
-    asm volatile ("syscall");
-    {
-        register uintptr_t rsp asm ("rsp");
-        a1 = rsp;
-    }
-
-    if (a0 != a1) {
-        while (1);
-    }
-
     while (1) {
-        func0(id, state);
-    {
-        register uintptr_t rsp asm ("rsp");
-        a0 = rsp;
-    }
-    asm volatile ("syscall");
-    {
-        register uintptr_t rsp asm ("rsp");
-        a1 = rsp;
-    }
+        if (id == 0) {
+            sc_read(0, &c, 1);
 
-    if (a0 != a1) {
-        while (1);
-    }
+            sc_write(1, "Yeah\n", 5);
+            sc_write(1, &c, 1);
+        }
+
+        func0(id, state);
         state = !state;
         for (size_t i = 0; i < 10000000; ++i);
     }
