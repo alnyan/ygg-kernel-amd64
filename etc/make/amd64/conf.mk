@@ -75,6 +75,8 @@ QEMU_BIN?=qemu-system-x86_64
 QEMU_OPTS?=-serial mon:stdio \
 		   -m $(QEMU_MEM) \
 		   --accel tcg,thread=multi \
+		   -netdev type=user,id=net0 \
+		   -device rtl8139,netdev=net0 \
 		   -smp $(QEMU_SMP)
 
 $(O)/sys/amd64/image.iso: $(O)/sys/amd64/kernel.elf \

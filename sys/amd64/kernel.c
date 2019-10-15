@@ -6,6 +6,7 @@
 #include "sys/amd64/mm/mm.h"
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/hw/acpi.h"
+#include "sys/amd64/hw/pci/pci.h"
 
 static multiboot_info_t *multiboot_info;
 
@@ -19,6 +20,7 @@ void kernel_main(struct amd64_loader_data *data) {
     amd64_gdt_init();
     amd64_idt_init();
     amd64_mm_init(data);
+    pci_enumerate();
 
     extern void sched_init(void);
     sched_init();

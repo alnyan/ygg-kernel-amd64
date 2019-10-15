@@ -27,7 +27,8 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/mm/pool.o \
 	  $(O)/sys/amd64/syscall_s.o \
 	  $(O)/sys/amd64/syscall.o \
-	  $(O)/sys/amd64/sys/thread.o
+	  $(O)/sys/amd64/sys/thread.o \
+	  $(O)/sys/amd64/hw/pci/pci.o
 
 kernel_OBJS=$(O)/sys/amd64/entry.o \
 			$(OBJS)
@@ -59,4 +60,5 @@ kernel_CFLAGS=-ffreestanding \
 DIRS+=$(O)/sys/amd64/image/boot/grub \
 	  $(O)/sys/amd64/hw \
 	  $(O)/sys/amd64/sys \
-	  $(O)/sys/amd64/mm
+	  $(O)/sys/amd64/mm \
+	  $(O)/sys/amd64/hw/pci
