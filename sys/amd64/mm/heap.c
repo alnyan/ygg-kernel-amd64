@@ -24,6 +24,15 @@ void amd64_heap_init(heap_t *heap, uintptr_t phys_base, size_t sz) {
 
     // Create a single whole-heap block
     heap_block_t *block = (heap_block_t *) MM_VIRTUALIZE(heap->phys_base);
+
+    uint32_t s = 13;
+    for (size_t i = 0; i < sz; ++i) {
+        s ^= s << 13;
+        s ^= s >> 17;
+        s ^= s << 5;
+        ((uint8_t *) block)[i] = s;
+    }
+
     block->magic = HEAP_MAGIC;
     block->next = NULL;
     block->prev = NULL;
@@ -49,8 +58,8 @@ void *heap_alloc(heap_t *heap, size_t count) {
 
         if (count == block->size) {
             block->magic |= 1;
-            return (void *) &block[1];
-        } else if (count <= block->size + sizeof(heap_block_t)) {
+            return (void *) ((uintptr_t) block + sizeof(heap_block_t));
+        } else if (block->size >= count + sizeof(heap_block_t)) {
             // Insert new block after this one
             heap_block_t *new_block = (heap_block_t *) (((uintptr_t) block) + sizeof(heap_block_t) + count);
             new_block->next = block->next;
@@ -60,7 +69,7 @@ void *heap_alloc(heap_t *heap, size_t count) {
             block->next = new_block;
             block->size = count;
             block->magic |= 1;
-            return (void *) &block[1];
+            return (void *) ((uintptr_t) block + sizeof(heap_block_t));
         }
     }
 
@@ -90,15 +99,16 @@ void heap_free(heap_t *heap, void *ptr) {
     heap_block_t *prev = block->prev;
     heap_block_t *next = block->next;
 
-    if (prev && !(prev->magic & 1)) {
-        prev->next = next;
-        if (next) {
-            next->prev = prev;
-        }
-        prev->size += sizeof(heap_block_t) + block->size;
-        block->magic = 0;
-        block = prev;
-    }
+    // TODO: fix this
+    //if (prev && !(prev->magic & 1)) {
+    //    prev->next = next;
+    //    if (next) {
+    //        next->prev = prev;
+    //    }
+    //    prev->size += sizeof(heap_block_t) + block->size;
+    //    block->magic = 0;
+    //    block = prev;
+    //}
 
     if (next && !(next->magic & 1)) {
         block->next = next->next;

@@ -26,7 +26,7 @@ static void pci_enumerate_func(uint8_t bus, uint8_t dev, uint8_t func) {
     case PCI_ID(0x10EC, 0x8139):
         // Think I'll implement this later
         kdebug("rtl8139\n");
-        kdebug("INT%c#%d\n", ('A' + ((irq >> 8) & 0xFF) - 1), irq & 0xFF);
+        kdebug("PCI INT%c#, PIC IRQ%d\n", ('A' + ((irq >> 8) & 0xFF) - 1), irq & 0xFF);
         break;
     }
 
