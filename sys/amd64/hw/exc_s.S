@@ -21,12 +21,23 @@ amd64_exc_generic:
     movq (%rsp), %rdx
     xorq %rdi, %rdi
     call debugf
+
+    cmpq $14, (%rsp)
+    jne 1f
+
+    movq %cr2, %rdx
+    leaq _amd64_exc_pf(%rip), %rsi
+    xorq %rdi, %rdi
+    call debugf
+
 1:
     cli
     hlt
     jmp 1b
 _amd64_exc_str:
     .string "Error: unhandled exception: %d\n"
+_amd64_exc_pf:
+    .string "Page fault %p\n"
 
 amd64_isr_nerr 0
 amd64_isr_nerr 1

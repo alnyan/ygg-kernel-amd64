@@ -11,6 +11,10 @@ static inline uint8_t inb(uint16_t addr) {
 	return v;
 }
 
+static inline void outw(uint16_t addr, uint16_t v) {
+    asm volatile("outw %0, %1"::"a"(v), "Nd"(addr));
+}
+
 static inline void outl(uint16_t addr, uint32_t v) {
     asm volatile("outl %0, %1"::"a"(v), "Nd"(addr));
 }
@@ -18,6 +22,12 @@ static inline void outl(uint16_t addr, uint32_t v) {
 static inline uint32_t inl(uint16_t addr) {
 	uint32_t v;
     asm volatile("inl %1, %0":"=a"(v):"Nd"(addr));
+	return v;
+}
+
+static inline uint16_t inw(uint16_t addr) {
+	uint16_t v;
+    asm volatile("inw %1, %0":"=a"(v):"Nd"(addr));
 	return v;
 }
 

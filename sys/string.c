@@ -1,5 +1,21 @@
 #include "sys/string.h"
 
+char *strcat(char *dst, const char *src) {
+    size_t l = strlen(dst);
+    strcpy(dst + l, src);
+    return dst;
+}
+
+char *strncat(char *dst, const char *src, size_t lim) {
+    size_t l = strlen(dst);
+    if (l < lim) {
+        return dst;
+    }
+    size_t r = lim - l;
+    strncpy(dst + l, src, r);
+    return dst;
+}
+
 size_t strlen(const char *a) {
     size_t s = 0;
     while (*a++) {
@@ -77,6 +93,13 @@ char *strrchr(const char *s, int c) {
         --l;
     }
     return NULL;
+}
+
+int memcmp(const void *a, const void *b, size_t n) {
+    const char *l = a;
+    const char *r = b;
+    for (; n && *l == *r; --n, ++l, ++r);
+    return n ? *l - *r : 0;
 }
 
 void *memmove(void *dest, const void *src, size_t n) {
