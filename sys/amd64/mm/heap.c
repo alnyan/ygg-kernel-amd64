@@ -94,7 +94,7 @@ void heap_free(heap_t *heap, void *ptr) {
     assert(block->magic & 1, "Double free error (kheap): %p\n", ptr);
 
     block->magic = HEAP_MAGIC;
-    kdebug("%p is free\n", block);
+    //kdebug("%p is free\n", block);
 
     heap_block_t *prev = block->prev;
     heap_block_t *next = block->next;

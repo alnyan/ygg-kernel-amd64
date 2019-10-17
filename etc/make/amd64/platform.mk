@@ -3,6 +3,11 @@
 ### Kernel build
 DEFINES+=-DARCH_AMD64
 
+ACPICA_SRCS=$(shell find sys/amd64/acpica -type f -name "*.c")
+ACPICA_OBJS=$(ACPICA_SRCS:%.c=$(O)/%.o)
+ACPICA_SRCD=$(shell find sys/amd64/acpica -type d)
+ACPICA_OBJD=$(ACPICA_SRCD:%=$(O)/%)
+
 OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/kernel.o \
 	  $(O)/sys/amd64/hw/gdt.o \
@@ -28,7 +33,15 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/syscall_s.o \
 	  $(O)/sys/amd64/syscall.o \
 	  $(O)/sys/amd64/sys/thread.o \
-	  $(O)/sys/amd64/hw/pci/pci.o
+	  $(O)/sys/amd64/hw/pci/pci.o \
+	  $(ACPICA_OBJS) \
+	  $(O)/sys/amd64/acpi_osl_mem.o \
+	  $(O)/sys/amd64/acpi_osl_printf.o \
+	  $(O)/sys/amd64/acpi_osl_thread.o \
+	  $(O)/sys/amd64/acpi_osl_init.o \
+	  $(O)/sys/amd64/acpi_osl_table.o \
+	  $(O)/sys/amd64/acpi_osl_irq.o \
+	  $(O)/sys/amd64/acpi_osl_hw.o
 
 kernel_OBJS=$(O)/sys/amd64/entry.o \
 			$(OBJS)
@@ -45,6 +58,7 @@ kernel_LDFLAGS=-nostdlib \
 kernel_CFLAGS=-ffreestanding \
 			  -I. \
 			  -I include/sys/amd64/acpica \
+			  -fmax-errors=1 \
 			  $(DEFINES) \
 			  $(CFLAGS) \
 			  -fPIE \
@@ -53,6 +67,8 @@ kernel_CFLAGS=-ffreestanding \
 			  -static \
 			  -fno-asynchronous-unwind-tables \
 			  -Wno-format \
+			  -Wno-comment \
+			  -Wno-unused-but-set-variable \
 			  -mcmodel=large \
 			  -mno-red-zone \
 			  -mno-mmx \
@@ -63,4 +79,5 @@ DIRS+=$(O)/sys/amd64/image/boot/grub \
 	  $(O)/sys/amd64/hw \
 	  $(O)/sys/amd64/sys \
 	  $(O)/sys/amd64/mm \
-	  $(O)/sys/amd64/hw/pci
+	  $(O)/sys/amd64/hw/pci \
+	  $(ACPICA_OBJD)
