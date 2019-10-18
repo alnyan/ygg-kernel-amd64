@@ -108,6 +108,19 @@ void amd64_ioapic_set(uintptr_t addr) {
     amd64_ioapic_write(0x10 + 1 * 2, low);
     amd64_ioapic_write(0x11 + 1 * 2, high);
 
+    // TODO: find IRQ mappings corresponding to legacy irq 1/4
+    low = amd64_ioapic_read(0x10 + 4 * 2);
+    high = amd64_ioapic_read(0x11 + 4 * 2);
+
+    low &= ~0x7;
+    low &= ~IOAPIC_REDIR_MSK;
+
+    low |= 0x1 + 0x20;
+    high = IOAPIC_REDIR_DST_SET(0);
+
+    amd64_ioapic_write(0x10 + 4 * 2, low);
+    amd64_ioapic_write(0x11 + 4 * 2, high);
+
     // TODO: unconfigured PCI IRQs may be mapped here
 }
 

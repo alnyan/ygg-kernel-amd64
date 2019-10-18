@@ -78,7 +78,7 @@ static void amd64_pic8259_disable(void) {
         "outb %al, $0x21 \n"
         "mov $(32 + 8), %al \n"
         "outb %al, $0xA1 \n"
-        "mov $0xFF, %al \n"
+        "mov $0x1, %al \n"
         "outb %al, $0xA1 \n"
         "outb %al, $0x21"
     );

@@ -90,8 +90,9 @@ QEMU_DEVS+=$(QEMU_DEV_NET)
 endif
 
 # Use newer (ICH9-based) chipset instead of PIIX4
-QEMU_OPTS?=-serial mon:stdio \
-		   -m $(QEMU_MEM) \
+QEMU_OPTS?=-m $(QEMU_MEM) \
+		   -chardev stdio,nowait,id=char0,mux=on \
+		   -serial chardev:char0 -mon chardev=char0 \
 		   --accel tcg,thread=multi \
 		   -M q35 \
 		   $(QEMU_DEVS) \
