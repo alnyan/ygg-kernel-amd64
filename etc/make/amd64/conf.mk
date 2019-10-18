@@ -72,10 +72,11 @@ $(O)/sys/amd64/initrd.img: amd64_mkstage
 
 ### Debugging and emulation
 QEMU_BIN?=qemu-system-x86_64
+# TODO: Uncomment these once I implement this
 # This is for playing around with PCI descriptions
-QEMU_DEVS?=-device ich9-usb-uhci1,id=uhci-0 \
-		   -device usb-mouse,bus=uhci-0.0 \
-		   -device usb-kbd,bus=uhci-0.0
+#QEMU_DEVS?=-device ich9-usb-uhci1,id=uhci-0 \
+#		   -device usb-mouse,bus=uhci-0.0 \
+#		   -device usb-kbd,bus=uhci-0.0
 
 ifdef QEMU_HDA
 QEMU_DEV_HDA=-drive file=$(QEMU_HDA),format=raw,id=disk_hda
