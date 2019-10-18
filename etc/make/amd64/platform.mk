@@ -35,6 +35,7 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/sys/thread.o \
 	  $(O)/sys/amd64/hw/pci/pci.o \
 	  $(O)/sys/amd64/hw/pci/ide.o \
+	  $(O)/sys/amd64/hw/pci/ahci.o \
 	  $(O)/sys/amd64/hw/pci/pcidb.o \
 	  $(ACPICA_OBJS) \
 	  $(O)/sys/amd64/acpi_osl_mem.o \
@@ -60,7 +61,6 @@ kernel_LDFLAGS=-nostdlib \
 kernel_CFLAGS=-ffreestanding \
 			  -I. \
 			  -I include/sys/amd64/acpica \
-			  -fmax-errors=1 \
 			  $(DEFINES) \
 			  $(CFLAGS) \
 			  -fPIE \

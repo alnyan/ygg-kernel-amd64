@@ -6,12 +6,13 @@
 #include "sys/debug.h"
 
 #include "sys/amd64/hw/pci/ide.h"
+#include "sys/amd64/hw/pci/ahci.h"
 
-uint32_t pci_config_read_dword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off) {
+uint32_t pci_config_read_dword(pci_addr_t addr, uint8_t off) {
     uint32_t w0;
-    w0 = ((uint32_t) bus << 16) |
-         ((uint32_t) slot << 11) |
-         ((uint32_t) func << 8) |
+    w0 = (PCI_BUS(addr) << 16) |
+         (PCI_DEV(addr) << 11) |
+         (PCI_FUNC(addr) << 8) |
          ((uint32_t) off & ~0x3) |
          (1 << 31);
 
@@ -21,11 +22,11 @@ uint32_t pci_config_read_dword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t 
     return w0;
 }
 
-void pci_config_write_dword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off, uint32_t v) {
+void pci_config_write_dword(pci_addr_t addr, uint8_t off, uint32_t v) {
     uint32_t w0;
-    w0 = ((uint32_t) bus << 16) |
-         ((uint32_t) slot << 11) |
-         ((uint32_t) func << 8) |
+    w0 = (PCI_BUS(addr) << 16) |
+         (PCI_DEV(addr) << 11) |
+         (PCI_FUNC(addr) << 8) |
          ((uint32_t) off & ~0x3) |
          (1 << 31);
 
@@ -40,7 +41,7 @@ static uint8_t pci_root_buses[PCI_MAX_ROOT_BUSES] = {0};
 static size_t pci_root_bus_count = 0;
 
 static struct pci_bridge_bus {
-    uint8_t bridge_bus, bridge_dev, bridge_func;    // Bridge device address on root bus
+    pci_addr_t bridge_addr;
     uint8_t bus_number;                             // Secondary bus number
 } pci_bridge_buses[PCI_MAX_BRIDGE_BUSES] = {0};
 static size_t pci_bridge_bus_count = 0;
@@ -53,16 +54,14 @@ void pci_add_root_bus(uint8_t n) {
     pci_root_buses[pci_root_bus_count++] = n;
 }
 
-void pci_add_bridge_bus(uint8_t bbus, uint8_t bdev, uint8_t bfunc, uint8_t sbus) {
+void pci_add_bridge_bus(pci_addr_t bridge_addr, uint8_t sbus) {
     if (pci_bridge_bus_count == PCI_MAX_BRIDGE_BUSES) {
         panic("Too many PCI bridge buses on host\n");
     }
 
     struct pci_bridge_bus *bus = &pci_bridge_buses[pci_bridge_bus_count++];
 
-    bus->bridge_bus = bbus;
-    bus->bridge_dev = bdev;
-    bus->bridge_func = bfunc;
+    bus->bridge_addr = bridge_addr;
     bus->bus_number = sbus;
 }
 
@@ -78,25 +77,25 @@ static struct pci_bridge_bus *pci_bus_bridge(uint8_t bus) {
     return NULL;
 }
 
-static void pci_describe_func(uint8_t bus, uint8_t dev, uint8_t func) {
+static void pci_describe_func(pci_addr_t addr) {
     // Get device actual bus
-    struct pci_bridge_bus *bridge = pci_bus_bridge(bus);
+    struct pci_bridge_bus *bridge = pci_bus_bridge(PCI_BUS(addr));
 
-    uint32_t header = pci_config_read_dword(bus, dev, func, 0x0C);
+    uint32_t header = pci_config_read_dword(addr, 0x0C);
     uint8_t header_type = (header >> 16) & 0x7F;
 
     if (header_type == 0) {
-        uint32_t id = pci_config_read_dword(bus, dev, func, 0);
-        uint32_t kind = pci_config_read_dword(bus, dev, func, 8);
-        uint32_t irq = pci_config_read_dword(bus, dev, func, 0x3C);
+        uint32_t id = pci_config_read_dword(addr, 0);
+        uint32_t kind = pci_config_read_dword(addr, 8);
+        uint32_t irq = pci_config_read_dword(addr, 0x3C);
 
         uint16_t class = kind >> 16;
 
         uint16_t device_id = id >> 16;
         uint16_t vendor_id = id & 0xFFFF;
 
-        kdebug("[%02x:%02x:%02x] %02x:%02x/%s\n",
-            bus, dev, func,
+        kdebug("[" PCI_FMTADDR "] %02x:%02x/%s\n",
+            PCI_VAADDR(addr),
             class >> 8, class & 0xFF,
             pci_class_string(class));
         kdebug(" Vendor %04x Device %04x\n", vendor_id, device_id);
@@ -122,14 +121,9 @@ static void pci_describe_func(uint8_t bus, uint8_t dev, uint8_t func) {
             }
         }
 
-        uint8_t root_bus = bus;
-        uint8_t root_dev = dev;
-        uint8_t root_func = func;
-
+        pci_addr_t root_addr = addr;
         if (bridge) {
-            root_bus = bridge->bridge_bus;
-            root_dev = bridge->bridge_dev;
-            root_func = bridge->bridge_func;
+            root_addr = bridge->bridge_addr;
         }
 
         if (irq & 0xFF00) {
@@ -137,7 +131,7 @@ static void pci_describe_func(uint8_t bus, uint8_t dev, uint8_t func) {
 
             kdebug("  Interrupt pin INT%c#\n", pin + 'A');
             // Dump current route
-            uint32_t gsi_irq = amd64_pci_pin_irq_route(root_bus, root_dev, root_func, pin);
+            uint32_t gsi_irq = amd64_pci_pin_irq_route(PCI_BUS(root_addr), PCI_DEV(root_addr), PCI_FUNC(root_addr), pin);
             _assert(gsi_irq != PCI_IRQ_INVALID); // TODO: allow dynamic PCI IRQ route allocation
 
             if (gsi_irq != PCI_IRQ_NO_ROUTE) {
@@ -149,36 +143,36 @@ static void pci_describe_func(uint8_t bus, uint8_t dev, uint8_t func) {
         // Otherwise the device either does not use IRQs or uses legacy IRQs?
         // This case should be handled by device driver
     } else if (header_type == 1) {
-        kdebug("[%02x:%02x:%02x] PCI-to-PCI Bridge\n", bus, dev, func);
+        kdebug("[" PCI_FMTADDR "] PCI-to-PCI Bridge\n", PCI_VAADDR(addr));
 
         assert(!bridge, "Nested bridged buses?\n");
 
-        uint32_t bridge_bus_info = pci_config_read_dword(bus, dev, func, 0x18);
+        uint32_t bridge_bus_info = pci_config_read_dword(addr, 0x18);
         uint8_t secondary_bus_number = (bridge_bus_info >> 8) & 0xFF;
         uint8_t primary_bus_number = bridge_bus_info & 0xFF;
 
         kdebug("    Primary bus: %02x\n", primary_bus_number);
         kdebug("    Secondary bus: %02x\n", secondary_bus_number);
 
-        pci_add_bridge_bus(bus, dev, func, secondary_bus_number);
+        pci_add_bridge_bus(addr, secondary_bus_number);
     } else {
-        panic("[%02x:%02x:%02x]: Unsupported PCI header type: %02x\n",
-            bus, dev, func,
+        panic("[" PCI_FMTADDR "]: Unsupported PCI header type: %02x\n",
+            PCI_VAADDR(addr),
             header_type);
     }
 }
 
-static void pci_enumerate_func(uint8_t bus, uint8_t dev, uint8_t func) {
+static void pci_enumerate_func(pci_addr_t addr) {
     // Get device actual bus
-    struct pci_bridge_bus *bridge = pci_bus_bridge(bus);
-    uint32_t header = pci_config_read_dword(bus, dev, func, 0x0C);
+    struct pci_bridge_bus *bridge = pci_bus_bridge(PCI_BUS(addr));
+    uint32_t header = pci_config_read_dword(addr, 0x0C);
     uint8_t header_type = (header >> 16) & 0x7F;
 
-    pci_describe_func(bus, dev, func);
+    pci_describe_func(addr);
 
     if (header_type == 0) {
-        uint32_t id = pci_config_read_dword(bus, dev, func, 0);
-        uint32_t kind = pci_config_read_dword(bus, dev, func, 8);
+        uint32_t id = pci_config_read_dword(addr, 0);
+        uint32_t kind = pci_config_read_dword(addr, 8);
 
         uint16_t class = kind >> 16;
 
@@ -188,45 +182,49 @@ static void pci_enumerate_func(uint8_t bus, uint8_t dev, uint8_t func) {
         switch (class) {
         case 0x0101:
             // PCI IDE Controller
-            pci_ide_init(bus, dev, func);
+            pci_ide_init(addr);
+            break;
+        case 0x0106:
+            // AHCI controller
+            pci_ahci_init(addr);
             break;
         }
     } else if (header_type == 1) {
-        kdebug("[%02x:%02x:%02x] PCI-to-PCI Bridge\n", bus, dev, func);
+        kdebug("[" PCI_FMTADDR "] PCI-to-PCI Bridge\n", PCI_VAADDR(addr));
 
         assert(!bridge, "Nested bridged buses?\n");
 
-        uint32_t bridge_bus_info = pci_config_read_dword(bus, dev, func, 0x18);
+        uint32_t bridge_bus_info = pci_config_read_dword(addr, 0x18);
         uint8_t secondary_bus_number = (bridge_bus_info >> 8) & 0xFF;
         uint8_t primary_bus_number = bridge_bus_info & 0xFF;
 
         kdebug("    Primary bus: %02x\n", primary_bus_number);
         kdebug("    Secondary bus: %02x\n", secondary_bus_number);
 
-        pci_add_bridge_bus(bus, dev, func, secondary_bus_number);
+        pci_add_bridge_bus(addr, secondary_bus_number);
     } else {
-        panic("[%02x:%02x:%02x]: Unsupported PCI header type: %02x\n",
-            bus, dev, func,
+        panic("[" PCI_FMTADDR "]: Unsupported PCI header type: %02x\n",
+            PCI_VAADDR(addr),
             header_type);
     }
 }
 
 static void pci_enumerate_dev(uint8_t bus, uint8_t dev) {
     // Check function 0
-    uint32_t w0 = pci_config_read_dword(bus, dev, 0, 0);
+    uint32_t w0 = pci_config_read_dword(PCI_MKADDR(bus, dev, 0), 0);
     if ((w0 & 0xFFFF) == 0xFFFF) {
         // No functions here
         return;
     }
-    uint32_t header = pci_config_read_dword(bus, dev, 0, 0x0C);
+    uint32_t header = pci_config_read_dword(PCI_MKADDR(bus, dev, 0), 0x0C);
 
-    pci_enumerate_func(bus, dev, 0);
+    pci_enumerate_func(PCI_MKADDR(bus, dev, 0));
 
     if ((header >> 16) & 0x80) {
         // Multifunction device
         for (uint8_t i = 1; i < 8; ++i) {
-            if ((pci_config_read_dword(bus, dev, i, 0x00) & 0xFFFF) != 0xFFFF) {
-                pci_enumerate_func(bus, dev, i);
+            if ((pci_config_read_dword(PCI_MKADDR(bus, dev, i), 0x00) & 0xFFFF) != 0xFFFF) {
+                pci_enumerate_func(PCI_MKADDR(bus, dev, i));
             }
         }
     }

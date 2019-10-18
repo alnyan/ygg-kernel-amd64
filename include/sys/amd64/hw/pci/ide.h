@@ -1,4 +1,5 @@
 #pragma once
 #include "sys/types.h"
+#include "pci.h"
 
-void pci_ide_init(uint8_t bus, uint8_t dev, uint8_t func);
+void pci_ide_init(pci_addr_t addr);

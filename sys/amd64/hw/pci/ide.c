@@ -1,14 +1,13 @@
 #include "sys/amd64/hw/pci/ide.h"
-#include "sys/amd64/hw/pci/pci.h"
 #include "sys/assert.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
 
-void pci_ide_init(uint8_t bus, uint8_t dev, uint8_t func) {
-    kdebug("Initializing PCI IDE controller at %02x:%02x:%02x\n", bus, dev, func);
+void pci_ide_init(pci_addr_t addr) {
+    kdebug("Initializing PCI IDE controller at " PCI_FMTADDR "\n", PCI_VAADDR(addr));
 
-    uint32_t irq_config = pci_config_read_dword(bus, dev, func, 0x3C);
-    uint32_t class = pci_config_read_dword(bus, dev, func, 0x08);
+    uint32_t irq_config = pci_config_read_dword(addr, 0x3C);
+    uint32_t class = pci_config_read_dword(addr, 0x08);
 
     if ((irq_config >> 8) & 0xFF) {
         panic("TODO: support IDE controllers with non-legacy IRQs\n");
@@ -16,9 +15,9 @@ void pci_ide_init(uint8_t bus, uint8_t dev, uint8_t func) {
 
     irq_config &= ~0xFF;
     irq_config |= 0xFE;
-    pci_config_write_dword(bus, dev, func, 0x3C, irq_config);
+    pci_config_write_dword(addr, 0x3C, irq_config);
 
-    irq_config = pci_config_read_dword(bus, dev, func, 0x3C);
+    irq_config = pci_config_read_dword(addr, 0x3C);
 
     if ((irq_config & 0xFF) == 0xFE) {
         // Need IRQ assignment
@@ -28,8 +27,8 @@ void pci_ide_init(uint8_t bus, uint8_t dev, uint8_t func) {
         irq_config &= ~0xFF;
         irq_config |= 14;
 
-        pci_config_write_dword(bus, dev, func, 0x3C, irq_config);
-        irq_config = pci_config_read_dword(bus, dev, func, 0x3C);
+        pci_config_write_dword(addr, 0x3C, irq_config);
+        irq_config = pci_config_read_dword(addr, 0x3C);
 
         assert((irq_config & 0xFF) == 14, "Failed to assign IRQ14 to IDE drive controller\n");
     } else {

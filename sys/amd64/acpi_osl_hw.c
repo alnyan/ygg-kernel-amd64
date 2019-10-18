@@ -41,14 +41,14 @@ ACPI_STATUS AcpiOsReadPciConfiguration(ACPI_PCI_ID *PciId, UINT32 Reg, UINT64 *V
     UINT32 DWordAlignedReg = Reg & ~3;
     UINT32 DWord;
 
+    DWord = pci_config_read_dword(PCI_MKADDR(PciId->Bus, PciId->Device, PciId->Function), Reg);
+
     switch (Width) {
     case 8:
-        DWord = pci_config_read_dword(PciId->Bus, PciId->Device, PciId->Function, Reg);
         DWord >>= Reg - DWordAlignedReg;
         *Value = DWord & 0xFF;
         return AE_OK;
     case 16:
-        DWord = pci_config_read_dword(PciId->Bus, PciId->Device, PciId->Function, Reg);
         if (DWord != DWordAlignedReg) {
             DWord >>= 16;
         }
@@ -56,7 +56,7 @@ ACPI_STATUS AcpiOsReadPciConfiguration(ACPI_PCI_ID *PciId, UINT32 Reg, UINT64 *V
         return AE_OK;
     case 32:
         _assert(DWordAlignedReg == Reg);
-        *Value = pci_config_read_dword(PciId->Bus, PciId->Device, PciId->Function, Reg);
+        *Value = DWord;
         return AE_OK;
     default:
         panic("Unsupported PCI read width: %u\n", Width);
