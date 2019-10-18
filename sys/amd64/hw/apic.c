@@ -4,6 +4,7 @@
 #include "sys/amd64/hw/ioapic.h"
 #include "sys/amd64/hw/timer.h"
 #include "sys/string.h"
+#include "sys/panic.h"
 #include "sys/debug.h"
 
 /////
@@ -146,7 +147,7 @@ void amd64_acpi_ioapic(struct acpi_madt *madt) {
     }
 }
 
-void amd64_apic_init(struct acpi_madt *madt) {
+void amd64_apic_init(void) {
     // Get LAPIC base
     local_apic = amd64_apic_base() + 0xFFFFFF0000000000;
     kdebug("APIC base is %p\n", local_apic);
@@ -163,9 +164,9 @@ void amd64_apic_init(struct acpi_madt *madt) {
     // And set spurious interrupt mapping to 0xFF
     LAPIC(LAPIC_REG_SVR) |= (1 << 8) | (0xFF);
 
-    amd64_acpi_ioapic(madt);
+    amd64_acpi_ioapic(acpi_madt);
 #if defined(AMD64_SMP)
-    amd64_acpi_smp(madt);
+    amd64_acpi_smp(acpi_madt);
 #endif
 
     amd64_timer_init();

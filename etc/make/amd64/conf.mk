@@ -72,11 +72,28 @@ $(O)/sys/amd64/initrd.img: amd64_mkstage
 
 ### Debugging and emulation
 QEMU_BIN?=qemu-system-x86_64
+# This is for playing around with PCI descriptions
+QEMU_DEVS?=-device ich9-usb-uhci1,id=uhci-0 \
+		   -device usb-mouse,bus=uhci-0.0 \
+		   -device usb-kbd,bus=uhci-0.0
+
+ifdef QEMU_HDA
+QEMU_DEV_HDA=-drive file=$(QEMU_HDA),format=raw,id=disk_hda
+QEMU_DEVS+=$(QEMU_DEV_HDA)
+endif
+
+ifdef QEMU_NET
+QEMU_DEV_NET=-device $(QEMU_NET),netdev=net0 \
+			 -netdev type=user,id=net0
+QEMU_DEVS+=$(QEMU_DEV_NET)
+endif
+
+# Use newer (ICH9-based) chipset instead of PIIX4
 QEMU_OPTS?=-serial mon:stdio \
 		   -m $(QEMU_MEM) \
 		   --accel tcg,thread=multi \
-		   -netdev type=user,id=net0 \
-		   -device rtl8139,netdev=net0 \
+		   -M q35 \
+		   $(QEMU_DEVS) \
 		   -smp $(QEMU_SMP)
 
 $(O)/sys/amd64/image.iso: $(O)/sys/amd64/kernel.elf \

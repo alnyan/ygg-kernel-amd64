@@ -9,7 +9,7 @@
 extern int _kernel_end_phys;
 // Roughly 36MiB of lower memory is occupied by kernel so far:
 // The rest is available for both kernel and user allocation
-#define PHYS_ALLOWED_BEGIN          0x600000 ///((((uintptr_t) &_kernel_end_phys + MM_POOL_SIZE) + 0xFFF) & ~0xFFF)
+#define PHYS_ALLOWED_BEGIN          ((((uintptr_t) &_kernel_end_phys + MM_POOL_SIZE) + 0xFFF) & ~0xFFF)
 
 // TODO: move to sys/util.h
 #define MAX(x, y)                   ((x) > (y) ? (x) : (y))

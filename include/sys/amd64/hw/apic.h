@@ -7,4 +7,5 @@
 
 extern uintptr_t local_apic;
 
-void amd64_apic_init(struct acpi_madt *madt);
+void amd64_apic_set_madt(struct acpi_madt *madt);
+void amd64_apic_init(void);

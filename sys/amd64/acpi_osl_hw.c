@@ -38,8 +38,6 @@ ACPI_STATUS AcpiOsWritePort(ACPI_IO_ADDRESS Address, UINT32 Value, UINT32 Width)
 }
 
 ACPI_STATUS AcpiOsReadPciConfiguration(ACPI_PCI_ID *PciId, UINT32 Reg, UINT64 *Value, UINT32 Width) {
-    kdebug("PCI read %02x:%02x:%02x off %02x width %u\n", PciId->Bus, PciId->Device, PciId->Function,
-                                                          Reg, Width);
     UINT32 DWordAlignedReg = Reg & ~3;
     UINT32 DWord;
 
@@ -48,6 +46,13 @@ ACPI_STATUS AcpiOsReadPciConfiguration(ACPI_PCI_ID *PciId, UINT32 Reg, UINT64 *V
         DWord = pci_config_read_dword(PciId->Bus, PciId->Device, PciId->Function, Reg);
         DWord >>= Reg - DWordAlignedReg;
         *Value = DWord & 0xFF;
+        return AE_OK;
+    case 16:
+        DWord = pci_config_read_dword(PciId->Bus, PciId->Device, PciId->Function, Reg);
+        if (DWord != DWordAlignedReg) {
+            DWord >>= 16;
+        }
+        *Value = DWord & 0xFFFF;
         return AE_OK;
     case 32:
         _assert(DWordAlignedReg == Reg);

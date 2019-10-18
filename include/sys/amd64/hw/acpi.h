@@ -44,4 +44,6 @@ struct acpi_madt {
     char entry[];
 } __attribute__((packed));
 
+extern struct acpi_madt *acpi_madt;
+
 void amd64_acpi_init(void);

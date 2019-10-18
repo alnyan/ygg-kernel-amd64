@@ -1,4 +1,6 @@
 #pragma once
+// TODO: lots of stuff can be moved to some kind of generic
+//       irq.h header to provide controller-agnostic interface
 #include "sys/types.h"
 
 #define IOAPIC_REG_ID               0x00
@@ -34,3 +36,12 @@ void amd64_ioapic_write(uint8_t reg, uint32_t v);
 // Set from reading the MADT
 void amd64_ioapic_set(uintptr_t addr);
 void amd64_ioapic_int_src_override(uint8_t bus, uint8_t src, uint32_t no, uint16_t flags);
+
+//// Generic IRQ stuff
+// A route exists (LNKx) but is not mapped to any IRQ at the moment
+#define PCI_IRQ_NO_ROUTE            0xFFFFFFFF
+// No route even exists
+#define PCI_IRQ_INVALID             0xFFFFFFFE
+
+int amd64_pci_init_irqs(void);
+uint32_t amd64_pci_pin_irq_route(uint8_t bus, uint8_t dev, uint8_t func, uint8_t pin);

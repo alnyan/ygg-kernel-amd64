@@ -7,4 +7,4 @@
 
 #define _assert(c) \
     if (!(c)) \
-        panic("Assertion failed: " #c);
+        panic("Assertion failed: " #c "\n");

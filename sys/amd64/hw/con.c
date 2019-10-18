@@ -21,6 +21,7 @@ void amd64_con_putc(int c) {
         ++x;
         if (x >= 80) {
             ++y;
+            x = 0;
         }
     } else {
         switch (c) {
