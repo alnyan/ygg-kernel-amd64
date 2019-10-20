@@ -61,8 +61,12 @@ void *heap_alloc(heap_t *heap, size_t count) {
             return (void *) ((uintptr_t) block + sizeof(heap_block_t));
         } else if (block->size >= count + sizeof(heap_block_t)) {
             // Insert new block after this one
+            heap_block_t *cur_next = block->next;
             heap_block_t *new_block = (heap_block_t *) (((uintptr_t) block) + sizeof(heap_block_t) + count);
-            new_block->next = block->next;
+            if (cur_next) {
+                cur_next->prev = new_block;
+            }
+            new_block->next = cur_next;
             new_block->prev = block;
             new_block->size = block->size - sizeof(heap_block_t) - count;
             new_block->magic = HEAP_MAGIC;
@@ -95,20 +99,27 @@ void heap_free(heap_t *heap, void *ptr) {
 
     block->magic = HEAP_MAGIC;
     //kdebug("%p is free\n", block);
+    heap_block_t *begin = (heap_block_t *) MM_VIRTUALIZE(heap->phys_base);
+
+    for (heap_block_t *block = begin; block; block = block->next) {
+        if ((block->magic & HEAP_MAGIC) != HEAP_MAGIC) {
+            panic("Heap is broken: magic %08x, %p (%lu), size could be %S\n", block->magic, block, (uintptr_t) block - (uintptr_t) begin, block->size);
+        }
+    }
 
     heap_block_t *prev = block->prev;
     heap_block_t *next = block->next;
 
     // TODO: fix this
-    //if (prev && !(prev->magic & 1)) {
-    //    prev->next = next;
-    //    if (next) {
-    //        next->prev = prev;
-    //    }
-    //    prev->size += sizeof(heap_block_t) + block->size;
-    //    block->magic = 0;
-    //    block = prev;
-    //}
+    if (prev && !(prev->magic & 1)) {
+        prev->next = next;
+        if (next) {
+            next->prev = prev;
+        }
+        prev->size += sizeof(heap_block_t) + block->size;
+        block->magic = 0;
+        block = prev;
+    }
 
     if (next && !(next->magic & 1)) {
         block->next = next->next;
