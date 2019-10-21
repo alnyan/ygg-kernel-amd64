@@ -6,6 +6,8 @@
 #include "sys/debug.h"
 #include "sys/mm.h"
 
+// XXX: Choose a better place for this
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
 // Memory required for a port:
 // 1024     - command list  (32 * sizeof(ahci_command_header))
 // 256      - received FIS
@@ -20,6 +22,100 @@ static int ahci_alloc_cmd(struct ahci_port_registers *port) {
         }
     }
     return -1;
+}
+
+void ahci_sata_read(struct ahci_port_registers *port, void *buf, uint32_t nsect, uint64_t lba) {
+    port->p_is = -1;
+
+    int cmd = ahci_alloc_cmd(port);
+    _assert(cmd != -1);
+
+    // Command list
+    struct ahci_command_header *cmd_list = AHCI_PORT_CMD_LIST(port);
+    struct ahci_command_header *cmd_header = &cmd_list[cmd];
+    // Command table entry for the slot
+    struct ahci_command_table_entry *cmd_table = AHCI_CMD_TABLE_ENTRY(cmd_list, cmd);
+
+    size_t byte_count = nsect * 512;
+    // Maximum PRDT entry size is 8K, so maximum read from disk using this call is 64K
+    size_t prd_count = (byte_count + 8191) / 8192;
+
+    if (prd_count > 8) {
+        panic("Read operation uses too many PRDT entries\n");
+    }
+
+    size_t bytes_left = byte_count;
+
+    cmd_header->attr = sizeof(struct ahci_fis_reg_h2d) / sizeof(uint32_t);
+    cmd_header->prdtl = prd_count;
+    cmd_header->prdbc = 0;
+
+    uintptr_t buf_phys = ((uintptr_t) buf) - 0xFFFFFF0000000000;
+
+    memset(cmd_table, 0, sizeof(struct ahci_command_table_entry) + sizeof(struct ahci_prdt_entry) * prd_count);
+
+    for (size_t i = 0; i < prd_count; ++i) {
+        size_t prd_size = MIN(8192, bytes_left);
+        _assert(prd_size);
+        uintptr_t prd_buf = buf_phys + 8192 * i;
+
+        cmd_table->prdt[i].dba = prd_buf & 0xFFFFFFFF;
+        cmd_table->prdt[i].dbau = prd_buf >> 32;
+        cmd_table->prdt[i].dbc = ((prd_size - 1) << 1) | 1;
+
+        kdebug("PRD%d: %S at %p\n", i, prd_size, prd_buf);
+
+        if (i == prd_count - 1) {
+            // XXX: Enable interrupt on last entry?
+            cmd_table->prdt[i].dbc |= 1 << 31;
+        }
+
+        bytes_left -= prd_size;
+    }
+
+    _assert(!bytes_left);
+
+    // Prepare read command
+    struct ahci_fis_reg_h2d *fis_reg_h2d = &cmd_table->fis_reg_h2d;
+    memset(fis_reg_h2d, 0, sizeof(struct ahci_fis_reg_h2d));
+    fis_reg_h2d->type = FIS_REG_H2D;
+    fis_reg_h2d->cmd = ATA_CMD_READ_DMA_EX;
+    fis_reg_h2d->cmd_port = 1 << 7;
+    fis_reg_h2d->lba0 = lba & 0xFF;
+    fis_reg_h2d->lba1 = (lba >> 8) & 0xFF;
+    fis_reg_h2d->lba2 = (lba >> 16) & 0xFF;
+    fis_reg_h2d->dev = (1 << 6);         // LBA mode
+    fis_reg_h2d->lba3 = (lba >> 24) & 0xFF;
+    fis_reg_h2d->lba4 = (lba >> 32) & 0xFF;
+    fis_reg_h2d->lba5 = (lba >> 40) & 0xFF;
+    fis_reg_h2d->countl = nsect & 0xFF;
+    fis_reg_h2d->counth = (nsect >> 8) & 0xFF;
+
+    uint32_t spin = 0;
+    while ((port->p_tfd & (ATA_SR_BUSY | ATA_SR_DRQ)) && spin < 1000000) {
+        ++spin;
+    }
+    if (spin == 1000000) {
+        panic("SATA port hang\n");
+    }
+
+    port->p_ci |= 1 << cmd;
+
+    while (1) {
+        // TODO: interrupts?
+
+        if (!(port->p_ci & (1 << cmd))) {
+            break;
+        }
+
+        if (port->p_is & AHCI_PORT_IS_TFES) {
+            panic("Port task file error\n");
+        }
+    }
+
+    if (port->p_is & AHCI_PORT_IS_TFES) {
+        panic("Port task file error\n");
+    }
 }
 
 static void ahci_sata_port_identify(struct ahci_port_registers *port) {
@@ -67,7 +163,7 @@ static void ahci_sata_port_identify(struct ahci_port_registers *port) {
             break;
         }
 
-        if (port->p_is & (1 << 30) /* AHCI_PORT_IS_TFES */) {
+        if (port->p_is & AHCI_PORT_IS_TFES) {
             panic("Port task file error\n");
         }
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #define ATA_CMD_IDENTIFY        0xEC
+#define ATA_CMD_READ_DMA_EX     0x25
 
 #define ATA_SR_BUSY             (1 << 7)
 #define ATA_SR_DRQ              (1 << 3)

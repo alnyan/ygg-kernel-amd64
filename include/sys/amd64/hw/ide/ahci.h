@@ -5,6 +5,7 @@
 #define AHCI_PORT_SSTS_IPM_ACTIVE           0x1
 #define AHCI_PORT_SIG_SATA                  0x00000101
 #define AHCI_PORT_SIG_SATAPI                0xEB140101
+#define AHCI_PORT_IS_TFES                   (1 << 30)
 
 #define AHCI_PORT_CMD_ST        (1 << 0)
 #define AHCI_PORT_CMD_FRE       (1 << 4)
@@ -218,6 +219,9 @@ struct ahci_command_table_entry {
 
 #define AHCI_PORT_CMD_LIST(p)   (struct ahci_command_header *) MM_VIRTUALIZE(((uintptr_t) (p)->p_clbu << 32) | ((p)->p_clb))
 #define AHCI_CMD_TABLE_ENTRY(l, i) (struct ahci_command_table_entry *) MM_VIRTUALIZE(((uintptr_t) (l)[i].ctbau << 32) | ((l)[i].ctba))
+
+// TODO: accept block device instead of port registers
+void ahci_sata_read(struct ahci_port_registers *port, void *buf, uint32_t nsect, uint64_t lba);
 
 void ahci_port_start(struct ahci_port_registers *port);
 void ahci_port_stop(struct ahci_port_registers *port);
