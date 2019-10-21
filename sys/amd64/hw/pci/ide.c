@@ -1,13 +1,54 @@
 #include "sys/amd64/hw/pci/ide.h"
+#include "sys/amd64/hw/ide/ide.h"
 #include "sys/assert.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
+
+// XXX: only one IDE controller per host
+static struct ide_controller pci_ide;
 
 void pci_ide_init(pci_addr_t addr) {
     kdebug("Initializing PCI IDE controller at " PCI_FMTADDR "\n", PCI_VAADDR(addr));
 
     uint32_t irq_config = pci_config_read_dword(addr, 0x3C);
     uint32_t class = pci_config_read_dword(addr, 0x08);
+    uint32_t bar;
+
+    // Read BARs
+    bar = pci_config_read_dword(addr, 0x10);
+    assert(!bar || (bar & 1), "IDE BAR not in I/O space\n");
+    if (bar & ~3) {
+        pci_ide.bar0 = bar & ~3;
+    } else {
+        pci_ide.bar0 = IDE_DEFAULT_BAR0;
+    }
+    bar = pci_config_read_dword(addr, 0x14);
+    assert(!bar || (bar & 1), "IDE BAR not in I/O space\n");
+    if (bar & ~3) {
+        pci_ide.bar1 = bar & ~3;
+    } else {
+        pci_ide.bar1 = IDE_DEFAULT_BAR1;
+    }
+    bar = pci_config_read_dword(addr, 0x18);
+    assert(!bar || (bar & 1), "IDE BAR not in I/O space\n");
+    if (bar & ~3) {
+        pci_ide.bar2 = bar & ~3;
+    } else {
+        pci_ide.bar2 = IDE_DEFAULT_BAR2;
+    }
+    bar = pci_config_read_dword(addr, 0x1C);
+    assert(!bar || (bar & 1), "IDE BAR not in I/O space\n");
+    if (bar & ~3) {
+        pci_ide.bar3 = bar & ~3;
+    } else {
+        pci_ide.bar3 = IDE_DEFAULT_BAR3;
+    }
+    bar = pci_config_read_dword(addr, 0x20);
+    assert(!bar || (bar & 1), "IDE BAR not in I/O space\n");
+    pci_ide.bar4 = bar & ~3;
+    if (!pci_ide.bar4) {
+        kwarn("No IDE busmastering BAR4 in PCI configuration space\n");
+    }
 
     if ((irq_config >> 8) & 0xFF) {
         panic("TODO: support IDE controllers with non-legacy IRQs\n");
@@ -31,6 +72,8 @@ void pci_ide_init(pci_addr_t addr) {
         irq_config = pci_config_read_dword(addr, 0x3C);
 
         assert((irq_config & 0xFF) == 14, "Failed to assign IRQ14 to IDE drive controller\n");
+
+        pci_ide.irq0 = 14;
     } else {
         // The device either does not use IRQs or is a
         // paraller IDE with IRQs 14 and 15
@@ -43,4 +86,6 @@ void pci_ide_init(pci_addr_t addr) {
             panic("The device has no IRQs\n");
         }
     }
+
+    ide_init(&pci_ide);
 }

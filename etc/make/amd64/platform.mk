@@ -37,6 +37,7 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/hw/pci/ide.o \
 	  $(O)/sys/amd64/hw/pci/ahci.o \
 	  $(O)/sys/amd64/hw/ide/ahci.o \
+	  $(O)/sys/amd64/hw/ide/ide.o \
 	  $(O)/sys/amd64/hw/pci/pcidb.o \
 	  $(ACPICA_OBJS) \
 	  $(O)/sys/amd64/acpi_osl_mem.o \

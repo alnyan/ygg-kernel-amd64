@@ -78,6 +78,8 @@ QEMU_BIN?=qemu-system-x86_64
 #		   -device usb-mouse,bus=uhci-0.0 \
 #		   -device usb-kbd,bus=uhci-0.0
 
+QEMU_CHIPSET?=q35
+
 ifdef QEMU_HDA
 QEMU_DEV_HDA=-drive file=$(QEMU_HDA),format=raw,id=disk_hda
 QEMU_DEVS+=$(QEMU_DEV_HDA)
@@ -94,7 +96,7 @@ QEMU_OPTS?=-m $(QEMU_MEM) \
 		   -chardev stdio,nowait,id=char0,mux=on \
 		   -serial chardev:char0 -mon chardev=char0 \
 		   --accel tcg,thread=multi \
-		   -M q35 \
+		   -M $(QEMU_CHIPSET) \
 		   $(QEMU_DEVS) \
 		   -smp $(QEMU_SMP)
 
