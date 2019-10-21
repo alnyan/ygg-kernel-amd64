@@ -13,6 +13,7 @@ void pci_ide_init(pci_addr_t addr) {
     uint32_t irq_config = pci_config_read_dword(addr, 0x3C);
     uint32_t class = pci_config_read_dword(addr, 0x08);
     uint32_t bar;
+    uint32_t cmd = pci_config_read_dword(addr, 0x04);
 
     // Read BARs
     bar = pci_config_read_dword(addr, 0x10);
@@ -53,6 +54,10 @@ void pci_ide_init(pci_addr_t addr) {
     if ((irq_config >> 8) & 0xFF) {
         panic("TODO: support IDE controllers with non-legacy IRQs\n");
     }
+
+    // Enable PCI busmastering for IDE controller
+    cmd |= (1 << 2);
+    pci_config_write_dword(addr, 0x04, cmd);
 
     irq_config &= ~0xFF;
     irq_config |= 0xFE;

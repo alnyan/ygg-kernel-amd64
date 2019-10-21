@@ -5,6 +5,8 @@
 #pragma once
 #include "sys/types.h"
 
+#define MIN(x, y) ((x) < (y) ? (x) : (y))
+
 void *memcpy(void *restrict dst, const void *restrict src, size_t cnt);
 void *memmove(void *dst, const void *src, size_t cnt);
 void *memset(void *dst, int v, size_t count);

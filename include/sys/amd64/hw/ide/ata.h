@@ -22,6 +22,9 @@
 
 #define ATA_CMD_IDENTIFY        0xEC
 #define ATA_CMD_IDENTIFY_PACKET 0xA1
+#define ATA_CMD_READ_PIO        0x20
+#define ATA_CMD_READ_PIO_EX     0x24
+#define ATA_CMD_READ_DMA        0xC8
 #define ATA_CMD_READ_DMA_EX     0x25
 
 #define ATA_SR_BUSY             (1 << 7)

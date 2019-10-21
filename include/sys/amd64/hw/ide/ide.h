@@ -6,6 +6,12 @@
 #define IDE_DEFAULT_BAR2        0x170
 #define IDE_DEFAULT_BAR3        0x376
 
+struct ide_prdt_entry {
+    uint32_t addr;
+    uint16_t size;
+    uint16_t attr;
+} __attribute__((packed));
+
 struct ide_controller {
     uint16_t bar0;      // Primary channel
     uint16_t bar1;      // Primary control port
@@ -13,6 +19,8 @@ struct ide_controller {
     uint16_t bar3;      // Secondary control port
     uint16_t bar4;      // Bus master control
     uint8_t irq0, irq1;
+
+    uintptr_t dma_page;
 
     struct ide_channel {
         uint16_t base;
@@ -28,6 +36,7 @@ struct ide_controller {
         // 2        1 if slave device
         // 3        1 if device is ATAPI (ATA otherwise)
         // ...
+        struct ide_controller *ide;
         uint8_t attr;
         uint16_t signature;
         uint16_t caps;
@@ -36,5 +45,8 @@ struct ide_controller {
         char model[41];
     } devices[4];
 };
+
+int ide_ata_read_pio(struct ide_device *dev, void *buf, size_t nsect, uint64_t lba);
+int ide_ata_read_dma(struct ide_device *dev, void *buf, size_t nsect, uint64_t lba);
 
 void ide_init(struct ide_controller *ide);

@@ -6,8 +6,6 @@
 #include "sys/debug.h"
 #include "sys/mm.h"
 
-// XXX: Choose a better place for this
-#define MIN(x, y) ((x) < (y) ? (x) : (y))
 // Memory required for a port:
 // 1024     - command list  (32 * sizeof(ahci_command_header))
 // 256      - received FIS
