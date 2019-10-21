@@ -1,5 +1,6 @@
 #include "sys/string.h"
 #include "sys/debug.h"
+#include "sys/ctype.h"
 #include "sys/attr.h"
 #include "sys/spin.h"
 #include <stdint.h>
@@ -297,3 +298,44 @@ void debugfv(int level, const char *fmt, va_list args) {
     spin_release_irqrestore(&debug_spin, &irq);
 }
 
+void debug_dump(int level, const void *block, size_t count) {
+    size_t n_lines = (count + 15) / 16;
+    const char *bytes = block;
+
+    for (size_t l = 0; l < n_lines; ++l) {
+        for (size_t i = 0; i < 8; ++i) {
+            if (i * 2 + l * 16 < count) {
+                uint16_t word = *(const uint16_t *) (bytes + i * 2 + l * 16);
+
+                debugc(level, s_debug_xs_set1[(word >> 4) & 0xF]);
+                debugc(level, s_debug_xs_set1[word & 0xF]);
+
+                debugc(level, s_debug_xs_set1[word >> 12]);
+                debugc(level, s_debug_xs_set1[(word >> 8) & 0xF]);
+            } else {
+                debugc(level, ' ');
+                debugc(level, ' ');
+                debugc(level, ' ');
+                debugc(level, ' ');
+            }
+            debugc(level, ' ');
+        }
+
+        debugc(level, '|');
+        debugc(level, ' ');
+        for (size_t i = 0; i < 16; ++i) {
+            if (i + l * 16 < count) {
+                char c = bytes[i + l * 16];
+
+                if (isprint(c)) {
+                    debugc(level, c);
+                } else if (c != 0) {
+                    debugc(level, ' ');
+                } else {
+                    debugc(level, '.');
+                }
+            }
+        }
+        debugc(level, '\n');
+    }
+}

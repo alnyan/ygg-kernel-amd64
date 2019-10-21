@@ -36,6 +36,7 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/hw/pci/pci.o \
 	  $(O)/sys/amd64/hw/pci/ide.o \
 	  $(O)/sys/amd64/hw/pci/ahci.o \
+	  $(O)/sys/amd64/hw/ide/ahci.o \
 	  $(O)/sys/amd64/hw/pci/pcidb.o \
 	  $(ACPICA_OBJS) \
 	  $(O)/sys/amd64/acpi_osl_mem.o \
@@ -82,4 +83,5 @@ DIRS+=$(O)/sys/amd64/image/boot/grub \
 	  $(O)/sys/amd64/sys \
 	  $(O)/sys/amd64/mm \
 	  $(O)/sys/amd64/hw/pci \
+	  $(O)/sys/amd64/hw/ide \
 	  $(ACPICA_OBJD)
