@@ -71,8 +71,7 @@ int irq_add_leg_handler(uint8_t leg_irq, irq_handler_t handler) {
 
     if (ioapic_available) {
         // Find out the route (TODO)
-        uint8_t gsi = leg_irq;
-
+        uint8_t gsi = amd64_ioapic_leg_gsi(leg_irq);
         return irq_add_handler(gsi, handler);
     } else {
         irq_handler_t *list = &handlers[IRQ_MAX_HANDLERS * leg_irq];

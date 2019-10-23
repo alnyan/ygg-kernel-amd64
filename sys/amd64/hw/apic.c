@@ -1,4 +1,5 @@
 #include "sys/amd64/hw/apic.h"
+#include "sys/amd64/hw/irq.h"
 #include "sys/amd64/smp/smp.h"
 #include "sys/amd64/mm/mm.h"
 #include "sys/amd64/hw/ioapic.h"
@@ -145,6 +146,8 @@ void amd64_acpi_ioapic(struct acpi_madt *madt) {
 
         offset += ent_hdr->length;
     }
+
+    irq_enable_ioapic_mode();
 }
 
 void amd64_apic_init(void) {

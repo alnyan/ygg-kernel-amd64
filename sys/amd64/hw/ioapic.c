@@ -68,6 +68,7 @@ void amd64_ioapic_set(uintptr_t addr) {
         while (1);
     }
     amd64_ioapic_base = addr;
+    memset(ioapic_leg_rt, 0xFF, sizeof(ioapic_leg_rt));
 
 //    kdebug("I/O APIC @ %p\n", addr);
 
@@ -95,8 +96,6 @@ void amd64_ioapic_set(uintptr_t addr) {
 //               IOAPIC_REDIR_DST_GET(high),
 //               low & 0xF);
     }
-
-    irq_enable_ioapic_mode();
 }
 
 void amd64_ioapic_map_gsi(uint8_t gsi, uint8_t lapic, uint8_t vector) {
@@ -118,6 +117,14 @@ void amd64_ioapic_unmask(uint8_t gsi) {
     low &= ~IOAPIC_REDIR_MSK;
 
     amd64_ioapic_write((gsi * 2) + 0x10, low);
+}
+
+uint8_t amd64_ioapic_leg_gsi(uint8_t leg_irq) {
+    _assert(leg_irq && leg_irq < 16);
+    if (ioapic_leg_rt[leg_irq] != 0xFFFFFFFF) {
+        return ioapic_leg_rt[leg_irq];
+    }
+    return leg_irq;
 }
 
 #define PCI_LINK_MAX_POSSIBLE_IRQS      16
