@@ -7,7 +7,7 @@
 #include "sys/panic.h"
 #include "sys/debug.h"
 
-#define IRQ_MAX             16      // Maximum assignable IRQ vectors
+#define IRQ_MAX             32      // Maximum assignable IRQ vectors
 #define IRQ_MAX_HANDLERS    4       // Maximum handlers per IRQ vector (sharing)
 
 static irq_handler_t handlers[IRQ_MAX * IRQ_MAX_HANDLERS] = {0};
@@ -85,6 +85,20 @@ int irq_add_leg_handler(uint8_t leg_irq, irq_handler_t handler) {
 
         return -1;
     }
+}
+
+int irq_add_pci_handler(pci_addr_t addr, uint8_t pin, irq_handler_t handler) {
+    _assert(pin < 4);
+    uint32_t irq_route = amd64_pci_pin_irq_route(PCI_BUS(addr), PCI_DEV(addr), PCI_FUNC(addr), pin);
+    _assert(irq_route != PCI_IRQ_INVALID);
+
+    if (irq_route == PCI_IRQ_NO_ROUTE) {
+        panic("TODO: allocate PCI IRQ routes\n");
+    }
+
+    kdebug("Assigning handler to " PCI_FMTADDR " INT%c# -> GSI%d", PCI_VAADDR(addr), pin + 'A', irq_route);
+
+    return irq_add_handler(irq_route, handler);
 }
 
 void irq_enable_ioapic_mode(void) {

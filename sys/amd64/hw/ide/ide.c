@@ -284,8 +284,6 @@ int ide_ata_read_pio(struct ide_device *dev, void *buf, size_t nsect, uint64_t l
     return 0;
 }
 
-static char test_buf[65536 * 2] __attribute__((aligned(65536)));
-
 void ide_init(struct ide_controller *ide) {
     // Initialize from PCI IDE information: BARs
     ide->channels[0].base = ide->bar0;

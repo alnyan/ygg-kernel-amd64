@@ -22,6 +22,29 @@ static int ahci_alloc_cmd(struct ahci_port_registers *port) {
     return -1;
 }
 
+struct ahci_registers *controller0 = NULL;
+
+static void ahci_irq_port(struct ahci_port_registers *port) {
+    if (port->p_is & (1 << 0)) {
+        // TODO: integrate this with reading code
+    }
+
+    port->p_is = 0;
+}
+
+int ahci_irq(void) {
+    if (controller0->is) {
+        for (size_t port = 0; port < 32; ++port) {
+            ahci_irq_port(&controller0->ports[port]);
+            controller0->is &= ~(1 << port);
+        }
+
+        return 0;
+    }
+
+    return -1;
+}
+
 void ahci_sata_read(struct ahci_port_registers *port, void *buf, uint32_t nsect, uint64_t lba) {
     port->p_is = -1;
 
@@ -227,6 +250,9 @@ void ahci_port_init(uint8_t n, struct ahci_port_registers *port) {
     case AHCI_PORT_SIG_SATA:
         ahci_sata_port_init(port);
         ahci_sata_port_identify(port);
+
+        // Enable IRQs
+        port->p_ie |= (1 << 0);
         break;
     default:
         kdebug("Skipping unknown drive type\n");
@@ -272,4 +298,7 @@ void ahci_init(struct ahci_registers *regs) {
             ahci_port_init(i, port);
         }
     }
+
+    // Enable HBA interrupts
+    regs->ghc |= 1 << 1;
 }

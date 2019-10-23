@@ -117,8 +117,6 @@ void amd64_acpi_smp(struct acpi_madt *madt) {
 
         offset += ent_hdr->length;
     }
-
-    amd64_smp_init();
 }
 #endif
 
@@ -173,8 +171,4 @@ void amd64_apic_init(void) {
 #endif
 
     amd64_timer_init();
-
-    extern mm_space_t mm_kernel;
-    // Initialization finished, can unmap 0 -> 0 mapping now
-    mm_kernel[0] = 0;
 }

@@ -220,6 +220,8 @@ struct ahci_command_table_entry {
 #define AHCI_PORT_CMD_LIST(p)   (struct ahci_command_header *) MM_VIRTUALIZE(((uintptr_t) (p)->p_clbu << 32) | ((p)->p_clb))
 #define AHCI_CMD_TABLE_ENTRY(l, i) (struct ahci_command_table_entry *) MM_VIRTUALIZE(((uintptr_t) (l)[i].ctbau << 32) | ((l)[i].ctba))
 
+int ahci_irq(void);
+
 // TODO: accept block device instead of port registers
 void ahci_sata_read(struct ahci_port_registers *port, void *buf, uint32_t nsect, uint64_t lba);
 
