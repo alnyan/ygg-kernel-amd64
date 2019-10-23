@@ -1,4 +1,5 @@
 #include "sys/amd64/hw/ioapic.h"
+#include "sys/amd64/hw/irq.h"
 #include "sys/string.h"
 #include "sys/mm.h"
 #include "sys/debug.h"
@@ -95,33 +96,28 @@ void amd64_ioapic_set(uintptr_t addr) {
 //               low & 0xF);
     }
 
-    // Test: set IRQ1 -> LAPIC 0:1 and unmask it
-    uint32_t low = amd64_ioapic_read(0x10 + 1 * 2);
-    uint32_t high = amd64_ioapic_read(0x11 + 1 * 2);
+    irq_enable_ioapic_mode();
+}
 
-    low &= ~0x7;
+void amd64_ioapic_map_gsi(uint8_t gsi, uint8_t lapic, uint8_t vector) {
+    uint32_t low = amd64_ioapic_read((gsi * 2) + 0x10);
+    uint32_t high = amd64_ioapic_read((gsi * 2) + 0x11);
+
+    low &= ~0xFF;
+    low |= vector;
+
+    high = IOAPIC_REDIR_DST_SET(lapic);
+
+    amd64_ioapic_write((gsi * 2) + 0x10, low);
+    amd64_ioapic_write((gsi * 2) + 0x11, high);
+}
+
+void amd64_ioapic_unmask(uint8_t gsi) {
+    uint32_t low = amd64_ioapic_read((gsi * 2) + 0x10);
+
     low &= ~IOAPIC_REDIR_MSK;
 
-    low |= 0x1 + 0x20;
-    high = IOAPIC_REDIR_DST_SET(0);
-
-    amd64_ioapic_write(0x10 + 1 * 2, low);
-    amd64_ioapic_write(0x11 + 1 * 2, high);
-
-    // TODO: find IRQ mappings corresponding to legacy irq 1/4
-    low = amd64_ioapic_read(0x10 + 4 * 2);
-    high = amd64_ioapic_read(0x11 + 4 * 2);
-
-    low &= ~0x7;
-    low &= ~IOAPIC_REDIR_MSK;
-
-    low |= 0x1 + 0x20;
-    high = IOAPIC_REDIR_DST_SET(0);
-
-    amd64_ioapic_write(0x10 + 4 * 2, low);
-    amd64_ioapic_write(0x11 + 4 * 2, high);
-
-    // TODO: unconfigured PCI IRQs may be mapped here
+    amd64_ioapic_write((gsi * 2) + 0x10, low);
 }
 
 #define PCI_LINK_MAX_POSSIBLE_IRQS      16

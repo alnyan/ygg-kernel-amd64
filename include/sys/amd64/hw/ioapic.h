@@ -37,6 +37,9 @@ void amd64_ioapic_write(uint8_t reg, uint32_t v);
 void amd64_ioapic_set(uintptr_t addr);
 void amd64_ioapic_int_src_override(uint8_t bus, uint8_t src, uint32_t no, uint16_t flags);
 
+void amd64_ioapic_map_gsi(uint8_t gsi, uint8_t lapic, uint8_t vector);
+void amd64_ioapic_unmask(uint8_t gsi);
+
 //// Generic IRQ stuff
 // A route exists (LNKx) but is not mapped to any IRQ at the moment
 #define PCI_IRQ_NO_ROUTE            0xFFFFFFFF

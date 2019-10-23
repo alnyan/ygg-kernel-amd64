@@ -4,51 +4,22 @@
 
 .section .text
 
-// TODO: move all this to some kind of generic handler
-// This is keyboard
-// Can be either entered from a legacy PIC IRQ
-// Or is mapped in I/O APIC
-.global amd64_irq1
-amd64_irq1:
-    cli
-
-    irq_push_ctx
-    movq %rsp, %rbp
-
-    // The ISR is shared between legacy IRQs 1 and 4, so
-    // check if it's keyboard or serial input on COM1
-    // Check PS/2 keyboard
-    inb $0x64, %al
-    test $(1 << 0), %al
-    jz 1f
-
-    // Read from keyboard buffer
-    inb $0x60, %al
-    movb %al, irq1_key(%rip)
-
-    jmp 2f
-1:
-
-    movq $0x3F8, %rdi
-    call rs232_irq
-    test %rax, %rax
-    jz 2f
-
-    // Only trace IRQ if it's unhandled
-    irq_trace 1
-2:
-    irq_eoi_lapic 1
-
-    irq_pop_ctx
-
-    iretq
-
-
-_amd64_irq1_unhandled:
-    .string "Something unknown triggered ISR 0x21\n"
-_amd64_serial:
-    .string "Serial status: %02x\n"
-
+// 33
+irq_entry 1
+irq_entry 2
+irq_entry 3
+irq_entry 4
+irq_entry 5
+irq_entry 6
+irq_entry 7
+irq_entry 8
+irq_entry 9
+irq_entry 10
+irq_entry 11
+irq_entry 12
+irq_entry 13
+irq_entry 14
+irq_entry 15
 
 .global amd64_kstack_canary_invalid
 #if defined(AMD64_STACK_CTX_CANARY)
@@ -68,5 +39,5 @@ amd64_kstack_canary_invalid:
     jmp 1b
 
 _msg0:
-    .string "Stack fuckup detected: halting\n"
+   .string "Stack fuckup detected: halting\n"
 #endif

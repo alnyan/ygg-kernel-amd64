@@ -6,6 +6,24 @@
 
 #if defined(__ASM__)
 .extern local_apic
+.extern irq_handle
+
+// TODO: make this use less memory
+.macro irq_entry, n
+.global amd64_irq\n
+amd64_irq\n:
+    cli
+
+    irq_push_ctx
+
+    movq $\n, %rdi
+    call irq_handle
+
+    irq_eoi_lapic 0
+    irq_pop_ctx
+
+    iretq
+.endm
 
 .macro irq_trace, n
 #if defined(AMD64_TRACE_IRQ)
@@ -101,4 +119,18 @@
 // Externs for C code
 extern void amd64_irq0();
 extern void amd64_irq1();
+extern void amd64_irq2();
+extern void amd64_irq3();
+extern void amd64_irq4();
+extern void amd64_irq5();
+extern void amd64_irq6();
+extern void amd64_irq7();
+extern void amd64_irq8();
+extern void amd64_irq9();
+extern void amd64_irq10();
+extern void amd64_irq11();
+extern void amd64_irq12();
+extern void amd64_irq13();
+extern void amd64_irq14();
+extern void amd64_irq15();
 #endif

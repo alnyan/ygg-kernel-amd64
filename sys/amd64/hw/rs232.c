@@ -1,4 +1,5 @@
 #include "sys/amd64/hw/rs232.h"
+#include "sys/amd64/hw/irq.h"
 #include "sys/amd64/hw/io.h"
 #include "sys/debug.h"
 
@@ -31,6 +32,21 @@ void rs232_send(uint16_t port, char c) {
     outb(port, c);
 }
 
+static int rs232_irq(void) {
+    int has_data = 0;
+    uint8_t s;
+
+    while ((s = inb(RS232_COM0 + RS232_LSR)) & RS232_LSR_DR) {
+        has_data = 1;
+        uint8_t c = inb(RS232_COM0);
+
+        // Act as echo for now
+        rs232_send(RS232_COM0, c);
+    }
+
+    return !has_data;
+}
+
 void rs232_init(uint16_t port) {
     // Disable interrupts
     outb(port + RS232_IER, 0x00);
@@ -48,19 +64,6 @@ void rs232_init(uint16_t port) {
 
     // Enable receive interrupts
     outb(port + RS232_IER, RS232_IER_RCE);
-}
 
-int rs232_irq(uint16_t port) {
-    int has_data = 0;
-    uint8_t s;
-
-    while ((s = inb(port + RS232_LSR)) & RS232_LSR_DR) {
-        has_data = 1;
-        uint8_t c = inb(port);
-
-        // Act as echo for now
-        rs232_send(port, c);
-    }
-
-    return !has_data;
+    irq_add_leg_handler(IRQ_LEG_COM1_3, rs232_irq);
 }

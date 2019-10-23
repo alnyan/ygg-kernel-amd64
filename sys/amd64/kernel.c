@@ -9,15 +9,15 @@
 #include "sys/amd64/hw/apic.h"
 #include "sys/amd64/hw/pci/pci.h"
 #include "sys/amd64/hw/rs232.h"
+#include "sys/amd64/hw/ps2.h"
 #include "sys/panic.h"
 #include "sys/assert.h"
-
-#include "acpi.h"
 
 static multiboot_info_t *multiboot_info;
 
 void kernel_main(struct amd64_loader_data *data) {
     // Reinitialize RS232 properly
+    ps2_init();
     rs232_init(RS232_COM0);
 
     data = (struct amd64_loader_data *) MM_VIRTUALIZE(data);

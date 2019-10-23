@@ -1,19 +1,7 @@
 #include "sys/amd64/hw/idt.h"
-#include "sys/amd64/asm/asm_irq.h"
+#include "sys/amd64/hw/irq.h"
 #include "sys/string.h"
 #include "sys/types.h"
-
-#define IDT_FLG_TASK32      0x5
-#define IDT_FLG_INT16       0x6
-#define IDT_FLG_TRAP16      0x7
-#define IDT_FLG_INT32       0xE
-#define IDT_FLG_TRAP32      0xF
-#define IDT_FLG_SS          (1 << 4)
-#define IDT_FLG_R0          (0 << 5)
-#define IDT_FLG_R1          (1 << 5)
-#define IDT_FLG_R2          (2 << 5)
-#define IDT_FLG_R3          (3 << 5)
-#define IDT_FLG_P           (1 << 7)
 
 extern uintptr_t amd64_exception_vectors[32];
 
@@ -32,7 +20,7 @@ const struct amd64_idtr amd64_idtr = {
     .offset = (uintptr_t) idt
 };
 
-static void amd64_idt_set(int idx, uintptr_t base, uint16_t selector, uint8_t flags) {
+void amd64_idt_set(int idx, uintptr_t base, uint16_t selector, uint8_t flags) {
     idt[idx].base_lo = base & 0xFFFF;
     idt[idx].base_hi = (base >> 16) & 0xFFFF;
     idt[idx].base_ex = (base >> 32) & 0xFFFFFFFF;
@@ -47,8 +35,8 @@ void amd64_idt_init(void) {
     for (size_t i = 0; i < 32; ++i) {
         amd64_idt_set(i, amd64_exception_vectors[i], 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     }
-    amd64_idt_set(32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(33, (uintptr_t) amd64_irq1, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+
+    irq_init();
 
     asm volatile ("lidt amd64_idtr(%rip)");
 }
