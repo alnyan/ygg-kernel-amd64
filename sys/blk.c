@@ -49,7 +49,17 @@ struct blk_part {
 };
 
 static ssize_t blk_part_read(struct blkdev *dev, void *buf, size_t off, size_t count) {
-    return -1;
+    struct blk_part *part = (struct blk_part *) dev->dev_data;
+    size_t part_size_bytes = part->lba_size * 512;
+    size_t part_off_bytes = part->lba_start * 512;
+
+    if (off >= part_size_bytes) {
+        return -1;
+    }
+
+    size_t l = MIN(part_size_bytes - off, count);
+
+    return blk_read(part->device, buf, off + part_off_bytes, l);
 }
 
 static int blk_enumerate_mbr(struct blkdev *dev, uint8_t *head) {
@@ -93,6 +103,18 @@ static int blk_enumerate_mbr(struct blkdev *dev, uint8_t *head) {
     }
 
     return 0;
+}
+
+struct blkdev *blk_by_name(const char *name) {
+    struct dev_entry *it = dev_iter();
+
+    for (; it; it = it->cdr) {
+        if (!strcmp(it->dev_name, name)) {
+            return (struct blkdev *) it->dev;
+        }
+    }
+
+    return NULL;
 }
 
 int blk_enumerate_partitions(struct blkdev *dev) {

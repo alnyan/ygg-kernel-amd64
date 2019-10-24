@@ -20,6 +20,7 @@ static int dev_alloc_block_name(uint16_t subclass, char *name) {
             if (!(*bmp & (1ULL << i))) {
                 *bmp |= 1ULL << i;
                 name[2] = 'a' + i;
+                name[3] = 0;
                 return 0;
             }
         }
@@ -67,4 +68,8 @@ void dev_entry_add(struct dev_entry *ent) {
 
     // For example: enumerate partitions on block devices
     _assert(dev_post_add(ent) == 0);
+}
+
+struct dev_entry *dev_iter(void) {
+    return dev_begin;
 }

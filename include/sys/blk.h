@@ -16,4 +16,5 @@ struct blkdev {
 ssize_t blk_read(struct blkdev *blk, void *buf, size_t off, size_t count);
 ssize_t blk_write(struct blkdev *blk, const void *buf, size_t off, size_t count);
 
+struct blkdev *blk_by_name(const char *name);
 int blk_enumerate_partitions(struct blkdev *blk);

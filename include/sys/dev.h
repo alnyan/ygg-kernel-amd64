@@ -21,6 +21,8 @@ struct dev_entry {
     struct dev_entry *cdr;
 };
 
+struct dev_entry *dev_iter(void);
+
 int dev_alloc_name(enum dev_class cls, uint16_t subclass, char *name);
 int dev_by_name(struct dev_entry **ent, const char *name);
 void dev_entry_add(struct dev_entry *ent);
