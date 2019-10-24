@@ -36,9 +36,59 @@ void pci_config_write_dword(pci_addr_t addr, uint8_t off, uint32_t v) {
 
 #define PCI_MAX_ROOT_BUSES      4
 #define PCI_MAX_BRIDGE_BUSES    8
+#define PCI_MAX_DRIVERS         32
+#define PCI_DRIVER_ID           (1 << 0)
 
 static uint8_t pci_root_buses[PCI_MAX_ROOT_BUSES] = {0};
 static size_t pci_root_bus_count = 0;
+// TODO: HASHTABLE
+static struct pci_driver_spec {
+    uint32_t flags;
+    uint32_t device_id;
+    pci_init_func_t init;
+} drivers[PCI_MAX_DRIVERS];
+static size_t pci_driver_count = 0;
+
+void pci_add_device_driver(uint32_t device_id, pci_init_func_t func) {
+    if (pci_driver_count == PCI_MAX_DRIVERS) {
+        panic("Too many PCI device drivers\n");
+    }
+
+    kdebug("Registering PCI device driver for ID %04x:%04x\n", device_id >> 16, device_id & 0xFFFF);
+    drivers[pci_driver_count].device_id = device_id;
+    drivers[pci_driver_count].init = func;
+    drivers[pci_driver_count].flags = PCI_DRIVER_ID; // Means device_id specifies a single device
+    ++pci_driver_count;
+}
+
+void pci_add_class_driver(uint16_t full_class, pci_init_func_t func) {
+    if (pci_driver_count == PCI_MAX_DRIVERS) {
+        panic("Too many PCI device drivers\n");
+    }
+
+    kdebug("Registering PCI device driver for class %02x:%02x\n", (full_class >> 8) & 0xFF, full_class & 0xFF);
+    drivers[pci_driver_count].device_id = full_class;
+    drivers[pci_driver_count].init = func;
+    drivers[pci_driver_count].flags = 0;
+    ++pci_driver_count;
+}
+
+pci_init_func_t pci_find_driver(uint32_t device_id, uint16_t full_class) {
+    // 1. Try to lookup the driver for a specific device ID
+    for (size_t i = 0; i < pci_driver_count; ++i) {
+        if (drivers[i].flags & PCI_DRIVER_ID && device_id == drivers[i].device_id) {
+            return drivers[i].init;
+        }
+    }
+    // 2. Try to lookup the driver for device class:subclass
+    for (size_t i = 0; i < pci_driver_count; ++i) {
+        if (!(drivers[i].flags & PCI_DRIVER_ID) && full_class == drivers[i].device_id) {
+            return drivers[i].init;
+        }
+    }
+
+    return NULL;
+}
 
 static struct pci_bridge_bus {
     pci_addr_t bridge_addr;
@@ -174,20 +224,12 @@ static void pci_enumerate_func(pci_addr_t addr) {
         uint32_t id = pci_config_read_dword(addr, 0);
         uint32_t kind = pci_config_read_dword(addr, 8);
 
-        uint16_t class = kind >> 16;
+        pci_init_func_t func = pci_find_driver(id, kind >> 16);
 
-        uint16_t device_id = id >> 16;
-        uint16_t vendor_id = id & 0xFFFF;
-
-        switch (class) {
-        case 0x0101:
-            // PCI IDE Controller
-            pci_ide_init(addr);
-            break;
-        case 0x0106:
-            // AHCI controller
-            pci_ahci_init(addr);
-            break;
+        if (!func) {
+            kwarn("[" PCI_FMTADDR "] (No driver found)\n", PCI_VAADDR(addr));
+        } else {
+            func(addr);
         }
     } else if (header_type == 1) {
         kdebug("[" PCI_FMTADDR "] PCI-to-PCI Bridge\n", PCI_VAADDR(addr));
@@ -231,6 +273,10 @@ static void pci_enumerate_dev(uint8_t bus, uint8_t dev) {
 }
 
 void pci_init(void) {
+    // TODO: sometime I'll modularize drivers, but for now they have to be bound here
+    pci_add_class_driver(0x0106, pci_ahci_init);
+    pci_add_class_driver(0x0101, pci_ide_init);
+
     // Initialize IRQ routing first
     if (amd64_pci_init_irqs() != 0) {
         panic("PCI: Failed to initialize IRQs\n");

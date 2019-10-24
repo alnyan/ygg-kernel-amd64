@@ -13,6 +13,11 @@
 #define PCI_FUNC(addr)              ((addr) & 0xFF)
 
 typedef uint32_t pci_addr_t;
+typedef void (*pci_init_func_t) (pci_addr_t);
+
+void pci_add_device_driver(uint32_t device_id, pci_init_func_t func);
+void pci_add_class_driver(uint16_t class_id, pci_init_func_t func);
+pci_init_func_t pci_find_driver(uint32_t device_id, uint16_t full_class);
 
 void pci_config_write_dword(pci_addr_t addr, uint8_t off, uint32_t v);
 uint32_t pci_config_read_dword(pci_addr_t addr, uint8_t off);
