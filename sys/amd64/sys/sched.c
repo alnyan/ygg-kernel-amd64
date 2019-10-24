@@ -11,13 +11,23 @@ static size_t sched_queue_sizes[AMD64_MAX_SMP] = { 0 };
 static spin_t sched_lock = 0;
 
 #define IDLE_STACK  32768
+#define INIT_STACK  32768
 
 // Testing
 static char t_stack0[IDLE_STACK * AMD64_MAX_SMP] = {0};
+static char t_stack1[INIT_STACK] = {0};
 static struct thread t_idle[AMD64_MAX_SMP] = {0};
+static struct thread t_init = {0};
 
 void idle_func(uintptr_t id) {
     kdebug("Entering [idle] for cpu%d\n", id);
+    while (1) {
+        asm volatile ("sti; hlt");
+    }
+}
+
+void init_func(void *arg) {
+    kdebug("Entering [init]\n");
     while (1) {
         asm volatile ("sti; hlt");
     }
@@ -66,6 +76,19 @@ void sched_init(void) {
 
         sched_add_to(i, &t_idle[i]);
     }
+
+    // Also start [init] on cpu0
+    thread_init(
+            &t_init,
+            mm_kernel,
+            (uintptr_t) init_func,
+            (uintptr_t) &t_stack1[INIT_STACK],
+            INIT_STACK,
+            0,
+            0,
+            THREAD_KERNEL,
+            NULL);
+    sched_add_to(0, &t_init);
 }
 
 int sched(void) {
