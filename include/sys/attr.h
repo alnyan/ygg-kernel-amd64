@@ -6,3 +6,4 @@
 #pragma once
 
 #define __weak __attribute__((weak))
+#define __init __attribute__((constructor))

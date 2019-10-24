@@ -50,8 +50,6 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/acpi_osl_irq.o \
 	  $(O)/sys/amd64/acpi_osl_hw.o
 
-kernel_OBJS=$(O)/sys/amd64/entry.o \
-			$(OBJS)
 kernel_LINKER=sys/amd64/link.ld
 kernel_LDFLAGS=-nostdlib \
 			   -fPIE \
@@ -67,6 +65,7 @@ kernel_CFLAGS=-ffreestanding \
 			  -I include/sys/amd64/acpica \
 			  $(DEFINES) \
 			  $(CFLAGS) \
+			  -nostdlib \
 			  -fPIE \
 			  -fno-plt \
 			  -fno-pic \
@@ -81,6 +80,14 @@ kernel_CFLAGS=-ffreestanding \
 			  -mno-sse \
 			  -mno-sse2 \
 			  -z max-page-size=0x1000
+
+kernel_OBJS=$(O)/sys/amd64/crti.o \
+			$(O)/sys/amd64/entry.o \
+			$(shell $(CC64) $(CFLAGS) -print-file-name=crtbegin.o) \
+			$(OBJS) \
+			$(shell $(CC64) $(CFLAGS) -print-file-name=crtend.o) \
+			$(O)/sys/amd64/crtn.o
+
 DIRS+=$(O)/sys/amd64/image/boot/grub \
 	  $(O)/sys/amd64/hw \
 	  $(O)/sys/amd64/sys \

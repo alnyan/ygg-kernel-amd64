@@ -5,9 +5,6 @@
 #include "sys/assert.h"
 #include "sys/debug.h"
 
-#include "sys/amd64/hw/pci/ide.h"
-#include "sys/amd64/hw/pci/ahci.h"
-
 uint32_t pci_config_read_dword(pci_addr_t addr, uint8_t off) {
     uint32_t w0;
     w0 = (PCI_BUS(addr) << 16) |
@@ -273,10 +270,6 @@ static void pci_enumerate_dev(uint8_t bus, uint8_t dev) {
 }
 
 void pci_init(void) {
-    // TODO: sometime I'll modularize drivers, but for now they have to be bound here
-    pci_add_class_driver(0x0106, pci_ahci_init);
-    pci_add_class_driver(0x0101, pci_ide_init);
-
     // Initialize IRQ routing first
     if (amd64_pci_init_irqs() != 0) {
         panic("PCI: Failed to initialize IRQs\n");

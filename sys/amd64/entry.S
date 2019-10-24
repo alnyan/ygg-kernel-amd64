@@ -7,6 +7,10 @@ _start:
     leaq kernel_stacks_bottom(%rip), %rsp
     addq $AMD64_KERNEL_STACK, %rsp
 
+    movq %rdi, %rbx
+    call _init
+    movq %rbx, %rdi
+
     call kernel_main
 
 1:

@@ -6,12 +6,13 @@
 #include "sys/assert.h"
 #include "sys/string.h"
 #include "sys/debug.h"
+#include "sys/attr.h"
 #include "sys/mm.h"
 
 // Only one controller is supported now
 static struct pci_ahci ahci;
 
-void pci_ahci_init(pci_addr_t addr) {
+static void pci_ahci_init(pci_addr_t addr) {
     kdebug("Initializing AHCI controller at " PCI_FMTADDR "\n", PCI_VAADDR(addr));
 
     uint32_t irq = pci_config_read_dword(addr, 0x3C);
@@ -28,4 +29,8 @@ void pci_ahci_init(pci_addr_t addr) {
     if (int_pin) {
         irq_add_pci_handler(addr, int_pin - 1, ahci_irq);
     }
+}
+
+static __init void pci_ahci_register(void) {
+    pci_add_class_driver(0x0106, pci_ahci_init);
 }

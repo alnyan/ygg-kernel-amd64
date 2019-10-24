@@ -1,13 +1,14 @@
-#include "sys/amd64/hw/pci/ide.h"
+#include "sys/amd64/hw/pci/pci.h"
 #include "sys/amd64/hw/ide/ide.h"
 #include "sys/assert.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
+#include "sys/attr.h"
 
 // XXX: only one IDE controller per host
 static struct ide_controller pci_ide;
 
-void pci_ide_init(pci_addr_t addr) {
+static void pci_ide_init(pci_addr_t addr) {
     kdebug("Initializing PCI IDE controller at " PCI_FMTADDR "\n", PCI_VAADDR(addr));
 
     uint32_t irq_config = pci_config_read_dword(addr, 0x3C);
@@ -93,4 +94,8 @@ void pci_ide_init(pci_addr_t addr) {
     }
 
     ide_init(&pci_ide);
+}
+
+static __init void pci_ide_register(void) {
+    pci_add_class_driver(0x0101, pci_ide_init);
 }
