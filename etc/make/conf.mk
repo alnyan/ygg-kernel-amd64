@@ -44,4 +44,7 @@ endif
 
 OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/string.o \
-	  $(O)/sys/panic.o
+	  $(O)/sys/panic.o \
+	  $(O)/sys/errno.o \
+	  $(O)/sys/blk.o \
+	  $(O)/sys/dev.o

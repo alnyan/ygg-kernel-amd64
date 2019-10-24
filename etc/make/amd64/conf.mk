@@ -97,6 +97,7 @@ QEMU_OPTS?=-m $(QEMU_MEM) \
 		   -serial chardev:char0 -mon chardev=char0 \
 		   --accel tcg,thread=multi \
 		   -M $(QEMU_CHIPSET) \
+		   -boot d \
 		   $(QEMU_DEVS) \
 		   -smp $(QEMU_SMP)
 

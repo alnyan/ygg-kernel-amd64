@@ -4,6 +4,9 @@
 #include "sys/string.h"
 #include "sys/assert.h"
 #include "sys/debug.h"
+#include "sys/heap.h"
+#include "sys/dev.h"
+#include "sys/blk.h"
 #include "sys/mm.h"
 
 // Memory required for a port:
@@ -30,6 +33,41 @@ static void ahci_irq_port(struct ahci_port_registers *port) {
     }
 
     port->p_is = 0;
+}
+
+static ssize_t ahci_blk_read(struct blkdev *blk, void *buf, size_t off, size_t count) {
+    _assert(blk && blk->dev_data);
+    _assert(!(off & 511));
+    _assert(!(count & 511));
+
+    size_t nsect = count / 512;
+    size_t lba = off / 512;
+
+    // TODO: error?
+    ahci_sata_read((struct ahci_port_registers *) blk->dev_data, buf, nsect, lba);
+
+    return 0;
+}
+
+static int ahci_add_port_dev(struct ahci_port_registers *port) {
+    void *buf = kmalloc(sizeof(struct blkdev) + sizeof(struct dev_entry));
+    struct dev_entry *ent = (struct dev_entry *) buf;
+    struct blkdev *blk = (struct blkdev *) ((uintptr_t) buf + sizeof(struct dev_entry));
+    _assert(ent);
+
+    blk->dev_data = port;
+    blk->read = ahci_blk_read;
+
+    ent->dev = blk;
+    ent->dev_class = DEV_CLASS_BLOCK;
+    ent->dev_subclass = DEV_BLOCK_SDx;
+    if (dev_alloc_name(ent->dev_class, ent->dev_subclass, ent->dev_name) != 0) {
+        return -1;
+    }
+
+    dev_entry_add(ent);
+
+    return 0;
 }
 
 int ahci_irq(void) {
@@ -250,6 +288,7 @@ void ahci_port_init(uint8_t n, struct ahci_port_registers *port) {
     case AHCI_PORT_SIG_SATA:
         ahci_sata_port_init(port);
         ahci_sata_port_identify(port);
+        _assert(ahci_add_port_dev(port) == 0);
 
         // Enable IRQs
         port->p_ie |= (1 << 0);
