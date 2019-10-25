@@ -36,12 +36,12 @@ static int rs232_irq(void) {
     int has_data = 0;
     uint8_t s;
 
-    while ((s = inb(RS232_COM0 + RS232_LSR)) & RS232_LSR_DR) {
+    while ((s = inb(RS232_COM1 + RS232_LSR)) & RS232_LSR_DR) {
         has_data = 1;
-        uint8_t c = inb(RS232_COM0);
+        uint8_t c = inb(RS232_COM1);
 
         // Act as echo for now
-        rs232_send(RS232_COM0, c);
+        rs232_send(RS232_COM1, c);
     }
 
     return !has_data;

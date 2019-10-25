@@ -48,7 +48,7 @@ void fmtsiz(char *out, size_t sz) {
 // TODO: make debugc a __weak function of a character
 void debugc(int level, char c) {
 #if defined(ARCH_AMD64)
-    rs232_send(RS232_COM0, c);
+    rs232_send(RS232_COM1, c);
     amd64_con_putc(c);
 #endif
 }
