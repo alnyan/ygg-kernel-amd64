@@ -5,6 +5,7 @@
 #pragma once
 #include "sys/types.h"
 
+#define MAX(x, y) ((x) > (y) ? (x) : (y))
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 void *memcpy(void *restrict dst, const void *restrict src, size_t cnt);

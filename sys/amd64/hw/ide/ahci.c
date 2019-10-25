@@ -46,7 +46,7 @@ static ssize_t ahci_blk_read(struct blkdev *blk, void *buf, size_t off, size_t c
     // TODO: error?
     ahci_sata_read((struct ahci_port_registers *) blk->dev_data, buf, nsect, lba);
 
-    return 0;
+    return count;
 }
 
 static int ahci_add_port_dev(struct ahci_port_registers *port) {

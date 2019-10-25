@@ -47,4 +47,15 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/panic.o \
 	  $(O)/sys/errno.o \
 	  $(O)/sys/blk.o \
-	  $(O)/sys/dev.o
+	  $(O)/sys/dev.o \
+	  $(O)/sys/tty.o \
+	  $(O)/sys/chr.o \
+	  $(O)/sys/vfs/fs_class.o \
+	  $(O)/sys/vfs/node.o \
+	  $(O)/sys/vfs/vfs.o \
+	  $(O)/sys/vfs/ext2/ext2alloc.o \
+	  $(O)/sys/vfs/ext2/ext2blk.o \
+	  $(O)/sys/vfs/ext2/ext2.o \
+	  $(O)/sys/vfs/ext2/ext2dir.o \
+	  $(O)/sys/vfs/ext2/ext2vnop.o
+DIRS+=$(O)/sys/vfs/ext2

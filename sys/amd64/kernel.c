@@ -13,6 +13,7 @@
 #include "sys/amd64/hw/ps2.h"
 #include "sys/panic.h"
 #include "sys/assert.h"
+#include "sys/fs/vfs.h"
 
 static multiboot_info_t *multiboot_info;
 
@@ -36,6 +37,8 @@ void kernel_main(struct amd64_loader_data *data) {
     sched_init();
     amd64_apic_init();
     pci_init();
+
+    vfs_init();
 
 #if defined(AMD64_SMP)
     amd64_smp_init();
