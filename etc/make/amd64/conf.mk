@@ -65,6 +65,7 @@ amd64_mkstage:
 	@rm -rf $(O)/sys/amd64/stage
 	@mkdir -p $(O)/sys/amd64/stage
 	@cp -r usr/etc $(O)/sys/amd64/stage/etc
+	@$(CC64) -ffreestanding -nostdlib -mno-sse -mno-sse2 -o $(O)/sys/amd64/stage/init usr/init.c
 
 $(O)/sys/amd64/initrd.img: amd64_mkstage
 	@cd $(O)/sys/amd64/stage && tar czf $@ *

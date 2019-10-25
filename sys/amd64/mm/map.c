@@ -168,7 +168,7 @@ int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint3
     }
 
 #if defined(KERNEL_TEST_MODE)
-    kdebug("map %p -> %p\n", virt_addr, phys);
+    kdebug("map %p -> %p %cr%c\n", virt_addr, phys, (flags & (1 << 2)) ? 'u' : '-', (flags & (1 << 1)) ? 'w' : '-');
 #endif
     pt[pti] = (phys & ~0xFFF) | (flags & 0xFFF) | 1;
     asm volatile("invlpg (%0)"::"a"(virt_addr):"memory");

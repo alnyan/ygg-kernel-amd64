@@ -63,7 +63,7 @@ uintptr_t vmalloc(mm_space_t pml4, uintptr_t from, uintptr_t to, size_t npages, 
         }
 
         // Succeeded, map the page
-        assert(amd64_map_single(pml4, virt_page, phys_page, 0) == 0, "Failed to map page: %p\n", virt_page);
+        assert(amd64_map_single(pml4, virt_page, phys_page, rflags) == 0, "Failed to map page: %p\n", virt_page);
     }
 
     return addr;

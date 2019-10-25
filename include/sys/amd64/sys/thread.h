@@ -3,6 +3,7 @@
 
 #define __plat_thread struct amd64_thread
 
+struct thread;
 struct amd64_thread {
     uintptr_t rsp0;
     uintptr_t stack0_base;
@@ -11,3 +12,5 @@ struct amd64_thread {
     uintptr_t stack3_base;
     uintptr_t stack3_size;
 };
+
+void amd64_thread_set_ip(struct thread *t, uintptr_t ip);
