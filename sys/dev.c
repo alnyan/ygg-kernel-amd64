@@ -3,14 +3,22 @@
 #include "sys/assert.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
+#include "sys/string.h"
 
 static struct dev_entry *dev_begin = NULL;
 static struct dev_entry *dev_end = NULL;
 
 static uint64_t dev_scsi_bitmap = 0;
 static uint64_t dev_ide_bitmap = 0;
+static int dev_ram_count = 0;
 
 static int dev_alloc_block_name(uint16_t subclass, char *name) {
+    if (subclass == DEV_BLOCK_RAM) {
+        strcpy(name, "ram");
+        name[3] = dev_ram_count++ + '0';
+        name[4] = 0;
+        return 0;
+    }
     if (subclass == DEV_BLOCK_SDx || subclass == DEV_BLOCK_HDx) {
         uint64_t *bmp = subclass == DEV_BLOCK_SDx ? &dev_scsi_bitmap : &dev_ide_bitmap;
         name[1] = 'd';

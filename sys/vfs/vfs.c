@@ -424,7 +424,6 @@ static int vfs_mount_internal(struct vfs_node *at, void *blkdev, const char *fs_
         panic("Trying to mount a filesystem at a destination which already is a mount\n");
     }
 
-
     if (fs->cls->opt & FS_NODE_MAPPER) {
         _assert(fs_class->mapper);
         // Request the driver to map VFS tree for us

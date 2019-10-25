@@ -14,6 +14,8 @@
 #include "sys/panic.h"
 #include "sys/assert.h"
 #include "sys/fs/vfs.h"
+#include "sys/blk/ram.h"
+#include "sys/fs/tar.h"
 
 static multiboot_info_t *multiboot_info;
 
@@ -39,6 +41,11 @@ void kernel_main(struct amd64_loader_data *data) {
     pci_init();
 
     vfs_init();
+    if (data->initrd_ptr) {
+        // Create ram0 block device
+        ramblk_init(MM_VIRTUALIZE(data->initrd_ptr), data->initrd_len);
+        tarfs_init();
+    }
 
 #if defined(AMD64_SMP)
     amd64_smp_init();

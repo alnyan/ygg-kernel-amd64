@@ -8,7 +8,8 @@ enum dev_class {
 
 #define DEV_BLOCK_SDx       1
 #define DEV_BLOCK_HDx       2
-#define DEV_BLOCK_PART      3
+#define DEV_BLOCK_RAM       3
+#define DEV_BLOCK_PART      127
 
 struct dev_entry {
     char dev_name[64];

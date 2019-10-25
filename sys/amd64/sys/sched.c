@@ -4,6 +4,11 @@
 #include "sys/debug.h"
 #include "sys/heap.h"
 #include "sys/spin.h"
+#include "sys/fs/vfs.h"
+#include "sys/fs/fcntl.h"
+#include "sys/errno.h"
+#include "sys/blk.h"
+#include "sys/panic.h"
 
 static struct thread *sched_queue_heads[AMD64_MAX_SMP] = { 0 };
 static struct thread *sched_queue_tails[AMD64_MAX_SMP] = { 0 };
@@ -28,6 +33,19 @@ void idle_func(uintptr_t id) {
 
 void init_func(void *arg) {
     kdebug("Entering [init]\n");
+
+    // Mount rootfs if available
+    struct blkdev *root_blk = blk_by_name("ram0");
+    struct vfs_ioctx ioctx = {0};
+    struct ofile fd;
+    int res;
+
+    if (root_blk) {
+        if ((res = vfs_mount(&ioctx, "/", root_blk, "ustar", NULL)) != 0) {
+            panic("mount rootfs: %s\n", kstrerror(res));
+        }
+    }
+
     while (1) {
         asm volatile ("sti; hlt");
     }
