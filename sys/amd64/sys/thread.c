@@ -2,6 +2,7 @@
 #include "sys/amd64/cpu.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
+#include "sys/string.h"
 #include "sys/heap.h"
 #include "sys/vmalloc.h"
 #include "sys/debug.h"
@@ -92,6 +93,9 @@ int thread_init(
     t->space = space;
     t->flags = flags;
     t->next = NULL;
+
+    memset(&t->ioctx, 0, sizeof(t->ioctx));
+    memset(t->fds, 0, sizeof(t->fds));
 
     return 0;
 }

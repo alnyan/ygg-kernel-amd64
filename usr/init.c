@@ -19,9 +19,21 @@ ssize_t sys_write(int fd, const void *buf, size_t count) {
     return (ssize_t) ASM_SYSCALL3(1, fd, buf, count);
 }
 
+ssize_t sys_read(int fd, void *buf, size_t count) {
+    return (ssize_t) ASM_SYSCALL3(0, fd, buf, count);
+}
+
 void _start(void) {
-    sys_write(1, "Hello!\n", 7);
+    char c;
 
     while (1) {
+        ssize_t sz = sys_read(0, &c, 1);
+
+        if (sz >= 0) {
+            sys_write(1, "Char: ", 6);
+            sys_write(1, &c, 1);
+            c = '\n';
+            sys_write(1, &c, 1);
+        }
     }
 }

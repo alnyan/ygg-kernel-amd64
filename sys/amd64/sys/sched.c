@@ -13,6 +13,7 @@
 #include "sys/assert.h"
 #include "sys/string.h"
 #include "sys/binfmt_elf.h"
+#include "sys/tty.h"
 #include "sys/mm.h"
 
 void sched_add_to(int cpu, struct thread *t);
@@ -106,6 +107,15 @@ void init_func(void *arg) {
         if ((res = elf_load(init_thread, exec_buf)) < 0) {
             panic("Failed to load binary: %s\n", kstrerror(res));
         }
+
+        // Set tty0 input
+        init_thread->fds[0].flags = O_RDONLY;
+        init_thread->fds[0].vnode = tty0;
+        init_thread->fds[0].pos = 0;
+
+        init_thread->fds[1].flags = O_WRONLY;
+        init_thread->fds[1].vnode = tty0;
+        init_thread->fds[1].pos = 0;
 
         kdebug("Done\n");
         sched_add_to(0, init_thread);

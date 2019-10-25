@@ -1,5 +1,6 @@
 #pragma once
 #include "sys/types.h"
+#include "sys/fs/vfs.h"
 
 #define THREAD_KERNEL       (1 << 31)
 
@@ -14,6 +15,9 @@ struct thread {
     uint64_t flags;
     uint32_t pid;
     uint32_t parent_pid;
+
+    struct vfs_ioctx ioctx;
+    struct ofile fds[4];
 
     mm_space_t space;
 
