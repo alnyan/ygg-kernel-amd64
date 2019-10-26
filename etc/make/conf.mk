@@ -59,6 +59,7 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/vfs/ext2/ext2dir.o \
 	  $(O)/sys/vfs/ext2/ext2vnop.o \
 	  $(O)/sys/vfs/tar.o \
-	  $(O)/sys/blk/ram.o
+	  $(O)/sys/blk/ram.o \
+	  $(O)/sys/ring.o
 DIRS+=$(O)/sys/vfs/ext2 \
 	  $(O)/sys/blk
