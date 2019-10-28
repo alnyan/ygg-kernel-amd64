@@ -45,7 +45,8 @@ loader_CFLAGS=-ffreestanding \
 			  -Wpedantic \
 			  -Wno-unused-argument \
 			  -Werror \
-			  -Wno-language-extension-token
+			  -Wno-language-extension-token \
+			  -D__KERNEL__
 loader_LDFLAGS=-nostdlib -T$(loader_LINKER)
 
 $(O)/sys/amd64/loader.elf: $(loader_OBJS) $(loader_LINKER) config
@@ -62,13 +63,15 @@ $(O)/sys/amd64/loader/%.o: sys/amd64/loader/%.c $(HEADERS) config
 
 ### Initrd building
 amd64_mkstage:
-	@rm -rf $(O)/sys/amd64/stage
-	@mkdir -p $(O)/sys/amd64/stage
-	@cp -r usr/etc $(O)/sys/amd64/stage/etc
-	@$(CC64) -ffreestanding -nostdlib -mno-sse -mno-sse2 -o $(O)/sys/amd64/stage/init usr/init.c
+	@make -sC usr all O=$(O)/usr \
+					  STAGE=$(O)/stage \
+					  CC=$(CC64) \
+					  AR=$(AR64) \
+					  LD=$(LD64) \
+					  S=$(abspath .)
 
 $(O)/sys/amd64/initrd.img: amd64_mkstage
-	@cd $(O)/sys/amd64/stage && tar czf $@ *
+	@cd $(O)/stage && tar czf $@ *
 	@du -sh $@
 
 ### Debugging and emulation

@@ -1,8 +1,10 @@
 
 CC86?=i686-elf-gcc
+AR86?=i686-elf-ar
 LD86?=i686-elf-ld
 
 CC64?=x86_64-elf-gcc
+AR64?=x86_64-elf-ar
 LD64?=x86_64-elf-ld
 
 # Check that the tools exist

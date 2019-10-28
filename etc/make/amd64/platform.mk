@@ -81,7 +81,8 @@ kernel_CFLAGS=-ffreestanding \
 			  -mno-mmx \
 			  -mno-sse \
 			  -mno-sse2 \
-			  -z max-page-size=0x1000
+			  -z max-page-size=0x1000 \
+			  -D__KERNEL__
 
 kernel_OBJS=$(O)/sys/amd64/crti.o \
 			$(O)/sys/amd64/entry.o \
