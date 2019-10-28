@@ -49,7 +49,8 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/acpi_osl_table.o \
 	  $(O)/sys/amd64/acpi_osl_irq.o \
 	  $(O)/sys/amd64/acpi_osl_hw.o \
-	  $(O)/sys/amd64/sys/binfmt_elf.o
+	  $(O)/sys/amd64/sys/binfmt_elf.o \
+	  $(O)/sys/amd64/hw/rtc.o
 
 kernel_LINKER=sys/amd64/link.ld
 kernel_LDFLAGS=-nostdlib \

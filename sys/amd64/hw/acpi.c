@@ -1,11 +1,13 @@
 #include "sys/amd64/hw/acpi.h"
 #include "sys/amd64/hw/apic.h"
+#include "sys/amd64/hw/rtc.h"
 #include "sys/string.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
 #include "acpi.h"
 
 struct acpi_madt *acpi_madt = NULL;
+struct acpi_fadt *acpi_fadt = NULL;
 
 static uint8_t checksum(const void *ptr, size_t size) {
     uint8_t v = 0;
@@ -112,7 +114,19 @@ void amd64_acpi_init(void) {
             }
 
             acpi_madt = (struct acpi_madt *) hdr;
+        } else if (!strncmp((const char *) hdr, "FACP", 4)) {
+            kdebug("Found FADT = %p\n", entry_addr);
+            if (checksum(hdr, hdr->length) != 0) {
+                kdebug("Entry is invalid\n");
+                while (1);
+            }
+
+            acpi_fadt = (struct acpi_fadt *) hdr;
         }
+    }
+
+    if (acpi_fadt) {
+        rtc_set_century(acpi_fadt->century);
     }
 
     if (!acpi_madt) {

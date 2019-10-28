@@ -11,6 +11,7 @@
 #include "sys/amd64/hw/pci/pci.h"
 #include "sys/amd64/hw/rs232.h"
 #include "sys/amd64/hw/ps2.h"
+#include "sys/amd64/hw/rtc.h"
 #include "sys/panic.h"
 #include "sys/assert.h"
 #include "sys/fs/vfs.h"
@@ -39,6 +40,7 @@ void kernel_main(struct amd64_loader_data *data) {
     extern void sched_init(void);
     sched_init();
     amd64_apic_init();
+    rtc_init();
     pci_init();
 
     vfs_init();
