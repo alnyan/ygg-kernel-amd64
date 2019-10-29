@@ -6,7 +6,7 @@
 #include "sys/heap.h"
 #include "sys/spin.h"
 #include "sys/fs/vfs.h"
-#include "sys/fs/fcntl.h"
+#include "sys/fcntl.h"
 #include "sys/errno.h"
 #include "sys/blk.h"
 #include "sys/panic.h"
@@ -108,6 +108,9 @@ void init_func(void *arg) {
             panic("Failed to load binary: %s\n", kstrerror(res));
         }
 
+        // Free memory
+        kfree(exec_buf);
+
         // Set tty0 input
         init_thread->fds[0].flags = O_RDONLY;
         init_thread->fds[0].vnode = tty0;
@@ -202,8 +205,8 @@ int sched(void) {
     struct thread *from = get_cpu()->thread;
     struct thread *to;
     int cpu = get_cpu()->processor_id;
+    uintptr_t flags;
 
-    spin_lock(&sched_lock);
     // Cleanup stopped tasks
     // TODO: this won't be needed if I call sched_remove directly
     to = sched_queue_heads[cpu];
@@ -248,7 +251,6 @@ int sched(void) {
     } else {
         to = sched_queue_heads[cpu];
     }
-    spin_release(&sched_lock);
 
     // Empty scheduler queue
     if (!to) {

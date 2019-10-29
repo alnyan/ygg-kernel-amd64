@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include "sys/types.h"
 #include "dirent.h"
-#include "stat.h"
+#include "sys/stat.h"
 
 struct ofile;
 struct vfs_ioctx;

@@ -6,8 +6,8 @@
 #include "tree.h"
 #include "node.h"
 #include "ofile.h"
-#include "stat.h"
-#include "statvfs.h"
+#include "sys/stat.h"
+#include "sys/statvfs.h"
 
 /**
  * @brief Internal VFS tree node.

@@ -1,5 +1,5 @@
 #include "sys/fs/vfs.h"
-#include "sys/fs/fcntl.h"
+#include "sys/fcntl.h"
 #include "sys/assert.h"
 #include "sys/string.h"
 #include "sys/debug.h"

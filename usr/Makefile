@@ -4,7 +4,7 @@
 
 DIRS=$(O) \
 	 $(O)/libc
-HDRS=$(shell find -type f -name "*.h")
+HDRS=$(shell find $(S) -type f -name "*.h")
 STAGE_BIN=$(STAGE)/init
 
 CFLAGS=-ffreestanding \
@@ -23,7 +23,10 @@ usr_STATIC_LIBS=$(O)/libc.a
 libc_CRTI=$(O)/libc/crti.o
 libc_CRTN=$(O)/libc/crtn.o
 libc_OBJS=$(O)/libc/crt0.o \
-		  $(O)/libc/syscall.o
+		  $(O)/libc/syscall.o \
+		  $(O)/libc/vsnprintf.o \
+		  $(O)/libc/printf.o \
+		  $(O)/libc/string.o
 
 sys_CRTBEGIN=$(shell $(CC) $(CFLAGS) -print-file-name=crtbegin.o)
 sys_CRTEND=$(shell $(CC) $(CFLAGS) -print-file-name=crtend.o)

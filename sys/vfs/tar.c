@@ -6,7 +6,7 @@
 #include "sys/panic.h"
 #include "sys/errno.h"
 #include "sys/fs/vfs.h"
-#include "sys/fs/fcntl.h"
+#include "sys/fcntl.h"
 
 struct tar {
     char filename[100];

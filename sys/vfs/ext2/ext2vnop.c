@@ -2,7 +2,7 @@
 #include "sys/fs/ext2.h"
 #include "sys/fs/node.h"
 #include "sys/fs/ofile.h"
-#include "sys/fs/fcntl.h"
+#include "sys/fcntl.h"
 #include "sys/fs/vfs.h"
 #include "sys/string.h"
 #include "sys/debug.h"
