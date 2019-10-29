@@ -28,14 +28,14 @@
     })
 
 ssize_t write(int fd, const void *buf, size_t count) {
-    return (ssize_t) ASM_SYSCALL3(1, fd, buf, count);
+    return (ssize_t) ASM_SYSCALL3(SYSCALL_NR_WRITE, fd, buf, count);
 }
 
 ssize_t read(int fd, void *buf, size_t count) {
-    return (ssize_t) ASM_SYSCALL3(0, fd, buf, count);
+    return (ssize_t) ASM_SYSCALL3(SYSCALL_NR_READ, fd, buf, count);
 }
 
 __attribute__((noreturn)) void exit(int code) {
-    (void) ASM_SYSCALL1(60, code);
+    (void) ASM_SYSCALL1(SYSCALL_NR_EXIT, code);
     while (1);
 }

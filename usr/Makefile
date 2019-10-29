@@ -1,47 +1,61 @@
-.PHONY: libc
-
 # Input parameters:
 # O -- build files
 # STAGE -- initrd rootfs
 
-DIRS=$(O)
+DIRS=$(O) \
+	 $(O)/libc
+HDRS=$(shell find -type f -name "*.h")
 STAGE_BIN=$(STAGE)/init
 
-usr_CFLAGS=-ffreestanding \
-		   -nostdlib \
-		   -mno-sse \
-		   -mno-sse2 \
-		   -Ilibc/include \
-		   -O0 \
-		   -I$(S)/include
+CFLAGS=-ffreestanding \
+	   -nostdlib \
+	   -mno-sse \
+	   -mno-sse2 \
+	   -Ilibc/include \
+	   -O0 \
+	   -I$(S)/include
+
 usr_LDFLAGS=-nostdlib \
 			-lgcc \
 			-Tlibc/program.ld
 usr_STATIC_LIBS=$(O)/libc.a
-usr_CRTI=$(O)/libc/crti.o
-usr_CRTN=$(O)/libc/crtn.o
-usr_CRT0=$(O)/libc/crt0.o
+
+libc_CRTI=$(O)/libc/crti.o
+libc_CRTN=$(O)/libc/crtn.o
+libc_OBJS=$(O)/libc/crt0.o \
+		  $(O)/libc/syscall.o
 
 sys_CRTBEGIN=$(shell $(CC) $(CFLAGS) -print-file-name=crtbegin.o)
 sys_CRTEND=$(shell $(CC) $(CFLAGS) -print-file-name=crtend.o)
 
-all: mkdirs libc mkstage-etc $(STAGE_BIN)
-
-$(STAGE)/init: init.c
-	$(CC) -o $@ $(usr_CFLAGS) $(usr_LDFLAGS) \
-		$(usr_CRTI) \
-		$(sys_CRTBEGIN) \
-		$(usr_CRT0) \
-		$< \
-		$(sys_CRTEND) \
-		$(usr_CRTN) \
-		$(usr_STATIC_LIBS)
-
-libc:
-	@make -sC libc all
+all: mkdirs mkstage-etc $(STAGE_BIN)
 
 mkdirs:
 	mkdir -p $(DIRS)
 
 mkstage-etc:
 	cp -r etc $(STAGE)
+
+# Application building
+$(STAGE)/init: init.c $(libc_CRTI) $(libc_CRTN) $(O)/libc.a
+	@printf " CC\t%s\n" $(@:$(STAGE)/%=/%)
+	@$(CC) -o $@ $(CFLAGS) $(usr_LDFLAGS) \
+		$(libc_CRTI) \
+		$(sys_CRTBEGIN) \
+		init.c \
+		$(sys_CRTEND) \
+		$(libc_CRTN) \
+		$(usr_STATIC_LIBS)
+
+# libc building
+$(O)/libc.a: $(libc_OBJS)
+	@printf " AR\t%s\n" $(@:$(O)/%=%)
+	@$(AR) rcs $@ $(libc_OBJS)
+
+$(O)/libc/%.o: libc/%.c $(HDRS)
+	@printf " CC\t%s\n" $(@:$(O)/%=%)
+	@$(CC) -c -o $@ $(CFLAGS) $<
+
+$(O)/libc/%.o: libc/%.S
+	@printf " AS\t%s\n" $(@:$(O)/%=%)
+	@$(CC) -c -o $@ $(CFLAGS) $<
