@@ -264,6 +264,12 @@ static int vfs_find_tree(struct vfs_node *root_node, const char *path, struct vf
             }
         }
 
+        // Check if the node belongs to a mapper-based filesystem
+        _assert(root_vnode->fs && root_vnode->fs->cls);
+        if (root_vnode->fs->cls->opt & FS_NODE_MAPPER) {
+            return -ENOENT;
+        }
+
         // 3.2. Nothing found in path tree - request the fs to find
         //      the vnode for the path element given
         vnode_t *child_vnode = NULL;

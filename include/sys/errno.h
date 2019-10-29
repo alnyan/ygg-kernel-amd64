@@ -35,4 +35,6 @@
 #define EDOM            33
 #define ERANGE          34
 
+#if defined(__KERNEL__)
 const char *kstrerror(int e);
+#endif

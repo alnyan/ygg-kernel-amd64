@@ -26,7 +26,10 @@ libc_OBJS=$(O)/libc/crt0.o \
 		  $(O)/libc/syscall.o \
 		  $(O)/libc/vsnprintf.o \
 		  $(O)/libc/printf.o \
-		  $(O)/libc/string.o
+		  $(O)/libc/string.o \
+		  $(O)/libc/errno.o \
+		  $(O)/libc/stdio.o \
+		  $(O)/libc/init.o
 
 sys_CRTBEGIN=$(shell $(CC) $(CFLAGS) -print-file-name=crtbegin.o)
 sys_CRTEND=$(shell $(CC) $(CFLAGS) -print-file-name=crtend.o)

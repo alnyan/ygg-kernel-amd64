@@ -11,6 +11,8 @@ _start:
     pushq %rbp
     movq %rsp, %rbp
 
+    call __libc_init
+
     call _init
 
     // Ignore %rdi/%rsi for now

@@ -1,4 +1,5 @@
 #include "bits/syscall.h"
+#include <errno.h>
 
 #define ASM_REGISTER(name) \
         register uint64_t name asm (#name)
@@ -39,16 +40,24 @@
         rax; \
     })
 
+#define SET_ERRNO(t, r)                     ({ \
+        t res = (t) r; \
+        if (res < 0) { \
+            errno = -res; \
+        } \
+        res; \
+    })
+
 ssize_t write(int fd, const void *buf, size_t count) {
-    return (ssize_t) ASM_SYSCALL3(SYSCALL_NR_WRITE, fd, buf, count);
+    return SET_ERRNO(ssize_t, ASM_SYSCALL3(SYSCALL_NR_WRITE, fd, buf, count));
 }
 
 ssize_t read(int fd, void *buf, size_t count) {
-    return (ssize_t) ASM_SYSCALL3(SYSCALL_NR_READ, fd, buf, count);
+    return SET_ERRNO(ssize_t, ASM_SYSCALL3(SYSCALL_NR_READ, fd, buf, count));
 }
 
 int open(const char *filename, int flags, int mode) {
-    return (int) ASM_SYSCALL3(SYSCALL_NR_OPEN, filename, flags, mode);
+    return SET_ERRNO(int, ASM_SYSCALL3(SYSCALL_NR_OPEN, filename, flags, mode));
 }
 
 void close(int fd) {
@@ -56,7 +65,7 @@ void close(int fd) {
 }
 
 int stat(const char *filename, struct stat *st) {
-    return (int) ASM_SYSCALL2(SYSCALL_NR_STAT, filename, st);
+    return SET_ERRNO(int, ASM_SYSCALL2(SYSCALL_NR_STAT, filename, st));
 }
 
 __attribute__((noreturn)) void exit(int code) {
