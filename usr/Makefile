@@ -12,6 +12,7 @@ usr_CFLAGS=-ffreestanding \
 		   -mno-sse \
 		   -mno-sse2 \
 		   -Ilibc/include \
+		   -O0 \
 		   -I$(S)/include
 usr_LDFLAGS=-nostdlib \
 			-lgcc \

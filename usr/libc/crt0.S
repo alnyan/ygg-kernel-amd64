@@ -16,9 +16,8 @@ _start:
     // Ignore %rdi/%rsi for now
     xorq %rdi, %rdi
 
+    // exit(main(argc, argv))
     call main
-
-    // I haven't implemented exit() yet
-    xorq %rdi, %rdi
-    jmp *%rdi
+    movq %rax, %rdi
+    call exit
 .size _start, . - _start

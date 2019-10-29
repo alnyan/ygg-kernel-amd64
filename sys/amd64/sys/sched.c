@@ -126,6 +126,12 @@ void init_func(void *arg) {
     }
 }
 
+static uint32_t sched_alloc_pid(void) {
+    // The first pid allocation will be 1 (init process)
+    static uint32_t last_pid = 1;
+    return last_pid++;
+}
+
 void sched_add_to(int cpu, struct thread *t) {
     t->next = NULL;
 
@@ -134,6 +140,14 @@ void sched_add_to(int cpu, struct thread *t) {
         sched_queue_tails[cpu]->next = t;
     } else {
         sched_queue_heads[cpu] = t;
+    }
+    t->prev = sched_queue_tails[cpu];
+    t->cpu = cpu;
+
+    if (!(t->flags & THREAD_KERNEL)) {
+        t->pid = sched_alloc_pid();
+    } else {
+        t->pid = 0;
     }
     sched_queue_tails[cpu] = t;
     ++sched_queue_sizes[cpu];
@@ -187,12 +201,52 @@ void sched_init(void) {
 int sched(void) {
     struct thread *from = get_cpu()->thread;
     struct thread *to;
+    int cpu = get_cpu()->processor_id;
 
     spin_lock(&sched_lock);
+    // Cleanup stopped tasks
+    // TODO: this won't be needed if I call sched_remove directly
+    to = sched_queue_heads[cpu];
+    while (to) {
+        if (to->flags & THREAD_STOPPED) {
+            // So we don't remove [idle]
+            _assert(to != sched_queue_heads[cpu]);
+            kdebug("(cpu%d) Removing %u from queue\n", cpu, to->pid);
+
+            if (to->pid == 1) {
+                panic("init process was killed\n");
+            }
+
+            struct thread *prev, *next;
+            prev = to->prev;
+            next = to->next;
+
+            _assert(prev);
+
+            prev->next = next;
+            if (next) {
+                next->prev = prev;
+            } else {
+                sched_queue_tails[cpu] = prev;
+            }
+
+            // TODO: free the task?
+            if (to == from) {
+                // Removing current thread
+                from = NULL;
+            }
+
+            if (!next) {
+                break;
+            }
+        }
+        to = to->next;
+    }
+
     if (from && from->next) {
         to = from->next;
     } else {
-        to = sched_queue_heads[get_cpu()->processor_id];
+        to = sched_queue_heads[cpu];
     }
     spin_release(&sched_lock);
 

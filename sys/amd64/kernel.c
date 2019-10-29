@@ -17,6 +17,7 @@
 #include "sys/fs/vfs.h"
 #include "sys/blk/ram.h"
 #include "sys/fs/tar.h"
+#include "sys/sched.h"
 #include "sys/tty.h"
 
 static multiboot_info_t *multiboot_info;
@@ -37,7 +38,6 @@ void kernel_main(struct amd64_loader_data *data) {
     amd64_mm_init(data);
     amd64_acpi_init();
 
-    extern void sched_init(void);
     sched_init();
     amd64_apic_init();
     rtc_init();

@@ -3,6 +3,7 @@
 #include "sys/fs/vfs.h"
 
 #define THREAD_KERNEL       (1 << 31)
+#define THREAD_STOPPED      (1 << 2)
 
 #if defined(ARCH_AMD64)
 typedef uint64_t *mm_space_t;
@@ -22,6 +23,8 @@ struct thread {
     mm_space_t space;
 
     // TODO: maybe __sched_thread
+    int cpu;
+    struct thread *prev;
     struct thread *next;
 };
 
