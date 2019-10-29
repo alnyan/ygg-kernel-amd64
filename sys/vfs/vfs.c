@@ -432,19 +432,22 @@ static int vfs_mount_internal(struct vfs_node *at, void *blkdev, const char *fs_
         if ((res = fs_class->mapper(fs, &fs_root_node)) < 0) {
             panic("Node mapper function failed\n");
         }
-
         _assert(fs_root_node);
         _assert(fs_root_node->vnode);
         fs_root = fs_root_node->vnode;
 
         // Reparent vnode to the actual mountpoint
         fs_root->tree_node = at;
+        _assert(!at->child);
 
         // Reparent fs_root_node children to the actual mountpoint
-        for (struct vfs_node *child = fs_root_node->child; child; child = child->cdr) {
+        struct vfs_node *child = fs_root_node->child;
+        while (child) {
+            struct vfs_node *cdr = child->cdr;
             child->parent = at;
             child->cdr = at->child;
             at->child = child;
+            child = cdr;
         }
 
         // Root node can be freed
