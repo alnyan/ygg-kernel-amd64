@@ -1,0 +1,3 @@
+target remote localhost:1234
+layout regs
+symbol-file build/sys/amd64/kernel.elf

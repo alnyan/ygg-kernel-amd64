@@ -1,7 +1,9 @@
 #include "sys/amd64/asm/asm_cpu.h"
+#include "sys/amd64/asm/asm_irq.h"
 
 .section .text
 .global amd64_syscall_init
+.global amd64_syscall_yield_stopped
 
 #define MSR_STAR        0xC0000081
 #define MSR_LSTAR       0xC0000082
@@ -104,5 +106,41 @@ amd64_syscall_entry:
     swapgs
     sysretq
 
-_fmt0:
-    .string "rsp = %p\n"
+// Schedule control to a new task instead of stopped one
+amd64_syscall_yield_stopped:
+    cli
+    // No stack frame - the kernel stack is going to be discarded anyways
+    movq get_cpu(0x08), %rbx
+
+    call sched
+    test %rax, %rax
+    jz 1f
+
+    // sched() failed
+    leaq _yield_failed(%rip), %rdi
+    xorq %rax, %rax
+    call panicf
+
+1:
+    // Remove old thread from queues
+    movq %rbx, %rdi
+    call sched_remove
+
+    // Load a new context
+    // rsi = thread structure pointer
+    movq get_cpu(0x08), %rsi
+    movq 0(%rsi), %rsp
+
+    // Write TSS entry
+    movq get_cpu(0x18), %rdi
+    movq %rsp, %rax
+    addq $(25 * 8), %rax
+    movq %rax, 4(%rdi)
+1:
+    // Assume we're now on TASK2's stack
+    irq_pop_ctx
+
+    iretq
+
+_yield_failed:
+    .string "sched() returned -1 on amd64_syscall_yield\n"

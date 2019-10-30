@@ -14,7 +14,7 @@ static void sys_close(int fd);
 static int sys_stat(const char *filename, struct stat *st);
 static void sys_exit(int status);
 
-uint8_t irq1_key = 0;
+__attribute__((noreturn)) void amd64_syscall_yield_stopped(void);
 
 intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t r10, uintptr_t rax) {
     switch (rax) {
@@ -32,12 +32,8 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
 
     case SYSCALL_NR_EXIT:
         sys_exit((int) rdi);
-        // TODO: call sched_remove and reschedule a new task so that
-        // this one does not return
-        asm volatile ("sti; hlt");
-        panic("This should not happen\n");
-        // WTF?
-        return -1;
+        amd64_syscall_yield_stopped();
+
     default:
         kdebug("unknown syscall: %u\n", rax);
         return -1;

@@ -201,50 +201,38 @@ void sched_init(void) {
     sched_add_to(0, &t_init);
 }
 
+void sched_remove_from(int cpu, struct thread *thr) {
+    struct thread *prev = thr->prev;
+    struct thread *next = thr->next;
+    kdebug("cpu%d: removing thread %d\n", cpu, thr->pid);
+
+    _assert(prev);
+    prev->next = next;
+
+    if (next) {
+        next->prev = prev;
+    } else {
+        sched_queue_tails[cpu] = prev;
+    }
+
+    --sched_queue_sizes[cpu];
+
+    thr->next = NULL;
+    thr->prev = NULL;
+
+    // TODO: make other cpus schedule a new thread if they're running a stopped one
+}
+
+void sched_remove(struct thread *thr) {
+    kdebug("Remove %p\n", thr);
+    sched_remove_from(thr->cpu, thr);
+}
+
 int sched(void) {
     struct thread *from = get_cpu()->thread;
     struct thread *to;
     int cpu = get_cpu()->processor_id;
     uintptr_t flags;
-
-    // Cleanup stopped tasks
-    // TODO: this won't be needed if I call sched_remove directly
-    to = sched_queue_heads[cpu];
-    while (to) {
-        if (to->flags & THREAD_STOPPED) {
-            // So we don't remove [idle]
-            _assert(to != sched_queue_heads[cpu]);
-            kdebug("(cpu%d) Removing %u from queue\n", cpu, to->pid);
-
-            if (to->pid == 1) {
-                panic("init process was killed\n");
-            }
-
-            struct thread *prev, *next;
-            prev = to->prev;
-            next = to->next;
-
-            _assert(prev);
-
-            prev->next = next;
-            if (next) {
-                next->prev = prev;
-            } else {
-                sched_queue_tails[cpu] = prev;
-            }
-
-            // TODO: free the task?
-            if (to == from) {
-                // Removing current thread
-                from = NULL;
-            }
-
-            if (!next) {
-                break;
-            }
-        }
-        to = to->next;
-    }
 
     if (from && from->next) {
         to = from->next;
