@@ -4,10 +4,18 @@
 #include <errno.h>
 #include <stdio.h>
 
+#define BUF_SIZE        1024
+
 int main(int argc, char **argv) {
     char c;
+    char *buf;
 
     puts("Hello, World!");
+
+    if (!(buf = malloc(BUF_SIZE))) {
+        printf("Failed to alloc!\n");
+        return -1;
+    }
 
     struct stat test_stat;
     if (stat("/init", &test_stat) == 0) {
@@ -32,10 +40,9 @@ int main(int argc, char **argv) {
 
     if (fd >= 0) {
         printf("Opened /etc/file.txt\n");
-        char buf[512];
         ssize_t count;
 
-        if ((count = read(fd, buf, sizeof(buf))) > 0) {
+        if ((count = read(fd, buf, BUF_SIZE)) > 0) {
             printf("Read data from file:\n");
             write(STDOUT_FILENO, buf, count);
             printf("\n");

@@ -10,8 +10,15 @@ typedef uint64_t *mm_space_t;
 #include "sys/amd64/sys/thread.h"
 #endif
 
+struct image_info {
+    uintptr_t image_end;
+    uintptr_t brk;
+};
+
 struct thread {
     __plat_thread data;
+
+    struct image_info image;
 
     uint64_t flags;
     uint32_t pid;

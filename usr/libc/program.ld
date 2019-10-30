@@ -29,4 +29,7 @@ SECTIONS {
     .bss : ALIGN(4K) {
         *(.bss)
     }
+
+    __program_end = .;
+    __heap_start = .;
 }

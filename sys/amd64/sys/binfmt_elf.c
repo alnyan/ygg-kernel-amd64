@@ -95,6 +95,8 @@ int elf_load(struct thread *thr, const void *from) {
     Elf64_Shdr *shdrs = (Elf64_Shdr *) (ehdr->e_shoff + (uintptr_t) from);
     const char *shstrtabd = (const char *) (shdrs[ehdr->e_shstrndx].sh_offset + (uintptr_t) from);
 
+    thr->image.image_end = 0;
+
     // Load the sections
     for (size_t i = 0; i < ehdr->e_shnum; ++i) {
         Elf64_Shdr *shdr = &shdrs[i];
@@ -134,9 +136,15 @@ int elf_load(struct thread *thr, const void *from) {
                                   shdr->sh_size) == 0);
                 break;
             }
+
+            uintptr_t section_end = shdr->sh_addr + shdr->sh_size;
+            if (section_end > thr->image.image_end) {
+                thr->image.image_end = section_end;
+            }
         }
     }
 
+    thr->image.brk = thr->image.image_end;
     amd64_thread_set_ip(thr, ehdr->e_entry);
 
     return 0;
