@@ -4,6 +4,16 @@
 #define PCI_PORT_CONFIG_ADDR        0xCF8
 #define PCI_PORT_CONFIG_DATA        0xCFC
 
+#define PCI_CONFIG_ID               0x00
+#define PCI_CONFIG_CMD              0x04
+#define PCI_CONFIG_CLASS            0x08
+#define PCI_CONFIG_INFO             0x0C
+#define PCI_CONFIG_BAR(n)           (0x10 + (n) * 4)
+#define PCI_CONFIG_SUBSYSTEM        0x2C
+#define PCI_CONFIG_IRQ              0x3C
+
+#define PCI_CONFIG_BRIDGE           0x18
+
 #define PCI_ID(vnd, dev)            (((uint32_t) (vnd)) | ((uint32_t) (dev) << 16))
 #define PCI_MKADDR(bus, dev, func)  (((uint32_t) (bus) << 16) | ((uint32_t) (dev) << 8) | ((uint32_t) (func)))
 #define PCI_FMTADDR                 "%02x:%02x:%02x"

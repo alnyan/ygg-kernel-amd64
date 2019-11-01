@@ -15,10 +15,10 @@ static struct pci_ahci ahci;
 static void pci_ahci_init(pci_addr_t addr) {
     kdebug("Initializing AHCI controller at " PCI_FMTADDR "\n", PCI_VAADDR(addr));
 
-    uint32_t irq = pci_config_read_dword(addr, 0x3C);
+    uint32_t irq = pci_config_read_dword(addr, PCI_CONFIG_IRQ);
 
     ahci.addr = addr;
-    ahci.abar_phys = pci_config_read_dword(addr, 0x24);
+    ahci.abar_phys = pci_config_read_dword(addr, PCI_CONFIG_BAR(5));
     ahci.regs = (struct ahci_registers *) MM_VIRTUALIZE(ahci.abar_phys);
 
     kdebug("AHCI registers: %p\n", ahci.regs);

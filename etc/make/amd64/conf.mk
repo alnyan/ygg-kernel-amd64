@@ -90,8 +90,8 @@ QEMU_DEVS+=$(QEMU_DEV_HDA)
 endif
 
 ifdef QEMU_NET
-QEMU_DEV_NET=-device $(QEMU_NET),netdev=net0 \
-			 -netdev type=user,id=net0
+QEMU_DEV_NET=-device $(QEMU_NET),netdev=net0,mac=11:22:33:44:55:66 \
+		-netdev type=user,hostfwd=tcp::5555-:22,hostfwd=udp::5555-:22,id=net0
 QEMU_DEVS+=$(QEMU_DEV_NET)
 endif
 

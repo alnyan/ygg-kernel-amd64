@@ -11,41 +11,41 @@ static struct ide_controller pci_ide;
 static void pci_ide_init(pci_addr_t addr) {
     kdebug("Initializing PCI IDE controller at " PCI_FMTADDR "\n", PCI_VAADDR(addr));
 
-    uint32_t irq_config = pci_config_read_dword(addr, 0x3C);
-    uint32_t class = pci_config_read_dword(addr, 0x08);
+    uint32_t irq_config = pci_config_read_dword(addr, PCI_CONFIG_IRQ);
+    uint32_t class = pci_config_read_dword(addr, PCI_CONFIG_CLASS);
     uint32_t bar;
-    uint32_t cmd = pci_config_read_dword(addr, 0x04);
+    uint32_t cmd = pci_config_read_dword(addr, PCI_CONFIG_CMD);
 
     // Read BARs
-    bar = pci_config_read_dword(addr, 0x10);
+    bar = pci_config_read_dword(addr, PCI_CONFIG_BAR(0));
     assert(!bar || (bar & 1), "IDE BAR not in I/O space\n");
     if (bar & ~3) {
         pci_ide.bar0 = bar & ~3;
     } else {
         pci_ide.bar0 = IDE_DEFAULT_BAR0;
     }
-    bar = pci_config_read_dword(addr, 0x14);
+    bar = pci_config_read_dword(addr, PCI_CONFIG_BAR(1));
     assert(!bar || (bar & 1), "IDE BAR not in I/O space\n");
     if (bar & ~3) {
         pci_ide.bar1 = bar & ~3;
     } else {
         pci_ide.bar1 = IDE_DEFAULT_BAR1;
     }
-    bar = pci_config_read_dword(addr, 0x18);
+    bar = pci_config_read_dword(addr, PCI_CONFIG_BAR(2));
     assert(!bar || (bar & 1), "IDE BAR not in I/O space\n");
     if (bar & ~3) {
         pci_ide.bar2 = bar & ~3;
     } else {
         pci_ide.bar2 = IDE_DEFAULT_BAR2;
     }
-    bar = pci_config_read_dword(addr, 0x1C);
+    bar = pci_config_read_dword(addr, PCI_CONFIG_BAR(3));
     assert(!bar || (bar & 1), "IDE BAR not in I/O space\n");
     if (bar & ~3) {
         pci_ide.bar3 = bar & ~3;
     } else {
         pci_ide.bar3 = IDE_DEFAULT_BAR3;
     }
-    bar = pci_config_read_dword(addr, 0x20);
+    bar = pci_config_read_dword(addr, PCI_CONFIG_BAR(4));
     assert(!bar || (bar & 1), "IDE BAR not in I/O space\n");
     pci_ide.bar4 = bar & ~3;
     if (!pci_ide.bar4) {
@@ -58,13 +58,13 @@ static void pci_ide_init(pci_addr_t addr) {
 
     // Enable PCI busmastering for IDE controller
     cmd |= (1 << 2);
-    pci_config_write_dword(addr, 0x04, cmd);
+    pci_config_write_dword(addr, PCI_CONFIG_CMD, cmd);
 
     irq_config &= ~0xFF;
     irq_config |= 0xFE;
-    pci_config_write_dword(addr, 0x3C, irq_config);
+    pci_config_write_dword(addr, PCI_CONFIG_IRQ, irq_config);
 
-    irq_config = pci_config_read_dword(addr, 0x3C);
+    irq_config = pci_config_read_dword(addr, PCI_CONFIG_IRQ);
 
     if ((irq_config & 0xFF) == 0xFE) {
         // Need IRQ assignment
@@ -74,8 +74,8 @@ static void pci_ide_init(pci_addr_t addr) {
         irq_config &= ~0xFF;
         irq_config |= 14;
 
-        pci_config_write_dword(addr, 0x3C, irq_config);
-        irq_config = pci_config_read_dword(addr, 0x3C);
+        pci_config_write_dword(addr, PCI_CONFIG_IRQ, irq_config);
+        irq_config = pci_config_read_dword(addr, PCI_CONFIG_IRQ);
 
         assert((irq_config & 0xFF) == 14, "Failed to assign IRQ14 to IDE drive controller\n");
 

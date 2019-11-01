@@ -128,13 +128,13 @@ static void pci_describe_func(pci_addr_t addr) {
     // Get device actual bus
     struct pci_bridge_bus *bridge = pci_bus_bridge(PCI_BUS(addr));
 
-    uint32_t header = pci_config_read_dword(addr, 0x0C);
+    uint32_t header = pci_config_read_dword(addr, PCI_CONFIG_INFO);
     uint8_t header_type = (header >> 16) & 0x7F;
 
     if (header_type == 0) {
-        uint32_t id = pci_config_read_dword(addr, 0);
-        uint32_t kind = pci_config_read_dword(addr, 8);
-        uint32_t irq = pci_config_read_dword(addr, 0x3C);
+        uint32_t id = pci_config_read_dword(addr, PCI_CONFIG_ID);
+        uint32_t kind = pci_config_read_dword(addr, PCI_CONFIG_CLASS);
+        uint32_t irq = pci_config_read_dword(addr, PCI_CONFIG_IRQ);
 
         uint16_t class = kind >> 16;
 
@@ -194,7 +194,7 @@ static void pci_describe_func(pci_addr_t addr) {
 
         assert(!bridge, "Nested bridged buses?\n");
 
-        uint32_t bridge_bus_info = pci_config_read_dword(addr, 0x18);
+        uint32_t bridge_bus_info = pci_config_read_dword(addr, PCI_CONFIG_BRIDGE);
         uint8_t secondary_bus_number = (bridge_bus_info >> 8) & 0xFF;
         uint8_t primary_bus_number = bridge_bus_info & 0xFF;
 
@@ -212,14 +212,14 @@ static void pci_describe_func(pci_addr_t addr) {
 static void pci_enumerate_func(pci_addr_t addr) {
     // Get device actual bus
     struct pci_bridge_bus *bridge = pci_bus_bridge(PCI_BUS(addr));
-    uint32_t header = pci_config_read_dword(addr, 0x0C);
+    uint32_t header = pci_config_read_dword(addr, PCI_CONFIG_INFO);
     uint8_t header_type = (header >> 16) & 0x7F;
 
     pci_describe_func(addr);
 
     if (header_type == 0) {
-        uint32_t id = pci_config_read_dword(addr, 0);
-        uint32_t kind = pci_config_read_dword(addr, 8);
+        uint32_t id = pci_config_read_dword(addr, PCI_CONFIG_ID);
+        uint32_t kind = pci_config_read_dword(addr, PCI_CONFIG_CLASS);
 
         pci_init_func_t func = pci_find_driver(id, kind >> 16);
 
@@ -233,7 +233,7 @@ static void pci_enumerate_func(pci_addr_t addr) {
 
         assert(!bridge, "Nested bridged buses?\n");
 
-        uint32_t bridge_bus_info = pci_config_read_dword(addr, 0x18);
+        uint32_t bridge_bus_info = pci_config_read_dword(addr, PCI_CONFIG_BRIDGE);
         uint8_t secondary_bus_number = (bridge_bus_info >> 8) & 0xFF;
         uint8_t primary_bus_number = bridge_bus_info & 0xFF;
 
@@ -250,19 +250,19 @@ static void pci_enumerate_func(pci_addr_t addr) {
 
 static void pci_enumerate_dev(uint8_t bus, uint8_t dev) {
     // Check function 0
-    uint32_t w0 = pci_config_read_dword(PCI_MKADDR(bus, dev, 0), 0);
+    uint32_t w0 = pci_config_read_dword(PCI_MKADDR(bus, dev, 0), PCI_CONFIG_ID);
     if ((w0 & 0xFFFF) == 0xFFFF) {
         // No functions here
         return;
     }
-    uint32_t header = pci_config_read_dword(PCI_MKADDR(bus, dev, 0), 0x0C);
+    uint32_t header = pci_config_read_dword(PCI_MKADDR(bus, dev, 0), PCI_CONFIG_INFO);
 
     pci_enumerate_func(PCI_MKADDR(bus, dev, 0));
 
     if ((header >> 16) & 0x80) {
         // Multifunction device
         for (uint8_t i = 1; i < 8; ++i) {
-            if ((pci_config_read_dword(PCI_MKADDR(bus, dev, i), 0x00) & 0xFFFF) != 0xFFFF) {
+            if ((pci_config_read_dword(PCI_MKADDR(bus, dev, i), PCI_CONFIG_ID) & 0xFFFF) != 0xFFFF) {
                 pci_enumerate_func(PCI_MKADDR(bus, dev, i));
             }
         }
