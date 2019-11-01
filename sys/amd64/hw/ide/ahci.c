@@ -1,5 +1,6 @@
 #include "sys/amd64/hw/ide/ahci.h"
 #include "sys/amd64/hw/ide/ata.h"
+#include "sys/amd64/hw/irq.h"
 #include "sys/amd64/mm/phys.h"
 #include "sys/string.h"
 #include "sys/assert.h"
@@ -24,8 +25,6 @@ static int ahci_alloc_cmd(struct ahci_port_registers *port) {
     }
     return -1;
 }
-
-struct ahci_registers *controller0 = NULL;
 
 static void ahci_irq_port(struct ahci_port_registers *port) {
     if (port->p_is & (1 << 0)) {
@@ -70,17 +69,19 @@ static int ahci_add_port_dev(struct ahci_port_registers *port) {
     return 0;
 }
 
-int ahci_irq(void) {
-    if (controller0->is) {
+uint32_t ahci_irq(void *ctx) {
+    struct ahci_registers *controller = ctx;
+
+    if (controller->is) {
         for (size_t port = 0; port < 32; ++port) {
-            ahci_irq_port(&controller0->ports[port]);
-            controller0->is &= ~(1 << port);
+            ahci_irq_port(&controller->ports[port]);
+            controller->is &= ~(1 << port);
         }
 
-        return 0;
+        return IRQ_HANDLED;
     }
 
-    return -1;
+    return IRQ_UNHANDLED;
 }
 
 void ahci_sata_read(struct ahci_port_registers *port, void *buf, uint32_t nsect, uint64_t lba) {

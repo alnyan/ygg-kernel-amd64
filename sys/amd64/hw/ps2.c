@@ -20,11 +20,11 @@ static const char ps2_key_table_0[128] = {
     [0x7F] = 0
 };
 
-int ps2_irq_keyboard(void) {
+uint32_t ps2_irq_keyboard(void *ctx) {
     uint8_t st = inb(0x64);
 
     if (!(st & 1)) {
-        return -1;
+        return IRQ_UNHANDLED;
     }
 
     uint8_t key = inb(0x60);
@@ -37,9 +37,9 @@ int ps2_irq_keyboard(void) {
         }
     }
 
-    return 0;
+    return IRQ_HANDLED;
 }
 
 void ps2_init(void) {
-    irq_add_leg_handler(IRQ_LEG_KEYBOARD, ps2_irq_keyboard);
+    irq_add_leg_handler(IRQ_LEG_KEYBOARD, ps2_irq_keyboard, NULL);
 }

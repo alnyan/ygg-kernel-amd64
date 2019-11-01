@@ -27,7 +27,7 @@ static void pci_ahci_init(pci_addr_t addr) {
 
     uint8_t int_pin = ((irq >> 8) & 0xFF);
     if (int_pin) {
-        irq_add_pci_handler(addr, int_pin - 1, ahci_irq);
+        irq_add_pci_handler(addr, int_pin - 1, ahci_irq, ahci.regs);
     }
 }
 

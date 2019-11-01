@@ -10,7 +10,7 @@
 #define IRQ_MAX             32      // Maximum assignable IRQ vectors
 #define IRQ_MAX_HANDLERS    4       // Maximum handlers per IRQ vector (sharing)
 
-static irq_handler_t handlers[IRQ_MAX * IRQ_MAX_HANDLERS] = {0};
+static struct irq_handler handlers[IRQ_MAX * IRQ_MAX_HANDLERS] = {0};
 static uint64_t vector_bitmap[4] = {0};
 static int ioapic_available = 0;
 
@@ -32,18 +32,17 @@ static int irq_alloc_vector(uint8_t *vector) {
 void irq_handle(uintptr_t n) {
     _assert(n && n < IRQ_MAX);
 
-    irq_handler_t *list = &handlers[IRQ_MAX_HANDLERS * n];
+    struct irq_handler *list = &handlers[IRQ_MAX_HANDLERS * n];
     for (size_t i = 0; i < IRQ_MAX_HANDLERS; ++i) {
-        if (list[i] && (list[i]() == 0)) {
+        if (list[i].func && (list[i].func(list[i].ctx) == 0)) {
             return;
         }
     }
 }
 
-int irq_add_handler(uint8_t gsi, irq_handler_t handler) {
+int irq_add_handler(uint8_t gsi, irq_handler_func_t handler, void *ctx) {
     _assert(gsi != 0 && gsi < IRQ_MAX);
     _assert(ioapic_available);
-
 
     uint8_t vector;
     if (irq_alloc_vector(&vector)) {
@@ -51,10 +50,11 @@ int irq_add_handler(uint8_t gsi, irq_handler_t handler) {
     }
     kdebug("I/O APIC: Mapping GSI%u -> Vector %d:%d\n", gsi, 0, vector);
 
-    irq_handler_t *list = &handlers[IRQ_MAX_HANDLERS * vector];
+    struct irq_handler *list = &handlers[IRQ_MAX_HANDLERS * vector];
     for (size_t i = 0; i < IRQ_MAX_HANDLERS; ++i) {
-        if (!list[i]) {
-            list[i] = handler;
+        if (!list[i].func) {
+            list[i].func = handler;
+            list[i].ctx = ctx;
 
             amd64_ioapic_map_gsi(gsi, 0, vector + 0x20);
             amd64_ioapic_unmask(gsi);
@@ -66,19 +66,20 @@ int irq_add_handler(uint8_t gsi, irq_handler_t handler) {
     return -1;
 }
 
-int irq_add_leg_handler(uint8_t leg_irq, irq_handler_t handler) {
+int irq_add_leg_handler(uint8_t leg_irq, irq_handler_func_t handler, void *ctx) {
     _assert(leg_irq != 0 && leg_irq < IRQ_MAX);
 
     if (ioapic_available) {
         // Find out the route (TODO)
         uint8_t gsi = amd64_ioapic_leg_gsi(leg_irq);
-        return irq_add_handler(gsi, handler);
+        return irq_add_handler(gsi, handler, ctx);
     } else {
-        irq_handler_t *list = &handlers[IRQ_MAX_HANDLERS * leg_irq];
+        struct irq_handler *list = &handlers[IRQ_MAX_HANDLERS * leg_irq];
 
         for (size_t i = 0; i < IRQ_MAX_HANDLERS; ++i) {
-            if (!list[i]) {
-                list[i] = handler;
+            if (!list[i].func) {
+                list[i].func = handler;
+                list[i].ctx = ctx;
                 return 0;
             }
         }
@@ -87,7 +88,7 @@ int irq_add_leg_handler(uint8_t leg_irq, irq_handler_t handler) {
     }
 }
 
-int irq_add_pci_handler(pci_addr_t addr, uint8_t pin, irq_handler_t handler) {
+int irq_add_pci_handler(pci_addr_t addr, uint8_t pin, irq_handler_func_t handler, void *ctx) {
     _assert(pin < 4);
     uint32_t irq_route = amd64_pci_pin_irq_route(PCI_BUS(addr), PCI_DEV(addr), PCI_FUNC(addr), pin);
     _assert(irq_route != PCI_IRQ_INVALID);
@@ -98,24 +99,26 @@ int irq_add_pci_handler(pci_addr_t addr, uint8_t pin, irq_handler_t handler) {
 
     kdebug("Assigning handler to " PCI_FMTADDR " INT%c# -> GSI%d", PCI_VAADDR(addr), pin + 'A', irq_route);
 
-    return irq_add_handler(irq_route, handler);
+    return irq_add_handler(irq_route, handler, ctx);
 }
 
 void irq_enable_ioapic_mode(void) {
     ioapic_available = 1;
     // Copy current table
-    irq_handler_t handlers_old[16 * IRQ_MAX_HANDLERS];
+    struct irq_handler handlers_old[16 * IRQ_MAX_HANDLERS];
 
-    memcpy(handlers_old, handlers, 16 * IRQ_MAX_HANDLERS * sizeof(irq_handler_t));
-    memset(handlers, 0, 16 * IRQ_MAX_HANDLERS * sizeof(irq_handler_t));
+    memcpy(handlers_old, handlers, 16 * IRQ_MAX_HANDLERS * sizeof(struct irq_handler));
+    memset(handlers, 0, 16 * IRQ_MAX_HANDLERS * sizeof(struct irq_handler));
 
     // All legacy IRQs
     for (size_t i = 0; i < 16; ++i) {
-        irq_handler_t *handler_list = &handlers_old[i * IRQ_MAX_HANDLERS];
+        struct irq_handler *handler_list = &handlers_old[i * IRQ_MAX_HANDLERS];
 
         for (size_t j = 0; j < IRQ_MAX_HANDLERS; ++j) {
-            if (handler_list[j]) {
-                irq_add_leg_handler(i, handlers_old[i * IRQ_MAX_HANDLERS + j]);
+            if (handler_list[j].func) {
+                irq_add_leg_handler(i,
+                    handlers_old[i * IRQ_MAX_HANDLERS + j].func,
+                    handlers_old[i * IRQ_MAX_HANDLERS + j].ctx);
             }
         }
     }

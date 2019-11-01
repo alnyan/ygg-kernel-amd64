@@ -72,13 +72,13 @@ static void rtc_read(struct rtc_time *time) {
     time->year = cmos_read_time(RTC_REG_YEAR, reg_b) + 100 * rtc_century;
 }
 
-static int rtc_irq(void) {
+static uint32_t rtc_irq(void *ctx) {
     uint8_t reg_c = cmos_inb(RTC_REGC_STATUS);
     if (reg_c == 0) {
-        return -1;
+        return IRQ_UNHANDLED;
     }
     // Do something here?
-    return 0;
+    return IRQ_HANDLED;
 }
 
 static void rtc_enable_irq(void) {
@@ -115,7 +115,7 @@ void rtc_init(void) {
     struct rtc_time time;
 
     cmos_inb(RTC_REGC_STATUS);
-    irq_add_leg_handler(8, rtc_irq);
+    irq_add_leg_handler(8, rtc_irq, NULL);
     rtc_enable_irq();
 
     rtc_read(&time);

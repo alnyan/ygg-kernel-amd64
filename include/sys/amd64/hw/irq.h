@@ -5,11 +5,19 @@
 #define IRQ_LEG_KEYBOARD        1
 #define IRQ_LEG_COM1_3          4
 
-typedef int (*irq_handler_t) (void);
+#define IRQ_HANDLED             ((uint32_t) 0)
+#define IRQ_UNHANDLED           ((uint32_t) -1)
 
-int irq_add_handler(uint8_t gsi, irq_handler_t handler);
-int irq_add_leg_handler(uint8_t leg_irq, irq_handler_t handler);
-int irq_add_pci_handler(pci_addr_t addr, uint8_t pin, irq_handler_t handler);
+typedef uint32_t (*irq_handler_func_t) (void *);
+
+struct irq_handler {
+    irq_handler_func_t func;
+    void *ctx;
+};
+
+int irq_add_handler(uint8_t gsi, irq_handler_func_t handler, void *ctx);
+int irq_add_leg_handler(uint8_t leg_irq, irq_handler_func_t handler, void *ctx);
+int irq_add_pci_handler(pci_addr_t addr, uint8_t pin, irq_handler_func_t handler, void *ctx);
 
 void irq_enable_ioapic_mode(void);
 void irq_init(void);
