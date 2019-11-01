@@ -147,7 +147,7 @@ void amd64_smp_add(uint8_t apic_id) {
     cpus[i].tss = amd64_tss_get(i);
 }
 
-static void amd64_smp_bsp_configure(void) {
+void amd64_smp_bsp_configure(void) {
     // Set %gs for BSP
     cpus[0].flags = CPU_READY;
     cpus[0].self = &cpus[0];
@@ -159,8 +159,6 @@ static void amd64_smp_bsp_configure(void) {
 
 void amd64_smp_init(void) {
     kdebug("SMP init\n");
-
-    amd64_smp_bsp_configure();
 
     for (size_t i = 1; i < ncpus; ++i) {
         amd64_smp_ap_initialize(i);

@@ -2,6 +2,7 @@
 #include "sys/amd64/asm/asm_cpu.h"
 .section .text
 .global amd64_irq0
+.global amd64_irq2_counting
 
 amd64_irq0:
     cli
@@ -52,6 +53,14 @@ amd64_irq0:
     irq_pop_ctx
 
     swapgs_if_needed
+    iretq
+
+amd64_irq2_counting:
+    cli
+    incq get_cpu(0x10)
+    push %rax
+    irq_eoi_lapic 0
+    pop %rax
     iretq
 
 _fmt0:

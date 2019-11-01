@@ -124,6 +124,14 @@ void irq_enable_ioapic_mode(void) {
     }
 }
 
+int irq_has_handler(uint8_t gsi) {
+    _assert(gsi < IRQ_MAX);
+    _assert(ioapic_available);
+
+    struct irq_handler *handler_list = &handlers[gsi * IRQ_MAX_HANDLERS];
+    return !!handler_list[0].func;
+}
+
 void irq_init(void) {
     amd64_idt_set(32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(33, (uintptr_t) amd64_irq1, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);

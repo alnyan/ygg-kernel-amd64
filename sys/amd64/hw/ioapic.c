@@ -111,6 +111,14 @@ void amd64_ioapic_map_gsi(uint8_t gsi, uint8_t lapic, uint8_t vector) {
     amd64_ioapic_write((gsi * 2) + 0x11, high);
 }
 
+void amd64_ioapic_mask(uint8_t gsi) {
+    uint32_t low = amd64_ioapic_read((gsi * 2) + 0x10);
+
+    low |= IOAPIC_REDIR_MSK;
+
+    amd64_ioapic_write((gsi * 2) + 0x10, low);
+}
+
 void amd64_ioapic_unmask(uint8_t gsi) {
     uint32_t low = amd64_ioapic_read((gsi * 2) + 0x10);
 

@@ -168,6 +168,7 @@ void amd64_apic_init(void) {
     amd64_acpi_ioapic(acpi_madt);
 #if defined(AMD64_SMP)
     amd64_acpi_smp(acpi_madt);
+    amd64_smp_bsp_configure();
 #endif
 
     amd64_timer_init();
