@@ -1,6 +1,7 @@
 #include "sys/amd64/mm/mm.h"
 #include "sys/amd64/mm/pool.h"
 #include "sys/amd64/cpu.h"
+#include "sys/net/eth.h"
 #include "sys/thread.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
@@ -126,6 +127,10 @@ void init_func(void *arg) {
 
     while (1) {
         asm volatile ("sti; hlt");
+
+        // I've decided not to create a separate thread for network handling yet,
+        // so the code will be here
+        ethq_handle();
     }
 }
 

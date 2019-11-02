@@ -3,8 +3,10 @@
 #include "sys/amd64/hw/irq.h"
 #include "sys/amd64/hw/io.h"
 #include "sys/net/eth.h"
+#include "sys/net/netdev.h"
 #include "sys/net/net.h"
 #include "sys/assert.h"
+#include "sys/string.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
 #include "sys/attr.h"
@@ -30,6 +32,8 @@
 #define RTL8139_CONFIG1     0x52
 #define RTL8139_MSR         0x58
 
+#define RTL8139_TSD_OWN     (1 << 13)
+
 #define RTL8139_CR_RST      (1 << 4)
 #define RTL8139_CR_RE       (1 << 3)
 #define RTL8139_CR_TE       (1 << 2)
@@ -52,13 +56,23 @@
 #define RTL8139_IMR_ROK     (1 << 0)
 
 struct rtl8139 {
+    struct netdev net;
+
     uint32_t bar0;
     // Receive buffer: 3 pages
     uint32_t page0;
+    uint32_t tx_pages[4];
+    size_t tx_sizes[4];
+    // Bits:
+    // 0..3:    TX_BUSY Set by _tx(), cleared by _handle_tx(), means that
+    //                  the descriptor cannot be allocated
+    uint32_t tx_flag;
     uint32_t cbr_prev;
+    uint32_t tx_number;
 };
 
-static void rtl8139_handle_recv(struct rtl8139 *rtl);
+static void rtl8139_handle_rx(struct rtl8139 *rtl);
+static void rtl8139_handle_tx(struct rtl8139 *rtl, int succ);
 
 static uint32_t rtl8139_irq(void *ctx) {
     struct rtl8139 *rtl = ctx;
@@ -67,7 +81,10 @@ static uint32_t rtl8139_irq(void *ctx) {
     if (isr) {
         if (isr & RTL8139_ISR_ROK) {
             // Got a packet
-            rtl8139_handle_recv(rtl);
+            rtl8139_handle_rx(rtl);
+        }
+        if (isr & (RTL8139_ISR_TOK | RTL8139_ISR_TER)) {
+            rtl8139_handle_tx(rtl, isr & RTL8139_ISR_TOK);
         }
 
         // Implementation of RTL8139 in qemu differs
@@ -81,7 +98,7 @@ static uint32_t rtl8139_irq(void *ctx) {
     return IRQ_UNHANDLED;
 }
 
-static void rtl8139_handle_recv(struct rtl8139 *rtl) {
+static void rtl8139_handle_rx(struct rtl8139 *rtl) {
     kdebug("Received a packet\n");
     uint16_t cbr = inw(rtl->bar0 + RTL8139_CBR);
     size_t packet_size;
@@ -103,7 +120,81 @@ static void rtl8139_handle_recv(struct rtl8139 *rtl) {
     uint16_t recv_status = ((uint16_t *) pack)[0];
     uint16_t recv_length = ((uint16_t *) pack)[1];
 
-    eth_handle_frame(rtl, eth_frame, packet_size);
+    kdebug("Recv status: %u\n", recv_status);
+
+    //kdebug("Recv length = %u\n", recv_length);
+    //kdebug("Packet size = %u\n", packet_size);
+    //_assert(recv_length == (packet_size - 4));
+
+    eth_handle_frame(&rtl->net, eth_frame, recv_length);
+}
+
+static void rtl8139_cmd_tx(struct rtl8139 *rtl) {
+    kdebug("HW TX %d\n", rtl->tx_number);
+
+    uint8_t n = rtl->tx_number;
+
+    ++rtl->tx_number;
+    if (rtl->tx_number == 4) {
+        rtl->tx_number = 0;
+    }
+
+    outl(rtl->bar0 + RTL8139_TSD(n), rtl->tx_sizes[n]);
+}
+
+static void rtl8139_handle_tx(struct rtl8139 *rtl, int s) {
+    uint8_t prev = 3;
+    if (rtl->tx_number != 0) {
+        prev = rtl->tx_number - 1;
+    }
+
+    kdebug("%s Tx on %d\n", s ? "Successful" : "Failed", prev);
+    kdebug("Clearing TxD%d\n", prev);
+    rtl->tx_flag &= ~(1 << prev);
+    rtl->tx_sizes[prev] = 0;
+
+    kdebug("TX Done!\n");
+
+    // If after transmission we reached a new entry and it's
+    // awaiting transmission - emit a Tx command
+    while (rtl->tx_flag & (1 << rtl->tx_number)) {
+        rtl8139_cmd_tx(rtl);
+    }
+}
+
+static uint8_t rtl8139_alloc_tx(struct rtl8139 *rtl) {
+    for (uint8_t i = rtl->tx_number; i < 4; ++i) {
+        if (!(rtl->tx_flag & (1 << i))) {
+            return i;
+        }
+    }
+    for (uint8_t i = 0; i < rtl->tx_number; ++i) {
+        if (!(rtl->tx_flag & (1 << i))) {
+            return i;
+        }
+    }
+    return 0xFF;
+}
+
+static int rtl8139_tx(struct netdev *net, const void *packet, size_t size) {
+    kdebug("Requested Tx\n");
+    struct rtl8139 *rtl = (struct rtl8139 *) net;
+
+    uint8_t index = rtl8139_alloc_tx(rtl);
+    // TODO: transmit queue for this?
+    assert(index != 0xFF, "No free TSADx\n");
+
+    void *page = (void *) MM_VIRTUALIZE(rtl->tx_pages[index]);
+    memcpy(page, packet, size);
+
+    rtl->tx_sizes[index] = size;
+
+    if (index == rtl->tx_number) {
+        // Can tx right now
+        rtl8139_cmd_tx(rtl);
+    }
+
+    return 0;
 }
 
 void pci_rtl8139_init(pci_addr_t addr) {
@@ -138,6 +229,16 @@ void pci_rtl8139_init(pci_addr_t addr) {
     assert(rtl->page0 != MM_NADDR, "Failed to allocate RxBuf\n");
     outl(rtl->bar0 + RTL8139_RBSTART, rtl->page0);
 
+    // Initialize tx buffers
+    for (size_t i = 0; i < 4; ++i) {
+        rtl->tx_pages[i] = amd64_phys_alloc_page();
+        rtl->tx_sizes[i] = 0;
+        assert(rtl->tx_pages[i] != MM_NADDR, "Failed to allocate TxBuf\n");
+        outl(rtl->bar0 + RTL8139_TSAD(i), rtl->tx_pages[i]);
+    }
+    rtl->tx_flag = 0;
+    rtl->tx_number = 0;
+
     // Accept all
     outl(rtl->bar0 + RTL8139_RCR, RTL8139_RCR_APM | RTL8139_RCR_AB | RTL8139_RCR_WRAP);
 
@@ -151,16 +252,21 @@ void pci_rtl8139_init(pci_addr_t addr) {
     }
 
     // Configure interrupt mask
-    outw(rtl->bar0 + RTL8139_IMR, RTL8139_IMR_ROK | RTL8139_IMR_RER);
+    outw(rtl->bar0 + RTL8139_IMR, RTL8139_IMR_ROK | RTL8139_IMR_RER |
+                                  RTL8139_IMR_TOK | RTL8139_IMR_TER);
     // Clear ISR
     outw(rtl->bar0 + RTL8139_ISR, 0);
 
-    // Dump contents of MAC register
-    uint8_t mac[6];
+    // After the reset, controller uses Tx pair 0
+    rtl->tx_number = 0;
+
+    // Setup a system network device
     for (size_t i = 0; i < 6; ++i) {
-        mac[i] = inb(rtl->bar0 + RTL8139_IDR0 + i);
+        rtl->net.hwaddr[i] = inb(rtl->bar0 + RTL8139_IDR0 + i);
     }
-    kdebug("RTL8139 MAC: " MAC_FMT "\n", MAC_VA(mac));
+    kdebug("RTL8139 MAC: " MAC_FMT "\n", MAC_VA(rtl->net.hwaddr));
+    rtl->net.tx = rtl8139_tx;
+    // TODO: call some kind of netdev_add to bind a name to the device
 }
 
 static __init void pci_rtl8139_register(void) {

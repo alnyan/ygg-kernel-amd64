@@ -89,9 +89,16 @@ QEMU_DEV_HDA=-drive file=$(QEMU_HDA),format=raw,id=disk_hda
 QEMU_DEVS+=$(QEMU_DEV_HDA)
 endif
 
+ifdef QEMU_NET_TAP
+QEMU_NETDEV=-netdev type=tap,id=net0
+else
+QEMU_NETDEV=-netdev type=user,hostfwd=tcp::5555-:22,hostfwd=udp::5555-:22,id=net0
+endif
+
 ifdef QEMU_NET
 QEMU_DEV_NET=-device $(QEMU_NET),netdev=net0,mac=11:22:33:44:55:66 \
-		-netdev type=user,hostfwd=tcp::5555-:22,hostfwd=udp::5555-:22,id=net0
+		$(QEMU_NETDEV) \
+		-object filter-dump,id=f1,netdev=net0,file=eth_dump.dat
 QEMU_DEVS+=$(QEMU_DEV_NET)
 endif
 
