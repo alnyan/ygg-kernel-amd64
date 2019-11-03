@@ -267,6 +267,9 @@ void pci_rtl8139_init(pci_addr_t addr) {
     kdebug("RTL8139 MAC: " MAC_FMT "\n", MAC_VA(rtl->net.hwaddr));
     rtl->net.tx = rtl8139_tx;
     // TODO: call some kind of netdev_add to bind a name to the device
+
+    // XXX: for testing
+    link_add_route_in(&rtl->net, 0x0002000A, 0x00FFFFFF, 0x0102000A);
 }
 
 static __init void pci_rtl8139_register(void) {

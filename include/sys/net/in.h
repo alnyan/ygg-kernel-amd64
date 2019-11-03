@@ -21,4 +21,14 @@ struct in_frame {
     char payload[];
 } __attribute__((packed));
 
+struct in_route {
+    struct netdev *dev;
+    uint32_t mask;
+    uint32_t network_inaddr;
+    uint32_t gateway;
+    struct in_route *next;
+};
+
+// frame is required to be a fully-wrapped L2/L3/payload frame for now
+void in_send(struct netdev *dev, char *frame, size_t length);
 void in_handle_frame(struct netdev *dev, struct in_frame *frame);
