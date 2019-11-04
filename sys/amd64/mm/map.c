@@ -4,6 +4,7 @@
 #include "sys/assert.h"
 #include "sys/string.h"
 #include "sys/amd64/mm/map.h"
+#include "sys/amd64/mm/phys.h"
 #include "sys/amd64/mm/pool.h"
 
 uintptr_t amd64_map_get(const mm_space_t pml4, uintptr_t vaddr, uint64_t *flags) {
@@ -203,6 +204,81 @@ int mm_space_clone(mm_space_t dst_pml4, const mm_space_t src_pml4, uint32_t flag
     }
 
     return 0;
+}
+
+int mm_space_fork(mm_space_t dst_pml4, const mm_space_t src_pml4, uint32_t flags) {
+    if (flags & MM_CLONE_FLG_USER) {
+        // Copy user pages:
+        // TODO: CoW
+        for (size_t pml4i = 0; pml4i < AMD64_PML4I_USER_END; ++pml4i) {
+            if (!(src_pml4[pml4i] & 1)) {
+                continue;
+            }
+
+            if (src_pml4[pml4i] & (1 << 7)) {
+                panic("PML4 page has PS bit set\n");
+            }
+
+            mm_pdpt_t src_pdpt = (mm_pdpt_t) MM_VIRTUALIZE(src_pml4[pml4i] & ~0xFFF);
+            // Make sure we've got a clean table
+            _assert(!(dst_pml4[pml4i] & 1));
+            mm_pdpt_t dst_pdpt = (mm_pdpt_t) amd64_mm_pool_alloc();
+            _assert(dst_pdpt);
+            dst_pml4[pml4i] = MM_PHYS(dst_pdpt) | (src_pml4[pml4i] & 0xFFF);
+
+            for (size_t pdpti = 0; pdpti < 512; ++pdpti) {
+                if (!(src_pdpt[pdpti] & 1)) {
+                    continue;
+                }
+
+                if (src_pdpt[pdpti] & (1 << 7)) {
+                    // Not allowed in U/S
+                    panic("1GiB pages not supported in userspace\n");
+                }
+
+                mm_pagedir_t src_pd = (mm_pagedir_t) MM_VIRTUALIZE(src_pdpt[pdpti] & ~0xFFF);
+                mm_pagedir_t dst_pd = (mm_pagedir_t) amd64_mm_pool_alloc();
+                _assert(dst_pd);
+                dst_pdpt[pdpti] = MM_PHYS(dst_pd) | (src_pdpt[pdpti] & 0xFFF);
+
+                for (size_t pdi = 0; pdi < 512; ++pdi) {
+                    if (!(src_pd[pdi] & 1)) {
+                        continue;
+                    }
+
+                    if (src_pd[pdi] & (1 << 7)) {
+                        panic("2MiB pages not supported in userspace\n");
+                    }
+
+                    mm_pagetab_t src_pt = (mm_pagetab_t) MM_VIRTUALIZE(src_pd[pdi] & ~0xFFF);
+                    mm_pagetab_t dst_pt = (mm_pagetab_t) amd64_mm_pool_alloc();
+                    _assert(dst_pt);
+                    dst_pd[pdi] = MM_PHYS(dst_pt) | (src_pd[pdi] & 0xFFF);
+
+                    for (size_t pti = 0; pti < 512; ++pti) {
+                        if (!(src_pt[pti] & 1)) {
+                            continue;
+                        }
+
+                        uintptr_t src_page_phys = src_pt[pti] & ~0xFFF;
+                        uintptr_t dst_page_phys = amd64_phys_alloc_page();
+                        _assert(dst_page_phys != MM_NADDR);
+
+                        // SLOOOOOW UUUSEE COOOOW
+                        memcpy((void *) MM_VIRTUALIZE(dst_page_phys),
+                               (const void *) MM_VIRTUALIZE(src_page_phys),
+                               0x1000);
+                        kdebug("Cloning %p <- %p\n", dst_page_phys, src_page_phys);
+
+                        dst_pt[pti] = dst_page_phys | (src_pt[pti] & 0xFFF);
+                    }
+                }
+            }
+        }
+    }
+
+    // Kernel pages don't need to be copied - just use mm_space_clone(, , MM_CLONE_FLG_KERNEL)
+    return mm_space_clone(dst_pml4, src_pml4, MM_CLONE_FLG_KERNEL & flags);
 }
 
 static void amd64_mm_describe_range(const mm_space_t pml4, uintptr_t start_addr, uintptr_t end_addr) {

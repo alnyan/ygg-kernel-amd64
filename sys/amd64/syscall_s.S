@@ -50,6 +50,10 @@ amd64_syscall_entry:
 
     swapgs
 
+    // Check if full context has to be pushed onto the stack (fork())
+    cmpq $57, %rax
+    je _amd64_syscall_fork
+
     // // 1. Switch to kernel context
     // // 1.1. Store rsp3 in CPU struct
     movq %rsp, get_cpu(0x20)
@@ -105,6 +109,44 @@ amd64_syscall_entry:
 
     swapgs
     sysretq
+
+_amd64_syscall_fork:
+    // R11 = rflags3
+    // RSP = rsp3
+    // RCX = rip3
+    // Still on user stack
+    movq %rsp, get_cpu(0x20)
+    movq get_cpu(0x08), %rsp
+    movq (%rsp), %rsp
+
+    // Now on kernel stack
+    pushq $0x1B     // User SS
+    movq get_cpu(0x20), %rsi
+    pushq %rsi      // User RSP
+    pushq %r11      // User FLAGS
+    pushq $0x23     // User CS
+    pushq %rcx      // User RIP
+    // Now our kstack looks like we've just entered via an interrupt
+
+    irq_push_ctx
+
+    movq %rsp, %rbp
+
+    // Store the context we've just pushed
+    movq get_cpu(0x08), %rdi
+    test %rdi, %rdi
+    jz 1f
+    movq %rsp, (%rdi)
+1:
+    call sys_fork
+
+    // Well, we won't actually need this
+    // TODO: add irq_drop_ctx
+    irq_pop_ctx
+
+    swapgs
+    iretq
+
 
 // Schedule control to a new task instead of stopped one
 amd64_syscall_yield_stopped:

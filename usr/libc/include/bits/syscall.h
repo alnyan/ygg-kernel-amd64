@@ -9,5 +9,6 @@ int open(const char *filename, int flags, int mode);
 void close(int fd);
 int stat(const char *filename, struct stat *st);
 void *mmap(void *addr, size_t len, int prot, int flags, int fd, uintptr_t offset);
+int fork(void);
 
 __attribute__((noreturn)) void exit(int code);

@@ -5,6 +5,12 @@
 #define ASM_REGISTER(name) \
         register uint64_t name asm (#name)
 
+#define ASM_SYSCALL0(r0)                    ({ \
+        ASM_REGISTER(rax) = (uint64_t) (r0); \
+        asm volatile ("syscall":::"memory"); \
+        rax; \
+    })
+
 #define ASM_SYSCALL1(r0, r1)                ({ \
         ASM_REGISTER(rdi) = (uint64_t) (r1); \
         /*
@@ -46,7 +52,7 @@
         if (res < 0) { \
             errno = -res; \
         } \
-        res; \
+        ((int) res) < 0 ? (t) -1 : res; \
     })
 
 ssize_t write(int fd, const void *buf, size_t count) {
@@ -71,6 +77,10 @@ int stat(const char *filename, struct stat *st) {
 
 int brk(void *addr) {
     return SET_ERRNO(int, ASM_SYSCALL1(SYSCALL_NR_BRK, addr));
+}
+
+int fork(void) {
+    return SET_ERRNO(int, ASM_SYSCALL0(SYSCALL_NR_FORK));
 }
 
 __attribute__((noreturn)) void exit(int code) {
