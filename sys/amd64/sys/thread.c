@@ -1,12 +1,20 @@
 #include "sys/amd64/mm/mm.h"
+#include "sys/amd64/mm/pool.h"
 #include "sys/amd64/cpu.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
 #include "sys/string.h"
 #include "sys/heap.h"
 #include "sys/vmalloc.h"
+#include "sys/errno.h"
+#include "sys/fs/vfs.h"
+#include "sys/fcntl.h"
+#include "sys/sched.h"
+#include "sys/tty.h"
 #include "sys/debug.h"
 #include "sys/mm.h"
+
+#define THREAD_KSTACK_SIZE      32768
 
 int thread_init(
         struct thread *t,
@@ -19,11 +27,11 @@ int thread_init(
         uint32_t flags,
         void *arg) {
     if (!rsp0_base) {
-        void *kstack = kmalloc(32768);
+        void *kstack = kmalloc(THREAD_KSTACK_SIZE);
         _assert(kstack);
 
         rsp0_base = (uintptr_t) kstack;
-        rsp0_size = 32768;
+        rsp0_size = THREAD_KSTACK_SIZE;
     }
 
     if (!(flags & THREAD_KERNEL) && !rsp3_base) {
@@ -96,6 +104,75 @@ int thread_init(
 
     memset(&t->ioctx, 0, sizeof(t->ioctx));
     memset(t->fds, 0, sizeof(t->fds));
+
+    return 0;
+}
+
+int sys_fork(void) {
+    asm volatile ("cli");
+    int res;
+    struct thread *thr_src = get_cpu()->thread;
+    _assert(thr_src);
+
+    struct thread *thr_dst = (struct thread *) kmalloc(sizeof(struct thread));
+    if (!thr_dst) {
+        return -ENOMEM;
+    }
+
+    // Clone memory space
+    mm_space_t thread_space = amd64_mm_pool_alloc();
+    if (!thread_space) {
+        kfree(thr_dst);
+        return -ENOMEM;
+    }
+
+    if ((res = mm_space_fork(thread_space, thr_src->space, MM_CLONE_FLG_USER | MM_CLONE_FLG_KERNEL)) < 0) {
+        kfree(thr_dst);
+        amd64_mm_pool_free(thread_space);
+        return res;
+    }
+
+    // Clone process state
+    void *dst_kstack = kmalloc(THREAD_KSTACK_SIZE);
+    struct amd64_thread *dst_data = &thr_dst->data;
+    _assert(dst_kstack);
+
+    dst_data->stack0_base = (uintptr_t) dst_kstack;
+    dst_data->stack0_size = THREAD_KSTACK_SIZE;
+    dst_data->stack3_base = thr_src->data.stack3_base;
+    dst_data->stack3_size = thr_src->data.stack3_size;
+    dst_data->rsp0 = dst_data->stack0_base + dst_data->stack0_size - sizeof(struct cpu_context);
+
+    // Clone cpu context
+    struct cpu_context *src_ctx = (struct cpu_context *) thr_src->data.rsp0;
+    struct cpu_context *dst_ctx = (struct cpu_context *) thr_dst->data.rsp0;
+
+    memcpy(dst_ctx, src_ctx, sizeof(struct cpu_context));
+    dst_ctx->cr3 = MM_PHYS(thread_space);
+    // Return with zero from fork()
+    dst_ctx->rax = 0;
+
+    // Finish up
+    thr_dst->space = thread_space;
+    thr_dst->flags = thr_src->flags;
+    thr_dst->next = NULL;
+
+    // TODO: clone FDs
+    memset(&thr_dst->ioctx, 0, sizeof(thr_dst->ioctx));
+    memset(thr_dst->fds, 0, sizeof(thr_dst->fds));
+
+    thr_dst->fds[0].flags = O_RDONLY;
+    thr_dst->fds[0].vnode = tty0;
+    thr_dst->fds[0].pos = 0;
+
+    thr_dst->fds[1].flags = O_WRONLY;
+    thr_dst->fds[1].vnode = tty0;
+    thr_dst->fds[1].pos = 0;
+
+    sched_add(thr_dst);
+
+    // Parent fork() returns with PID
+    src_ctx->rax = thr_dst->pid;
 
     return 0;
 }
