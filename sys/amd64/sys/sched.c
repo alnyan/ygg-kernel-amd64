@@ -182,7 +182,7 @@ void sched_add(struct thread *t) {
 }
 
 void sched_init(void) {
-    for (size_t i = 0; i < AMD64_MAX_SMP; ++i) {
+    for (size_t i = 0; i < sched_ncpus; ++i) {
         thread_init(
                 &t_idle[i],
                 mm_kernel,

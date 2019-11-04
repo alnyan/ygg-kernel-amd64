@@ -38,7 +38,6 @@ void kernel_main(struct amd64_loader_data *data) {
     amd64_mm_init(data);
     amd64_acpi_init();
 
-    sched_init();
     amd64_apic_init();
     rtc_init();
     pci_init();
@@ -54,6 +53,7 @@ void kernel_main(struct amd64_loader_data *data) {
 #if defined(AMD64_SMP)
     amd64_smp_init();
 #endif
+    sched_init();
 
     amd64_syscall_init();
 
