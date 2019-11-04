@@ -22,6 +22,7 @@ void sched_add_to(int cpu, struct thread *t);
 static struct thread *sched_queue_heads[AMD64_MAX_SMP] = { 0 };
 static struct thread *sched_queue_tails[AMD64_MAX_SMP] = { 0 };
 static size_t sched_queue_sizes[AMD64_MAX_SMP] = { 0 };
+static size_t sched_ncpus = 1;
 static spin_t sched_lock = 0;
 
 #define IDLE_STACK  32768
@@ -140,6 +141,10 @@ static uint32_t sched_alloc_pid(void) {
     return last_pid++;
 }
 
+void sched_set_cpu_count(size_t count) {
+    sched_ncpus = count;
+}
+
 void sched_add_to(int cpu, struct thread *t) {
     t->next = NULL;
 
@@ -166,7 +171,7 @@ void sched_add(struct thread *t) {
     int min_i = -1;
     size_t min = 0xFFFFFFFF;
     spin_lock(&sched_lock);
-    for (int i = 0; i < AMD64_MAX_SMP; ++i) {
+    for (size_t i = 0; i < sched_ncpus; ++i) {
         if (sched_queue_sizes[i] < min) {
             min = sched_queue_sizes[i];
             min_i = i;
@@ -177,7 +182,7 @@ void sched_add(struct thread *t) {
 }
 
 void sched_init(void) {
-    for (int i = 0; i < AMD64_MAX_SMP; ++i) {
+    for (size_t i = 0; i < AMD64_MAX_SMP; ++i) {
         thread_init(
                 &t_idle[i],
                 mm_kernel,

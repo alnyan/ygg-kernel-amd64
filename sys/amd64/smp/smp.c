@@ -7,6 +7,7 @@
 #include "sys/amd64/syscall.h"
 #include "sys/amd64/cpu.h"
 #include "sys/string.h"
+#include "sys/sched.h"
 #include "sys/debug.h"
 
 #define SMP_AP_BOOTSTRAP_CODE       0x7000
@@ -163,5 +164,7 @@ void amd64_smp_init(void) {
     for (size_t i = 1; i < ncpus; ++i) {
         amd64_smp_ap_initialize(i);
     }
+
+    sched_set_cpu_count(ncpus);
 }
 
