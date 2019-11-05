@@ -107,7 +107,6 @@ QEMU_OPTS?=-m $(QEMU_MEM) \
 		   -chardev stdio,nowait,id=char0,mux=on \
 		   -serial chardev:char0 -mon chardev=char0 \
 		   --accel tcg,thread=multi \
-		   -d cpu_reset \
 		   -M $(QEMU_CHIPSET) \
 		   -boot d \
 		   $(QEMU_DEVS) \
