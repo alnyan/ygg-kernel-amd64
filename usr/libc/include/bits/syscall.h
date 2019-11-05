@@ -10,5 +10,6 @@ void close(int fd);
 int stat(const char *filename, struct stat *st);
 void *mmap(void *addr, size_t len, int prot, int flags, int fd, uintptr_t offset);
 int fork(void);
+int execve(const char *filename, const char *const argv[], const char *const envp[]);
 
 __attribute__((noreturn)) void exit(int code);

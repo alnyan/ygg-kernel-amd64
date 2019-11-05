@@ -281,6 +281,49 @@ int mm_space_fork(mm_space_t dst_pml4, const mm_space_t src_pml4, uint32_t flags
     return mm_space_clone(dst_pml4, src_pml4, MM_CLONE_FLG_KERNEL & flags);
 }
 
+void mm_space_release(mm_space_t pml4) {
+    for (size_t pml4i = 0; pml4i < 255; ++pml4i) {
+        if (!(pml4[pml4i] & 1)) {
+            continue;
+        }
+
+        mm_pdpt_t pdpt = (mm_pdpt_t) MM_VIRTUALIZE(pml4[pml4i] & ~0xFFF);
+
+        for (size_t pdpti = 0; pdpti < 512; ++pdpti) {
+            if (!(pdpt[pdpti] & 1)) {
+                continue;
+            }
+
+            mm_pagedir_t pd = (mm_pagedir_t) MM_VIRTUALIZE(pdpt[pdpti] & ~0xFFF);
+
+            for (size_t pdi = 0; pdi < 512; ++pdi) {
+                if (!(pd[pdi] & 1)) {
+                    continue;
+                }
+
+                mm_space_t pt = (mm_space_t) MM_VIRTUALIZE(pd[pdi] & ~0xFFF);
+
+                for (size_t pti = 0; pti < 512; ++pti) {
+                    if (!(pt[pti] & 1)) {
+                        continue;
+                    }
+
+                    uintptr_t page_phys = pt[pti] & ~0xFFF;
+                    amd64_phys_free(page_phys);
+                }
+
+                amd64_mm_pool_free(pt);
+            }
+
+            amd64_mm_pool_free(pd);
+        }
+
+        amd64_mm_pool_free(pdpt);
+
+        pml4[pml4i] = 0;
+    }
+}
+
 static void amd64_mm_describe_range(const mm_space_t pml4, uintptr_t start_addr, uintptr_t end_addr) {
     uintptr_t addr = AMD64_MM_STRIPSX(start_addr);
 

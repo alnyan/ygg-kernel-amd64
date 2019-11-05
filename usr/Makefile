@@ -5,7 +5,8 @@
 DIRS=$(O) \
 	 $(O)/libc
 HDRS=$(shell find $(S) -type f -name "*.h")
-STAGE_BIN=$(STAGE)/init
+STAGE_BIN=$(STAGE)/init \
+		  $(STAGE)/hello
 
 CFLAGS=-ffreestanding \
 	   -nostdlib \
@@ -51,6 +52,16 @@ $(STAGE)/init: init.c $(libc_CRTI) $(libc_CRTN) $(O)/libc.a
 		$(libc_CRTI) \
 		$(sys_CRTBEGIN) \
 		init.c \
+		$(sys_CRTEND) \
+		$(libc_CRTN) \
+		$(usr_STATIC_LIBS)
+
+$(STAGE)/hello: hello.c $(libc_CRTI) $(libc_CRTN) $(O)/libc.a
+	@printf " CC\t%s\n" $(@:$(STAGE)/%=/%)
+	@$(CC) -o $@ $(CFLAGS) $(usr_LDFLAGS) \
+		$(libc_CRTI) \
+		$(sys_CRTBEGIN) \
+		hello.c \
 		$(sys_CRTEND) \
 		$(libc_CRTN) \
 		$(usr_STATIC_LIBS)

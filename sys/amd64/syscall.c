@@ -20,9 +20,12 @@ static int sys_stat(const char *filename, struct stat *st);
 static void sys_exit(int status);
 static int sys_brk(void *ptr);
 
+extern int sys_execve(const char *filename, const char *const argv[], const char *const envp[]);
+
 __attribute__((noreturn)) void amd64_syscall_yield_stopped(void);
 
 intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t r10, uintptr_t rax) {
+    asm volatile ("cli");
     switch (rax) {
     case SYSCALL_NR_READ:
         return sys_read((int) rdi, (void *) rsi, (size_t) rdx);
@@ -35,6 +38,8 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
         return 0;
     case SYSCALL_NR_STAT:
         return sys_stat((const char *) rdi, (struct stat *) rsi);
+    case SYSCALL_NR_EXECVE:
+        return sys_execve((const char *) rdi, NULL, NULL);
 
     case SYSCALL_NR_BRK:
         return sys_brk((void *) rdi);

@@ -3,6 +3,7 @@
 #include "sys/fs/vfs.h"
 
 #define THREAD_KERNEL       (1 << 31)
+#define THREAD_CTX_ONLY     (1 << 30)
 #define THREAD_STOPPED      (1 << 2)
 
 #if defined(ARCH_AMD64)

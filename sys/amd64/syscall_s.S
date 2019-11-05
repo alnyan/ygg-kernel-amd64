@@ -4,6 +4,7 @@
 .section .text
 .global amd64_syscall_init
 .global amd64_syscall_yield_stopped
+.global amd64_syscall_iretq
 
 #define MSR_STAR        0xC0000081
 #define MSR_LSTAR       0xC0000082
@@ -67,7 +68,7 @@ amd64_syscall_entry:
     pushq %r11
 
     // Safe for interrupts now
-    sti
+    //sti
 
     // Userspace:
     //  %rdi %rsi %rdx %rcx %8 %r9
@@ -186,3 +187,19 @@ amd64_syscall_yield_stopped:
 
 _yield_failed:
     .string "sched() returned -1 on amd64_syscall_yield\n"
+
+// Return from execve
+amd64_syscall_iretq:
+    cli
+    // %rdi - %rsp0
+    movq %rdi, %rsp
+
+    // Write TSS entry
+    movq get_cpu(0x18), %rdi
+    movq %rsp, %rax
+    addq $(25 * 8), %rax
+    movq %rax, 4(%rdi)
+
+    irq_pop_ctx
+    swapgs
+    iretq

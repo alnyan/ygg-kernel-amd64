@@ -51,6 +51,13 @@ int mm_space_clone(mm_space_t dst, const mm_space_t src, uint32_t flags);
 int mm_space_fork(mm_space_t dst, const mm_space_t src, uint32_t flags);
 
 /**
+ * @brief Release userspace pages from use by the memory space, freeing underlying data
+ *  structures and physical pages.
+ * @param space - Virtual memory space
+ */
+void mm_space_release(mm_space_t space);
+
+/**
  * @brief Destroy the virtual memory space and free used resources
  * @param pd - Virtual memory space
  */

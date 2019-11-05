@@ -1,5 +1,7 @@
 #include "sys/amd64/mm/mm.h"
+#include "sys/amd64/mm/phys.h"
 #include "sys/amd64/mm/pool.h"
+#include "sys/binfmt_elf.h"
 #include "sys/amd64/cpu.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
@@ -98,14 +100,86 @@ int thread_init(
 
     ctx->__canary = AMD64_STACK_CTX_CANARY;
 
-    t->space = space;
-    t->flags = flags;
-    t->next = NULL;
+    if (!(flags & THREAD_CTX_ONLY)) {
+        t->space = space;
+        t->flags = flags;
+        t->next = NULL;
 
-    memset(&t->ioctx, 0, sizeof(t->ioctx));
-    memset(t->fds, 0, sizeof(t->fds));
+        memset(&t->ioctx, 0, sizeof(t->ioctx));
+        memset(t->fds, 0, sizeof(t->fds));
+    }
 
     return 0;
+}
+
+int sys_execve(const char *filename, const char *const argv[], const char *const envp[]) {
+    asm volatile ("cli");
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    // I know it's slow and ugly
+    char *file_buf;
+    struct stat st;
+    struct ofile fd;
+    size_t pos = 0;
+    ssize_t bread;
+    int res;
+
+    if ((res = vfs_stat(&thr->ioctx, filename, &st)) < 0) {
+        return res;
+    }
+
+    if ((st.st_mode & S_IFMT) != S_IFREG) {
+        return -ENOEXEC;
+    }
+
+    if (!(st.st_mode & 0111)) {
+        return -ENOEXEC;
+    }
+
+    file_buf = kmalloc(st.st_size);
+    if (!file_buf) {
+        return -ENOMEM;
+    }
+
+    if ((res = vfs_open(&thr->ioctx, &fd, filename, 0, O_RDONLY)) != 0) {
+        return res;
+    }
+
+    while ((bread = vfs_read(&thr->ioctx, &fd, (char *) file_buf + pos, MIN(512, st.st_size - pos))) > 0) {
+        pos += bread;
+    }
+
+    vfs_close(&thr->ioctx, &fd);
+
+    mm_space_t space = thr->space;
+
+    // 1. Discard memory
+    // XXX: And this is why I need CoW
+    mm_space_release(space);
+
+    // 2. Reinitialize context
+    _assert(thread_init(thr,
+                        space,
+                        0,
+                        thr->data.stack0_base,
+                        thr->data.stack0_size,
+                        0,
+                        0,
+                        THREAD_CTX_ONLY,
+                        NULL
+            ) == 0);
+    struct cpu_context *ctx = (struct cpu_context *) thr->data.rsp0;
+
+    // 3. Load new binary
+    _assert(elf_load(thr, file_buf) == 0);
+    kfree(file_buf);
+
+    extern void amd64_syscall_iretq(struct cpu_context *ctx);
+    amd64_syscall_iretq(ctx);
+
+    panic("This code should not execute\n");
+    return -1;
 }
 
 int sys_fork(void) {

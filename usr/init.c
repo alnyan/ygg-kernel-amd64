@@ -19,6 +19,24 @@ static int cmd_exec(const char *cmd) {
         }
     }
 
+    if (!strcmp(cmd, "hello")) {
+        int res;
+
+        if ((res = fork()) == 0) {
+            printf("In child\n");
+
+            res = execve("/hello", NULL, NULL);
+
+            if (res < 0) {
+                perror("execve()");
+            }
+
+            exit(-1);
+        }
+
+        return 0;
+    }
+
     printf("Unknown command: \"%s\"\n", cmd);
 
     return 0;

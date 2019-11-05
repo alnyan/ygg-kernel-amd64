@@ -83,6 +83,10 @@ int fork(void) {
     return SET_ERRNO(int, ASM_SYSCALL0(SYSCALL_NR_FORK));
 }
 
+int execve(const char *filename, const char *const argv[], const char *const envp[]) {
+    return SET_ERRNO(int, ASM_SYSCALL3(SYSCALL_NR_EXECVE, filename, argv, envp));
+}
+
 __attribute__((noreturn)) void exit(int code) {
     (void) ASM_SYSCALL1(SYSCALL_NR_EXIT, code);
     while (1);
