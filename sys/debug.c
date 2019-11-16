@@ -49,7 +49,9 @@ void fmtsiz(char *out, size_t sz) {
 void debugc(int level, char c) {
 #if defined(ARCH_AMD64)
     rs232_send(RS232_COM1, c);
-    amd64_con_putc(c);
+    if (level > DEBUG_DEFAULT) {
+        amd64_con_putc(c);
+    }
 #endif
 }
 
