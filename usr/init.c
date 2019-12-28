@@ -77,6 +77,11 @@ int main(int argc, char **argv) {
         if (c == '\n') {
             write(STDOUT_FILENO, &c, 1);
             linebuf[l] = 0;
+
+            if (!strcmp(linebuf, "exit")) {
+                break;
+            }
+
             l = 0;
             cmd_exec(linebuf);
             printf("> ");
@@ -87,5 +92,5 @@ int main(int argc, char **argv) {
         write(STDOUT_FILENO, &c, 1);
     }
 
-    while (1);
+    return -1;
 }

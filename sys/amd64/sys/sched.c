@@ -235,7 +235,12 @@ void sched_remove_from(int cpu, struct thread *thr) {
 
 void sched_remove(struct thread *thr) {
     kdebug("Remove %p\n", thr);
+    int should_panic = thr->pid == 1;
     sched_remove_from(thr->cpu, thr);
+
+    if (should_panic) {
+        panic("PID 1 got killed\n");
+    }
 }
 
 int sched(void) {
