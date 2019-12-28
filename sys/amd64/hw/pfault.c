@@ -3,6 +3,8 @@
 #include "sys/thread.h"
 #include "sys/debug.h"
 
+extern void amd64_syscall_yield_stopped();
+
 int amd64_pfault(uintptr_t cr2) {
     struct cpu *cpu = get_cpu();
     _assert(cpu);
@@ -13,8 +15,8 @@ int amd64_pfault(uintptr_t cr2) {
         thr->pid);
 
     kdebug("CR2 = %p\n", cr2);
-    //0xffffff000220f668
 
+    amd64_syscall_yield_stopped();
     return -1;
 }
 

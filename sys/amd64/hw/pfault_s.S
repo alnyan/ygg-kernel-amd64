@@ -39,6 +39,15 @@ amd64_exc_isr_14:
     movq %cr2, %rdi
     call amd64_pfault
 
+    // If fault handler returned zero, it means next task is selected
+    // and should be run
+    test %rax, %rax
+    jnz 1f
+
+    // Ok, continue
+
+
+    // Fail
 1:
     cli
     hlt

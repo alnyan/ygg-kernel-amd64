@@ -21,6 +21,25 @@ static int cmd_exec(const char *cmd) {
         }
     }
 
+    if (!strcmp(cmd, "crash")) {
+        uint32_t *value_ptr = (uint32_t *) 0;
+        *value_ptr = 123;
+        return 0;
+    }
+
+    if (!strcmp(cmd, "fork-crash")) {
+        int pid = fork();
+
+        if (pid == 0) {
+            printf("Crashing child\n");
+            uint32_t *value_ptr = (uint32_t *) 0;
+            *value_ptr = 123;
+            printf("Shouldn't run\n");
+            exit(-1);
+        }
+        return 0;
+    }
+
     if (!strcmp(cmd, "hello")) {
         int res;
 

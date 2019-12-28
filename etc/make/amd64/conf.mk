@@ -112,6 +112,10 @@ QEMU_OPTS?=-m $(QEMU_MEM) \
 		   $(QEMU_DEVS) \
 		   -smp $(QEMU_SMP)
 
+ifdef QEMU_DEBUG
+QEMU_OPTS+=-s -S
+endif
+
 $(O)/sys/amd64/image.iso: $(O)/sys/amd64/kernel.elf \
 						  $(O)/sys/amd64/loader.elf \
 						  $(O)/sys/amd64/initrd.img \
