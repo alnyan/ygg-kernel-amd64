@@ -492,7 +492,7 @@ static int ext2_vnode_readdir(struct ofile *fd) {
     if (ext2dir->len == 0) {
         // If entry size is zero, guess we're finished - align the fd->pos up to block size
         fd->pos = (fd->pos + sb->block_size - 1) / sb->block_size;
-        return -1;
+        return ext2_vnode_readdir(fd);
     }
 
     struct dirent *vfsdir = (struct dirent *) fd->dirent_buf;

@@ -14,6 +14,8 @@
 
 static ssize_t sys_read(int fd, void *buf, size_t lim);
 static ssize_t sys_write(int fd, const void *buf, size_t lim);
+// TODO: make this compatible with linux' sys_old_readdir
+static ssize_t sys_readdir(int fd, struct dirent *ent);
 static int sys_open(const char *filename, int flags, int mode);
 static void sys_close(int fd);
 static int sys_stat(const char *filename, struct stat *st);
@@ -40,6 +42,8 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
         return sys_stat((const char *) rdi, (struct stat *) rsi);
     case SYSCALL_NR_EXECVE:
         return sys_execve((const char *) rdi, NULL, NULL);
+    case SYSCALL_NR_READDIR:
+        return sys_readdir((int) rdi, (struct dirent *) rsi);
 
     case SYSCALL_NR_BRK:
         return sys_brk((void *) rdi);
@@ -84,6 +88,31 @@ static ssize_t sys_write(int fd, const void *buf, size_t lim) {
     }
 
     return vfs_write(&thr->ioctx, of, buf, lim);
+}
+
+static ssize_t sys_readdir(int fd, struct dirent *ent) {
+    if (fd >= 4 || fd < 0) {
+        return -EBADF;
+    }
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    struct ofile *of = &thr->fds[fd];
+
+    if (!of->vnode) {
+        return -EBADF;
+    }
+
+    struct dirent *src = vfs_readdir(&thr->ioctx, of);
+
+    if (!src) {
+        return -1;
+    }
+
+    // XXX: safe?
+    memcpy(ent, src, sizeof(struct dirent) + strlen(src->d_name));
+
+    return src->d_reclen;
 }
 
 static int sys_open(const char *filename, int flags, int mode) {

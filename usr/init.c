@@ -1,6 +1,8 @@
 #include <sys/fcntl.h>
+#include <dirent.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <string.h>
 #include <errno.h>
 #include <stdio.h>
 
@@ -33,6 +35,25 @@ static int cmd_exec(const char *cmd) {
 
             exit(-1);
         }
+
+        return 0;
+    }
+
+    if (!strcmp(cmd, "ls") || !strncmp(cmd, "ls ", 3)) {
+        const char *path = cmd[2] ? cmd + 3 : "/";
+        DIR *dir;
+        struct dirent *ent;
+
+        if (!(dir = opendir(path))) {
+            perror(path);
+            return -1;
+        }
+
+        while ((ent = readdir(dir))) {
+            printf("%c %s\n", ent->d_type == DT_DIR ? 'D' : '-', ent->d_name);
+        }
+
+        closedir(dir);
 
         return 0;
     }

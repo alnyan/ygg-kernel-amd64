@@ -766,6 +766,7 @@ int vfs_open(struct vfs_ioctx *ctx, struct ofile *of, const char *path, int mode
 int vfs_open_node(struct vfs_ioctx *ctx, struct ofile *of, vnode_t *vn, int opt) {
     // TODO: O_APPEND
     _assert(vn && vn->op && of);
+    kinfo("vfs_open_node %p\n", of);
     int res;
 
     if (vfs_vnode_access(ctx, vn, vfs_open_access_mask(opt)) < 0) {
@@ -782,18 +783,33 @@ int vfs_open_node(struct vfs_ioctx *ctx, struct ofile *of, vnode_t *vn, int opt)
             return -ENOTDIR;
         }
 
-        // opendir
-        if (vn->op->opendir) {
-            if ((res = vn->op->opendir(vn, opt)) != 0) {
-                return res;
-            }
-        } else {
-            return -EINVAL;
-        }
+        _assert(vn->fs && vn->fs->cls);
+        if (vn->fs->cls->opt & FS_NODE_MAPPER) {
+            // XXX: This is totally read-only
+            // Mapper means all the needed nodes are already in vnode tree
+            // just use (vfs_node *) as offset
+            _assert(sizeof(of->pos) >= sizeof(uintptr_t));
+            _assert(vn->tree_node);
 
-        of->flags = opt;
-        of->vnode = vn;
-        of->pos = 0;
+            of->pos = (uintptr_t) ((struct vfs_node *) vn->tree_node)->child;
+            of->flags = opt;
+            of->vnode = vn;
+
+            return 0;
+        } else {
+            // opendir
+            if (vn->op->opendir) {
+                if ((res = vn->op->opendir(vn, opt)) != 0) {
+                    return res;
+                }
+            } else {
+                return -EINVAL;
+            }
+
+            of->flags = opt;
+            of->vnode = vn;
+            of->pos = 0;
+        }
 
         return res;
     }
@@ -852,6 +868,7 @@ int vfs_open_node(struct vfs_ioctx *ctx, struct ofile *of, vnode_t *vn, int opt)
 
 void vfs_close(struct vfs_ioctx *ctx, struct ofile *of) {
     _assert(of);
+    kinfo("vfs_close %p\n", of);
     vnode_t *vn = of->vnode;
     _assert(vn && vn->op);
 
@@ -1170,15 +1187,52 @@ struct dirent *vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd) {
         return NULL;
     }
 
-    if (!vn->op->readdir) {
+    _assert(vn->fs && vn->fs->cls);
+    if (vn->fs->cls->opt & FS_NODE_MAPPER) {
+        _assert(sizeof(fd->pos) >= sizeof(uintptr_t));
+        struct vfs_node *item_node = (struct vfs_node *) fd->pos;
+        struct dirent *ent_buf = (struct dirent *) fd->dirent_buf;
+
+        if (item_node) {
+            fd->pos = (uintptr_t) (item_node->cdr);
+        } else {
+            return NULL;
+        }
+
+        _assert(item_node->vnode);
+
+        // Describe the node into dirent buffer
+        // TODO: size checks
+        strcpy(ent_buf->d_name, item_node->name);
+        ent_buf->d_ino = /* TODO use something as inode number for node mapper */ -1;
+        ent_buf->d_off = 0;
+        ent_buf->d_reclen = strlen(item_node->name) + sizeof(struct dirent);
+        // TODO: blk/chr
+        switch (item_node->vnode->type) {
+        case VN_REG:
+            ent_buf->d_type = DT_REG;
+            break;
+        case VN_DIR:
+            ent_buf->d_type = DT_DIR;
+            break;
+        default:
+            kwarn("Unsupported vnode type: %d\n", item_node->vnode->type);
+            ent_buf->d_type = DT_UNKNOWN;
+            break;
+        }
+
+        return ent_buf;
+    } else {
+        if (!vn->op->readdir) {
+            return NULL;
+        }
+
+        if (vn->op->readdir(fd) == 0) {
+            return (struct dirent *) fd->dirent_buf;
+        }
+
         return NULL;
     }
-
-    if (vn->op->readdir(fd) == 0) {
-        return (struct dirent *) fd->dirent_buf;
-    }
-
-    return NULL;
 }
 
 int vfs_mkdir(struct vfs_ioctx *ctx, const char *path, mode_t mode) {

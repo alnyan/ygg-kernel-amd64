@@ -63,6 +63,10 @@ ssize_t read(int fd, void *buf, size_t count) {
     return SET_ERRNO(ssize_t, ASM_SYSCALL3(SYSCALL_NR_READ, fd, buf, count));
 }
 
+ssize_t sys_readdir(int fd, struct dirent *entp) {
+    return SET_ERRNO(ssize_t, ASM_SYSCALL2(SYSCALL_NR_READDIR, fd, entp));
+}
+
 int open(const char *filename, int flags, int mode) {
     return SET_ERRNO(int, ASM_SYSCALL3(SYSCALL_NR_OPEN, filename, flags, mode));
 }
