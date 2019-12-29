@@ -56,6 +56,12 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
         return 0;
     case SYSCALL_NR_BRK:
         return sys_brk((void *) rdi);
+    case SYSCALL_NR_GETPID:
+        {
+            struct thread *t = get_cpu()->thread;
+            _assert(t);
+            return t->pid;
+        }
     case SYSCALL_NR_EXIT:
         sys_exit((int) rdi);
         amd64_syscall_yield_stopped();

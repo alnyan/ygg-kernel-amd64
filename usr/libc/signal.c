@@ -61,3 +61,11 @@ sighandler_t signal(int signum, sighandler_t new_handler) {
     signal_handlers[signum] = new_handler;
     return old_handler;
 }
+
+int raise(int signum) {
+    return kill(getpid(), signum);
+}
+
+void abort(void) {
+    kill(getpid(), SIGABRT);
+}

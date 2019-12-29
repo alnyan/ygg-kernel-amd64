@@ -16,5 +16,6 @@ ssize_t sys_readdir(int fd, struct dirent *entp);
 int kill(int pid, int signum);
 void __kernel_signal(uintptr_t handler);
 __attribute__((noreturn)) void __kernel_sigret(void);
+int getpid(void);
 
 __attribute__((noreturn)) void exit(int code);

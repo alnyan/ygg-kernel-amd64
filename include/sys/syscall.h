@@ -8,6 +8,7 @@
 #define SYSCALL_NR_READDIR  89
 
 #define SYSCALL_NR_BRK      12
+#define SYSCALL_NR_GETPID   39
 #define SYSCALL_NRX_SIGNAL  48
 #define SYSCALL_NR_FORK     57
 #define SYSCALL_NR_EXECVE   59

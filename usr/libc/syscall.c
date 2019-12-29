@@ -109,6 +109,10 @@ __attribute__((noreturn)) void __kernel_sigret(void) {
     while (1);
 }
 
+int getpid(void) {
+    return ASM_SYSCALL0(SYSCALL_NR_GETPID);
+}
+
 // Although sbrk() is implemented in userspace, I guess it should also be here
 void *sbrk(intptr_t inc) {
     if (inc == 0) {

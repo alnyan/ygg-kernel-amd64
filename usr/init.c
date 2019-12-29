@@ -26,8 +26,13 @@ static int cmd_exec(const char *cmd) {
         }
     }
 
-    if (!strcmp(cmd, "sig")) {
-        if (kill(1, SIGABRT) != 0) {
+    if (!strcmp(cmd, "pid")) {
+        printf("%d\n", getpid());
+        return 0;
+    }
+
+    if (!strcmp(cmd, "raise")) {
+        if (raise(SIGABRT) != 0) {
             return -1;
         }
         return 0;
