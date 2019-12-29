@@ -13,6 +13,7 @@ CFLAGS=-ffreestanding \
 	   -mno-sse \
 	   -mno-sse2 \
 	   -Ilibc/include \
+	   -ggdb \
 	   -O0 \
 	   -I$(S)/include
 
