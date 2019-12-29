@@ -67,6 +67,9 @@ void vnode_ref(vnode_t *vn) {
 //    vfs_vnode_path(buf, vn);
 //    printf("++refcount for %s\n", buf);
     _assert(vn);
+    if (vn->type == VN_BLK || vn->type == VN_CHR) {
+        return;
+    }
     _assert(vn->fs);
     _assert(vn->fs->cls);
 
@@ -86,6 +89,10 @@ void vnode_ref(vnode_t *vn) {
 
 void vnode_unref(vnode_t *vn) {
     _assert(vn);
+    if (vn->type == VN_BLK || vn->type == VN_CHR) {
+        return;
+    }
+
     _assert(vn->fs);
     _assert(vn->fs->cls);
 

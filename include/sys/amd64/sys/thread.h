@@ -11,6 +11,8 @@ struct amd64_thread {
 
     uintptr_t stack3_base;
     uintptr_t stack3_size;
+
+    uint32_t data_flags;
 };
 
 void amd64_thread_set_ip(struct thread *t, uintptr_t ip);

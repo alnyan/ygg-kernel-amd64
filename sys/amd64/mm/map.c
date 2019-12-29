@@ -282,7 +282,7 @@ int mm_space_fork(mm_space_t dst_pml4, const mm_space_t src_pml4, uint32_t flags
 }
 
 void mm_space_release(mm_space_t pml4) {
-    for (size_t pml4i = 0; pml4i < 255; ++pml4i) {
+    for (size_t pml4i = 0; pml4i < AMD64_PML4I_USER_END; ++pml4i) {
         if (!(pml4[pml4i] & 1)) {
             continue;
         }
@@ -322,6 +322,11 @@ void mm_space_release(mm_space_t pml4) {
 
         pml4[pml4i] = 0;
     }
+}
+
+void mm_space_free(mm_space_t pml4) {
+    mm_space_release(pml4);
+    amd64_mm_pool_free(pml4);
 }
 
 static void amd64_mm_describe_range(const mm_space_t pml4, uintptr_t start_addr, uintptr_t end_addr) {

@@ -28,12 +28,16 @@ int thread_init(
         size_t rsp3_size,
         uint32_t flags,
         void *arg) {
+    t->data.data_flags = 0;
+
     if (!rsp0_base) {
         void *kstack = kmalloc(THREAD_KSTACK_SIZE);
         _assert(kstack);
 
         rsp0_base = (uintptr_t) kstack;
         rsp0_size = THREAD_KSTACK_SIZE;
+    } else {
+        t->data.data_flags |= 1 /* Don't free kstack */;
     }
 
     if (!(flags & THREAD_KERNEL) && !rsp3_base) {
@@ -44,6 +48,8 @@ int thread_init(
         rsp3_size = 4 * 0x1000;
 
         kdebug("Allocated user stack: %p\n", ustack);
+    } else if (rsp3_base) {
+        t->data.data_flags |= 2 /* Don't free ustack */;
     }
 
     t->data.stack0_base = rsp0_base;
@@ -110,6 +116,29 @@ int thread_init(
     }
 
     return 0;
+}
+
+void thread_cleanup(struct thread *t) {
+    _assert(t);
+
+    // Release files
+    for (size_t i = 0; i < 4; ++i) {
+        if (t->fds[i].vnode) {
+            vfs_close(&t->ioctx, &t->fds[i]);
+        }
+    }
+
+    // Release stacks
+    if (!(t->data.data_flags & 1)) {
+        kfree((void *) t->data.stack0_base);
+    }
+
+    if (t->space != mm_kernel) {
+        mm_space_free(t->space);
+    }
+
+    memset(t, 0, sizeof(struct thread));
+    kfree(t);
 }
 
 int sys_execve(const char *filename, const char *const argv[], const char *const envp[]) {
@@ -211,6 +240,7 @@ int sys_fork(void) {
     struct amd64_thread *dst_data = &thr_dst->data;
     _assert(dst_kstack);
 
+    dst_data->data_flags |= 1 /* Don't free kstack */;
     dst_data->stack0_base = (uintptr_t) dst_kstack;
     dst_data->stack0_size = THREAD_KSTACK_SIZE;
     dst_data->stack3_base = thr_src->data.stack3_base;

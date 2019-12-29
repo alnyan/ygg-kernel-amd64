@@ -868,12 +868,24 @@ int vfs_open_node(struct vfs_ioctx *ctx, struct ofile *of, vnode_t *vn, int opt)
 
 void vfs_close(struct vfs_ioctx *ctx, struct ofile *of) {
     _assert(of);
-    kinfo("vfs_close %p\n", of);
     vnode_t *vn = of->vnode;
-    _assert(vn && vn->op);
+    switch (vn->type) {
+    case VN_REG:
+    case VN_DIR:
+        _assert(vn);
 
-    if (vn->op->close) {
-        vn->op->close(of);
+        if (vn->op->close) {
+            vn->op->close(of);
+        }
+        break;
+
+    // TODO: maybe call something special for that
+    case VN_CHR:
+    case VN_BLK:
+        break;
+
+    default:
+        panic("Unhandled vnode type\n");
     }
 
     vnode_unref(of->vnode);

@@ -230,6 +230,8 @@ void sched_remove_from(int cpu, struct thread *thr) {
     thr->next = NULL;
     thr->prev = NULL;
 
+    thread_cleanup(thr);
+
     // TODO: make other cpus schedule a new thread if they're running a stopped one
 }
 

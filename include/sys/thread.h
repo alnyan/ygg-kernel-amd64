@@ -45,3 +45,4 @@ int thread_init(struct thread *t,
                 size_t stack3_size,
                 uint32_t flags,
                 void *arg);
+void thread_cleanup(struct thread *t);
