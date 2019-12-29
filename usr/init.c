@@ -154,7 +154,7 @@ static int cmd_exec(const char *cmd) {
 }
 
 static void prompt(void) {
-    printf("\033[34;41mygg\033[0m > ");
+    printf("\033[36mygg\033[0m > ");
 }
 
 int main(int argc, char **argv) {

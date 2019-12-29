@@ -8,6 +8,8 @@
 #define ESC_ESC     1
 #define ESC_CSI     2
 
+#define ATTR_DEFAULT        0x1700
+
 static uint16_t *con_buffer = (uint16_t *) (0xB8000 + 0xFFFFFF0000000000);
 static uint16_t x = 0, y = 0;
 static uint16_t saved_x = 0, saved_y = 0;
@@ -18,7 +20,7 @@ static uint32_t esc_argv[8];
 static size_t esc_argc;
 static char esc_letter = 0;
 static int esc_mode = 0;
-static uint16_t attr = 0x700;
+static uint16_t attr = ATTR_DEFAULT;
 
 static void amd64_con_moveto(uint8_t row, uint8_t col) {
     uint16_t pos = row * 80 + col;
@@ -34,7 +36,7 @@ static void amd64_con_scroll(void) {
         for (int i = 0; i < 22; ++i) {
             memcpy(&con_buffer[i * 80], &con_buffer[(i + 1) * 80], 80 * 2);
         }
-        memset(&con_buffer[22 * 80], 0, 80 * 2);
+        memsetw(&con_buffer[22 * 80], ATTR_DEFAULT, 80);
         y = 22;
     }
 }
@@ -51,7 +53,7 @@ static void process_csi(void) {
                 switch (v % 10) {
                 case 0:
                     // Reset
-                    attr = 0x700;
+                    attr = ATTR_DEFAULT;
                     break;
                 }
                 break;
@@ -193,4 +195,8 @@ void amd64_con_putc(int c) {
         amd64_con_scroll();
         break;
     }
+}
+
+void amd64_con_init(void) {
+    memsetw(con_buffer, attr, 80 * 25);
 }

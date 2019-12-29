@@ -12,6 +12,7 @@
 #include "sys/amd64/hw/rs232.h"
 #include "sys/amd64/hw/ps2.h"
 #include "sys/amd64/hw/rtc.h"
+#include "sys/amd64/hw/con.h"
 #include "sys/panic.h"
 #include "sys/assert.h"
 #include "sys/fs/vfs.h"
@@ -37,6 +38,7 @@ void kernel_main(struct amd64_loader_data *data) {
     amd64_idt_init();
     amd64_mm_init(data);
     amd64_acpi_init();
+    amd64_con_init();
 
     amd64_apic_init();
     rtc_init();

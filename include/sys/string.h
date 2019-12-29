@@ -11,6 +11,7 @@
 void *memcpy(void *restrict dst, const void *restrict src, size_t cnt);
 void *memmove(void *dst, const void *src, size_t cnt);
 void *memset(void *dst, int v, size_t count);
+uint16_t *memsetw(uint16_t *dst, uint16_t v, size_t count);
 int memcmp(const void *a, const void *b, size_t count);
 
 size_t strlen(const char *s);
