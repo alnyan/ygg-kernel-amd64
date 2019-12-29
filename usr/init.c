@@ -94,6 +94,28 @@ static int cmd_exec(const char *cmd) {
         return 0;
     }
 
+    if (!strncmp(cmd, "cat ", 4)) {
+        const char *path = cmd + 4;
+        char buf[512];
+        int fd;
+        ssize_t bread;
+
+        if ((fd = open(path, O_RDONLY, 0)) < 0) {
+            perror(path);
+            return -1;
+        }
+
+        printf("--- Begin ---\n");
+        while ((bread = read(fd, buf, sizeof(buf))) > 0) {
+            write(STDOUT_FILENO, buf, bread);
+        }
+        printf("\n--- End ---\n");
+
+        close(fd);
+
+        return 0;
+    }
+
     printf("Unknown command: \"%s\"\n", cmd);
 
     return 0;
