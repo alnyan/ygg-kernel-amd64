@@ -7,6 +7,7 @@
 #include "sys/ring.h"
 #include "sys/mm.h"
 #include "sys/amd64/cpu.h"
+#include "sys/amd64/hw/con.h"
 
 #define DEV_TTY(n)          (n ## ULL)
 #define DEV_DATA_TTY(n)     ((void *) n ## ULL)
@@ -49,7 +50,7 @@ static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t
 
     // TODO: buffer sanity checks
     for (size_t i = 0; i < lim; ++i) {
-        debugc(DEBUG_INFO, ((const char *) buf)[i]);
+        amd64_con_putc(((const char *) buf)[i]);
     }
     return lim;
 }

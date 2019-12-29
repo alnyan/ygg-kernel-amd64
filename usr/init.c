@@ -116,9 +116,45 @@ static int cmd_exec(const char *cmd) {
         return 0;
     }
 
+    if (!strcmp(cmd, "walk")) {
+        char c;
+        printf("\033[s");
+
+        while (read(STDIN_FILENO, &c, 1) >= 0) {
+            if (c == 'q') {
+                break;
+            }
+
+            switch (c) {
+            case 'j':
+                printf("\033[B");
+                break;
+            case 'k':
+                printf("\033[A");
+                break;
+            case 'h':
+                printf("\033[D");
+                break;
+            case 'l':
+                printf("\033[C");
+                break;
+            case 'p':
+                printf("\033[43;33m \033[0m\033[D");
+                break;
+            }
+        }
+
+        printf("\033[u");
+        return 0;
+    }
+
     printf("Unknown command: \"%s\"\n", cmd);
 
     return 0;
+}
+
+static void prompt(void) {
+    printf("\033[34;41mygg\033[0m > ");
 }
 
 int main(int argc, char **argv) {
@@ -129,12 +165,19 @@ int main(int argc, char **argv) {
     // Install dummy handler for SIGABRT
     signal(SIGABRT, dummy_handler);
 
-    printf("> ");
+    prompt();
     while (1) {
         if (read(STDIN_FILENO, &c, 1) < 0) {
             break;
         }
 
+        if (c == '\b') {
+            if (l) {
+                linebuf[--l] = 0;
+                printf("\033[D \033[D");
+            }
+            continue;
+        }
         if (c == '\n') {
             write(STDOUT_FILENO, &c, 1);
             linebuf[l] = 0;
@@ -145,7 +188,7 @@ int main(int argc, char **argv) {
 
             l = 0;
             cmd_exec(linebuf);
-            printf("> ");
+            prompt();
             continue;
         }
 
