@@ -43,7 +43,9 @@ static inline struct cpu *get_cpu(void) {
     return cpu;
 }
 #else
-extern struct cpu cpu;
+extern struct cpu __amd64_cpu;
 
-#define get_cpu()   &cpu
+#define get_cpu()   ((struct cpu *) &__amd64_cpu)
 #endif
+
+void cpu_print_context(int level, struct cpu_context *ctx);

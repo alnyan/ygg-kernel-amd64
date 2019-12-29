@@ -23,14 +23,7 @@ int amd64_pfault(uintptr_t cr2) {
     kerror("CR2 = %p\n", cr2);
 
     // Dump registers
-    kerror("RAX = %p, RCX = %p\n", ctx->rax, ctx->rcx);
-    kerror("RDX = %p, RBX = %p\n", ctx->rdx, ctx->rbx);
-    kerror("RSP = %p, RBP = %p\n", ctx->rsp, ctx->rbp);
-    kerror("RSI = %p, RDI = %p\n", ctx->rsi, ctx->rdi);
-    kerror(" R8 = %p,  R9 = %p\n", ctx->r8,  ctx->r9);
-    kerror("R10 = %p, R11 = %p\n", ctx->r10, ctx->r11);
-    kerror("R12 = %p, R13 = %p\n", ctx->r12, ctx->r13);
-    kerror("R14 = %p, R15 = %p\n", ctx->r12, ctx->r15);
+    cpu_print_context(DEBUG_ERROR, ctx);
 
     // Can't access IRET-registers (CS/RIP and the likes)
     // because they're presumably fucked up by error code

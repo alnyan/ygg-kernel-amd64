@@ -4,6 +4,7 @@
 #include "sys/amd64/mm/mm.h"
 #include "sys/amd64/hw/ioapic.h"
 #include "sys/amd64/hw/timer.h"
+#include "sys/amd64/cpu.h"
 #include "sys/string.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
@@ -169,6 +170,13 @@ void amd64_apic_init(void) {
 #if defined(AMD64_SMP)
     amd64_acpi_smp(acpi_madt);
     amd64_smp_bsp_configure();
+#else
+    struct cpu *cpu0 = get_cpu();
+    kdebug("CPU %p\n", cpu0);
+    cpu0->flags = 1;
+    cpu0->self = cpu0;
+    cpu0->processor_id = 0;
+    cpu0->tss = amd64_tss_get(0);
 #endif
 
     amd64_timer_init();

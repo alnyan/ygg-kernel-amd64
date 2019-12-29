@@ -141,9 +141,11 @@ static uint32_t sched_alloc_pid(void) {
     return last_pid++;
 }
 
+#if defined(AMD64_SMP)
 void sched_set_cpu_count(size_t count) {
     sched_ncpus = count;
 }
+#endif
 
 struct thread *sched_find(int pid) {
     if (pid <= 0) {

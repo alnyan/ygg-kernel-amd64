@@ -8,7 +8,7 @@
     %gs:off
 #else
 #define get_cpu(off) \
-    (cpu + off)(%rip)
+    (__amd64_cpu + off)(%rip)
 #endif
 
 // To be used in interrupt handlers
