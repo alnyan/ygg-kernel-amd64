@@ -2,7 +2,6 @@
 #include "sys/types.h"
 
 struct chrdev {
-    char name[64];
     void *dev_data;
 
     // TODO: maybe something like flush()

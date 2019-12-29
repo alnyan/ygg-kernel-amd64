@@ -51,7 +51,7 @@ static int dev_post_add(struct dev_entry *ent) {
 
         blk->ent = ent;
 
-        if (ent->dev_subclass != DEV_BLOCK_PART) {
+        if (ent->dev_subclass < DEV_BLOCK_PART) {
             if (blk_enumerate_partitions((struct blkdev *) ent->dev) != 0) {
                 return -1;
             }

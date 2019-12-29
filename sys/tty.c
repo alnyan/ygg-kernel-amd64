@@ -17,7 +17,6 @@ static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t
 static ssize_t tty_read(struct chrdev *tty, void *buf, size_t pos, size_t lim);
 
 static struct chrdev _dev_tty0 = {
-    .name = "tty0",
     .dev_data = DEV_DATA_TTY(0),
     .write = tty_write,
     .read = tty_read
