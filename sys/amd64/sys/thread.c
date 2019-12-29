@@ -121,6 +121,7 @@ int thread_init(
         t->space = space;
         t->flags = flags;
         t->next = NULL;
+        t->sigqsz = 0;
 
         memset(&t->ioctx, 0, sizeof(t->ioctx));
         memset(t->fds, 0, sizeof(t->fds));
