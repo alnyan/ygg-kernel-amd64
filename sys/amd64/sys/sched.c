@@ -56,6 +56,11 @@ void init_func(void *arg) {
             panic("mount rootfs: %s\n", kstrerror(res));
         }
 
+        // Mount devfs
+        if ((res = vfs_mount(&ioctx, "/dev", NULL, "devfs", NULL)) != 0) {
+            panic("mount devfs: %s\n", kstrerror(res));
+        }
+
         if ((res = vfs_stat(&ioctx, "/init", &st)) != 0) {
             panic("/init: %s\n", kstrerror(res));
         }

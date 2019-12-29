@@ -829,9 +829,6 @@ int vfs_open_node(struct vfs_ioctx *ctx, struct ofile *of, vnode_t *vn, int opt)
     if (vn->type == VN_DIR) {
         return -EISDIR;
     }
-    if (vn->type != VN_REG) {
-        panic("Not implemented\n");
-    }
 
     of->vnode = vn;
     of->flags = opt;
@@ -938,6 +935,8 @@ ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t coun
     vnode_t *vn = fd->vnode;
     _assert(vn);
 
+    ssize_t nr;
+
     switch (vn->type) {
     case VN_REG:
         _assert(vn->op);
@@ -956,7 +955,7 @@ ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t coun
             return -EINVAL;
         }
 
-        ssize_t nr = vn->op->read(fd, buf, count);
+        nr = vn->op->read(fd, buf, count);
 
         if (nr > 0) {
             fd->pos += nr;
@@ -967,7 +966,12 @@ ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t coun
     // We don't need filesystem at all to read from devices
     case VN_BLK:
         _assert(vn->dev);
-        return blk_read((struct blkdev *) vn->dev, buf, fd->pos, count);
+
+        if ((nr = blk_read((struct blkdev *) vn->dev, buf, fd->pos, count)) > 0) {
+            fd->pos += nr;
+        }
+
+        return nr;
     case VN_CHR:
         _assert(vn->dev);
         return chr_read((struct chrdev *) vn->dev, buf, fd->pos, count);
@@ -1226,6 +1230,12 @@ struct dirent *vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd) {
             break;
         case VN_DIR:
             ent_buf->d_type = DT_DIR;
+            break;
+        case VN_BLK:
+            ent_buf->d_type = DT_BLK;
+            break;
+        case VN_CHR:
+            ent_buf->d_type = DT_CHR;
             break;
         default:
             kwarn("Unsupported vnode type: %d\n", item_node->vnode->type);

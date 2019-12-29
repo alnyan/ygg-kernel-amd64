@@ -86,7 +86,25 @@ static int cmd_exec(const char *cmd) {
         }
 
         while ((ent = readdir(dir))) {
-            printf("%c %s\n", ent->d_type == DT_DIR ? 'D' : '-', ent->d_name);
+            char type;
+            switch (ent->d_type) {
+            case DT_REG:
+                type = '-';
+                break;
+            case DT_DIR:
+                type = 'D';
+                break;
+            case DT_BLK:
+                type = 'b';
+                break;
+            case DT_CHR:
+                type = 'c';
+                break;
+            default:
+                type = '?';
+                break;
+            }
+            printf("%c %s\n", type, ent->d_name);
         }
 
         closedir(dir);

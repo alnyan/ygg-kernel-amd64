@@ -1,6 +1,9 @@
 #pragma once
 #include "sys/types.h"
 
+// TODO: something like device name alias
+//       for example, /dev/root aliased to
+//       /dev/ramN or /dev/sdXN
 enum dev_class {
     DEV_CLASS_BLOCK,
     DEV_CLASS_CHAR

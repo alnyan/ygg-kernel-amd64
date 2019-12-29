@@ -64,7 +64,8 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/net/eth.o \
 	  $(O)/sys/net/arp.o \
 	  $(O)/sys/net/in.o \
-	  $(O)/sys/net/netdev.o
+	  $(O)/sys/net/netdev.o \
+	  $(O)/sys/vfs/devfs.o
 DIRS+=$(O)/sys/vfs/ext2 \
 	  $(O)/sys/net \
 	  $(O)/sys/blk

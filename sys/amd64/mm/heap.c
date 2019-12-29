@@ -44,7 +44,7 @@ void *heap_alloc(heap_t *heap, size_t count) {
     heap_block_t *begin = (heap_block_t *) MM_VIRTUALIZE(heap->phys_base);
 
     // Some alignment fuck ups led me to this
-    count = (count + 31) & ~31;
+    count = (count + 15) & ~15;
 
     for (heap_block_t *block = begin; block; block = block->next) {
         if ((block->magic & HEAP_MAGIC) != HEAP_MAGIC) {
