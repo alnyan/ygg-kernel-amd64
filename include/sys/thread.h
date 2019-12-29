@@ -5,6 +5,7 @@
 #define THREAD_KERNEL       (1 << 31)
 #define THREAD_CTX_ONLY     (1 << 30)
 #define THREAD_STOPPED      (1 << 2)
+#define THREAD_SIGRET       (1 << 29)
 
 #if defined(ARCH_AMD64)
 typedef uint64_t *mm_space_t;
@@ -28,6 +29,13 @@ struct thread {
     struct vfs_ioctx ioctx;
     struct ofile fds[4];
 
+    // Signal processing queue
+    int sigqueue[8];
+    size_t sigqsz;
+    // Signal handler stack and entry
+    uintptr_t sigentry;
+    uintptr_t sigstack;
+
     mm_space_t space;
 
     // TODO: maybe __sched_thread
@@ -46,3 +54,5 @@ int thread_init(struct thread *t,
                 uint32_t flags,
                 void *arg);
 void thread_cleanup(struct thread *t);
+
+void thread_signal(struct thread *t, int signum);

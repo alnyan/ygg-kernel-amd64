@@ -5,10 +5,16 @@
 
 struct thread;
 struct amd64_thread {
-    uintptr_t rsp0;
+    uintptr_t rsp0, rsp0s;
+    // Normal context
     uintptr_t stack0_base;
     uintptr_t stack0_size;
 
+    // Signal handling context
+    uintptr_t stack0s_base;
+    uintptr_t stack0s_size;
+
+    // User stack
     uintptr_t stack3_base;
     uintptr_t stack3_size;
 
@@ -16,3 +22,5 @@ struct amd64_thread {
 };
 
 void amd64_thread_set_ip(struct thread *t, uintptr_t ip);
+void amd64_thread_sigenter(struct thread *t, int signum);
+void amd64_thread_sigret(struct thread *t);

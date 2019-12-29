@@ -96,6 +96,19 @@ __attribute__((noreturn)) void exit(int code) {
     while (1);
 }
 
+int kill(int pid, int signum) {
+    return SET_ERRNO(int, ASM_SYSCALL2(SYSCALL_NR_KILL, pid, signum));
+}
+
+void __kernel_signal(uintptr_t entry) {
+    (void) ASM_SYSCALL1(SYSCALL_NRX_SIGNAL, entry);
+}
+
+__attribute__((noreturn)) void __kernel_sigret(void) {
+    (void) ASM_SYSCALL0(SYSCALL_NRX_SIGRET);
+    while (1);
+}
+
 // Although sbrk() is implemented in userspace, I guess it should also be here
 void *sbrk(intptr_t inc) {
     if (inc == 0) {

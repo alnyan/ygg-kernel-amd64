@@ -3,6 +3,7 @@
 #include "sys/thread.h"
 #include "sys/string.h"
 #include "sys/assert.h"
+#include "sys/sched.h"
 #include "sys/types.h"
 #include "sys/debug.h"
 #include "sys/errno.h"
@@ -20,9 +21,14 @@ static int sys_open(const char *filename, int flags, int mode);
 static void sys_close(int fd);
 static int sys_stat(const char *filename, struct stat *st);
 static void sys_exit(int status);
+static int sys_kill(int pid, int signum);
 static int sys_brk(void *ptr);
 
 extern int sys_execve(const char *filename, const char *const argv[], const char *const envp[]);
+
+// Non-compliant with linux style, but fuck'em, it just works
+static void sys_signal(uintptr_t entry);
+static void sys_sigret(void);
 
 __attribute__((noreturn)) void amd64_syscall_yield_stopped(void);
 
@@ -45,14 +51,24 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
     case SYSCALL_NR_READDIR:
         return sys_readdir((int) rdi, (struct dirent *) rsi);
 
+    case SYSCALL_NRX_SIGNAL:
+        sys_signal(rdi);
+        return 0;
     case SYSCALL_NR_BRK:
         return sys_brk((void *) rdi);
     case SYSCALL_NR_EXIT:
         sys_exit((int) rdi);
         amd64_syscall_yield_stopped();
+    case SYSCALL_NR_KILL:
+        return sys_kill((int) rdi, (int) rsi);
+    case SYSCALL_NRX_SIGRET:
+        sys_sigret();
+        return 0;
 
     default:
-        kdebug("unknown syscall: %u\n", rax);
+        kerror("unknown syscall: %u\n", rax);
+        // TODO: I guess this should ideally crash the application
+        //       with invalid opcode or something
         return -1;
     }
     return 0;
@@ -222,3 +238,47 @@ static void sys_exit(int status) {
     thr->flags |= THREAD_STOPPED;
 }
 
+static void sys_signal(uintptr_t entry) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    kdebug("%u set its signal handler to %p\n", thr->pid, entry);
+    thr->sigentry = entry;
+}
+
+static int sys_kill(int pid, int signum) {
+    asm volatile ("cli");
+    struct thread *cur_thread = get_cpu()->thread;
+
+    // Find destination thread
+    struct thread *dst_thread = sched_find(pid);
+
+    if (!dst_thread) {
+        return -ESRCH;
+    }
+
+    // Push an item to signal queue
+    thread_signal(dst_thread, signum);
+
+    if (cur_thread == dst_thread) {
+        // Suicide signal, just hang on and wait
+        // until scheduler decides it's our time
+        asm volatile ("sti; hlt; cli");
+
+        kdebug("Returned from shit\n");
+    }
+
+    return 0;
+}
+
+extern void amd64_syscall_iretq(uintptr_t ctx);
+
+static void sys_sigret(void) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    thr->flags |= THREAD_SIGRET;
+
+    asm volatile ("sti; hlt; cli");
+
+    panic("Fuck\n");
+}

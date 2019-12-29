@@ -61,7 +61,18 @@ int thread_init(
         t->data.stack3_size = rsp3_size;
     }
 
-    // Setup context
+
+    // Alloc signal handling kstack
+    void *kstack_sig = kmalloc(THREAD_KSTACK_SIZE);
+    _assert(kstack_sig);
+
+    t->data.stack0s_base = (uintptr_t) kstack_sig;
+    t->data.stack0s_size = THREAD_KSTACK_SIZE;
+
+    // No need to setup context for signal handler stack as it will be set up on
+    // signal entry
+
+    // Setup normal context
     struct cpu_context *ctx = (struct cpu_context *) t->data.rsp0;
 
     ctx->rip = entry;
@@ -139,6 +150,17 @@ void thread_cleanup(struct thread *t) {
 
     memset(t, 0, sizeof(struct thread));
     kfree(t);
+}
+
+// TODO: may be moved to platform-independent file
+void thread_signal(struct thread *t, int s) {
+    _assert(t);
+
+    if (t->sigqsz == 8) {
+        panic("Thread received too many unhandled signals\n");
+    }
+
+    t->sigqueue[t->sigqsz++] = s;
 }
 
 int sys_execve(const char *filename, const char *const argv[], const char *const envp[]) {
@@ -237,12 +259,15 @@ int sys_fork(void) {
 
     // Clone process state
     void *dst_kstack = kmalloc(THREAD_KSTACK_SIZE);
+    void *dst_kstack_sig = kmalloc(THREAD_KSTACK_SIZE);
     struct amd64_thread *dst_data = &thr_dst->data;
-    _assert(dst_kstack);
+    _assert(dst_kstack && dst_kstack_sig);
 
     dst_data->data_flags |= 1 /* Don't free kstack */;
     dst_data->stack0_base = (uintptr_t) dst_kstack;
     dst_data->stack0_size = THREAD_KSTACK_SIZE;
+    dst_data->stack0s_base = (uintptr_t) dst_kstack_sig;
+    dst_data->stack0s_size = THREAD_KSTACK_SIZE;
     dst_data->stack3_base = thr_src->data.stack3_base;
     dst_data->stack3_size = thr_src->data.stack3_size;
     dst_data->rsp0 = dst_data->stack0_base + dst_data->stack0_size - sizeof(struct cpu_context);
@@ -286,4 +311,63 @@ void amd64_thread_set_ip(struct thread *t, uintptr_t ip) {
 
     ctx->rip = ip;
     ctx->rflags = 0x248;
+}
+
+void amd64_thread_sigenter(struct thread *t, int signum) {
+    _assert(t);
+
+    // Swap contexts
+    t->data.rsp0s = t->data.rsp0;
+    t->data.rsp0 = t->data.stack0s_base + t->data.stack0s_size - sizeof(struct cpu_context);
+
+    // Setup signal handler context
+    struct cpu_context *ctx = (struct cpu_context *) t->data.rsp0;
+
+    ctx->rip = t->sigentry;
+    ctx->rflags = 0x248;
+
+    if (t->flags & THREAD_KERNEL) {
+        panic("TODO: kernel thread signal handling\n");
+    } else {
+        // Give one page of user stack for signal handling
+        t->sigstack = t->data.stack3_base + 4096;
+        ctx->rsp = t->sigstack;
+        ctx->cs = 0x23;
+        ctx->ss = 0x1B;
+
+        ctx->ds = 0x1B;
+        ctx->es = 0x1B;
+        ctx->fs = 0;
+    }
+
+    ctx->rax = 0;
+    ctx->rcx = 0;
+    ctx->rdx = 0;
+    ctx->rdx = 0;
+    ctx->rbp = 0;
+    ctx->rsi = 0;
+    ctx->rdi = (uintptr_t) signum;
+
+    ctx->cr3 = ({ _assert((uintptr_t) t->space >= 0xFFFFFF0000000000); (uintptr_t) t->space - 0xFFFFFF0000000000; });
+
+    ctx->r8 = 0;
+    ctx->r9 = 0;
+    ctx->r10 = 0;
+    ctx->r11 = 0;
+    ctx->r12 = 0;
+    ctx->r13 = 0;
+    ctx->r14 = 0;
+    ctx->r15 = 0;
+
+    ctx->__canary = AMD64_STACK_CTX_CANARY;
+
+    if (t == get_cpu()->thread) {
+        panic("NYI\n");
+    }
+}
+
+void amd64_thread_sigret(struct thread *t) {
+    _assert(t);
+
+    t->data.rsp0 = t->data.rsp0s;
 }

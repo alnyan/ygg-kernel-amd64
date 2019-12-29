@@ -1,10 +1,15 @@
 #include <sys/fcntl.h>
+#include <signal.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <stdint.h>
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
+
+static void dummy_handler(int signum) {
+    printf("Yay, no crash for this one\n");
+}
 
 static int cmd_exec(const char *cmd) {
     if (!strcmp(cmd, "fork")) {
@@ -19,6 +24,13 @@ static int cmd_exec(const char *cmd) {
 
             return 0;
         }
+    }
+
+    if (!strcmp(cmd, "sig")) {
+        if (kill(1, SIGABRT) != 0) {
+            return -1;
+        }
+        return 0;
     }
 
     if (!strcmp(cmd, "crash")) {
@@ -86,6 +98,9 @@ int main(int argc, char **argv) {
     char linebuf[512];
     char c;
     size_t l = 0;
+
+    // Install dummy handler for SIGABRT
+    signal(SIGABRT, dummy_handler);
 
     printf("> ");
     while (1) {

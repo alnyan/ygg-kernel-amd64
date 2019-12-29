@@ -145,6 +145,23 @@ void sched_set_cpu_count(size_t count) {
     sched_ncpus = count;
 }
 
+struct thread *sched_find(int pid) {
+    if (pid <= 0) {
+        return NULL;
+    }
+
+    // Search through queues
+    for (size_t cpu = 0; cpu < sched_ncpus; ++cpu) {
+        for (struct thread *t = sched_queue_heads[cpu]; t; t = t->next) {
+            if ((int) t->pid == pid) {
+                return t;
+            }
+        }
+    }
+
+    return NULL;
+}
+
 void sched_add_to(int cpu, struct thread *t) {
     t->next = NULL;
 
@@ -260,6 +277,23 @@ int sched(void) {
     // Empty scheduler queue
     if (!to) {
         return -1;
+    }
+
+    if (to->flags & THREAD_SIGRET) {
+        to->flags &= ~THREAD_SIGRET;
+        amd64_thread_sigret(to);
+    }
+
+    if (to->sigqsz) {
+        // Should we enter signal handler?
+        int signum = to->sigqueue[0];
+        --to->sigqsz;
+        // Shift the queue
+        for (size_t i = 0; i < to->sigqsz; ++i) {
+            to->sigqueue[i] = to->sigqueue[i + 1];
+        }
+
+        amd64_thread_sigenter(to, signum);
     }
 
     get_cpu()->thread = to;
