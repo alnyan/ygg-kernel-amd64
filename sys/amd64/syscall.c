@@ -49,7 +49,7 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
     case SYSCALL_NR_STAT:
         return sys_stat((const char *) rdi, (struct stat *) rsi);
     case SYSCALL_NR_EXECVE:
-        return sys_execve((const char *) rdi, NULL, NULL);
+        return sys_execve((const char *) rdi, (const char **) rsi, NULL);
     case SYSCALL_NR_READDIR:
         return sys_readdir((int) rdi, (struct dirent *) rsi);
     case SYSCALL_NR_GETCWD:

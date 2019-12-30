@@ -21,6 +21,9 @@ struct thread {
     __plat_thread data;
 
     struct image_info image;
+    // Arguments are stored here
+    uintptr_t argp_page;
+    uintptr_t argp_page_phys;
 
     uint64_t flags;
     uint32_t pid;

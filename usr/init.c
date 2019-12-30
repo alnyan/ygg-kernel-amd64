@@ -57,13 +57,17 @@ static int cmd_exec(const char *cmd) {
         return 0;
     }
 
-    if (!strcmp(cmd, "hello")) {
+    if (!strcmp(cmd, "hello") || !strncmp(cmd, "hello ", 6)) {
         int res;
 
         if ((res = fork()) == 0) {
+            const char *argument = cmd[5] ? &cmd[6] : "nothing";
             printf("In child\n");
+            const char *argp[] = {
+                argument, 0
+            };
 
-            res = execve("/hello", NULL, NULL);
+            res = execve("/hello", argp, NULL);
 
             if (res < 0) {
                 perror("execve()");

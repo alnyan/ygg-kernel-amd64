@@ -2,8 +2,7 @@
 .global _start
 .type _start, %function
 // Arguments:
-// %rdi - argc (well, not quite yet)
-// %rsi - argv
+// %rdi - argp
 _start:
     movq $0, %rbp
     // For callee linkage
@@ -11,12 +10,13 @@ _start:
     pushq %rbp
     movq %rsp, %rbp
 
+    push %rdi
     call __libc_init
 
     call _init
 
-    // Ignore %rdi/%rsi for now
-    xorq %rdi, %rdi
+    mov __libc_argc, %rdi
+    pop %rsi
 
     // exit(main(argc, argv))
     call main

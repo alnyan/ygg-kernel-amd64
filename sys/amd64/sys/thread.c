@@ -1,6 +1,7 @@
 #include "sys/amd64/mm/mm.h"
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/mm/pool.h"
+#include "sys/amd64/mm/map.h"
 #include "sys/binfmt_elf.h"
 #include "sys/amd64/cpu.h"
 #include "sys/assert.h"
@@ -52,6 +53,14 @@ int thread_init(
         t->data.data_flags |= 2 /* Don't free ustack */;
     }
 
+    if (!(flags & THREAD_KERNEL)) {
+        _assert((t->argp_page_phys = amd64_phys_alloc_page()) != MM_NADDR);
+        t->argp_page = 0x100000000;
+        _assert(!amd64_map_single(space, t->argp_page, t->argp_page_phys, 1 | (1 << 1) | (1 << 2)));
+    } else {
+        t->argp_page = MM_NADDR;
+    }
+
     t->data.stack0_base = rsp0_base;
     t->data.stack0_size = rsp0_size;
     t->data.rsp0 = t->data.stack0_base + t->data.stack0_size - sizeof(struct cpu_context);
@@ -60,7 +69,6 @@ int thread_init(
         t->data.stack3_base = rsp3_base;
         t->data.stack3_size = rsp3_size;
     }
-
 
     // Alloc signal handling kstack
     void *kstack_sig = kmalloc(THREAD_KSTACK_SIZE);
@@ -206,6 +214,36 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
 
     mm_space_t space = thr->space;
 
+    // Buffer page used for argp construction
+    // Before we released the old memory, copy
+    // the needed stuff from it
+    uintptr_t argp_page_phys = amd64_phys_alloc_page();
+    _assert(argp_page_phys != MM_NADDR);
+    char **dst_argp = (char **) MM_VIRTUALIZE(argp_page_phys);
+    size_t argp_offset = 0, argp_offset2 = 0;
+    size_t argc = 0;
+    if (argv) {
+        while (argv[argc]) {
+            dst_argp[argc] = (char *) argp_offset2;
+            argp_offset2 += strlen(argv[argc]) + 1;
+            if (argp_offset2 >= 4096) {
+                panic("argp buffer overflow\n");
+            }
+            ++argc;
+        }
+        dst_argp[argc] = NULL;
+        argp_offset = (size_t) &dst_argp[argc + 1];
+        // Convert offsets to pointers
+        for (size_t i = 0; i < argc; ++i) {
+            char *ent = dst_argp[i] + argp_offset;
+            dst_argp[i] = (char *) (MM_PHYS(ent) - argp_page_phys);
+            strcpy(ent, argv[i]);
+            kdebug("Cloning argument: %s -> %p\n", ent, dst_argp[i]);
+        }
+    } else {
+        dst_argp[0] = NULL;
+    }
+
     // 1. Discard memory
     // XXX: And this is why I need CoW
     mm_space_release(space);
@@ -221,7 +259,20 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
                         THREAD_CTX_ONLY,
                         NULL
             ) == 0);
+    // Revirtualize offsets
+    for (size_t i = 0; i < argc; ++i) {
+        dst_argp[i] = (char *) ((uintptr_t) dst_argp[i] + thr->argp_page);
+    }
+    // Copy the data block
+    memcpy((void *) MM_VIRTUALIZE(thr->argp_page_phys), dst_argp, 4096);
+    amd64_phys_free(argp_page_phys);
+    for (size_t i = 0; i < argc; ++i) {
+        kdebug("%p[%d] = %p\n", thr->argp_page, i, ((char **) MM_VIRTUALIZE(thr->argp_page_phys))[i]);
+    }
+    kdebug("argp buffer = %p\n", thr->argp_page);
+
     struct cpu_context *ctx = (struct cpu_context *) thr->data.rsp0;
+    ctx->rdi = thr->argp_page;
 
     // 3. Load new binary
     _assert(elf_load(thr, file_buf) == 0);
