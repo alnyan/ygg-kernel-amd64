@@ -12,6 +12,7 @@ Building
 --------
 
 ```Shell session
+    cp defconfig config
     export ARCH=amd64
     make
 ```
