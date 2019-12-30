@@ -132,7 +132,6 @@ void *sbrk(intptr_t inc) {
     }
 
     void *new_brk = (void *) ((uintptr_t) __cur_brk + inc);
-    printf("New brk = %p\n", new_brk);
 
     if (brk(new_brk) != 0) {
         return __cur_brk;

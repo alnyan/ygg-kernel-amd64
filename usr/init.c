@@ -7,188 +7,177 @@
 #include <errno.h>
 #include <stdio.h>
 
-static void dummy_handler(int signum) {
-    printf("Yay, no crash for this one\n");
-}
+// Cursor helpers
 
-static int cmd_exec(const char *cmd) {
-    if (!strcmp(cmd, "fork")) {
-        int pid = fork();
+#define curs_save() \
+    write(STDOUT_FILENO, "\033[s", 3)
+#define curs_unsave() \
+    write(STDOUT_FILENO, "\033[u", 3)
+#define curs_set(row, col) \
+    printf("\033[%d;%df", row, col)
+#define clear() \
+    write(STDOUT_FILENO, "\033[2J", 4)
 
-        if (pid == 0) {
-            printf("Hello from child!\n");
+//
 
-            exit(1);
-        } else {
-            printf("Child's PID is %d\n", pid);
+extern __attribute__((noreturn)) void abort(void);
 
-            return 0;
-        }
+#define assert(x) \
+    if (!(x)) abort()
+
+struct builtin {
+    const char *name;
+    const char *desc;
+    int (*run) (const char *arg);
+};
+
+static int b_ls(const char *path);
+static int b_cd(const char *path);
+static int b_pwd(const char *_);
+static int b_cat(const char *path);
+static int b_curs(const char *arg);
+
+static struct builtin builtins[] = {
+    {
+        "ls",
+        "List files in directory",
+        b_ls,
+    },
+    {
+        "cd",
+        "Change working directory",
+        b_cd,
+    },
+    {
+        "pwd",
+        "Print working directory",
+        b_pwd,
+    },
+    {
+        "cat",
+        "Print file contents" /* Concatenate files */,
+        b_cat
+    },
+    {
+        "curs",
+        "Cursor demo",
+        b_curs,
+    },
+    { NULL, NULL, NULL }
+};
+
+static int b_ls(const char *arg) {
+    int res;
+    DIR *dir;
+    struct dirent *ent;
+    char c;
+
+    if (!arg) {
+        arg = "";
     }
 
-    if (!strcmp(cmd, "pid")) {
-        printf("%d\n", getpid());
-        return 0;
+    if (!(dir = opendir(arg))) {
+        perror(arg);
+        return -1;
     }
 
-    if (!strcmp(cmd, "raise")) {
-        if (raise(SIGABRT) != 0) {
-            return -1;
-        }
-        return 0;
-    }
-
-    if (!strcmp(cmd, "crash")) {
-        uint32_t *value_ptr = (uint32_t *) 0;
-        *value_ptr = 123;
-        return 0;
-    }
-
-    if (!strcmp(cmd, "fork-crash")) {
-        int pid = fork();
-
-        if (pid == 0) {
-            printf("Crashing child\n");
-            uint32_t *value_ptr = (uint32_t *) 0;
-            *value_ptr = 123;
-            printf("Shouldn't run\n");
-            exit(-1);
-        }
-        return 0;
-    }
-
-    if (!strcmp(cmd, "hello") || !strncmp(cmd, "hello ", 6)) {
-        int res;
-
-        if ((res = fork()) == 0) {
-            const char *argument = cmd[5] ? &cmd[6] : "nothing";
-            printf("In child\n");
-            const char *argp[] = {
-                argument, 0
-            };
-
-            res = execve("/hello", argp, NULL);
-
-            if (res < 0) {
-                perror("execve()");
-            }
-
-            exit(-1);
-        }
-
-        return 0;
-    }
-
-    if (!strcmp(cmd, "cd") || !strncmp(cmd, "cd ", 3)) {
-        const char *path = cmd[2] ? cmd + 3 : "/";
-        int res = chdir(path);
-
-        if (res < 0) {
-            perror(path);
-        }
-        return res;
-    }
-
-    if (!strcmp(cmd, "pwd")) {
-        char buf[512];
-        if (getcwd(buf, sizeof(buf))) {
-            puts(buf);
-        }
-        return 0;
-    }
-
-    if (!strcmp(cmd, "ls") || !strncmp(cmd, "ls ", 3)) {
-        const char *path = cmd[2] ? cmd + 3 : ".";
-        DIR *dir;
-        struct dirent *ent;
-
-        if (!(dir = opendir(path))) {
-            perror(path);
-            return -1;
-        }
-
-        while ((ent = readdir(dir))) {
-            char type;
+    while ((ent = readdir(dir))) {
+        if (ent->d_name[0] != '.') {
             switch (ent->d_type) {
             case DT_REG:
-                type = '-';
+                c = '-';
                 break;
             case DT_DIR:
-                type = 'D';
+                c = 'd';
                 break;
             case DT_BLK:
-                type = 'b';
+                c = 'b';
                 break;
             case DT_CHR:
-                type = 'c';
+                c = 'c';
                 break;
             default:
-                type = '?';
-                break;
-            }
-            printf("%c %s\n", type, ent->d_name);
-        }
-
-        closedir(dir);
-
-        return 0;
-    }
-
-    if (!strncmp(cmd, "cat ", 4)) {
-        const char *path = cmd + 4;
-        char buf[512];
-        int fd;
-        ssize_t bread;
-
-        if ((fd = open(path, O_RDONLY, 0)) < 0) {
-            perror(path);
-            return -1;
-        }
-
-        printf("--- Begin ---\n");
-        while ((bread = read(fd, buf, sizeof(buf))) > 0) {
-            write(STDOUT_FILENO, buf, bread);
-        }
-        printf("\n--- End ---\n");
-
-        close(fd);
-
-        return 0;
-    }
-
-    if (!strcmp(cmd, "walk")) {
-        char c;
-        printf("\033[s");
-
-        while (read(STDIN_FILENO, &c, 1) >= 0) {
-            if (c == 'q') {
+                c = '?';
                 break;
             }
 
-            switch (c) {
-            case 'j':
-                printf("\033[B");
-                break;
-            case 'k':
-                printf("\033[A");
-                break;
-            case 'h':
-                printf("\033[D");
-                break;
-            case 'l':
-                printf("\033[C");
-                break;
-            case 'p':
-                printf("\033[43;33m \033[0m\033[D");
-                break;
-            }
+            printf("%c %s\n", c, ent->d_name);
         }
-
-        printf("\033[u");
-        return 0;
     }
 
-    printf("Unknown command: \"%s\"\n", cmd);
+    closedir(dir);
+
+    return 0;
+}
+
+static int b_cd(const char *arg) {
+    int res;
+    if (!arg) {
+        arg = "";
+    }
+
+    if ((res = chdir(arg)) < 0) {
+        perror(arg);
+    }
+
+    return res;
+}
+
+static int b_pwd(const char *arg) {
+    char buf[512];
+    if (!getcwd(buf, sizeof(buf))) {
+        perror("getcwd()");
+        return -1;
+    } else {
+        puts(buf);
+    }
+    return 0;
+}
+
+static int b_cat(const char *arg) {
+    char buf[512];
+    int fd;
+    ssize_t bread;
+
+    if (!arg) {
+        return -1;
+    }
+
+    if ((fd = open(arg, O_RDONLY, 0)) < 0) {
+        perror(arg);
+        return fd;
+    }
+
+    while ((bread = read(fd, buf, sizeof(buf))) > 0) {
+        write(STDOUT_FILENO, buf, bread);
+    }
+
+    close(fd);
+
+    return 0;
+}
+
+static int b_curs(const char *arg) {
+    char c;
+
+    clear();
+
+    while (1) {
+        // Draw some kind of status bar
+        curs_set(25, 1);
+        printf("\033[7m This is statusbar\033[K\033[0m");
+        curs_set(1, 1);
+
+        if (read(STDIN_FILENO, &c, 1) < 0) {
+            break;
+        }
+
+        if (c == 'q') {
+            break;
+        }
+    }
+
+    curs_set(1, 1);
 
     return 0;
 }
@@ -197,13 +186,42 @@ static void prompt(void) {
     printf("\033[36mygg\033[0m > ");
 }
 
+static int cmd_exec(const char *line) {
+    char cmd[64];
+    const char *e = strchr(line, ' ');
+
+    if (!e) {
+        assert(strlen(line) < 64);
+        strcpy(cmd, line);
+    } else {
+        assert(e - line < 64);
+        strncpy(cmd, line, e - line);
+        cmd[e - line] = 0;
+        ++e;
+        while (*e == ' ') {
+            ++e;
+        }
+    }
+
+    if (e && !*e) {
+        e = NULL;
+    }
+
+    for (size_t i = 0; builtins[i].run; ++i) {
+        if (!strcmp(cmd, builtins[i].name)) {
+            return builtins[i].run(e);
+        }
+    }
+
+    printf("%s: Unknown command\n", cmd);
+    return -1;
+}
+
 int main(int argc, char **argv) {
     char linebuf[512];
     char c;
     size_t l = 0;
-
-    // Install dummy handler for SIGABRT
-    signal(SIGABRT, dummy_handler);
+    int res;
 
     prompt();
     while (1) {
@@ -227,7 +245,9 @@ int main(int argc, char **argv) {
             }
 
             l = 0;
-            cmd_exec(linebuf);
+            if ((res = cmd_exec(linebuf)) != 0) {
+                printf("\033[31m= %d\033[0m\n", res);
+            }
             prompt();
             continue;
         }

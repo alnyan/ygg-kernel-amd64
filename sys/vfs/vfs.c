@@ -800,7 +800,7 @@ int vfs_open(struct vfs_ioctx *ctx, struct ofile *of, const char *path, int mode
 int vfs_open_node(struct vfs_ioctx *ctx, struct ofile *of, vnode_t *vn, int opt) {
     // TODO: O_APPEND
     _assert(vn && vn->op && of);
-    kinfo("vfs_open_node %p\n", of);
+    kdebug("vfs_open_node %p\n", of);
     int res;
 
     if (vfs_vnode_access(ctx, vn, vfs_open_access_mask(opt)) < 0) {

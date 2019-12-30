@@ -53,6 +53,12 @@ static void process_csi(void) {
                     // Reset
                     attr = ATTR_DEFAULT;
                     break;
+                case 7:
+                    // Reverse
+                    attr >>= 4;
+                    attr |= (attr & 0xF0) << 8;
+                    attr &= 0xFF00;
+                    break;
                 }
                 break;
             case 3:
@@ -121,6 +127,26 @@ static void process_csi(void) {
         }
 
         amd64_con_moveto(y, x);
+        break;
+    case 'K':
+        // Erase end of line
+        memsetw(&con_buffer[y * 80 + x], attr, 80 - x);
+        break;
+    case 'J':
+        switch (esc_argv[0]) {
+        case 0:
+            // Erase lines down
+            memsetw(con_buffer, attr, 80 * y);
+            break;
+        case 1:
+            // Erase lines up
+            memsetw(&con_buffer[y * 80], attr, 80 * (25 - y));
+            break;
+        case 2:
+            // Erase all
+            memsetw(con_buffer, attr, 80 * 25);
+            break;
+        }
         break;
     case 'f':
         // Set cursor position
