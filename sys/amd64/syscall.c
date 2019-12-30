@@ -157,13 +157,18 @@ static int sys_getcwd(char *buf, size_t lim) {
     struct thread *thr = get_cpu()->thread;
     _assert(thr);
     _assert(buf);
+    char tmpbuf[512];
+    size_t len;
+
+    vfs_vnode_path(tmpbuf, thr->ioctx.cwd_vnode);
+    len = strlen(tmpbuf);
 
     // TODO: actually implement this
-    if (lim < 4) {
+    if (lim < len + 1) {
         return -1;
     }
 
-    strcpy(buf, "???");
+    strcpy(buf, tmpbuf);
 
     return 0;
 }

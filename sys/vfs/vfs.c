@@ -59,6 +59,50 @@ int vfs_chdir(struct vfs_ioctx *ctx, const char *cwd_rel) {
     return vfs_setcwd_rel(ctx, ctx->cwd_vnode, cwd_rel);
 }
 
+void vfs_vnode_path(char *path, vnode_t *vn) {
+    size_t c = 0;
+    if (!vn) {
+        path[0] = '/';
+        path[1] = 0;
+        return;
+    }
+    struct vfs_node *node = vn->tree_node;
+    struct vfs_node *backstack[10] = { NULL };
+    if (!node) {
+        panic("Unhandled: NULL node\n");
+    }
+    if (!node->parent) {
+        path[0] = '/';
+        path[1] = 0;
+        return;
+    }
+    size_t bstp = 10;
+    while (node) {
+        if (bstp == 0) {
+            panic("Node stack overflow\n");
+        }
+
+        backstack[--bstp] = node;
+        node = node->parent;
+    }
+
+    for (size_t i = bstp; i < 10; ++i) {
+        size_t len;
+        if (backstack[i]->parent) {
+            // Non-root
+            len = strlen(backstack[i]->name);
+            strcpy(path + c, backstack[i]->name);
+        } else {
+            len = 0;
+        }
+        c += len;
+        if (i != 9) {
+            path[c] = '/';
+        }
+        ++c;
+    }
+}
+
 static int vfs_open_access_mask(int oflags) {
     if (oflags & O_EXEC) {
         return X_OK;
