@@ -7,6 +7,7 @@
 #include "sys/errno.h"
 #include "sys/panic.h"
 #include "sys/heap.h"
+#include "sys/blk.h"
 #include "sys/chr.h"
 
 // #include <stddef.h>
@@ -393,10 +394,15 @@ void vfs_vnode_path(char *path, vnode_t *vn) {
     path[0] = 0;
 }
 
-static int vfs_mount_internal(struct vfs_node *at, void *blkdev, const char *fs_name, const char *opt) {
+int vfs_mount_internal(struct vfs_node *at, void *blkdev, const char *fs_name, const char *opt) {
     struct fs_class *fs_class;
 
+    if (!strcmp(fs_name, "auto")) {
+        return blk_mount_auto(at, blkdev, opt);
+    }
+
     if ((fs_class = fs_class_by_name(fs_name)) == NULL) {
+        kdebug("Unknown filesystem class: %s\n", fs_name);
         return -EINVAL;
     }
 

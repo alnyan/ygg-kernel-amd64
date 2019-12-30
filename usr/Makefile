@@ -46,7 +46,7 @@ mkdirs:
 	mkdir -p $(DIRS)
 
 mkstage-etc:
-	mkdir -p $(STAGE)/dev
+	mkdir -p $(STAGE)/dev $(STAGE)/mnt
 	cp -r etc $(STAGE)
 
 # Application building

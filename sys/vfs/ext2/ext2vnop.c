@@ -474,6 +474,7 @@ static int ext2_vnode_readdir(struct ofile *fd) {
     vnode_t *vn = fd->vnode;
     struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
     struct ext2_extsb *sb = vn->fs->fs_private;
+    ssize_t res;
 
     if (fd->pos >= inode->size_lower) {
         return -1;
@@ -482,8 +483,8 @@ static int ext2_vnode_readdir(struct ofile *fd) {
     size_t block_number = fd->pos / sb->block_size;
     char block_buffer[sb->block_size];
 
-    if (ext2_read_inode_block(vn->fs, inode, block_number, block_buffer) < 0) {
-        return -EIO;
+    if ((res = ext2_read_inode_block(vn->fs, inode, block_number, block_buffer)) < 0) {
+        return res;
     }
 
     size_t block_offset = fd->pos % sb->block_size;
@@ -501,7 +502,43 @@ static int ext2_vnode_readdir(struct ofile *fd) {
     strncpy(vfsdir->d_name, ext2dir->name, ext2dir->name_len);
     vfsdir->d_name[ext2dir->name_len] = 0;
     vfsdir->d_reclen = ext2dir->len;
-    vfsdir->d_type = ext2dir->type_ind;
+    if (sb->required_features & 2 /* Directory entries contain type field */) {
+        switch (ext2dir->type_ind) {
+        case 1:
+            // Regular file
+            vfsdir->d_type = DT_REG;
+            break;
+        case 2:
+            // Directory
+            vfsdir->d_type = DT_DIR;
+            break;
+        // XXX: Don't know if I should have ANY devices in ext2, we have devfs for that
+        //      kind of shit
+        case 0:
+        default:
+            vfsdir->d_type = DT_UNKNOWN;
+            break;
+        }
+    } else {
+        // Have to read each fucking inode to sort this mess out
+        struct ext2_inode ent_inode_buf;
+
+        if ((res = ext2_read_inode(vn->fs, &ent_inode_buf, ext2dir->ino)) < 0) {
+            return res;
+        }
+
+        switch (ent_inode_buf.type_perm & 0xF000) {
+        case EXT2_TYPE_REG:
+            vfsdir->d_type = DT_REG;
+            break;
+        case EXT2_TYPE_DIR:
+            vfsdir->d_type = DT_DIR;
+            break;
+        default:
+            vfsdir->d_type = DT_UNKNOWN;
+            break;
+        }
+    }
     // Not implemented, I guess
     vfsdir->d_off = 0;
 

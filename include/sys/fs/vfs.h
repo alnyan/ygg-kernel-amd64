@@ -91,6 +91,7 @@ void vfs_node_free(struct vfs_node *n);
  */
 struct vfs_node *vfs_node_create(const char *name, vnode_t *vn);
 
+int vfs_mount_internal(struct vfs_node *at, void *blkdev, const char *fs_name, const char *opt);
 /**
  * @brief Create a mountpoint in a filesystem tree so that
  *        a "source" directory actually refers to the root

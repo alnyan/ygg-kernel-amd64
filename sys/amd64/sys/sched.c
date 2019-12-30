@@ -6,6 +6,7 @@
 #include "sys/debug.h"
 #include "sys/heap.h"
 #include "sys/spin.h"
+#include "sys/fs/ext2.h"
 #include "sys/fs/vfs.h"
 #include "sys/fcntl.h"
 #include "sys/errno.h"
@@ -50,6 +51,7 @@ void init_func(void *arg) {
     struct ofile fd;
     struct stat st;
     int res;
+    ext2_class_init();
 
     if (root_blk) {
         if ((res = vfs_mount(&ioctx, "/", root_blk, "ustar", NULL)) != 0) {
@@ -59,6 +61,16 @@ void init_func(void *arg) {
         // Mount devfs
         if ((res = vfs_mount(&ioctx, "/dev", NULL, "devfs", NULL)) != 0) {
             panic("mount devfs: %s\n", kstrerror(res));
+        }
+
+        // Try to mount /dev/sda1 at /mnt (don't panic on failure, though)
+        struct blkdev *sda1_blk = blk_by_name("sda1");
+        if (sda1_blk) {
+            kinfo("Trying to mount /dev/sda1 -> /mnt\n");
+
+            if ((res = vfs_mount(&ioctx, "/mnt", sda1_blk, "auto", NULL)) != 0) {
+                kwarn("/dev/sda1: %s\n", kstrerror(res));
+            }
         }
 
         if ((res = vfs_stat(&ioctx, "/init", &st)) != 0) {

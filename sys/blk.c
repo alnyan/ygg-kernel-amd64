@@ -4,6 +4,10 @@
 #include "sys/errno.h"
 #include "sys/string.h"
 #include "sys/heap.h"
+#include "sys/fs/vfs.h"
+
+// Taken as-is from MBR partition types
+#define PART_HINT_LINUX              0x83
 
 ssize_t blk_read(struct blkdev *blk, void *buf, size_t off, size_t lim) {
     _assert(blk);
@@ -47,6 +51,16 @@ struct blk_part {
     uint64_t lba_start;
     uint64_t lba_size;
 };
+
+int blk_mount_auto(struct vfs_node *at, struct blkdev *blk, const char *opt) {
+    int res;
+
+    if ((res = vfs_mount_internal(at, blk, "ext2", opt)) == 0) {
+        return 0;
+    }
+
+    return -1;
+}
 
 static ssize_t blk_part_read(struct blkdev *dev, void *buf, size_t off, size_t count) {
     struct blk_part *part = (struct blk_part *) dev->dev_data;
