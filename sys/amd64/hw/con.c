@@ -31,14 +31,12 @@ static void amd64_con_moveto(uint8_t row, uint8_t col) {
 	outb(0x3D5, (uint8_t) ((pos >> 8) & 0xFF));
 }
 
-static void amd64_con_scroll(void) {
-    if (y == 23) {
-        for (int i = 0; i < 22; ++i) {
-            memcpy(&con_buffer[i * 80], &con_buffer[(i + 1) * 80], 80 * 2);
-        }
-        memsetw(&con_buffer[22 * 80], ATTR_DEFAULT, 80);
-        y = 22;
+static void amd64_scroll_down(void) {
+    for (int i = 0; i < 24; ++i) {
+        memcpy(&con_buffer[i * 80], &con_buffer[(i + 1) * 80], 80 * 2);
     }
+    memsetw(&con_buffer[24 * 80], ATTR_DEFAULT, 80);
+    y = 24;
 }
 
 // I guess I could've implemented VT100 escape handling better, but
@@ -179,12 +177,18 @@ void amd64_con_putc(int c) {
             if (x >= 80) {
                 ++y;
                 x = 0;
+                if (y == 25) {
+                    amd64_scroll_down();
+                }
             }
         } else {
             switch (c) {
             case '\n':
                 ++y;
                 x = 0;
+                if (y == 25) {
+                    amd64_scroll_down();
+                }
                 break;
             default:
                 amd64_con_putc('?');
@@ -192,7 +196,6 @@ void amd64_con_putc(int c) {
             }
         }
         amd64_con_moveto(y, x);
-        amd64_con_scroll();
         break;
     }
 }
