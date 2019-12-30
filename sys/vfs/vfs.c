@@ -378,22 +378,6 @@ static int vfs_find(vnode_t *cwd_vnode, const char *path, vnode_t **res_vnode) {
     }
 }
 
-static void vfs_dump_node(struct vfs_node *node, int o) {
-    // TODO: node dumpinh
-}
-
-void vfs_dump_tree(void) {
-    if (!vfs_root_node.vnode) {
-        return;
-    }
-    vfs_dump_node(&vfs_root_node, 0);
-}
-
-void vfs_vnode_path(char *path, vnode_t *vn) {
-    // TODO: path printing
-    path[0] = 0;
-}
-
 int vfs_mount_internal(struct vfs_node *at, void *blkdev, const char *fs_name, const char *opt) {
     struct fs_class *fs_class;
 

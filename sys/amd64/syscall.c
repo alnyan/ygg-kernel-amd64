@@ -19,6 +19,8 @@ static ssize_t sys_write(int fd, const void *buf, size_t lim);
 static ssize_t sys_readdir(int fd, struct dirent *ent);
 static int sys_open(const char *filename, int flags, int mode);
 static void sys_close(int fd);
+static int sys_getcwd(char *buf, size_t lim);
+static int sys_chdir(const char *path);
 static int sys_stat(const char *filename, struct stat *st);
 static void sys_exit(int status);
 static int sys_kill(int pid, int signum);
@@ -50,6 +52,10 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
         return sys_execve((const char *) rdi, NULL, NULL);
     case SYSCALL_NR_READDIR:
         return sys_readdir((int) rdi, (struct dirent *) rsi);
+    case SYSCALL_NR_GETCWD:
+        return sys_getcwd((char *) rdi, (size_t) rsi);
+    case SYSCALL_NR_CHDIR:
+        return sys_chdir((const char *) rdi);
 
     case SYSCALL_NRX_SIGNAL:
         sys_signal(rdi);
@@ -135,6 +141,31 @@ static ssize_t sys_readdir(int fd, struct dirent *ent) {
     memcpy(ent, src, sizeof(struct dirent) + strlen(src->d_name));
 
     return src->d_reclen;
+}
+
+static int sys_chdir(const char *filename) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    _assert(filename);
+
+    return vfs_chdir(&thr->ioctx, filename);
+}
+
+// Kinda incompatible with linux, but who cares as long as it's
+// POSIX on the libc side
+static int sys_getcwd(char *buf, size_t lim) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    _assert(buf);
+
+    // TODO: actually implement this
+    if (lim < 4) {
+        return -1;
+    }
+
+    strcpy(buf, "???");
+
+    return 0;
 }
 
 static int sys_open(const char *filename, int flags, int mode) {

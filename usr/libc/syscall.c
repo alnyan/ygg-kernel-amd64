@@ -113,6 +113,18 @@ int getpid(void) {
     return ASM_SYSCALL0(SYSCALL_NR_GETPID);
 }
 
+int chdir(const char *filename) {
+    return SET_ERRNO(int, ASM_SYSCALL1(SYSCALL_NR_CHDIR, filename));
+}
+
+char *getcwd(char *buf, size_t lim) {
+    if (SET_ERRNO(int, ASM_SYSCALL2(SYSCALL_NR_GETCWD, buf, lim)) == 0) {
+        return buf;
+    } else {
+        return NULL;
+    }
+}
+
 // Although sbrk() is implemented in userspace, I guess it should also be here
 void *sbrk(intptr_t inc) {
     if (inc == 0) {

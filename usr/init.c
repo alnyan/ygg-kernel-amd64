@@ -75,8 +75,26 @@ static int cmd_exec(const char *cmd) {
         return 0;
     }
 
-    if (!strcmp(cmd, "ls") || !strncmp(cmd, "ls ", 3)) {
+    if (!strcmp(cmd, "cd") || !strncmp(cmd, "cd ", 3)) {
         const char *path = cmd[2] ? cmd + 3 : "/";
+        int res = chdir(path);
+
+        if (res < 0) {
+            perror(path);
+        }
+        return res;
+    }
+
+    if (!strcmp(cmd, "pwd")) {
+        char buf[512];
+        if (getcwd(buf, sizeof(buf))) {
+            puts(buf);
+        }
+        return 0;
+    }
+
+    if (!strcmp(cmd, "ls") || !strncmp(cmd, "ls ", 3)) {
+        const char *path = cmd[2] ? cmd + 3 : ".";
         DIR *dir;
         struct dirent *ent;
 

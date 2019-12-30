@@ -101,9 +101,6 @@ void vnode_unref(vnode_t *vn) {
         return;
     }
 
-    // TODO: don't free root nodes
-    char buf[1024];
-    vfs_vnode_path(buf, vn);
     struct vfs_node *node = (struct vfs_node *) vn->tree_node;
     if (!node->parent) {
         return;
@@ -117,7 +114,6 @@ void vnode_unref(vnode_t *vn) {
                 return;
             }
 
-            kdebug("free %s\n", buf);
             // Free vnode
             vnode_free(vn);
         }
