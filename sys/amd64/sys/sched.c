@@ -118,14 +118,16 @@ void init_func(void *arg) {
         // Free memory
         kfree(exec_buf);
 
+        // FIXME: this way of opening requires devfs to be mounted at /dev, I guess
+        //        I can just have dev_entry have a vnode for each of them (and remove
+        //        ones used in devfs mapper)
         // Set tty0 input
-        init_thread->fds[0].flags = O_RDONLY;
-        init_thread->fds[0].vnode = tty0;
-        init_thread->fds[0].pos = 0;
-
-        init_thread->fds[1].flags = O_WRONLY;
-        init_thread->fds[1].vnode = tty0;
-        init_thread->fds[1].pos = 0;
+        if ((res = vfs_open(&init_thread->ioctx, &init_thread->fds[0], "/dev/tty0", O_RDONLY, 0)) < 0) {
+            panic("Failed to set up tty0 for input: %s\n", kstrerror(res));
+        }
+        if ((res = vfs_open(&init_thread->ioctx, &init_thread->fds[1], "/dev/tty0", O_WRONLY, 0)) < 0) {
+            panic("Failed to set up tty0 for output: %s\n", kstrerror(res));
+        }
 
         kdebug("Done\n");
         sched_add_to(0, init_thread);

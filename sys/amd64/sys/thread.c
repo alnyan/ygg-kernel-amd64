@@ -291,13 +291,12 @@ int sys_fork(void) {
     memset(&thr_dst->ioctx, 0, sizeof(thr_dst->ioctx));
     memset(thr_dst->fds, 0, sizeof(thr_dst->fds));
 
-    thr_dst->fds[0].flags = O_RDONLY;
-    thr_dst->fds[0].vnode = tty0;
-    thr_dst->fds[0].pos = 0;
-
-    thr_dst->fds[1].flags = O_WRONLY;
-    thr_dst->fds[1].vnode = tty0;
-    thr_dst->fds[1].pos = 0;
+    if ((res = vfs_open(&thr_dst->ioctx, &thr_dst->fds[0], "/dev/tty0", O_RDONLY, 0)) < 0) {
+        panic("Failed to set up tty0 for input: %s\n", kstrerror(res));
+    }
+    if ((res = vfs_open(&thr_dst->ioctx, &thr_dst->fds[1], "/dev/tty0", O_WRONLY, 0)) < 0) {
+        panic("Failed to set up tty0 for output: %s\n", kstrerror(res));
+    }
 
     sched_add(thr_dst);
 

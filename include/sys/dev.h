@@ -15,6 +15,8 @@ enum dev_class {
 #define DEV_BLOCK_PART      127
 #define DEV_BLOCK_PSEUDO    128
 
+#define DEV_CHAR_TTY        1
+
 struct dev_entry {
     char dev_name[64];
 
