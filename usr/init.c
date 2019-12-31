@@ -37,6 +37,7 @@ static int b_pwd(const char *_);
 static int b_cat(const char *path);
 static int b_curs(const char *arg);
 static int b_sleep(const char *arg);
+static int b_help(const char *arg);
 
 static struct builtin builtins[] = {
     {
@@ -68,6 +69,11 @@ static struct builtin builtins[] = {
         "sleep",
         "Sleep N seconds",
         b_sleep
+    },
+    {
+        "help",
+        "Please help me",
+        b_help
     },
     { NULL, NULL, NULL }
 };
@@ -206,6 +212,27 @@ static int b_sleep(const char *arg) {
     }
 
     return 0;
+}
+
+static int b_help(const char *arg) {
+    if (arg) {
+        // Describe a specific command
+        for (size_t i = 0; builtins[i].run; ++i) {
+            if (!strcmp(arg, builtins[i].name)) {
+                printf("%s: %s\n", builtins[i].name, builtins[i].desc);
+                return 0;
+            }
+        }
+
+        printf("%s: Unknown command\n", arg);
+        return -1;
+    } else {
+        for (size_t i = 0; builtins[i].run; ++i) {
+            printf("%s: %s\n", builtins[i].name, builtins[i].desc);
+        }
+
+        return 0;
+    }
 }
 
 static void prompt(void) {
