@@ -3,6 +3,7 @@
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 
 ssize_t read(int fd, void *buf, size_t count);
 ssize_t write(int fd, const void *buf, size_t count);
@@ -19,5 +20,6 @@ __attribute__((noreturn)) void __kernel_sigret(void);
 int getpid(void);
 int chdir(const char *filename);
 char *getcwd(char *buf, size_t size);
+int nanosleep(const struct timespec *req, struct timespec *rem);
 
 __attribute__((noreturn)) void exit(int code);

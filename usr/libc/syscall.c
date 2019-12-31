@@ -125,6 +125,10 @@ char *getcwd(char *buf, size_t lim) {
     }
 }
 
+int nanosleep(const struct timespec *req, struct timespec *rem) {
+    return SET_ERRNO(int, ASM_SYSCALL2(SYSCALL_NR_NANOSLEEP, req, rem));
+}
+
 // Although sbrk() is implemented in userspace, I guess it should also be here
 void *sbrk(intptr_t inc) {
     if (inc == 0) {

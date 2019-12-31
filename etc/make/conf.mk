@@ -15,6 +15,8 @@ ifdef KERNEL_TEST_MODE
 CFLAGS+=-DKERNEL_TEST_MODE
 endif
 
+CFLAGS+=-D__KERNEL__
+
 # DIRS+=$(O)/sys \
 # 	  $(O)/sys/vfs \
 # 	  $(O)/sys/vfs/ext2 \

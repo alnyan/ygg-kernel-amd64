@@ -12,6 +12,7 @@
 #include "sys/tty.h"
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/mm/map.h"
+#include "sys/time.h"
 
 static ssize_t sys_read(int fd, void *buf, size_t lim);
 static ssize_t sys_write(int fd, const void *buf, size_t lim);
@@ -25,6 +26,8 @@ static int sys_stat(const char *filename, struct stat *st);
 static void sys_exit(int status);
 static int sys_kill(int pid, int signum);
 static int sys_brk(void *ptr);
+static int sys_nanosleep(const struct timespec *req, struct timespec *rem);
+static int sys_gettimeofday(struct timeval *tv, struct timezone *tz);
 
 extern int sys_execve(const char *filename, const char *const argv[], const char *const envp[]);
 
@@ -62,6 +65,8 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
         return 0;
     case SYSCALL_NR_BRK:
         return sys_brk((void *) rdi);
+    case SYSCALL_NR_NANOSLEEP:
+        return sys_nanosleep((const struct timespec *) rdi, (struct timespec *) rsi);
     case SYSCALL_NR_GETPID:
         {
             struct thread *t = get_cpu()->thread;
@@ -73,6 +78,8 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
         amd64_syscall_yield_stopped();
     case SYSCALL_NR_KILL:
         return sys_kill((int) rdi, (int) rsi);
+    case SYSCALL_NR_GETTIMEOFDAY:
+        return sys_gettimeofday((struct timeval *) rdi, (struct timezone *) rsi);
     case SYSCALL_NRX_SIGRET:
         sys_sigret();
         return 0;
@@ -312,7 +319,40 @@ static int sys_kill(int pid, int signum) {
     return 0;
 }
 
-extern void amd64_syscall_iretq(uintptr_t ctx);
+static int sys_nanosleep(const struct timespec *req, struct timespec *rem) {
+    struct thread *cur_thread = get_cpu()->thread;
+    _assert(cur_thread);
+
+    uint64_t time_now = system_time;
+    uint64_t deadline = time_now + req->tv_sec * 1000000000ULL + req->tv_nsec;
+
+    // Make sure scheduler won't select a waiting thread
+    cur_thread->flags |= THREAD_WAITING;
+
+    while (1) {
+        // TODO: interruptible sleep
+        if (system_time >= deadline) {
+            break;
+        }
+        asm volatile ("sti; hlt; cli");
+    }
+
+    cur_thread->flags &= ~THREAD_WAITING;
+
+    return 0;
+}
+
+static int sys_gettimeofday(struct timeval *tv, struct timezone *tz) {
+    tz->tz_dsttime = 0;
+    tz->tz_minuteswest = 0;
+
+    // System time is in nanos
+    // TODO: use RTC-provided time for full system time
+    tv->tv_usec = (system_time / 1000) % 1000000;
+    tv->tv_sec = system_time / 1000000000ULL;
+
+    return 0;
+}
 
 static void sys_sigret(void) {
     struct thread *thr = get_cpu()->thread;

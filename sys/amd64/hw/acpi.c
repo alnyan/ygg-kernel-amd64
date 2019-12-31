@@ -122,6 +122,14 @@ void amd64_acpi_init(void) {
             }
 
             acpi_fadt = (struct acpi_fadt *) hdr;
+        } else if (!strncmp((const char *) hdr, "HPET", 4)) {
+            kdebug("Found HPET = %p\n", entry_addr);
+            if (checksum(hdr, hdr->length) != 0) {
+                kdebug("Entry is invalid\n");
+                while (1);
+            }
+
+            // ...
         }
     }
 

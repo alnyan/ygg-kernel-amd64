@@ -36,6 +36,7 @@ static int b_cd(const char *path);
 static int b_pwd(const char *_);
 static int b_cat(const char *path);
 static int b_curs(const char *arg);
+static int b_sleep(const char *arg);
 
 static struct builtin builtins[] = {
     {
@@ -62,6 +63,11 @@ static struct builtin builtins[] = {
         "curs",
         "Cursor demo",
         b_curs,
+    },
+    {
+        "sleep",
+        "Sleep N seconds",
+        b_sleep
     },
     { NULL, NULL, NULL }
 };
@@ -178,6 +184,26 @@ static int b_curs(const char *arg) {
     }
 
     curs_set(1, 1);
+
+    return 0;
+}
+
+static int b_sleep(const char *arg) {
+    if (!arg) {
+        return -1;
+    }
+    int seconds = 0;
+    while (*arg) {
+        seconds *= 10;
+        seconds += *arg - '0';
+        ++arg;
+    }
+
+    struct timespec ts = { seconds, 0 };
+    if ((seconds = nanosleep(&ts, NULL))) {
+        perror("nanosleep()");
+        return seconds;
+    }
 
     return 0;
 }
