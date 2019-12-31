@@ -38,6 +38,7 @@ static int b_cat(const char *path);
 static int b_curs(const char *arg);
 static int b_sleep(const char *arg);
 static int b_help(const char *arg);
+static int b_clear(const char *arg);
 
 static struct builtin builtins[] = {
     {
@@ -69,6 +70,11 @@ static struct builtin builtins[] = {
         "sleep",
         "Sleep N seconds",
         b_sleep
+    },
+    {
+        "clear",
+        "Clear terminal",
+        b_clear,
     },
     {
         "help",
@@ -211,6 +217,12 @@ static int b_sleep(const char *arg) {
         return seconds;
     }
 
+    return 0;
+}
+
+static int b_clear(const char *arg) {
+    clear();
+    curs_set(1, 1);
     return 0;
 }
 

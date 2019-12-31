@@ -8,6 +8,8 @@ project which tries to follow the Unix principles (sheesh, yet
 another POSIX OS?) and is loosely inspired by stuff like Linux,
 BSD and other *nixes I've laid my hands on so far.
 
+![alt text](doc/demo0.png "Demo")
+
 Building
 --------
 
