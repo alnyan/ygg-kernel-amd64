@@ -165,6 +165,13 @@ uint16_t *memsetw(uint16_t *blk, uint16_t v, size_t sz) {
     return blk;
 }
 
+uint32_t *memsetl(uint32_t *blk, uint32_t v, size_t sz) {
+    for (size_t i = 0; i < sz; ++i) {
+        blk[i] = v;
+    }
+    return blk;
+}
+
 void *memcpy(void *dst, const void *src, size_t sz) {
     for (size_t i = 0; i < sz; ++i) {
         ((char *) dst)[i] = ((const char *) src)[i];

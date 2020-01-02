@@ -65,3 +65,8 @@ What works: devices
 * RTL8139 Network Controller - both Tx/Rx
 * AHCI SATA controllers (R/O)
 * IDE controllers (R/O)
+
+Credits
+-------
+
+* Linux for default8x16 font

@@ -1,14 +1,31 @@
 .set ALIGN,     1 << 0
 .set MEMINFO,   1 << 1
-.set FLAGS,     ALIGN | MEMINFO
+.set VIDEO,     1 << 2
+.set FLAGS,     ALIGN | VIDEO | MEMINFO
 .set MAGIC,     0x1BADB002
 .set CHECKSUM,  -(MAGIC + FLAGS)
+
+.set VIDEO_LFB,     0
+.set VIDEO_EGA,     1
+.set VIDEO_MODE,    VIDEO_LFB
+.set VIDEO_WIDTH,   1920
+.set VIDEO_HEIGHT,  1080
+.set VIDEO_DEPTH,   32
 
 .section .multiboot
 .align 4
 .long MAGIC
 .long FLAGS
 .long CHECKSUM
+.long 0             // header_addr
+.long 0             // load_addr
+.long 0             // load_end_addr
+.long 0             // bss_end_addr
+.long 0             // entry_addr
+.long VIDEO_MODE
+.long VIDEO_WIDTH
+.long VIDEO_HEIGHT
+.long VIDEO_DEPTH
 
 .section .bss
 stack_bottom:

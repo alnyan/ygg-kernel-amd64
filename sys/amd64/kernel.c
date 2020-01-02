@@ -1,6 +1,7 @@
 #include "sys/debug.h"
 #include "sys/amd64/loader/multiboot.h"
 #include "sys/amd64/hw/gdt.h"
+#include "sys/amd64/hw/vesa.h"
 #include "sys/amd64/syscall.h"
 #include "sys/amd64/hw/idt.h"
 #include "sys/amd64/mm/mm.h"
@@ -38,6 +39,7 @@ void kernel_main(struct amd64_loader_data *data) {
     amd64_idt_init();
     amd64_mm_init(data);
     amd64_acpi_init();
+    amd64_vesa_init(multiboot_info);
     amd64_con_init();
 
     amd64_apic_init();

@@ -23,11 +23,23 @@ $(O)/sys/%.o: sys/%.c $(HEADERS) config
 
 $(O)/sys/amd64/hw/ap_code_blob.o: $(O)/sys/amd64/hw/ap_code.bin config
 	@printf " AS\t%s\n" $(@:$(O)/%=%)
-	@$(CC64) $(kernel_CFLAGS) -c -DAP_CODE_BIN='"$<"' -o $@ sys/amd64/hw/ap_code_blob.S
+	@$(CC64) $(kernel_CFLAGS) -c \
+		-DINCBIN_FILE='"$<"' \
+		-DINCBIN_START="amd64_ap_code_start" \
+		-DINCBIN_END="amd64_ap_code_end" \
+		-o $@ sys/amd64/incbin.S
 
 $(O)/sys/amd64/hw/ap_code.bin: sys/amd64/hw/ap_code.nasm config
 	@printf " NASM\t%s\n" $(@:$(O)/%=%)
 	@nasm -f bin -o $@ $<
+
+$(O)/sys/font/%.o: etc/%.psfu config
+	@printf " FONT\t%s\n" $(@:$(O)/%.o=%.psfu)
+	@$(CC64) $(kernel_CFLAGS) -c \
+		-DINCBIN_FILE='"$<"' \
+		-DINCBIN_START="_psf_start" \
+		-DINCBIN_END="_psf_end" \
+		-o $@ sys/amd64/incbin.S
 
 ### Kernel loader build
 TARGETS+=$(O)/sys/amd64/image.iso

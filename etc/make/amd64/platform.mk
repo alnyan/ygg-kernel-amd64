@@ -52,7 +52,8 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/sys/binfmt_elf.o \
 	  $(O)/sys/amd64/hw/rtc.o \
 	  $(O)/sys/amd64/hw/pfault_s.o \
-	  $(O)/sys/amd64/hw/pfault.o
+	  $(O)/sys/amd64/hw/pfault.o \
+	  $(O)/sys/amd64/hw/vesa.o
 
 kernel_LINKER=sys/amd64/link.ld
 kernel_LDFLAGS=-nostdlib \
@@ -99,4 +100,5 @@ DIRS+=$(O)/sys/amd64/image/boot/grub \
 	  $(O)/sys/amd64/mm \
 	  $(O)/sys/amd64/hw/pci \
 	  $(O)/sys/amd64/hw/ide \
+	  $(O)/sys/font \
 	  $(ACPICA_OBJD)
