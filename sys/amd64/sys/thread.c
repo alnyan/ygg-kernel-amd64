@@ -2,6 +2,7 @@
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/mm/pool.h"
 #include "sys/amd64/mm/map.h"
+#include "sys/amd64/syscall.h"
 #include "sys/binfmt_elf.h"
 #include "sys/amd64/cpu.h"
 #include "sys/assert.h"
@@ -274,7 +275,6 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
     _assert(elf_load(thr, file_buf) == 0);
     kfree(file_buf);
 
-    extern void amd64_syscall_iretq(struct cpu_context *ctx);
     amd64_syscall_iretq(ctx);
 
     panic("This code should not execute\n");
