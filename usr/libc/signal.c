@@ -11,20 +11,20 @@ void SIG_IGN(int signum) {
 }
 
 void SIG_DFL(int signum) {
-    // TODO: use getpid()
+    int pid = getpid();
 
     switch (signum) {
     case SIGKILL:
-        printf(": killed\n");
+        printf("%d: killed\n", pid);
         break;
     case SIGABRT:
-        printf(": aborted\n");
+        printf("%d: aborted\n", pid);
         break;
     case SIGSEGV:
-        printf(": segmentation fault\n");
+        printf("%d: segmentation fault\n", pid);
         break;
     default:
-        printf(": signal %d\n", signum);
+        printf("%d: signal %d\n", pid, signum);
         break;
     }
 

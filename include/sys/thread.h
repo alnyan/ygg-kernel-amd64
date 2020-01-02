@@ -33,9 +33,9 @@ struct thread {
     struct vfs_ioctx ioctx;
     struct ofile fds[4];
 
-    // Signal processing queue
-    int sigqueue[8];
-    size_t sigqsz;
+    // Signals
+    uint32_t sigq;
+
     // Signal handler stack and entry
     uintptr_t sigentry;
     uintptr_t sigstack;

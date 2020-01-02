@@ -288,6 +288,8 @@ int main(int argc, char **argv) {
     size_t l = 0;
     int res;
 
+    abort();
+
     prompt();
     while (1) {
         if (read(STDIN_FILENO, &c, 1) < 0) {

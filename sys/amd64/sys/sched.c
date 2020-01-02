@@ -305,14 +305,22 @@ int sched(void) {
         amd64_thread_sigret(to);
     }
 
-    if (to->sigqsz) {
+    if (to->sigq) {
         // Should we enter signal handler?
-        int signum = to->sigqueue[0];
-        --to->sigqsz;
-        // Shift the queue
-        for (size_t i = 0; i < to->sigqsz; ++i) {
-            to->sigqueue[i] = to->sigqueue[i + 1];
+        int signum = 0;
+        if (to->sigq & (1 << 8)) {
+            // SIGKILL
+            panic("TODO: properly handle SIGKILL\n");
         }
+
+        for (size_t i = 0; i < 32; ++i) {
+            if (to->sigq & (1 << i)) {
+                signum = i + 1;
+                to->sigq &= ~(1 << i);
+                break;
+            }
+        }
+        _assert(signum);
 
         amd64_thread_sigenter(to, signum);
     }

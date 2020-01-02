@@ -129,7 +129,7 @@ int thread_init(
         t->space = space;
         t->flags = flags;
         t->next = NULL;
-        t->sigqsz = 0;
+        t->sigq = 0;
 
         memset(&t->ioctx, 0, sizeof(t->ioctx));
         memset(t->fds, 0, sizeof(t->fds));
@@ -164,12 +164,8 @@ void thread_cleanup(struct thread *t) {
 // TODO: may be moved to platform-independent file
 void thread_signal(struct thread *t, int s) {
     _assert(t);
-
-    if (t->sigqsz == 8) {
-        panic("Thread received too many unhandled signals\n");
-    }
-
-    t->sigqueue[t->sigqsz++] = s;
+    _assert(s > 0 && s <= 32);
+    t->sigq |= (1 << (s - 1));
 }
 
 int sys_execve(const char *filename, const char *const argv[], const char *const envp[]) {
