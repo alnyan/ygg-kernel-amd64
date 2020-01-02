@@ -7,3 +7,7 @@ export AMD64_TRACE_IRQ=1
 # Emulation
 export QEMU_SMP=4
 # export QEMU_MEM=512
+export VESA_MODE=0
+export VESA_WIDTH=1024
+export VESA_HEIGHT=768
+export VESA_DEPTH=32

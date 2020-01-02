@@ -67,11 +67,11 @@ $(O)/sys/amd64/loader.elf: $(loader_OBJS) $(loader_LINKER) config
 
 $(O)/sys/amd64/loader/%.o: sys/amd64/loader/%.S $(HEADERS) config
 	@printf " AS\t%s\n" $(@:$(O)/%=%)
-	@$(CC86) $(loader_CFLAGS) -D__ASM__ -c -o $@ $<
+	@$(CC86) $(loader_CFLAGS) $(DEFINES) -D__ASM__ -c -o $@ $<
 
 $(O)/sys/amd64/loader/%.o: sys/amd64/loader/%.c $(HEADERS) config
 	@printf " CC\t%s\n" $(@:$(O)/%=%)
-	@$(CC86) $(loader_CFLAGS) -c -o $@ $<
+	@$(CC86) $(loader_CFLAGS) $(DEFINES) -c -o $@ $<
 
 ### Initrd building
 amd64_mkstage:

@@ -1,14 +1,19 @@
 #include "sys/amd64/hw/con.h"
-#include "sys/amd64/hw/vesa.h"
 #include "sys/string.h"
 #include "sys/types.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
-#include "sys/font/logo.h"
 #include "sys/panic.h"
 #include "sys/amd64/hw/io.h"
 #include "sys/psf.h"
 #include "sys/mm.h"
+
+#if defined(VESA_ENABLE)
+#include "sys/font/logo.h"
+#include "sys/amd64/hw/vesa.h"
+#else
+#define vesa_available 0
+#endif
 
 #define ESC_ESC     1
 #define ESC_CSI     2
@@ -53,6 +58,7 @@ static uint16_t attr = ATTR_DEFAULT;
 static void setc(uint16_t row, uint16_t col, uint16_t v);
 
 void con_blink(void) {
+#if defined(VESA_ENABLE)
     if (vesa_available) {
         uint32_t fg = rgb_map[(attr >> 8) & 0xF];
         uint32_t bg = rgb_map[(attr >> 12) & 0xF];
@@ -64,6 +70,7 @@ void con_blink(void) {
             psf_draw(y, x, ' ', fg, bg);
         }
     }
+#endif
 }
 
 static void amd64_con_moveto(uint8_t row, uint8_t col) {
@@ -96,11 +103,13 @@ static void amd64_scroll_down(void) {
 static void clear(void) {
     memsetw(con_buffer, attr, con_width * con_height);
 
+#if defined(VESA_ENABLE)
     if (vesa_available) {
         for (size_t i = 0; i < vesa_height; ++i) {
             memsetl((uint32_t *) (vesa_addr + vesa_pitch * i), rgb_map[(attr >> 12) & 0xF], vesa_width);
         }
     }
+#endif
 }
 
 //static void clear_line(uint16_t row) {
@@ -307,6 +316,7 @@ void amd64_con_putc(int c) {
 }
 
 void amd64_con_init(void) {
+#if defined(VESA_ENABLE)
     if (vesa_available) {
         psf_init(vesa_addr, vesa_pitch, &char_width, &char_height);
 
@@ -314,6 +324,9 @@ void amd64_con_init(void) {
         con_height = vesa_height / char_height;
         con_buffer = (uint16_t *) kmalloc(con_width * con_height * 2);
     } else {
+#else
+    {
+#endif
         con_buffer = (uint16_t *) MM_VIRTUALIZE(CGA_BUFFER_ADDR);
         con_width = 80;
         con_height = 25;
@@ -322,6 +335,7 @@ void amd64_con_init(void) {
 
     clear();
 
+#if defined(VESA_ENABLE)
     if (vesa_available) {
         y = FONT_LOGO_HEIGHT / char_height;
         char pixel[4];
@@ -337,6 +351,5 @@ void amd64_con_init(void) {
             }
         }
     }
-
-    kinfo("Test\n");
+#endif
 }

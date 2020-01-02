@@ -7,6 +7,12 @@ AMD64_KERNEL_STACK?=65536			# Kernel stack size (when bootstrapping + task kstac
 QEMU_MEM?=512
 QEMU_SMP?=2
 
+VESA_ENABLE?=0
+VESA_MODE?=0
+VESA_WIDTH?=1024
+VESA_HEIGHT?=768
+VESA_DEPTH?=32
+
 ### From config
 ifdef AMD64_TRACE_IRQ
 DEFINES+=-DAMD64_TRACE_IRQ
@@ -29,6 +35,15 @@ endif
 
 ifdef ENABLE_RTL8139
 OBJS+=$(O)/sys/amd64/hw/pci/rtl8139.o
+endif
+
+ifeq ($(VESA_ENABLE),1)
+DEFINES+=-DVESA_MODE=$(VESA_MODE) \
+		 -DVESA_WIDTH=$(VESA_WIDTH) \
+		 -DVESA_HEIGHT=$(VESA_HEIGHT) \
+		 -DVESA_DEPTH=$(VESA_DEPTH) \
+		 -DVESA_ENABLE=1
+OBJS+=$(O)/sys/amd64/hw/vesa.o
 endif
 
 DEFINES+=-DAMD64_KERNEL_STACK=$(AMD64_KERNEL_STACK)

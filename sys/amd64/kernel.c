@@ -39,7 +39,9 @@ void kernel_main(struct amd64_loader_data *data) {
     amd64_idt_init();
     amd64_mm_init(data);
     amd64_acpi_init();
+#if defined(VESA_ENABLE)
     amd64_vesa_init(multiboot_info);
+#endif
     amd64_con_init();
 
     amd64_apic_init();

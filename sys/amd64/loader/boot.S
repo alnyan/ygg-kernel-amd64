@@ -1,16 +1,13 @@
 .set ALIGN,     1 << 0
 .set MEMINFO,   1 << 1
 .set VIDEO,     1 << 2
+#if defined(VESA_ENABLE)
 .set FLAGS,     ALIGN | VIDEO | MEMINFO
+#else
+.set FLAGS,     ALIGN | MEMINFO
+#endif
 .set MAGIC,     0x1BADB002
 .set CHECKSUM,  -(MAGIC + FLAGS)
-
-.set VIDEO_LFB,     0
-.set VIDEO_EGA,     1
-.set VIDEO_MODE,    VIDEO_LFB
-.set VIDEO_WIDTH,   1920
-.set VIDEO_HEIGHT,  1080
-.set VIDEO_DEPTH,   32
 
 .section .multiboot
 .align 4
@@ -22,10 +19,12 @@
 .long 0             // load_end_addr
 .long 0             // bss_end_addr
 .long 0             // entry_addr
-.long VIDEO_MODE
-.long VIDEO_WIDTH
-.long VIDEO_HEIGHT
-.long VIDEO_DEPTH
+#if defined(VESA_ENABLE)
+.long VESA_MODE
+.long VESA_WIDTH
+.long VESA_HEIGHT
+.long VESA_DEPTH
+#endif
 
 .section .bss
 stack_bottom:

@@ -68,10 +68,14 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/net/in.o \
 	  $(O)/sys/net/netdev.o \
 	  $(O)/sys/vfs/devfs.o \
-	  $(O)/sys/vfs/pseudo.o \
-	  $(O)/sys/psf.o \
+	  $(O)/sys/vfs/pseudo.o
+
+ifeq ($(VESA_ENABLE),1)
+OBJS+=$(O)/sys/psf.o \
 	  $(O)/sys/font/default8x16.o \
 	  $(O)/sys/font/logo.o
+endif
+
 DIRS+=$(O)/sys/vfs/ext2 \
 	  $(O)/sys/net \
 	  $(O)/sys/blk
