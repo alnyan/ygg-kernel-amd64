@@ -183,7 +183,12 @@ static int b_curs(const char *arg) {
     while (1) {
         // Draw some kind of status bar
         curs_set(25, 1);
-        printf("\033[7m This is statusbar\033[K\033[0m");
+        printf("\033[7m This is statusbar\033[K");
+        if (c >= ' ') {
+            curs_set(25, 79);
+            printf("%c\033[0m", c);
+        }
+        printf("\033[0m");
         curs_set(1, 1);
 
         if (read(STDIN_FILENO, &c, 1) < 0) {

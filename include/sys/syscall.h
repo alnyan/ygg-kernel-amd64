@@ -18,4 +18,6 @@
 #define SYSCALL_NR_EXIT         60
 #define SYSCALL_NR_KILL         62
 #define SYSCALL_NR_GETTIMEOFDAY 96
+
+#define SYSCALL_NRX_OPENPTY     118
 #define SYSCALL_NRX_SIGRET      119

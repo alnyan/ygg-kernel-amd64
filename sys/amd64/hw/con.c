@@ -227,8 +227,8 @@ static void process_csi(void) {
         break;
     case 'f':
         // Set cursor position
-        y = (esc_argv[0] - 1) % con_width;
-        x = (esc_argv[1] - 1) % (con_height - 1);
+        y = (esc_argv[0] - 1) % con_height;
+        x = (esc_argv[1] - 1) % (con_width - 1);
         amd64_con_moveto(y, x);
         break;
     case 's':

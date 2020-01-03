@@ -68,7 +68,8 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/net/in.o \
 	  $(O)/sys/net/netdev.o \
 	  $(O)/sys/vfs/devfs.o \
-	  $(O)/sys/vfs/pseudo.o
+	  $(O)/sys/vfs/pseudo.o \
+	  $(O)/sys/vfs/pty.o
 
 ifeq ($(VESA_ENABLE),1)
 OBJS+=$(O)/sys/psf.o \

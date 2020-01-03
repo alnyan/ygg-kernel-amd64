@@ -129,6 +129,10 @@ int nanosleep(const struct timespec *req, struct timespec *rem) {
     return SET_ERRNO(int, ASM_SYSCALL2(SYSCALL_NR_NANOSLEEP, req, rem));
 }
 
+int openpty(int *master, int *slave) {
+    return SET_ERRNO(int, ASM_SYSCALL2(SYSCALL_NRX_OPENPTY, master, slave));
+}
+
 // Although sbrk() is implemented in userspace, I guess it should also be here
 void *sbrk(intptr_t inc) {
     if (inc == 0) {

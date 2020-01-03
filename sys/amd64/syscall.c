@@ -12,6 +12,7 @@
 #include "sys/tty.h"
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/mm/map.h"
+#include "sys/fs/pty.h"
 #include "sys/time.h"
 
 static ssize_t sys_read(int fd, void *buf, size_t lim);
@@ -28,6 +29,9 @@ static int sys_kill(int pid, int signum);
 static int sys_brk(void *ptr);
 static int sys_nanosleep(const struct timespec *req, struct timespec *rem);
 static int sys_gettimeofday(struct timeval *tv, struct timezone *tz);
+
+// TODO: const struct termios *termp, const struct winsize *winp
+static int sys_openpty(int *master, int *slave);
 
 extern int sys_execve(const char *filename, const char *const argv[], const char *const envp[]);
 
@@ -80,9 +84,12 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
         return sys_kill((int) rdi, (int) rsi);
     case SYSCALL_NR_GETTIMEOFDAY:
         return sys_gettimeofday((struct timeval *) rdi, (struct timezone *) rsi);
+
     case SYSCALL_NRX_SIGRET:
         sys_sigret();
         return 0;
+    case SYSCALL_NRX_OPENPTY:
+        return sys_openpty((int *) rdi, (int *) rsi);
 
     default:
         kerror("unknown syscall: %u\n", rax);
@@ -206,6 +213,48 @@ static int sys_open(const char *filename, int flags, int mode) {
     } else {
         return -1;
     }
+}
+
+static int sys_openpty(int *master, int *slave) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    // Find two free file descriptors
+    int fd_master = -1, fd_slave = -1;
+    int res;
+
+    for (int i = 0; i < 4; ++i) {
+        if (!thr->fds[i].vnode) {
+            if (fd_master == -1) {
+                fd_master = i;
+                continue;
+            }
+            fd_slave = i;
+            break;
+        }
+    }
+
+    if (fd_master == -1 || fd_slave == -1) {
+        return -EMFILE;
+    }
+
+    struct ofile *of_master = &thr->fds[fd_master];
+    struct ofile *of_slave = &thr->fds[fd_slave];
+
+    struct pty *pty = pty_create();
+    _assert(pty);
+
+    of_master->vnode = pty->master;
+    of_master->flags = O_RDWR;
+    of_master->pos = 0;
+
+    of_slave->vnode = pty->slave;
+    of_slave->flags = O_RDWR;
+    of_slave->pos = 0;
+
+    *master = fd_master;
+    *slave = fd_slave;
+
+    return 0;
 }
 
 static void sys_close(int fd) {

@@ -21,5 +21,6 @@ int getpid(void);
 int chdir(const char *filename);
 char *getcwd(char *buf, size_t size);
 int nanosleep(const struct timespec *req, struct timespec *rem);
+int openpty(int *amaster, int *aslave);
 
 __attribute__((noreturn)) void exit(int code);
