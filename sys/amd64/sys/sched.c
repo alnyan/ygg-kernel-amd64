@@ -26,13 +26,13 @@ static size_t sched_queue_sizes[AMD64_MAX_SMP] = { 0 };
 static size_t sched_ncpus = 1;
 static spin_t sched_lock = 0;
 
-#define IDLE_STACK  32768
+#define IDLE_STACK  4096
 #define INIT_STACK  32768
 
 // Testing
-static char t_stack0[IDLE_STACK * AMD64_MAX_SMP] = {0};
+static char t_stack0[IDLE_STACK] = {0};
 static char t_stack1[INIT_STACK] = {0};
-static struct thread t_idle[AMD64_MAX_SMP] = {0};
+static struct thread t_idle = {0};
 static struct thread t_init = {0};
 
 void idle_func(uintptr_t id) {
@@ -220,20 +220,16 @@ void sched_add(struct thread *t) {
 }
 
 void sched_init(void) {
-    for (size_t i = 0; i < sched_ncpus; ++i) {
-        thread_init(
-                &t_idle[i],
-                mm_kernel,
-                (uintptr_t) idle_func,
-                (uintptr_t) &t_stack0[IDLE_STACK * i],
-                IDLE_STACK,
-                0,
-                0,
-                THREAD_KERNEL,
-                (void *) (uintptr_t) i);
-
-        sched_add_to(i, &t_idle[i]);
-    }
+    thread_init(
+            &t_idle,
+            mm_kernel,
+            (uintptr_t) idle_func,
+            (uintptr_t) t_stack0,
+            IDLE_STACK,
+            0,
+            0,
+            THREAD_KERNEL,
+            NULL);
 
     // Also start [init] on cpu0
     thread_init(
@@ -289,6 +285,10 @@ int sched(void) {
     int cpu = get_cpu()->processor_id;
     uintptr_t flags;
 
+    if (from == &t_idle) {
+        from = NULL;
+    }
+
     if (from && from->next) {
         to = from->next;
     } else {
@@ -297,7 +297,8 @@ int sched(void) {
 
     // Empty scheduler queue
     if (!to) {
-        return -1;
+        to = &t_idle;
+        return 0;
     }
 
     if (to->flags & THREAD_SIGRET) {
