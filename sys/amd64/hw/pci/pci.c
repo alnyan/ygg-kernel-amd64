@@ -224,7 +224,7 @@ static void pci_enumerate_func(pci_addr_t addr) {
         pci_init_func_t func = pci_find_driver(id, kind >> 16);
 
         if (!func) {
-            kwarn("[" PCI_FMTADDR "] (No driver found)\n", PCI_VAADDR(addr));
+            kwarn("[" PCI_FMTADDR "] %04x:%04x (No driver found)\n", PCI_VAADDR(addr), id & 0xFFFF, id >> 16);
         } else {
             func(addr);
         }
