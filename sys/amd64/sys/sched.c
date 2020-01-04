@@ -38,7 +38,7 @@ static unsigned int system_state = 0;
 // Testing
 static char t_stack0[IDLE_STACK] = {0};
 static char t_stack1[INIT_STACK] = {0};
-static struct thread t_idle = {0};
+static struct thread t_idle[AMD64_MAX_SMP] = {0};
 static struct thread t_init = {0};
 static struct thread *t_user_init = NULL;
 
@@ -230,16 +230,18 @@ void sched_add(struct thread *t) {
 }
 
 void sched_init(void) {
-    thread_init(
-            &t_idle,
-            mm_kernel,
-            (uintptr_t) idle_func,
-            (uintptr_t) t_stack0,
-            IDLE_STACK,
-            0,
-            0,
-            THREAD_KERNEL,
-            NULL);
+    for (size_t i = 0; i < sched_ncpus; ++i) {
+        thread_init(
+                &t_idle[i],
+                mm_kernel,
+                (uintptr_t) idle_func,
+                (uintptr_t) &t_stack0[i * IDLE_STACK],
+                IDLE_STACK,
+                0,
+                0,
+                THREAD_KERNEL,
+                (void *) i);
+    }
 
     // Also start [init] on cpu0
     thread_init(
@@ -260,8 +262,11 @@ void sched_remove_from(int cpu, struct thread *thr) {
     struct thread *next = thr->next;
     kdebug("cpu%d: removing thread %d\n", cpu, thr->pid);
 
-    _assert(prev);
-    prev->next = next;
+    if (prev) {
+        prev->next = next;
+    } else {
+        sched_queue_heads[cpu] = NULL;
+    }
 
     if (next) {
         next->prev = prev;
@@ -274,9 +279,13 @@ void sched_remove_from(int cpu, struct thread *thr) {
     thr->next = NULL;
     thr->prev = NULL;
 
-    thread_cleanup(thr);
-
-    // TODO: make other cpus schedule a new thread if they're running a stopped one
+    if (cpu == (int) get_cpu()->processor_id) {
+        // No need for IPI - just cleanup
+        kinfo("Thread cleanup: %d on cpu%d\n", thr->pid, cpu);
+        thread_cleanup(thr);
+    } else {
+        // TODO: make other cpus schedule a new thread if they're running a stopped one
+    }
 }
 
 void sched_remove(struct thread *thr) {
@@ -309,7 +318,7 @@ int sched(void) {
     int cpu = get_cpu()->processor_id;
     uintptr_t flags;
 
-    if (from == &t_idle) {
+    if (from == &t_idle[cpu]) {
         from = NULL;
     }
 
@@ -324,9 +333,14 @@ int sched(void) {
         to = sched_queue_heads[cpu];
     }
 
+    if (to && to->flags & THREAD_STOPPED) {
+        to = NULL;
+    }
+
     // Empty scheduler queue
     if (!to) {
-        to = &t_idle;
+        to = &t_idle[cpu];
+        get_cpu()->thread = to;
         return 0;
     }
 

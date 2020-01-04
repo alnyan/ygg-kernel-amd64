@@ -29,6 +29,7 @@ int amd64_pfault(uintptr_t cr2) {
     // because they're presumably fucked up by error code
     // push
 
+    thr->flags |= THREAD_STOPPED;
     amd64_syscall_yield_stopped();
     return -1;
 }
