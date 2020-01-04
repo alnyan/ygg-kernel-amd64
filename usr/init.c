@@ -328,6 +328,32 @@ static int cmd_exec(const char *line) {
         }
     }
 
+    // Try to execute binary from /
+    struct stat st;
+    char path[64] = "/";
+    strcat(path, cmd);
+    if (stat(path, &st) == 0) {
+        const char *argp[] = {
+            e, NULL
+        };
+
+        int pid = fork();
+
+        switch (pid) {
+        case -1:
+            perror("fork()");
+            return -1;
+        case 0:
+            if (execve(path, argp, NULL) != 0) {
+                perror("execve()");
+            }
+            exit(-1);
+        default:
+            // TODO: waitpid
+            return 0;
+        }
+    }
+
     printf("%s: Unknown command\n", cmd);
     return -1;
 }

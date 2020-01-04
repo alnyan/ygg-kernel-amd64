@@ -42,11 +42,8 @@ static void sys_sigret(void);
 
 __attribute__((noreturn)) void amd64_syscall_yield_stopped(void);
 
-uint64_t syscall_last_time = 0;
-uint64_t syscall_count = 0;
-
 intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t r10, uintptr_t rax) {
-    ++syscall_count;
+    asm volatile ("cli");
     switch (rax) {
     case SYSCALL_NR_READ:
         return sys_read((int) rdi, (void *) rsi, (size_t) rdx);
