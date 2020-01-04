@@ -358,10 +358,9 @@ static int cmd_exec(const char *line) {
     }
 
     // Try to execute binary from /
-    struct stat st;
     char path[64] = "/";
     strcat(path, cmd);
-    if (stat(path, &st) == 0) {
+    if (access(path, X_OK) == 0) {
         const char *argp[] = {
             e, NULL
         };

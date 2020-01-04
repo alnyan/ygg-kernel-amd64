@@ -24,5 +24,6 @@ int nanosleep(const struct timespec *req, struct timespec *rem);
 int openpty(int *amaster, int *aslave);
 int gettimeofday(struct timeval *tv, struct timezone *tz);
 int reboot(int magic1, int magic2, unsigned int cmd, void *arg);
+int access(const char *filename, int mode);
 
 __attribute__((noreturn)) void exit(int code);

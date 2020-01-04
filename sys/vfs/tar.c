@@ -27,11 +27,13 @@ struct tarfs_vnode_attr {
     size_t size;
 };
 
+static int tarfs_vnode_access(vnode_t *vn, uid_t *uid, gid_t *gid, mode_t *mode);
 static int tarfs_vnode_stat(vnode_t *vn, struct stat *st);
 static int tarfs_vnode_open(vnode_t *vn, int opt);
 static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count);
 
 static struct vnode_operations _tarfs_vnode_op = {
+    .access = tarfs_vnode_access,
     .stat = tarfs_vnode_stat,
     .open = tarfs_vnode_open,
     .read = tarfs_vnode_read
@@ -225,9 +227,46 @@ static struct fs_class _tarfs = {
 
 // Vnode operations
 
+static int tarfs_vnode_access(vnode_t *vn, uid_t *uid, gid_t *gid, mode_t *mode) {
+    _assert(vn && uid && gid && mode);
+
+    if (!vn->fs_data) {
+        *uid = 0;
+        *gid = 0;
+        *mode = S_IFDIR | 0755;
+    } else {
+        struct tarfs_vnode_attr *attr = (struct tarfs_vnode_attr *) vn->fs_data;
+        *uid = attr->uid;
+        *gid = attr->gid;
+        *mode = (attr->type_perm & 0x1FF) | ((attr->type_perm & (1 << 16)) ? S_IFDIR : S_IFREG);
+    }
+
+    return 0;
+}
+
 static int tarfs_vnode_stat(vnode_t *vn, struct stat *st) {
     _assert(vn && st);
-    _assert(vn->fs_data);
+    if (!vn->fs_data) {
+        // Root node
+        st->st_atime = 0;
+        st->st_ctime = 0;
+        st->st_mtime = 0;
+        st->st_dev = 0;
+        st->st_rdev = 0;
+
+        st->st_gid = 0;
+        st->st_uid = 0;
+        st->st_mode = S_IFDIR | 0755;
+
+        st->st_ino = 0;
+        st->st_nlink = 1;
+
+        st->st_blksize = 512;
+        st->st_blocks = 0;
+        st->st_size = 0;
+
+        return 0;
+    }
     struct tarfs_vnode_attr *attr = (struct tarfs_vnode_attr *) vn->fs_data;
 
     st->st_atime = 0;

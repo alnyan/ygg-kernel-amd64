@@ -155,6 +155,10 @@ int reboot(int magic1, int magic2, unsigned int cmd, void *arg) {
     return SET_ERRNO(int, ASM_SYSCALL4(SYSCALL_NR_REBOOT, magic1, magic2, cmd, arg));
 }
 
+int access(const char *filename, int mode) {
+    return SET_ERRNO(int, ASM_SYSCALL2(SYSCALL_NR_ACCESS, filename, mode));
+}
+
 // Although sbrk() is implemented in userspace, I guess it should also be here
 void *sbrk(intptr_t inc) {
     if (inc == 0) {

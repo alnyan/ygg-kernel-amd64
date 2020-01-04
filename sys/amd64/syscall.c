@@ -32,6 +32,7 @@ static int sys_brk(void *ptr);
 static int sys_nanosleep(const struct timespec *req, struct timespec *rem);
 static int sys_gettimeofday(struct timeval *tv, struct timezone *tz);
 static int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg);
+static int sys_access(const char *path, int mode);
 
 // TODO: const struct termios *termp, const struct winsize *winp
 static int sys_openpty(int *master, int *slave);
@@ -62,6 +63,8 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
         return sys_execve((const char *) rdi, (const char **) rsi, NULL);
     case SYSCALL_NR_READDIR:
         return sys_readdir((int) rdi, (struct dirent *) rsi);
+    case SYSCALL_NR_ACCESS:
+        return sys_access((const char *) rdi, (int) rsi);
     case SYSCALL_NR_GETCWD:
         return sys_getcwd((char *) rdi, (size_t) rsi);
     case SYSCALL_NR_CHDIR:
@@ -303,6 +306,12 @@ static int sys_stat(const char *filename, struct stat *st) {
     int res = vfs_stat(&thr->ioctx, filename, st);
 
     return res;
+}
+
+static int sys_access(const char *path, int mode) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    return vfs_access(&thr->ioctx, path, mode);
 }
 
 static int sys_brk(void *addr) {
