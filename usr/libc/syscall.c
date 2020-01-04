@@ -47,6 +47,20 @@
         rax; \
     })
 
+#define ASM_SYSCALL4(r0, r1, r2, r3, r4)        ({ \
+        ASM_REGISTER(rdi) = (uint64_t) (r1); \
+        ASM_REGISTER(rsi) = (uint64_t) (r2); \
+        ASM_REGISTER(rdx) = (uint64_t) (r3); \
+        ASM_REGISTER(rcx) = (uint64_t) (r4); \
+        /*
+         * Should be the last one because memory accesses for arguments
+         * fuck up %rax
+         */ \
+        ASM_REGISTER(rax) = (uint64_t) (r0); \
+        asm volatile ("syscall":::"memory", "rax", "rdi", "rsi", "rdx", "rcx"); \
+        rax; \
+    })
+
 #define SET_ERRNO(t, r)                     ({ \
         t res = (t) r; \
         if (res < 0) { \
@@ -135,6 +149,10 @@ int openpty(int *master, int *slave) {
 
 int gettimeofday(struct timeval *tv, struct timezone *tz) {
     return SET_ERRNO(int, ASM_SYSCALL2(SYSCALL_NR_GETTIMEOFDAY, tv, tz));
+}
+
+int reboot(int magic1, int magic2, unsigned int cmd, void *arg) {
+    return SET_ERRNO(int, ASM_SYSCALL4(SYSCALL_NR_REBOOT, magic1, magic2, cmd, arg));
 }
 
 // Although sbrk() is implemented in userspace, I guess it should also be here

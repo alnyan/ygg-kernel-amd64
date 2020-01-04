@@ -2,7 +2,9 @@
 #include "sys/amd64/mm/pool.h"
 #include "sys/amd64/cpu.h"
 #include "sys/net/eth.h"
+#include "sys/signum.h"
 #include "sys/thread.h"
+#include "sys/reboot.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
 #include "sys/spin.h"
@@ -26,6 +28,10 @@ static size_t sched_queue_sizes[AMD64_MAX_SMP] = { 0 };
 static size_t sched_ncpus = 1;
 static spin_t sched_lock = 0;
 
+// Non-zero means we're terminating all the stuff and performing an action
+// once we're done
+static unsigned int system_state = 0;
+
 #define IDLE_STACK  4096
 #define INIT_STACK  32768
 
@@ -34,6 +40,7 @@ static char t_stack0[IDLE_STACK] = {0};
 static char t_stack1[INIT_STACK] = {0};
 static struct thread t_idle = {0};
 static struct thread t_init = {0};
+static struct thread *t_user_init = NULL;
 
 void idle_func(uintptr_t id) {
     kdebug("Entering [idle] for cpu%d\n", id);
@@ -197,6 +204,9 @@ void sched_add_to(int cpu, struct thread *t) {
 
     if (!(t->flags & THREAD_KERNEL)) {
         t->pid = sched_alloc_pid();
+        if (t->pid == 1) {
+            t_user_init = t;
+        }
     } else {
         t->pid = 0;
     }
@@ -271,12 +281,26 @@ void sched_remove_from(int cpu, struct thread *thr) {
 
 void sched_remove(struct thread *thr) {
     kdebug("Remove %p\n", thr);
-    int should_panic = thr->pid == 1;
+    int should_panic = (thr->pid == 1) && !system_state;
+    if (thr->pid == 1) {
+        t_user_init = NULL;
+    }
     sched_remove_from(thr->cpu, thr);
 
     if (should_panic) {
         panic("PID 1 got killed\n");
     }
+}
+
+void sched_reboot(unsigned int cmd) {
+    if (system_state) {
+        panic("sched_reboot requested when system_state is already non-zero\n");
+    }
+    _assert(t_user_init);
+
+    system_state = cmd;
+    // Send SIGTERM to init
+    t_user_init->sigq |= 1 << (SIGTERM - 1);
 }
 
 int sched(void) {
@@ -287,6 +311,11 @@ int sched(void) {
 
     if (from == &t_idle) {
         from = NULL;
+    }
+
+    if (system_state && !t_user_init) {
+        // All user tasks are terminated
+        system_power_cmd(system_state);
     }
 
     if (from && from->next) {

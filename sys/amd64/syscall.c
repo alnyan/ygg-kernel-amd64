@@ -10,6 +10,7 @@
 #include "sys/fs/vfs.h"
 #include "sys/fcntl.h"
 #include "sys/tty.h"
+#include "sys/reboot.h"
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/hw/rtc.h"
 #include "sys/amd64/mm/map.h"
@@ -30,6 +31,7 @@ static int sys_kill(int pid, int signum);
 static int sys_brk(void *ptr);
 static int sys_nanosleep(const struct timespec *req, struct timespec *rem);
 static int sys_gettimeofday(struct timeval *tv, struct timezone *tz);
+static int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg);
 
 // TODO: const struct termios *termp, const struct winsize *winp
 static int sys_openpty(int *master, int *slave);
@@ -86,6 +88,9 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
     case SYSCALL_NR_GETTIMEOFDAY:
         return sys_gettimeofday((struct timeval *) rdi, (struct timezone *) rsi);
 
+    case SYSCALL_NR_REBOOT:
+        return sys_reboot((int) rdi, (int) rsi, (unsigned int) rdx, (void *) rcx);
+
     case SYSCALL_NRX_SIGRET:
         sys_sigret();
         return 0;
@@ -99,6 +104,22 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
         return -1;
     }
     return 0;
+}
+
+static int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg) {
+    if (magic1 != (int) YGG_REBOOT_MAGIC1 || magic2 != (int) YGG_REBOOT_MAGIC2) {
+        return -EINVAL;
+    }
+
+    switch (cmd) {
+    case YGG_REBOOT_RESTART:
+    case YGG_REBOOT_POWER_OFF:
+    case YGG_REBOOT_HALT:
+        sched_reboot(cmd);
+        return 0;
+    default:
+        return -EINVAL;
+    }
 }
 
 static ssize_t sys_read(int fd, void *buf, size_t lim) {

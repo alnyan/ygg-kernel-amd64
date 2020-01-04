@@ -1,4 +1,5 @@
 #include <sys/fcntl.h>
+#include <sys/reboot.h>
 #include <signal.h>
 #include <dirent.h>
 #include <unistd.h>
@@ -46,6 +47,7 @@ static int b_curs(const char *arg);
 static int b_sleep(const char *arg);
 static int b_help(const char *arg);
 static int b_clear(const char *arg);
+static int b_reboot(const char *arg);
 
 static struct builtin builtins[] = {
     {
@@ -82,6 +84,11 @@ static struct builtin builtins[] = {
         "clear",
         "Clear terminal",
         b_clear,
+    },
+    {
+        "reboot",
+        "Reboot",
+        b_reboot
     },
     {
         "help",
@@ -274,6 +281,28 @@ static int b_clear(const char *arg) {
     clear();
     curs_set(1, 1);
     return 0;
+}
+
+static int b_reboot(const char *arg) {
+    int res;
+    unsigned int cmd = YGG_REBOOT_RESTART;
+
+    if (arg) {
+        if (!strcmp(arg, "-s")) {
+            cmd = YGG_REBOOT_POWER_OFF;
+        } else if (!strcmp(arg, "-h")) {
+            cmd = YGG_REBOOT_HALT;
+        }
+    }
+
+    if ((res = reboot(YGG_REBOOT_MAGIC1, YGG_REBOOT_MAGIC2, cmd, NULL)) < 0) {
+        perror("reboot()");
+        return res;
+    }
+
+    while (1) {
+        usleep(1000000);
+    }
 }
 
 static int b_help(const char *arg) {
