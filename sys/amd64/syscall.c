@@ -407,8 +407,6 @@ static int sys_nanosleep(const struct timespec *req, struct timespec *rem) {
     uint64_t deadline = time_now + req->tv_sec * 1000000000ULL + req->tv_nsec;
 
     // Make sure scheduler won't select a waiting thread
-    cur_thread->flags |= THREAD_WAITING;
-
     while (1) {
         // TODO: interruptible sleep
         if (system_time >= deadline) {
@@ -416,8 +414,6 @@ static int sys_nanosleep(const struct timespec *req, struct timespec *rem) {
         }
         asm volatile ("sti; hlt; cli");
     }
-
-    cur_thread->flags &= ~THREAD_WAITING;
 
     return 0;
 }

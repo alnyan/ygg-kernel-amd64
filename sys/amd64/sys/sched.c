@@ -13,6 +13,7 @@
 #include "sys/fcntl.h"
 #include "sys/errno.h"
 #include "sys/blk.h"
+#include "sys/time.h"
 #include "sys/panic.h"
 #include "sys/assert.h"
 #include "sys/string.h"
@@ -257,6 +258,40 @@ void sched_init(void) {
     sched_add_to(0, &t_init);
 }
 
+static void thread_unchild(struct thread *thr) {
+    struct thread *par = thr->parent;
+    if (par) {
+        kdebug("Unchilding %d from %d\n", thr->pid, par->pid);
+        struct thread *p = NULL;
+        struct thread *c = par->child;
+        int found = 0;
+
+        while (c) {
+            if (c == thr) {
+                found = 1;
+                if (p) {
+                    p->next_child = thr->next_child;
+                } else {
+                    par->child = thr->next_child;
+                }
+                break;
+            }
+
+            p = c;
+            c = c->next_child;
+        }
+
+        _assert(found);
+        if ((par->flags & THREAD_ZOMBIE) && !par->child) {
+            thread_unchild(par);
+
+            // Zombie is finally ready to die
+            kdebug("Thread cleanup: zombie %d\n", par->pid);
+            thread_cleanup(par);
+        }
+    }
+}
+
 void sched_remove_from(int cpu, struct thread *thr) {
     struct thread *prev = thr->prev;
     struct thread *next = thr->next;
@@ -265,7 +300,7 @@ void sched_remove_from(int cpu, struct thread *thr) {
     if (prev) {
         prev->next = next;
     } else {
-        sched_queue_heads[cpu] = NULL;
+        sched_queue_heads[cpu] = next;
     }
 
     if (next) {
@@ -279,12 +314,23 @@ void sched_remove_from(int cpu, struct thread *thr) {
     thr->next = NULL;
     thr->prev = NULL;
 
-    if (cpu == (int) get_cpu()->processor_id) {
-        // No need for IPI - just cleanup
-        kinfo("Thread cleanup: %d on cpu%d\n", thr->pid, cpu);
-        thread_cleanup(thr);
+    if (!thr->child) {
+        // Remove from parent's "child" list
+        thread_unchild(thr);
+
+        // Parents have to wait for their children to terminate
+        if (cpu == (int) get_cpu()->processor_id) {
+            // No need for IPI - just cleanup
+            kdebug("Thread cleanup: %d on cpu%d\n", thr->pid, cpu);
+            thread_cleanup(thr);
+        } else {
+            // TODO: make other cpus schedule a new thread if they're running a stopped one
+        }
     } else {
-        // TODO: make other cpus schedule a new thread if they're running a stopped one
+        // TODO: add to some kind of "zombie" queue
+        //       mark children as "zombie-children" to notify parent task
+        kdebug("Couldn't terminate thread %d: has children\n", thr->pid);
+        thr->flags |= THREAD_ZOMBIE;
     }
 }
 

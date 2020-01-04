@@ -127,6 +127,9 @@ int thread_init(
     ctx->__canary = AMD64_STACK_CTX_CANARY;
 
     if (!(flags & THREAD_CTX_ONLY)) {
+        t->parent = NULL;
+        t->child = NULL;
+        t->next_child = NULL;
         t->space = space;
         t->flags = flags;
         t->next = NULL;
@@ -304,6 +307,10 @@ int sys_fork(void) {
         amd64_mm_pool_free(thread_space);
         return res;
     }
+
+    thr_dst->parent = thr_src;
+    thr_dst->next_child = thr_src->child;
+    thr_src->child = thr_dst;
 
     // Clone process state
     void *dst_kstack = kmalloc(THREAD_KSTACK_SIZE);

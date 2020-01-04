@@ -4,6 +4,11 @@
 
 #define THREAD_KERNEL       (1 << 31)
 #define THREAD_CTX_ONLY     (1 << 30)
+// Well, this is actually the opposite - not a child waiting to be
+// wait()ed by a parent (as I have no wait() yet), but rather a
+// parent awaiting child process tree termination.
+// XXX: RENAME THIS TO SOMETHING IN LATER COMMITS
+#define THREAD_ZOMBIE       (1 << 4)
 #define THREAD_WAITING      (1 << 3)
 #define THREAD_STOPPED      (1 << 2)
 #define THREAD_SIGRET       (1 << 29)
@@ -28,7 +33,6 @@ struct thread {
 
     uint64_t flags;
     uint32_t pid;
-    uint32_t parent_pid;
 
     struct vfs_ioctx ioctx;
     struct ofile fds[4];
@@ -46,6 +50,10 @@ struct thread {
     int cpu;
     struct thread *prev;
     struct thread *next;
+
+    struct thread *parent;
+    struct thread *child;
+    struct thread *next_child;
 };
 
 int thread_init(struct thread *t,
