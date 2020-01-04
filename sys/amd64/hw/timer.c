@@ -25,11 +25,13 @@ uint64_t system_time = 0;
 static uint32_t timer_tick(void *arg) {
     switch ((uint64_t) arg) {
     case TIMER_PIT:
+#if defined(VESA_ENABLE)
         ++int_timer_ticks;
         if (int_timer_ticks >= 500) {
             con_blink();
             int_timer_ticks = 0;
         }
+#endif
         // Each tick is approx. 1ms, so add 1ms to system time
         system_time += 1000000;
         break;
@@ -60,7 +62,7 @@ void amd64_timer_init(void) {
     // LAPIC Timer is only used to trigger task switches
     LAPIC(LAPIC_REG_TMRDIV) = 0x3;
     LAPIC(LAPIC_REG_LVTT) = 32 | (1 << 17);
-    LAPIC(LAPIC_REG_TMRINITCNT) = 10000;
+    LAPIC(LAPIC_REG_TMRINITCNT) = 1562500;
     LAPIC(LAPIC_REG_TMRCURRCNT) = 0;
 
     get_cpu()->ticks = 0;

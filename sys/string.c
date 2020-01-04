@@ -172,6 +172,13 @@ uint32_t *memsetl(uint32_t *blk, uint32_t v, size_t sz) {
     return blk;
 }
 
+uint64_t *memsetq(uint64_t *blk, uint64_t v, size_t sz) {
+    for (size_t i = 0; i < sz; ++i) {
+        blk[i] = v;
+    }
+    return blk;
+}
+
 void *memcpy(void *dst, const void *src, size_t sz) {
     for (size_t i = 0; i < sz; ++i) {
         ((char *) dst)[i] = ((const char *) src)[i];
@@ -179,3 +186,9 @@ void *memcpy(void *dst, const void *src, size_t sz) {
     return dst;
 }
 
+uint64_t *memcpyq(uint64_t *restrict dst, const uint64_t *restrict src, size_t sz) {
+    for (size_t i = 0; i < sz; ++i) {
+        dst[i] = src[i];
+    }
+    return dst;
+}

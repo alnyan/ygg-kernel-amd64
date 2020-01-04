@@ -22,5 +22,6 @@ int chdir(const char *filename);
 char *getcwd(char *buf, size_t size);
 int nanosleep(const struct timespec *req, struct timespec *rem);
 int openpty(int *amaster, int *aslave);
+int gettimeofday(struct timeval *tv, struct timezone *tz);
 
 __attribute__((noreturn)) void exit(int code);

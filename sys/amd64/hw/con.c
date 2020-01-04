@@ -19,7 +19,7 @@
 #define ESC_CSI     2
 
 #define CGA_BUFFER_ADDR     0xB8000
-#define ATTR_DEFAULT        0x1700
+#define ATTR_DEFAULT        0x1700ULL
 
 static uint16_t *con_buffer;
 static uint16_t x = 0, y = 0;
@@ -57,8 +57,8 @@ static uint16_t attr = ATTR_DEFAULT;
 
 static void setc(uint16_t row, uint16_t col, uint16_t v);
 
-void con_blink(void) {
 #if defined(VESA_ENABLE)
+void con_blink(void) {
     if (vesa_available) {
         uint32_t fg = rgb_map[(attr >> 8) & 0xF];
         uint32_t bg = rgb_map[(attr >> 12) & 0xF];
@@ -70,8 +70,8 @@ void con_blink(void) {
             psf_draw(y, x, ' ', fg, bg);
         }
     }
-#endif
 }
+#endif
 
 static void amd64_con_moveto(uint8_t row, uint8_t col) {
     if (!vesa_available) {
@@ -85,11 +85,7 @@ static void amd64_con_moveto(uint8_t row, uint8_t col) {
 }
 
 static void amd64_scroll_down(void) {
-    for (int i = 0; i < con_height - 1; ++i) {
-        memcpy(&con_buffer[i * con_width], &con_buffer[(i + 1) * con_width], con_width * 2);
-    }
-    memsetw(&con_buffer[(con_height - 1) * con_width], ATTR_DEFAULT, con_width);
-    y = con_height - 1;
+#if defined(VESA_ENABLE)
     if (vesa_available) {
         for (uint16_t row = 0; row < con_height; ++row) {
             for (uint16_t col = 0; col < con_width; ++col) {
@@ -98,6 +94,12 @@ static void amd64_scroll_down(void) {
             }
         }
     }
+#else
+    memcpyq((uint64_t *) con_buffer, (uint64_t *) &con_buffer[con_width], 20 * 24);
+    memsetq((uint64_t *) &con_buffer[(con_height - 1) * con_width],
+            ATTR_DEFAULT | (ATTR_DEFAULT << 16) | (ATTR_DEFAULT << 32) | (ATTR_DEFAULT << 48), 20);
+    y = con_height - 1;
+#endif
 }
 
 static void clear(void) {
@@ -111,10 +113,6 @@ static void clear(void) {
     }
 #endif
 }
-
-//static void clear_line(uint16_t row) {
-//
-//}
 
 // I guess I could've implemented VT100 escape handling better, but
 // this is all I invented so far
@@ -256,6 +254,8 @@ void amd64_con_putc(int c) {
     if (!con_avail) {
         return;
     }
+
+    c = (uint8_t) (c & 0xFF);
 
     switch (esc_mode) {
     case ESC_CSI:

@@ -1,3 +1,4 @@
+#include "sys/thread.h"
 #include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/ring.h"
@@ -44,22 +45,24 @@ static inline void ring_advance_write(struct ring *ring) {
 int ring_getc(struct thread *ctx, struct ring *ring, char *out) {
     uintptr_t flags;
 
-    spin_lock_irqsave(&ring->lock, &flags);
+    //spin_lock_irqsave(&ring->lock, &flags);
 
     do {
         if (ring_avail(ring)) {
             break;
         }
-        spin_release(&ring->lock);
+        //spin_release(&ring->lock);
+        ctx->flags |= THREAD_WAITING;
         asm volatile ("sti; hlt");
-        spin_lock(&ring->lock);
+        ctx->flags &= ~THREAD_WAITING;
+        //spin_lock(&ring->lock);
     } while (1);
 
 
     *out = ring->data[ring->rdptr];
     ring_advance_read(ring);
 
-    spin_release_irqrestore(&ring->lock, &flags);
+    //spin_release_irqrestore(&ring->lock, &flags);
 
     return 0;
 }
@@ -80,25 +83,29 @@ ssize_t ring_read(struct thread *ctx, struct ring *ring, void *buf, size_t count
 	return pos;
 }
 
-int ring_putc(struct ring *ring, char c) {
+int ring_putc(struct thread *ctx, struct ring *ring, char c) {
     uintptr_t flags;
 
-    spin_lock_irqsave(&ring->lock, &flags);
+    //spin_lock_irqsave(&ring->lock, &flags);
 
     do {
         if (ring_writable(ring)) {
             break;
         }
-        spin_release(&ring->lock);
-        asm volatile ("sti; hlt");
-        spin_lock(&ring->lock);
+        //spin_release(&ring->lock);
+        if (ctx) {
+            asm volatile ("sti; hlt");
+        } else {
+            asm volatile ("sti; hlt");
+        }
+        //spin_lock(&ring->lock);
     } while (1);
 
 
     ring->data[ring->wrptr] = c;
     ring_advance_write(ring);
 
-    spin_release_irqrestore(&ring->lock, &flags);
+    //spin_release_irqrestore(&ring->lock, &flags);
 
 	return 0;
 }

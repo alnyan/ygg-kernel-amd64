@@ -14,5 +14,5 @@ struct ring {
 
 size_t ring_avail(struct ring *b);
 ssize_t ring_read(struct thread *ctx, struct ring *b, void *buf, size_t lim);
-int ring_putc(struct ring *b, char c);
+int ring_putc(struct thread *ctx, struct ring *b, char c);
 void ring_init(struct ring *b, size_t cap);

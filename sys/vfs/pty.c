@@ -15,16 +15,6 @@ static ssize_t pty_master_read(struct chrdev *dev, void *buf, size_t count, size
 static ssize_t pty_slave_write(struct chrdev *dev, const void *buf, size_t count, size_t off);
 static ssize_t pty_slave_read(struct chrdev *dev, void *buf, size_t count, size_t off);
 
-//static struct chrdev pty_master_dev = {
-//    .read = pty_master_read,
-//    .write = pty_master_write
-//};
-//
-//static struct chrdev pty_slave_dev = {
-//    .read = pty_slave_read,
-//    .write = pty_slave_write
-//};
-
 static ssize_t pty_slave_write(struct chrdev *dev, const void *buf, size_t off, size_t count) {
     // Slave writes -> pty output -> Master reads
     // AS-IS
@@ -33,7 +23,7 @@ static ssize_t pty_slave_write(struct chrdev *dev, const void *buf, size_t off, 
     int res = 0;
 
     for (size_t i = 0; i < count; ++i) {
-        if ((res = ring_putc(&pty->ring_output, ((const char *) buf)[i])) < 0) {
+        if ((res = ring_putc(get_cpu()->thread, &pty->ring_output, ((const char *) buf)[i])) < 0) {
             break;
         }
     }
@@ -75,7 +65,7 @@ static ssize_t pty_master_write(struct chrdev *dev, const void *buf, size_t pos,
     int res = 0;
 
     for (size_t i = 0; i < count; ++i) {
-        if ((res = ring_putc(&pty->ring_input, ((const char *) buf)[i])) < 0) {
+        if ((res = ring_putc(get_cpu()->thread, &pty->ring_input, ((const char *) buf)[i])) < 0) {
             break;
         }
     }

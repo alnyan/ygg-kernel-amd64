@@ -18,6 +18,13 @@
 #define clear() \
     write(STDOUT_FILENO, "\033[2J", 4)
 
+#define BOX_ANGLE_UL    "\332"
+#define BOX_ANGLE_UR    "\277"
+#define BOX_ANGLE_LL    "\300"
+#define BOX_ANGLE_LR    "\331"
+#define BOX_HOR         "\304"
+#define BOX_VERT        "\263"
+
 //
 
 extern __attribute__((noreturn)) void abort(void);
@@ -178,24 +185,62 @@ static int b_cat(const char *arg) {
 static int b_curs(const char *arg) {
     char c;
 
+    size_t w = 60;
+    size_t h = 20;
+    size_t off_y = (25 - h) / 2 + 1;
+    size_t off_x = (80 - w) / 2;
+
+    const char *lines[18] = {
+        NULL,
+        "Demo something",
+        NULL,
+        "Slow as hell"
+    };
+
     clear();
 
     while (1) {
-        // Draw some kind of status bar
-        curs_set(25, 1);
-        printf("\033[7m This is statusbar\033[K");
-        if (c >= ' ') {
-            curs_set(25, 79);
-            printf("%c\033[0m", c);
+        printf("\033[47;30m");
+
+        curs_set(off_y, off_x);
+        printf(BOX_ANGLE_UL);
+        for (size_t i = 0; i < w; ++i) {
+            printf(BOX_HOR);
         }
+        printf(BOX_ANGLE_UR);
+
+        for (size_t i = 0; i < h - 2; ++i) {
+            curs_set(off_y + 1 + i, off_x);
+            printf(BOX_VERT);
+            for (size_t j = 0; j < w; ++j) {
+                printf(" ");
+            }
+            if (lines[i]) {
+                curs_set(off_y + 1 + i, off_x + (w - strlen(lines[i])) / 2);
+                printf("%s", lines[i]);
+            }
+            curs_set(off_y + 1 + i, off_x + w + 1);
+            printf(BOX_VERT);
+        }
+
+        curs_set(off_y + h - 3, off_x + (w - 8) / 2);
+        printf("\033[0m\033[7m[ OK ]\033[47;30m");
+        curs_set(off_y + h - 1, off_x);
+        printf(BOX_ANGLE_LL);
+        for (size_t i = 0; i < w; ++i) {
+            printf(BOX_HOR);
+        }
+        printf(BOX_ANGLE_LR);
+
         printf("\033[0m");
+
         curs_set(1, 1);
 
         if (read(STDIN_FILENO, &c, 1) < 0) {
             break;
         }
 
-        if (c == 'q') {
+        if (c == 'q' || c == '\n') {
             break;
         }
     }
@@ -294,6 +339,19 @@ int main(int argc, char **argv) {
     int res;
 
     prompt();
+
+#if 0
+    if ((res = fork()) < 0) {
+        perror("fork()");
+        return -1;
+    } else if (res == 0) {
+        if (execve("/time", NULL, NULL) != 0) {
+            perror("execve()");
+        }
+        exit(-1);
+    }
+#endif
+
     while (1) {
         if (read(STDIN_FILENO, &c, 1) < 0) {
             break;

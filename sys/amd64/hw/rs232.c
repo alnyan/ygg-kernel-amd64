@@ -1,6 +1,7 @@
 #include "sys/amd64/hw/rs232.h"
 #include "sys/amd64/hw/irq.h"
 #include "sys/amd64/hw/io.h"
+#include "sys/tty.h"
 #include "sys/debug.h"
 
 #define RS232_DTR       0
@@ -41,8 +42,11 @@ static uint32_t rs232_irq(void *ctx) {
         has_data = 1;
         uint8_t c = inb(port);
 
-        // Act as echo for now
-        rs232_send(port, c);
+        if (c == '\r') {
+            c = '\n';
+        }
+
+        tty_buffer_write(0, c);
     }
 
     return has_data ? IRQ_HANDLED : IRQ_UNHANDLED;

@@ -13,6 +13,7 @@ static void pci_ide_init(pci_addr_t addr) {
 
     uint32_t irq_config = pci_config_read_dword(addr, PCI_CONFIG_IRQ);
     uint32_t class = pci_config_read_dword(addr, PCI_CONFIG_CLASS);
+    uint8_t prog_if = (class >> 8) & 0xFF;
     uint32_t bar;
     uint32_t cmd = pci_config_read_dword(addr, PCI_CONFIG_CMD);
 
@@ -83,10 +84,10 @@ static void pci_ide_init(pci_addr_t addr) {
     } else {
         // The device either does not use IRQs or is a
         // paraller IDE with IRQs 14 and 15
-        uint8_t prog_if = (class >> 8) & 0xFF;
         if (prog_if == 0x80 || prog_if == 0x8A) {
             // TODO: handle this case
-            panic("This is a parallel IDE controller\n");
+            //panic("This is a parallel IDE controller\n");
+            return;
         } else {
             // TODO: handle this case
             panic("The device has no IRQs\n");

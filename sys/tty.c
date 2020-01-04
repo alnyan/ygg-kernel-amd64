@@ -33,7 +33,7 @@ static struct ring tty_ring = {0};
 
 // This function receives keystrokes from keyboard drivers
 void tty_buffer_write(int tty_no, char c) {
-    ring_putc(&tty_ring, c);
+    ring_putc(NULL, &tty_ring, c);
 }
 
 void tty_init(void) {

@@ -6,7 +6,8 @@ DIRS=$(O) \
 	 $(O)/libc
 HDRS=$(shell find $(S) -type f -name "*.h")
 STAGE_BIN=$(STAGE)/init \
-		  $(STAGE)/hello
+		  $(STAGE)/hello \
+		  $(STAGE)/time
 
 CFLAGS=-ffreestanding \
 	   -nostdlib \
@@ -35,7 +36,8 @@ libc_OBJS=$(O)/libc/crt0.o \
 		  $(O)/libc/malloc.o \
 		  $(O)/libc/dirent.o \
 		  $(O)/libc/signal.o \
-		  $(O)/libc/global.o
+		  $(O)/libc/global.o \
+		  $(O)/libc/time.o
 
 sys_CRTBEGIN=$(shell $(CC) $(CFLAGS) -print-file-name=crtbegin.o)
 sys_CRTEND=$(shell $(CC) $(CFLAGS) -print-file-name=crtend.o)
@@ -56,6 +58,16 @@ $(STAGE)/init: init.c $(libc_CRTI) $(libc_CRTN) $(O)/libc.a
 		$(libc_CRTI) \
 		$(sys_CRTBEGIN) \
 		init.c \
+		$(sys_CRTEND) \
+		$(libc_CRTN) \
+		$(usr_STATIC_LIBS)
+
+$(STAGE)/time: time.c $(libc_CRTI) $(libc_CRTN) $(O)/libc.a
+	@printf " CC\t%s\n" $(@:$(STAGE)/%=/%)
+	@$(CC) -o $@ $(CFLAGS) $(usr_LDFLAGS) \
+		$(libc_CRTI) \
+		$(sys_CRTBEGIN) \
+		time.c \
 		$(sys_CRTEND) \
 		$(libc_CRTN) \
 		$(usr_STATIC_LIBS)

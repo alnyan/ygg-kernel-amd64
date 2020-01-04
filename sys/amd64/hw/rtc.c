@@ -26,16 +26,6 @@
 #define FROMBCD(bcd)            ((((bcd) / 16) * 10) + \
                                  ((bcd & 0xF)))
 
-struct rtc_time {
-    uint8_t second;
-    uint8_t minute;
-    uint8_t hour;
-    uint8_t weekday;
-    uint8_t day;
-    uint8_t month;
-    uint16_t year;
-};
-
 // [s]Please change this in Y3K[/s]I hope x86 dies by 3000
 static uint8_t rtc_century = 20;
 
@@ -60,7 +50,7 @@ static inline uint8_t cmos_read_time(uint8_t reg, uint8_t reg_b) {
     }
 }
 
-static void rtc_read(struct rtc_time *time) {
+void rtc_read(struct rtc_time *time) {
     uint8_t reg_b = cmos_inb(RTC_REGB_STATUS);
 
     time->second = cmos_read_time(RTC_REG_SECOND, reg_b);

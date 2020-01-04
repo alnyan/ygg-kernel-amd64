@@ -46,7 +46,6 @@ amd64_irq0:
     movq %rax, 4(%rdi)
 1:
     // Assume we're now on TASK2's stack
-
     // EOI
     irq_eoi_lapic 0
 

@@ -11,6 +11,7 @@
 #include "sys/fcntl.h"
 #include "sys/tty.h"
 #include "sys/amd64/mm/phys.h"
+#include "sys/amd64/hw/rtc.h"
 #include "sys/amd64/mm/map.h"
 #include "sys/fs/pty.h"
 #include "sys/time.h"
@@ -41,8 +42,11 @@ static void sys_sigret(void);
 
 __attribute__((noreturn)) void amd64_syscall_yield_stopped(void);
 
+uint64_t syscall_last_time = 0;
+uint64_t syscall_count = 0;
+
 intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t r10, uintptr_t rax) {
-    asm volatile ("cli");
+    ++syscall_count;
     switch (rax) {
     case SYSCALL_NR_READ:
         return sys_read((int) rdi, (void *) rsi, (size_t) rdx);
@@ -392,13 +396,21 @@ static int sys_nanosleep(const struct timespec *req, struct timespec *rem) {
 }
 
 static int sys_gettimeofday(struct timeval *tv, struct timezone *tz) {
-    tz->tz_dsttime = 0;
-    tz->tz_minuteswest = 0;
+    if (tz) {
+        tz->tz_dsttime = 0;
+        tz->tz_minuteswest = 0;
+    }
+
+    uint64_t secs = system_time / 1000000000ULL;
+
+    struct rtc_time time_rtc;
+    rtc_read(&time_rtc);
+    secs += time_rtc.second + time_rtc.minute * 60 + time_rtc.hour * 3600;
 
     // System time is in nanos
     // TODO: use RTC-provided time for full system time
     tv->tv_usec = (system_time / 1000) % 1000000;
-    tv->tv_sec = system_time / 1000000000ULL;
+    tv->tv_sec = secs;
 
     return 0;
 }

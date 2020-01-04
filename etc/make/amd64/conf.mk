@@ -118,8 +118,9 @@ endif
 QEMU_OPTS?=-m $(QEMU_MEM) \
 		   -chardev stdio,nowait,id=char0,mux=on \
 		   -serial chardev:char0 -mon chardev=char0 \
-		   --accel tcg,thread=multi \
 		   -M $(QEMU_CHIPSET) \
+		   -cpu host \
+		   -enable-kvm \
 		   -boot d \
 		   $(QEMU_DEVS) \
 		   -smp $(QEMU_SMP)
