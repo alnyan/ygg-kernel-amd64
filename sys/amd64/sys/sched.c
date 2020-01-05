@@ -22,6 +22,7 @@
 #include "sys/mm.h"
 
 void sched_add_to(int cpu, struct thread *t);
+void sched_add(struct thread *t);
 
 static struct thread *sched_queue_heads[AMD64_MAX_SMP] = { 0 };
 static struct thread *sched_queue_tails[AMD64_MAX_SMP] = { 0 };
@@ -150,7 +151,7 @@ void init_func(void *arg) {
         }
 
         kdebug("Done\n");
-        sched_add_to(0, init_thread);
+        sched_add(init_thread);
     }
 
     while (1) {
