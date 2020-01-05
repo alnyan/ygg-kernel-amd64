@@ -387,6 +387,10 @@ static int cmd_exec(const char *line) {
 }
 
 int main(int argc, char **argv) {
+    if (getpid() != 1) {
+        printf("Won't work if PID is not 1\n");
+        return -1;
+    }
     char linebuf[512];
     char c;
     size_t l = 0;

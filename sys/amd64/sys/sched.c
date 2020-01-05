@@ -365,6 +365,25 @@ static uint64_t debug_last_tick = 0;
 static void debug_stats(void) {
     kdebug("--- STATS ---\n");
     kdebug("syscalls/s: %lu\n", syscall_count);
+
+    kdebug("CPU queues:\n");
+    for (size_t i = 0; i < sched_ncpus; ++i) {
+        debugf(DEBUG_DEFAULT, "  cpu%d [ ", i);
+        for (struct thread *it = sched_queue_heads[i]; it; it = it->next) {
+            if (it->flags & THREAD_KERNEL) {
+                // Kernel threads have no pids, lol
+                debugs(DEBUG_DEFAULT, "K?");
+            } else {
+                debugf(DEBUG_DEFAULT, "%d", it->pid);
+            }
+
+            if (it->next) {
+                debugs(DEBUG_DEFAULT, ", ");
+            }
+        }
+        debugs(DEBUG_DEFAULT, " ]\n");
+    }
+
     kdebug("--- ----- ---\n");
 
     syscall_count = 0;
