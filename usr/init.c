@@ -244,7 +244,12 @@ static int b_help(const char *arg) {
 }
 
 static void prompt(void) {
-    printf("\033[36mygg\033[0m > ");
+    char cwd[512];
+    if (!getcwd(cwd, sizeof(cwd))) {
+        cwd[0] = '?';
+        cwd[1] = 0;
+    }
+    printf("\033[36mygg\033[0m %s > ", cwd);
 }
 
 static int cmd_subproc_exec(const char *abs_path, const char *cmd, const char *e) {
