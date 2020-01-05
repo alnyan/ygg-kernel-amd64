@@ -12,3 +12,11 @@ int puts(const char *s) {
     }
     return w;
 }
+
+int putchar(int c) {
+    int res;
+    if ((res = write(STDOUT_FILENO, &c, 1)) < 0) {
+        return res;
+    }
+    return c;
+}

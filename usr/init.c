@@ -39,7 +39,6 @@ struct builtin {
     int (*run) (const char *arg);
 };
 
-static int b_ls(const char *path);
 static int b_cd(const char *path);
 static int b_pwd(const char *_);
 static int b_cat(const char *path);
@@ -49,11 +48,6 @@ static int b_help(const char *arg);
 static int b_clear(const char *arg);
 
 static struct builtin builtins[] = {
-    {
-        "ls",
-        "List files in directory",
-        b_ls,
-    },
     {
         "cd",
         "Change working directory",
@@ -86,50 +80,6 @@ static struct builtin builtins[] = {
     },
     { NULL, NULL, NULL }
 };
-
-static int b_ls(const char *arg) {
-    int res;
-    DIR *dir;
-    struct dirent *ent;
-    char c;
-
-    if (!arg) {
-        arg = "";
-    }
-
-    if (!(dir = opendir(arg))) {
-        perror(arg);
-        return -1;
-    }
-
-    while ((ent = readdir(dir))) {
-        if (ent->d_name[0] != '.') {
-            switch (ent->d_type) {
-            case DT_REG:
-                c = '-';
-                break;
-            case DT_DIR:
-                c = 'd';
-                break;
-            case DT_BLK:
-                c = 'b';
-                break;
-            case DT_CHR:
-                c = 'c';
-                break;
-            default:
-                c = '?';
-                break;
-            }
-
-            printf("%c %s\n", c, ent->d_name);
-        }
-    }
-
-    closedir(dir);
-
-    return 0;
-}
 
 static int b_cd(const char *arg) {
     int res;
@@ -298,9 +248,39 @@ static void prompt(void) {
 }
 
 static int cmd_subproc_exec(const char *abs_path, const char *cmd, const char *e) {
-    const char *argp[] = {
-        cmd, e, NULL
-    };
+    // Maximum of 8 arguments 64 chars each (63)
+    // Split input argument into pieces by space
+    char args[64 * 8] = {0};
+    const char *p = e;
+    const char *t = NULL;
+    size_t argc = 0;
+    while (p) {
+        t = strchr(p, ' ');
+        if (!t) {
+            // Last argument
+            assert(strlen(p) < 64);
+            strcpy(&args[argc++ * 64], p);
+            break;
+        } else {
+            assert(t - p < 64);
+            strncpy(&args[argc * 64], p, t - p);
+            args[(argc++ * 64) + (t - p)] = 0;
+            p = t + 1;
+            while (*p == ' ') {
+                ++p;
+            }
+            if (!*p) {
+                break;
+            }
+        }
+    }
+
+    // Fill arg pointer array
+    const char *argp[10] = { cmd };
+    for (size_t i = 0; i < argc; ++i) {
+        argp[i + 1] = &args[i * 64];
+    }
+    argp[argc + 1] = NULL;
 
     int pid = fork();
     int res;
