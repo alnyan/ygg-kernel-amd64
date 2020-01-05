@@ -73,15 +73,22 @@ void con_blink(void) {
 }
 #endif
 
-static void amd64_con_moveto(uint8_t row, uint8_t col) {
-    if (!vesa_available) {
-        uint16_t pos = row * 80 + col;
+void amd64_con_sync_cursor(void) {
+    static uint16_t old_pos = 0;
+    uint16_t pos = y * 80 + x;
 
+    if (old_pos != pos) {
+        // This is slow as hell
         outb(0x3D4, 0x0F);
         outb(0x3D5, (uint8_t) (pos & 0xFF));
         outb(0x3D4, 0x0E);
         outb(0x3D5, (uint8_t) ((pos >> 8) & 0xFF));
     }
+    old_pos = pos;
+}
+
+static void amd64_con_flush(void) {
+    memcpyq((uint64_t *) MM_VIRTUALIZE(CGA_BUFFER_ADDR), (uint64_t *) con_buffer, 25 * 20);
 }
 
 static void amd64_scroll_down(void) {
@@ -98,19 +105,25 @@ static void amd64_scroll_down(void) {
     memcpyq((uint64_t *) con_buffer, (uint64_t *) &con_buffer[con_width], 20 * 24);
     memsetq((uint64_t *) &con_buffer[(con_height - 1) * con_width],
             ATTR_DEFAULT | (ATTR_DEFAULT << 16) | (ATTR_DEFAULT << 32) | (ATTR_DEFAULT << 48), 20);
+    // Flush whole backbuffer
+    amd64_con_flush();
     y = con_height - 1;
 #endif
 }
 
 static void clear(void) {
-    memsetw(con_buffer, attr, con_width * con_height);
 
 #if defined(VESA_ENABLE)
+    memsetw(con_buffer, attr, con_width * con_height);
     if (vesa_available) {
         for (size_t i = 0; i < vesa_height; ++i) {
             memsetl((uint32_t *) (vesa_addr + vesa_pitch * i), rgb_map[(attr >> 12) & 0xF], vesa_width);
         }
     }
+#else
+    memsetq((uint64_t *) con_buffer,
+            attr | ((uint64_t) attr << 16) | ((uint64_t) attr << 32) | ((uint64_t) attr << 48), 20 * 25);
+    amd64_con_flush();
 #endif
 }
 
@@ -160,7 +173,6 @@ static void process_csi(void) {
         } else {
             y -= esc_argv[0];
         }
-        amd64_con_moveto(y, x);
         break;
     case 'B':
         // Cursor down
@@ -173,7 +185,6 @@ static void process_csi(void) {
         } else {
             y += esc_argv[0];
         }
-        amd64_con_moveto(y, x);
         break;
     case 'C':
         // Forward
@@ -187,7 +198,6 @@ static void process_csi(void) {
             x += esc_argv[0];
         }
 
-        amd64_con_moveto(y, x);
         break;
     case 'D':
         // Backward
@@ -201,7 +211,6 @@ static void process_csi(void) {
             x -= esc_argv[0];
         }
 
-        amd64_con_moveto(y, x);
         break;
     case 'K':
         // Erase end of line
@@ -227,7 +236,6 @@ static void process_csi(void) {
         // Set cursor position
         y = (esc_argv[0] - 1) % con_height;
         x = (esc_argv[1] - 1) % (con_width - 1);
-        amd64_con_moveto(y, x);
         break;
     case 's':
         // Save cursor
@@ -247,6 +255,8 @@ static void setc(uint16_t row, uint16_t col, uint16_t v) {
 
     if (vesa_available) {
         psf_draw(row, col, v & 0xFF, rgb_map[(v >> 8) & 0xF], rgb_map[(v >> 12) & 0xF]);
+    } else {
+        ((uint16_t *) MM_VIRTUALIZE(CGA_BUFFER_ADDR))[row * 80 + col] = v;
     }
 }
 
@@ -310,7 +320,6 @@ void amd64_con_putc(int c) {
                 return;
             }
         }
-        amd64_con_moveto(y, x);
         break;
     }
 }
@@ -327,7 +336,7 @@ void amd64_con_init(void) {
 #else
     {
 #endif
-        con_buffer = (uint16_t *) MM_VIRTUALIZE(CGA_BUFFER_ADDR);
+        con_buffer = kmalloc(80 * 25 * 2); //(uint16_t *) MM_VIRTUALIZE(CGA_BUFFER_ADDR);
         con_width = 80;
         con_height = 25;
     }

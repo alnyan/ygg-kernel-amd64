@@ -1,5 +1,6 @@
 #include "sys/amd64/mm/mm.h"
 #include "sys/amd64/mm/pool.h"
+#include "sys/amd64/syscall.h"
 #include "sys/amd64/cpu.h"
 #include "sys/net/eth.h"
 #include "sys/signum.h"
@@ -359,11 +360,27 @@ void sched_reboot(unsigned int cmd) {
     t_user_init->sigq |= 1 << (SIGTERM - 1);
 }
 
+static uint64_t debug_last_tick = 0;
+
+static void debug_stats(void) {
+    kdebug("--- STATS ---\n");
+    kdebug("syscalls/s: %lu\n", syscall_count);
+    kdebug("--- ----- ---\n");
+
+    syscall_count = 0;
+}
+
 int sched(void) {
     struct thread *from = get_cpu()->thread;
     struct thread *to;
     int cpu = get_cpu()->processor_id;
     uintptr_t flags;
+
+    // Print various stuff every second
+    if (!cpu && system_time - debug_last_tick >= 1000000000) {
+        debug_stats();
+        debug_last_tick = system_time;
+    }
 
     if (from == &t_idle[cpu]) {
         from = NULL;

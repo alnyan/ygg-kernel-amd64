@@ -4,6 +4,7 @@
 #include "sys/amd64/hw/apic.h"
 #include "sys/amd64/hw/irq.h"
 #include "sys/amd64/hw/con.h"
+#include "sys/amd64/hw/vesa.h"
 #include "sys/amd64/hw/io.h"
 #include "sys/spin.h"
 #include "sys/time.h"
@@ -31,7 +32,12 @@ static uint32_t timer_tick(void *arg) {
             con_blink();
             int_timer_ticks = 0;
         }
+        if (!vesa_available) {
+#else
+        {
 #endif
+            amd64_con_sync_cursor();
+        }
         // Each tick is approx. 1ms, so add 1ms to system time
         system_time += 1000000;
         break;

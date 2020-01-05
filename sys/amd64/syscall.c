@@ -17,6 +17,8 @@
 #include "sys/fs/pty.h"
 #include "sys/time.h"
 
+uint64_t syscall_count;
+
 static ssize_t sys_read(int fd, void *buf, size_t lim);
 static ssize_t sys_write(int fd, const void *buf, size_t lim);
 // TODO: make this compatible with linux' sys_old_readdir
@@ -47,6 +49,7 @@ __attribute__((noreturn)) void amd64_syscall_yield_stopped(void);
 
 intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t r10, uintptr_t rax) {
     asm volatile ("cli");
+    ++syscall_count;
     switch (rax) {
     case SYSCALL_NR_READ:
         return sys_read((int) rdi, (void *) rsi, (size_t) rdx);
