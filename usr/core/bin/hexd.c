@@ -40,14 +40,12 @@ int main(int argc, char **argv) {
     size_t linel;
     size_t n_full_zero;
 
-    // TODO: first argument is used for the program name itself
-    if (argc != 1) {
+    if (argc != 2) {
         printf("wrong\n");
-        usleep(1000000);
         return -1;
     }
 
-    path = argv[0];
+    path = argv[1];
     printf("open file %s\n", path);
 
     if ((fd = open(path, O_RDONLY, 0)) < 0) {

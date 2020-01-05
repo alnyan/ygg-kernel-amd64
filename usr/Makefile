@@ -6,8 +6,8 @@ DIRS=$(O) \
 	 $(O)/libc
 HDRS=$(shell find $(S) -type f -name "*.h")
 STAGE_BIN=$(STAGE)/init \
-		  $(STAGE)/hello \
-		  $(STAGE)/time
+		  $(STAGE)/bin/hexd \
+		  $(STAGE)/bin/ls
 
 CFLAGS=-ffreestanding \
 	   -nostdlib \
@@ -48,7 +48,7 @@ mkdirs:
 	mkdir -p $(DIRS)
 
 mkstage-etc:
-	mkdir -p $(STAGE)/dev $(STAGE)/mnt
+	mkdir -p $(STAGE)/dev $(STAGE)/mnt $(STAGE)/bin
 	cp -r etc $(STAGE)
 
 # Application building
@@ -62,22 +62,12 @@ $(STAGE)/init: init.c $(libc_CRTI) $(libc_CRTN) $(O)/libc.a
 		$(libc_CRTN) \
 		$(usr_STATIC_LIBS)
 
-$(STAGE)/time: time.c $(libc_CRTI) $(libc_CRTN) $(O)/libc.a
+$(STAGE)/bin/%: core/bin/%.c $(libc_CRTI) $(libc_CRTN) $(O)/libc.a
 	@printf " CC\t%s\n" $(@:$(STAGE)/%=/%)
 	@$(CC) -o $@ $(CFLAGS) $(usr_LDFLAGS) \
 		$(libc_CRTI) \
 		$(sys_CRTBEGIN) \
-		time.c \
-		$(sys_CRTEND) \
-		$(libc_CRTN) \
-		$(usr_STATIC_LIBS)
-
-$(STAGE)/hello: hello.c $(libc_CRTI) $(libc_CRTN) $(O)/libc.a
-	@printf " CC\t%s\n" $(@:$(STAGE)/%=/%)
-	@$(CC) -o $@ $(CFLAGS) $(usr_LDFLAGS) \
-		$(libc_CRTI) \
-		$(sys_CRTBEGIN) \
-		hello.c \
+		$< \
 		$(sys_CRTEND) \
 		$(libc_CRTN) \
 		$(usr_STATIC_LIBS)

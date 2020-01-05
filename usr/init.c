@@ -330,6 +330,32 @@ static void prompt(void) {
     printf("\033[36mygg\033[0m > ");
 }
 
+static int cmd_subproc_exec(const char *abs_path, const char *cmd, const char *e) {
+    const char *argp[] = {
+        cmd, e, NULL
+    };
+
+    int pid = fork();
+    int res;
+    int status;
+
+    switch (pid) {
+    case -1:
+        perror("fork()");
+        return -1;
+    case 0:
+        if (execve(abs_path, argp, NULL) != 0) {
+            perror("execve()");
+        }
+        exit(-1);
+    default:
+        if (waitpid(pid, &status) != 0) {
+            perror("waitpid()");
+        }
+        return 0;
+    }
+}
+
 static int cmd_exec(const char *line) {
     char cmd[64];
     const char *e = strchr(line, ' ');
@@ -357,33 +383,15 @@ static int cmd_exec(const char *line) {
         }
     }
 
-    // Try to execute binary from /
-    char path[64] = "/";
-    strcat(path, cmd);
-    if (access(path, X_OK) == 0) {
-        const char *argp[] = {
-            e, NULL
-        };
-
-        int pid = fork();
-        int res;
-        int status;
-
-        switch (pid) {
-        case -1:
-            perror("fork()");
-            return -1;
-        case 0:
-            if (execve(path, argp, NULL) != 0) {
-                perror("execve()");
-            }
-            exit(-1);
-        default:
-            if (waitpid(pid, &status) != 0) {
-                perror("waitpid()");
-            }
-            return 0;
-        }
+    // If command starts with ./ or /, try to execute it
+    if (((cmd[0] == '.' && cmd[1] == '/') || cmd[0] == '/') && access(cmd, X_OK) == 0) {
+        return cmd_subproc_exec(cmd, cmd, e);
+    }
+    // Try to execute binary from /bin
+    char path_buf[512];
+    snprintf(path_buf, sizeof(path_buf), "/bin/%s", cmd);
+    if (access(path_buf, X_OK) == 0) {
+        return cmd_subproc_exec(path_buf, cmd, e);
     }
 
     printf("%s: Unknown command\n", cmd);
