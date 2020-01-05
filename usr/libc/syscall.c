@@ -159,6 +159,10 @@ int access(const char *filename, int mode) {
     return SET_ERRNO(int, ASM_SYSCALL2(SYSCALL_NR_ACCESS, filename, mode));
 }
 
+int waitpid(int pid, int *status) {
+    return SET_ERRNO(int, ASM_SYSCALL2(SYSCALL_NRX_WAITPID, pid, status));
+}
+
 // Although sbrk() is implemented in userspace, I guess it should also be here
 void *sbrk(intptr_t inc) {
     if (inc == 0) {

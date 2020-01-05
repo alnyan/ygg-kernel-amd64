@@ -35,6 +35,7 @@ static int sys_nanosleep(const struct timespec *req, struct timespec *rem);
 static int sys_gettimeofday(struct timeval *tv, struct timezone *tz);
 static int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg);
 static int sys_access(const char *path, int mode);
+static int sys_waitpid(int pid, int *status);
 
 // TODO: const struct termios *termp, const struct winsize *winp
 static int sys_openpty(int *master, int *slave);
@@ -102,6 +103,8 @@ intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rc
         return 0;
     case SYSCALL_NRX_OPENPTY:
         return sys_openpty((int *) rdi, (int *) rsi);
+    case SYSCALL_NRX_WAITPID:
+        return sys_waitpid((int) rdi, (int *) rsi);
 
     default:
         kerror("unknown syscall: %u\n", rax);
@@ -367,6 +370,7 @@ static void sys_exit(int status) {
     struct thread *thr = get_cpu()->thread;
     _assert(thr);
     kdebug("%u exited with code %d\n", thr->pid, status);
+    thr->exit_code = status;
     thr->flags |= THREAD_STOPPED;
 }
 
@@ -450,4 +454,43 @@ static void sys_sigret(void) {
     asm volatile ("sti; hlt; cli");
 
     panic("Fuck\n");
+}
+
+static int sys_waitpid(int pid, int *status) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    // Find child with such PID
+    struct thread *waited = NULL;
+    int wait_good = 0;
+
+    for (struct thread *child = thr->child; child; child = child->next_child) {
+        if (!(child->flags & THREAD_KERNEL) && (int) child->pid == pid) {
+            waited = child;
+            break;
+        }
+    }
+
+    if (!waited) {
+        return -ESRCH;
+    }
+
+    while (1) {
+        if (waited->flags & THREAD_STOPPED) {
+            kdebug("%d is done waiting for %d\n", thr->pid, waited->pid);
+            wait_good = 1;
+            break;
+        }
+        asm volatile ("sti; hlt; cli");
+    }
+
+    if (wait_good) {
+        if (status) {
+            *status = waited->exit_code;
+        }
+        waited->flags |= THREAD_DONE_WAITING;
+
+        thread_terminate(waited);
+    }
+
+    return 0;
 }

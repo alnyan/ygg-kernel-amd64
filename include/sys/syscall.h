@@ -24,3 +24,4 @@
 
 #define SYSCALL_NRX_OPENPTY     118
 #define SYSCALL_NRX_SIGRET      119
+#define SYSCALL_NRX_WAITPID     247

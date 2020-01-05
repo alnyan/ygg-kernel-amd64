@@ -4,6 +4,8 @@
 
 #define THREAD_KERNEL       (1 << 31)
 #define THREAD_CTX_ONLY     (1 << 30)
+// Thread is stopped, wait()ed by its parent and ready for reaping
+#define THREAD_DONE_WAITING (1 << 5)
 // Well, this is actually the opposite - not a child waiting to be
 // wait()ed by a parent (as I have no wait() yet), but rather a
 // parent awaiting child process tree termination.
@@ -33,6 +35,8 @@ struct thread {
 
     uint64_t flags;
     uint32_t pid;
+
+    int exit_code;
 
     struct vfs_ioctx ioctx;
     struct ofile fds[4];
@@ -66,5 +70,6 @@ int thread_init(struct thread *t,
                 uint32_t flags,
                 void *arg);
 void thread_cleanup(struct thread *t);
+void thread_terminate(struct thread *t);
 
 void thread_signal(struct thread *t, int signum);

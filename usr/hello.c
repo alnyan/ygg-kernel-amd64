@@ -43,6 +43,7 @@ int main(int argc, char **argv) {
     // TODO: first argument is used for the program name itself
     if (argc != 1) {
         printf("wrong\n");
+        usleep(1000000);
         return -1;
     }
 

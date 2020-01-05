@@ -294,6 +294,25 @@ static void thread_unchild(struct thread *thr) {
     }
 }
 
+// Called after parent is done waiting
+void thread_terminate(struct thread *thr) {
+    _assert(thr->flags & THREAD_STOPPED);
+    _assert(thr->flags & THREAD_DONE_WAITING);
+
+    if (!thr->child) {
+        // Remove from parent's "child" list
+        thread_unchild(thr);
+
+        kdebug("Thread cleanup: %d\n", thr->pid);
+        thread_cleanup(thr);
+    } else {
+        // TODO: add to some kind of "zombie" queue
+        //       mark children as "zombie-children" to notify parent task
+        kdebug("Couldn't terminate thread %d: has children\n", thr->pid);
+        thr->flags |= THREAD_ZOMBIE;
+    }
+}
+
 void sched_remove_from(int cpu, struct thread *thr) {
     struct thread *prev = thr->prev;
     struct thread *next = thr->next;
@@ -316,23 +335,9 @@ void sched_remove_from(int cpu, struct thread *thr) {
     thr->next = NULL;
     thr->prev = NULL;
 
-    if (!thr->child) {
-        // Remove from parent's "child" list
-        thread_unchild(thr);
-
-        // Parents have to wait for their children to terminate
-        if (cpu == (int) get_cpu()->processor_id) {
-            // No need for IPI - just cleanup
-            kdebug("Thread cleanup: %d on cpu%d\n", thr->pid, cpu);
-            thread_cleanup(thr);
-        } else {
-            // TODO: make other cpus schedule a new thread if they're running a stopped one
-        }
-    } else {
-        // TODO: add to some kind of "zombie" queue
-        //       mark children as "zombie-children" to notify parent task
-        kdebug("Couldn't terminate thread %d: has children\n", thr->pid);
-        thr->flags |= THREAD_ZOMBIE;
+    // TODO: child process sends SIGCHLD to its parent (ignored by default)
+    if (thr->pid == 1) {
+        thread_terminate(thr);
     }
 }
 
@@ -362,9 +367,40 @@ void sched_reboot(unsigned int cmd) {
 
 static uint64_t debug_last_tick = 0;
 
+static void debug_thread_tree(struct thread *thr, size_t depth) {
+    for (size_t i = 0; i < depth; ++i) {
+        debugs(DEBUG_DEFAULT, "  ");
+    }
+    debugf(DEBUG_DEFAULT, "Thread %d", thr->pid);
+
+    if (thr->flags & THREAD_ZOMBIE) {
+        debugc(DEBUG_DEFAULT, 'z');
+    }
+    if (thr->flags & THREAD_STOPPED) {
+        debugc(DEBUG_DEFAULT, 's');
+    }
+
+    if (thr->child) {
+        debugs(DEBUG_DEFAULT, " {\n");
+        for (struct thread *ch = thr->child; ch; ch = ch->next_child) {
+            debug_thread_tree(ch, depth + 1);
+        }
+        for (size_t i = 0; i < depth; ++i) {
+            debugs(DEBUG_DEFAULT, "  ");
+        }
+        debugc(DEBUG_DEFAULT, '}');
+    }
+    debugc(DEBUG_DEFAULT, '\n');
+}
+
 static void debug_stats(void) {
     kdebug("--- STATS ---\n");
     kdebug("syscalls/s: %lu\n", syscall_count);
+
+    if (t_user_init) {
+        kdebug("init [1] tree:\n");
+        debug_thread_tree(t_user_init, 0);
+    }
 
     kdebug("CPU queues:\n");
     for (size_t i = 0; i < sched_ncpus; ++i) {

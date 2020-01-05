@@ -366,6 +366,8 @@ static int cmd_exec(const char *line) {
         };
 
         int pid = fork();
+        int res;
+        int status;
 
         switch (pid) {
         case -1:
@@ -377,7 +379,9 @@ static int cmd_exec(const char *line) {
             }
             exit(-1);
         default:
-            // TODO: waitpid
+            if (waitpid(pid, &status) != 0) {
+                perror("waitpid()");
+            }
             return 0;
         }
     }
