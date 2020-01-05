@@ -10,7 +10,6 @@ void __libc_init(char **argp) {
     __libc_argc = 0;
     if (argp) {
         while (argp[__libc_argc]) {
-            printf("%s\n", argp[__libc_argc]);
             ++__libc_argc;
         }
     }

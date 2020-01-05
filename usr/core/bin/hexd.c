@@ -1,5 +1,6 @@
 #include <sys/fcntl.h>
 #include <unistd.h>
+#include <errno.h>
 #include <stdio.h>
 
 #define LINE_LENGTH         16

@@ -297,7 +297,7 @@ static void thread_unchild(struct thread *thr) {
 // Called after parent is done waiting
 void thread_terminate(struct thread *thr) {
     _assert(thr->flags & THREAD_STOPPED);
-    _assert(thr->flags & THREAD_DONE_WAITING);
+    _assert(thr->pid == 1 || (thr->flags & THREAD_DONE_WAITING));
 
     if (!thr->child) {
         // Remove from parent's "child" list
