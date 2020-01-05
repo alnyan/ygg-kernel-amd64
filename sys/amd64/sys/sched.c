@@ -37,7 +37,7 @@ static unsigned int system_state = 0;
 #define INIT_STACK  32768
 
 // Testing
-static char t_stack0[IDLE_STACK] = {0};
+static char t_stack0[IDLE_STACK * AMD64_MAX_SMP] = {0};
 static char t_stack1[INIT_STACK] = {0};
 static struct thread t_idle[AMD64_MAX_SMP] = {0};
 static struct thread t_init = {0};
