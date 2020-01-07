@@ -51,13 +51,13 @@
         ASM_REGISTER(rdi) = (uint64_t) (r1); \
         ASM_REGISTER(rsi) = (uint64_t) (r2); \
         ASM_REGISTER(rdx) = (uint64_t) (r3); \
-        ASM_REGISTER(rcx) = (uint64_t) (r4); \
+        ASM_REGISTER(r10) = (uint64_t) (r4); \
         /*
          * Should be the last one because memory accesses for arguments
          * fuck up %rax
          */ \
         ASM_REGISTER(rax) = (uint64_t) (r0); \
-        asm volatile ("syscall":::"memory", "rax", "rdi", "rsi", "rdx", "rcx"); \
+        asm volatile ("syscall":::"memory", "rax", "rdi", "rsi", "rdx", "r10"); \
         rax; \
     })
 

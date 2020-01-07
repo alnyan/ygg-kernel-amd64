@@ -67,27 +67,27 @@ amd64_syscall_entry:
     pushq %rcx
     pushq %r11
 
-    // Safe for interrupts now
-    //sti
-
     // Userspace:
     //  %rdi %rsi %rdx %rcx %8 %r9
     // Syscall:
     //  %rdi %rsi %rdx %r10 %r8 %r9
     //  %rax
-    // Now it's done like
-    //  %rdi -> %rdi
-    //  %rsi -> %rsi
-    //  %rdx -> %rdx
-    //  %r10 -> %rcx
-    //  %r8  -> %r8
-    //  %rax -> %r9
-    // FIXME: use %rax properly and
-    //        have a table of system calls
-
+    // Need to move %r10 -> %rcx
     movq %r10, %rcx
-    movq %rax, %r9
-    call amd64_syscall
+    incq syscall_count(%rip)
+    leaq amd64_syscall_jmp_table(%rip), %r10
+    movq (%r10, %rax, 8), %rax
+    test %rax, %rax
+    jz 1f
+    sti
+    call *%rax
+    jmp 2f
+1:
+    // -EINVAL
+    mov $-22, %rax
+2:
+    //movq %rax, %r9
+    //call amd64_syscall
 
     // Disable interrupts
     cli

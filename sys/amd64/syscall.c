@@ -43,77 +43,59 @@ static int sys_openpty(int *master, int *slave);
 extern int sys_execve(const char *filename, const char *const argv[], const char *const envp[]);
 
 // Non-compliant with linux style, but fuck'em, it just works
-static void sys_signal(uintptr_t entry);
+//static void sys_signal(uintptr_t entry);
 static void sys_sigret(void);
 
 __attribute__((noreturn)) void amd64_syscall_yield_stopped(void);
 
-intptr_t amd64_syscall(uintptr_t rdi, uintptr_t rsi, uintptr_t rdx, uintptr_t rcx, uintptr_t r10, uintptr_t rax) {
-    asm volatile ("cli");
-    ++syscall_count;
-    switch (rax) {
-    case SYSCALL_NR_READ:
-        return sys_read((int) rdi, (void *) rsi, (size_t) rdx);
-    case SYSCALL_NR_WRITE:
-        return sys_write((int) rdi, (const void *) rsi, (size_t) rdx);
-    case SYSCALL_NR_OPEN:
-        return sys_open((const char *) rdi, (int) rsi, (int) rdx);
-    case SYSCALL_NR_CLOSE:
-        sys_close((int) rdi);
-        return 0;
-    case SYSCALL_NR_STAT:
-        return sys_stat((const char *) rdi, (struct stat *) rsi);
-    case SYSCALL_NR_EXECVE:
-        return sys_execve((const char *) rdi, (const char **) rsi, NULL);
-    case SYSCALL_NR_READDIR:
-        return sys_readdir((int) rdi, (struct dirent *) rsi);
-    case SYSCALL_NR_ACCESS:
-        return sys_access((const char *) rdi, (int) rsi);
-    case SYSCALL_NR_GETCWD:
-        return sys_getcwd((char *) rdi, (size_t) rsi);
-    case SYSCALL_NR_CHDIR:
-        return sys_chdir((const char *) rdi);
-
-    case SYSCALL_NRX_SIGNAL:
-        sys_signal(rdi);
-        return 0;
-    case SYSCALL_NR_BRK:
-        return sys_brk((void *) rdi);
-    case SYSCALL_NR_NANOSLEEP:
-        return sys_nanosleep((const struct timespec *) rdi, (struct timespec *) rsi);
-    case SYSCALL_NR_GETPID:
-        {
-            struct thread *t = get_cpu()->thread;
-            _assert(t);
-            return t->pid;
-        }
-    case SYSCALL_NR_EXIT:
-        sys_exit((int) rdi);
-        amd64_syscall_yield_stopped();
-    case SYSCALL_NR_KILL:
-        return sys_kill((int) rdi, (int) rsi);
-    case SYSCALL_NR_GETTIMEOFDAY:
-        return sys_gettimeofday((struct timeval *) rdi, (struct timezone *) rsi);
-
-    case SYSCALL_NR_REBOOT:
-        return sys_reboot((int) rdi, (int) rsi, (unsigned int) rdx, (void *) rcx);
-
-    case SYSCALL_NRX_SIGRET:
-        sys_sigret();
-        return 0;
-    case SYSCALL_NRX_OPENPTY:
-        return sys_openpty((int *) rdi, (int *) rsi);
-    case SYSCALL_NRX_WAITPID:
-        return sys_waitpid((int) rdi, (int *) rsi);
-
-    default:
-        kerror("unknown syscall: %u\n", rax);
-        // TODO: I guess this should ideally crash the application
-        //       with invalid opcode or something
-        return -1;
-    }
-    return 0;
+static int sys_getpid(void) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    return thr->pid;
 }
+
+static void sys_signal(uintptr_t entry) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    kdebug("%u set its signal handler to %p\n", thr->pid, entry);
+    thr->sigentry = entry;
+}
+
+const void *amd64_syscall_jmp_table[256] = {
+    // File
+    [SYSCALL_NR_READ] = sys_read,
+    [SYSCALL_NR_WRITE] = sys_write,
+    [SYSCALL_NR_READDIR] = sys_readdir,
+    [SYSCALL_NR_OPEN] = sys_open,
+    [SYSCALL_NR_CLOSE] = sys_close,
+    [SYSCALL_NR_GETCWD] = sys_getcwd,
+    [SYSCALL_NR_CHDIR] = sys_chdir,
+    [SYSCALL_NR_STAT] = sys_stat,
+    [SYSCALL_NR_ACCESS] = sys_access,
+
+    // Terminal
+    [SYSCALL_NRX_OPENPTY] = sys_openpty,
+
+    // Process
+    [SYSCALL_NR_EXIT] = sys_exit,
+    [SYSCALL_NR_KILL] = sys_kill,
+    [SYSCALL_NR_EXECVE] = sys_execve,
+    [SYSCALL_NR_GETPID] = sys_getpid,
+    [SYSCALL_NRX_SIGRET] = sys_sigret,
+    [SYSCALL_NRX_SIGNAL] = sys_signal,
+    [SYSCALL_NRX_WAITPID] = sys_waitpid,
+
+    // Time
+    [SYSCALL_NR_NANOSLEEP] = sys_nanosleep,
+    [SYSCALL_NR_GETTIMEOFDAY] = sys_gettimeofday,
+
+    // Memory
+    [SYSCALL_NR_BRK] = sys_brk,
+
+    // System
+    [SYSCALL_NR_REBOOT] = sys_reboot,
+    NULL
+};
 
 static int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg) {
     if (magic1 != (int) YGG_REBOOT_MAGIC1 || magic2 != (int) YGG_REBOOT_MAGIC2) {
@@ -372,13 +354,7 @@ static void sys_exit(int status) {
     kdebug("%u exited with code %d\n", thr->pid, status);
     thr->exit_code = status;
     thr->flags |= THREAD_STOPPED;
-}
-
-static void sys_signal(uintptr_t entry) {
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
-    kdebug("%u set its signal handler to %p\n", thr->pid, entry);
-    thr->sigentry = entry;
+    amd64_syscall_yield_stopped();
 }
 
 static int sys_kill(int pid, int signum) {
