@@ -1,11 +1,11 @@
-Yggdrasil x86-64 kernel (+ userspace)
+Yggdrasil x86-64 kernel
 ======================================
 
 (I still need refactoring, huh.)
 
-Yggdrasil is the name for my kernel and userspace development
-project which tries to follow the Unix principles (sheesh, yet
-another POSIX OS?) and is loosely inspired by stuff like Linux,
+Yggdrasil is the name for my kernel development project which 
+tries to follow the Unix principles (sheesh, yet another POSIX 
+OS?) and is loosely inspired by stuff like Linux,
 BSD and other *nixes I've laid my hands on so far.
 
 ![alt text](doc/demo0.png "Demo")
@@ -19,12 +19,8 @@ Building
     make
 ```
 
-The result is `build/sys/amd64/image.iso` bootable ISO file. You can
-burn it on some physical drive or just use qemu. To run qemu, use
-
-```Shell session
-    make qemu
-```
+The results are build/sys/amd64/loader.elf (32-bit loader and for 64-bit kernel)
+and build/sys/amd64/kernel.elf (the kernel itself)
 
 What works
 ----------
