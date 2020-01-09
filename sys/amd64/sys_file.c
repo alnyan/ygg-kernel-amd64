@@ -66,6 +66,24 @@ ssize_t sys_readdir(int fd, struct dirent *ent) {
     return src->d_reclen;
 }
 
+int sys_creat(const char *pathname, int mode) {
+    return sys_open(pathname, O_CREAT | O_WRONLY | O_TRUNC, mode);
+}
+
+int sys_mkdir(const char *pathname, int mode) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    return vfs_mkdir(&thr->ioctx, pathname, mode);
+}
+
+int sys_unlink(const char *pathname) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    return vfs_unlink(&thr->ioctx, pathname);
+}
+
 int sys_chdir(const char *filename) {
     struct thread *thr = get_cpu()->thread;
     _assert(thr);
