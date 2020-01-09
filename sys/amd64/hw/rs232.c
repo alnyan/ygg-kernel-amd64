@@ -30,6 +30,8 @@
 #define RS232_LSR_ERR   128
 
 void rs232_send(uint16_t port, char c) {
+    while (!(inb(port + RS232_LSR) & RS232_LSR_THRE)) {
+    }
     outb(port, c);
 }
 
