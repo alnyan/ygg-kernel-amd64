@@ -69,7 +69,8 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/net/netdev.o \
 	  $(O)/sys/vfs/pseudo.o \
 	  $(O)/sys/vfs/pty.o \
-	  $(O)/sys/reboot.o
+	  $(O)/sys/reboot.o \
+	  $(O)/sys/random.o
 
 ifeq ($(VESA_ENABLE),1)
 OBJS+=$(O)/sys/psf.o \
