@@ -6,6 +6,7 @@
 #include "sys/amd64/mm/mm.h"
 #include "sys/amd64/syscall.h"
 #include "sys/amd64/cpu.h"
+#include "sys/amd64/fpu.h"
 #include "sys/string.h"
 #include "sys/sched.h"
 #include "sys/debug.h"
@@ -60,6 +61,9 @@ static void amd64_ap_code_entry(void) {
     LAPIC(LAPIC_REG_SVR) |= (1 << 8) | (0xFF);
 
     kdebug("cpu%d is online\n", cpu->processor_id);
+
+    // Enable FPU
+    amd64_fpu_init();
 
     // Enable LAPIC timer
     amd64_timer_init();

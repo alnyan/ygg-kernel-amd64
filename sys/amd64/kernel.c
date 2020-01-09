@@ -14,6 +14,7 @@
 #include "sys/amd64/hw/ps2.h"
 #include "sys/amd64/hw/rtc.h"
 #include "sys/amd64/hw/con.h"
+#include "sys/amd64/fpu.h"
 #include "sys/random.h"
 #include "sys/time.h"
 #include "sys/panic.h"
@@ -70,8 +71,7 @@ void kernel_main(struct amd64_loader_data *data) {
     // Initial random seed
     amd64_make_random_seed();
 
-    asm volatile ("fninit");
-    asm volatile ("mov %cr4, %rax; or $(1 << 18), %rax; mov %rax, %cr4;");
+    amd64_fpu_init();
 
 #if defined(AMD64_SMP)
     amd64_smp_init();
