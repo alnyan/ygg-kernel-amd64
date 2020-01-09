@@ -45,6 +45,23 @@ static struct thread t_idle[AMD64_MAX_SMP] = {0};
 static struct thread t_init = {0};
 static struct thread *t_user_init = NULL;
 
+static uint64_t fxsave_buf[FXSAVE_REGION / 8] __attribute__((aligned(16)));
+
+void thread_save_context(struct thread *thr) {
+    _assert(thr);
+    asm volatile ("fxsave (%0)"::"r"(fxsave_buf));
+    memcpyq((uint64_t *) thr->data.save_zone0, fxsave_buf, FXSAVE_REGION / 8);
+    thr->flags |= THREAD_CTX_SAVED;
+}
+
+void thread_restore_context(struct thread *thr) {
+    _assert(thr);
+    if (thr->flags & THREAD_CTX_SAVED) {
+        memcpyq(fxsave_buf, (uint64_t *) thr->data.save_zone0, FXSAVE_REGION / 8);
+        asm volatile ("fxrstor (%0)"::"r"(fxsave_buf));
+    }
+}
+
 void idle_func(uintptr_t id) {
     kdebug("Entering [idle] for cpu%d\n", id);
     while (1) {

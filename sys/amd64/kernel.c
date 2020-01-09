@@ -70,6 +70,9 @@ void kernel_main(struct amd64_loader_data *data) {
     // Initial random seed
     amd64_make_random_seed();
 
+    asm volatile ("fninit");
+    asm volatile ("mov %cr4, %rax; or $(1 << 18), %rax; mov %rax, %cr4;");
+
 #if defined(AMD64_SMP)
     amd64_smp_init();
 #endif

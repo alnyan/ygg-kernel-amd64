@@ -4,6 +4,7 @@
 
 #define THREAD_KERNEL       (1 << 31)
 #define THREAD_CTX_ONLY     (1 << 30)
+#define THREAD_CTX_SAVED    (1 << 28)
 // Thread is stopped, wait()ed by its parent and ready for reaping
 #define THREAD_DONE_WAITING (1 << 5)
 // Well, this is actually the opposite - not a child waiting to be

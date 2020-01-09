@@ -20,6 +20,8 @@
 
 #define THREAD_KSTACK_SIZE      32768
 
+extern void thread_save_context(struct thread *t);
+
 int thread_init(
         struct thread *t,
         mm_space_t space,
@@ -31,6 +33,9 @@ int thread_init(
         uint32_t flags,
         void *arg) {
     t->data.data_flags = 0;
+
+    t->data.save_zone0 = (uintptr_t) kmalloc(FXSAVE_REGION);
+    _assert(t->data.save_zone0);
 
     if (!rsp0_base) {
         void *kstack = kmalloc(THREAD_KSTACK_SIZE);
@@ -322,6 +327,9 @@ int sys_fork(void) {
     dst_data->stack3_base = thr_src->data.stack3_base;
     dst_data->stack3_size = thr_src->data.stack3_size;
     dst_data->rsp0 = dst_data->stack0_base + dst_data->stack0_size - sizeof(struct cpu_context);
+    dst_data->save_zone0 = (uintptr_t) kmalloc(1024);
+    _assert(dst_data->save_zone0);
+
 
     // Clone cpu context
     struct cpu_context *src_ctx = (struct cpu_context *) thr_src->data.rsp0;

@@ -9,10 +9,12 @@ struct amd64_thread {
     // Normal context
     uintptr_t stack0_base;
     uintptr_t stack0_size;
+    uintptr_t save_zone0;
 
     // Signal handling context
     uintptr_t stack0s_base;
     uintptr_t stack0s_size;
+    uintptr_t save_zone0s;
 
     // User stack
     uintptr_t stack3_base;

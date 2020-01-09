@@ -28,6 +28,8 @@ amd64_irq0:
     test %rdi, %rdi
     jz 1f
     movq %rsp, (%rdi)
+    // Store task FPU and rest
+    call thread_save_context
 1:
 
     call sched
@@ -45,6 +47,8 @@ amd64_irq0:
     addq $(25 * 8), %rax
     movq %rax, 4(%rdi)
 1:
+    movq %rsi, %rdi
+    call thread_restore_context
     // Assume we're now on TASK2's stack
     // EOI
     irq_eoi_lapic 0

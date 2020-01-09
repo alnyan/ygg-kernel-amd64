@@ -4,6 +4,8 @@
 #include "sys/types.h"
 #include "sys/thread.h"
 
+#define FXSAVE_REGION       512
+
 struct cpu {
     // TODO: somehow export offsets to asm
     struct cpu *self;           // 0x00
