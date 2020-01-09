@@ -308,10 +308,6 @@ int sys_fork(void) {
         return res;
     }
 
-    thr_dst->parent = thr_src;
-    thr_dst->next_child = thr_src->child;
-    thr_src->child = thr_dst;
-
     // Clone process state
     void *dst_kstack = kmalloc(THREAD_KSTACK_SIZE);
     void *dst_kstack_sig = kmalloc(THREAD_KSTACK_SIZE);
@@ -340,6 +336,12 @@ int sys_fork(void) {
     thr_dst->space = thread_space;
     thr_dst->flags = thr_src->flags;
     thr_dst->next = NULL;
+
+    thr_dst->child = NULL;
+    thr_dst->sigq = 0;
+    thr_dst->parent = thr_src;
+    thr_dst->next_child = thr_src->child;
+    thr_src->child = thr_dst;
 
     // TODO: clone FDs
     memset(&thr_dst->ioctx, 0, sizeof(thr_dst->ioctx));

@@ -473,6 +473,7 @@ int sched(void) {
         int signum = 0;
         if (to->sigq & (1 << 8)) {
             // SIGKILL
+            kdebug("sigq = %x\n", to->sigq);
             panic("TODO: properly handle SIGKILL\n");
         }
 
