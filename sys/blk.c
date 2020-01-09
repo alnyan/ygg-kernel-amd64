@@ -89,6 +89,20 @@ int blk_mount_auto(struct vfs_node *at, struct blkdev *blk, const char *opt) {
     return -1;
 }
 
+static ssize_t blk_part_write(struct blkdev *dev, const void *buf, size_t off, size_t count) {
+    struct blk_part *part = (struct blk_part *) dev->dev_data;
+    size_t part_size_bytes = part->lba_size * 512;
+    size_t part_off_bytes = part->lba_start * 512;
+
+    if (off >= part_size_bytes) {
+        return -1;
+    }
+
+    size_t l = MIN(part_size_bytes - off, count);
+
+    return blk_write(part->device, buf, off + part_off_bytes, l);
+}
+
 static ssize_t blk_part_read(struct blkdev *dev, void *buf, size_t off, size_t count) {
     struct blk_part *part = (struct blk_part *) dev->dev_data;
     size_t part_size_bytes = part->lba_size * 512;
@@ -129,6 +143,7 @@ static int blk_enumerate_mbr(struct blkdev *dev, uint8_t *head) {
 
             blk->dev_data = part;
             blk->read = blk_part_read;
+            blk->write = blk_part_write;
             blk->ent_parent = dev->ent;
 
             ent->dev = blk;
@@ -174,6 +189,7 @@ static int blk_enumerate_gpt(struct blkdev *dev, uint8_t *head) {
 
             blk->dev_data = part;
             blk->read = blk_part_read;
+            blk->write = blk_part_write;
             blk->ent_parent = dev->ent;
 
             ent->dev = blk;

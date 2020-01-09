@@ -48,6 +48,19 @@ static ssize_t ahci_blk_read(struct blkdev *blk, void *buf, size_t off, size_t c
     return count;
 }
 
+static ssize_t ahci_blk_write(struct blkdev *blk, const void *buf, size_t off, size_t count) {
+    _assert(blk && blk->dev_data);
+    _assert(!(off & 511));
+    _assert(!(count & 511));
+
+    size_t nsect = count / 512;
+    size_t lba = off / 512;
+
+    ahci_sata_write((struct ahci_port_registers *) blk->dev_data, buf, nsect, lba);
+
+    return count;
+}
+
 static int ahci_add_port_dev(struct ahci_port_registers *port) {
     void *buf = kmalloc(sizeof(struct blkdev) + sizeof(struct dev_entry));
     struct dev_entry *ent = (struct dev_entry *) buf;
@@ -56,6 +69,7 @@ static int ahci_add_port_dev(struct ahci_port_registers *port) {
 
     blk->dev_data = port;
     blk->read = ahci_blk_read;
+    blk->write = ahci_blk_write;
 
     ent->dev = blk;
     ent->dev_class = DEV_CLASS_BLOCK;
@@ -84,7 +98,8 @@ uint32_t ahci_irq(void *ctx) {
     return IRQ_UNHANDLED;
 }
 
-void ahci_sata_read(struct ahci_port_registers *port, void *buf, uint32_t nsect, uint64_t lba) {
+static void ahci_sata_access(struct ahci_port_registers *port, void *buf, uint32_t nsect, uint64_t lba, uint8_t dir) {
+    kdebug("%s access to AHCI drive\n", dir ? "Write" : "Read");
     port->p_is = -1;
 
     int cmd = ahci_alloc_cmd(port);
@@ -101,7 +116,7 @@ void ahci_sata_read(struct ahci_port_registers *port, void *buf, uint32_t nsect,
     size_t prd_count = (byte_count + 8191) / 8192;
 
     if (prd_count > 8) {
-        panic("Read operation uses too many PRDT entries\n");
+        panic("Too many PRDT entries\n");
     }
 
     size_t bytes_left = byte_count;
@@ -135,11 +150,11 @@ void ahci_sata_read(struct ahci_port_registers *port, void *buf, uint32_t nsect,
 
     _assert(!bytes_left);
 
-    // Prepare read command
+    // Prepare command
     struct ahci_fis_reg_h2d *fis_reg_h2d = &cmd_table->fis_reg_h2d;
     memset(fis_reg_h2d, 0, sizeof(struct ahci_fis_reg_h2d));
     fis_reg_h2d->type = FIS_REG_H2D;
-    fis_reg_h2d->cmd = ATA_CMD_READ_DMA_EX;
+    fis_reg_h2d->cmd = dir ? ATA_CMD_WRITE_DMA_EX : ATA_CMD_READ_DMA_EX;
     fis_reg_h2d->cmd_port = 1 << 7;
     fis_reg_h2d->lba0 = lba & 0xFF;
     fis_reg_h2d->lba1 = (lba >> 8) & 0xFF;
@@ -176,6 +191,14 @@ void ahci_sata_read(struct ahci_port_registers *port, void *buf, uint32_t nsect,
     if (port->p_is & AHCI_PORT_IS_TFES) {
         panic("Port task file error\n");
     }
+}
+
+void ahci_sata_read(struct ahci_port_registers *port, void *buf, uint32_t nsect, uint64_t lba) {
+    ahci_sata_access(port, buf, nsect, lba, 0);
+}
+
+void ahci_sata_write(struct ahci_port_registers *port, const void *buf, uint32_t nsect, uint64_t lba) {
+    ahci_sata_access(port, (void *) buf, nsect, lba, 1);
 }
 
 static void ahci_sata_port_identify(struct ahci_port_registers *port) {

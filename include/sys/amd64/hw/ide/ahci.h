@@ -222,8 +222,8 @@ struct ahci_command_table_entry {
 
 uint32_t ahci_irq(void *ctx);
 
-// TODO: accept block device instead of port registers
 void ahci_sata_read(struct ahci_port_registers *port, void *buf, uint32_t nsect, uint64_t lba);
+void ahci_sata_write(struct ahci_port_registers *port, const void *buf, uint32_t nsect, uint64_t lba);
 
 void ahci_port_start(struct ahci_port_registers *port);
 void ahci_port_stop(struct ahci_port_registers *port);

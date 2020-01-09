@@ -22,7 +22,7 @@ int ext2_alloc_block(fs_t *ext2, uint32_t *block_no) {
     for (size_t i = 0; i < sb->block_group_count; ++i) {
         if (sb->block_group_descriptor_table[i].free_blocks > 0) {
             // Found a free block here
-            kdebug("Allocating a block in group #%zu\n", i);
+            kdebug("Allocating a block in group #%u\n", i);
 
             if ((res = ext2_read_block(ext2,
                                        sb->block_group_descriptor_table[i].block_usage_bitmap_block,
@@ -244,7 +244,7 @@ int ext2_alloc_inode(fs_t *ext2, uint32_t *ino) {
     for (size_t i = 0; i < sb->block_group_count; ++i) {
         if (sb->block_group_descriptor_table[i].free_inodes > 0) {
             // Found a block group with free inodes
-            kdebug("Allocating an inode inside block group #%zu\n", i);
+            kdebug("Allocating an inode inside block group #%u\n", i);
 
             // Read inode usage bitmap
             if ((res = ext2_read_block(ext2,
