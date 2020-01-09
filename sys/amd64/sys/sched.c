@@ -81,6 +81,16 @@ void init_func(void *arg) {
             if ((res = vfs_mount(&ioctx, "/mnt", sda1_blk, "auto", NULL)) != 0) {
                 kwarn("/dev/sda1: %s\n", kstrerror(res));
             }
+        } else {
+            // Maybe an IDE drive?
+            sda1_blk = blk_by_name("hda1");
+            if (sda1_blk) {
+                kinfo("Trying to mount /dev/hda1 -> /mnt\n");
+
+                if ((res = vfs_mount(&ioctx, "/mnt", sda1_blk, "auto", NULL)) != 0) {
+                    kwarn("/dev/sda1: %s\n", kstrerror(res));
+                }
+            }
         }
 
         if ((res = vfs_stat(&ioctx, "/init", &st)) != 0) {
