@@ -137,7 +137,7 @@ int vfs_open_node(struct vfs_ioctx *ctx, struct ofile *fd, vnode_t *vn, int opt)
 void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd);
 ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t count);
 ssize_t vfs_write(struct vfs_ioctx *ctx, struct ofile *fd, const void *buf, size_t count);
-int vfs_unlink(struct vfs_ioctx *ctx, const char *path);
+int vfs_unlink(struct vfs_ioctx *ctx, const char *path, int is_rmdir);
 
 int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st);
 int vfs_statat(struct vfs_ioctx *ctx, vnode_t *at, const char *path, struct stat *st);

@@ -81,7 +81,14 @@ int sys_unlink(const char *pathname) {
     struct thread *thr = get_cpu()->thread;
     _assert(thr);
 
-    return vfs_unlink(&thr->ioctx, pathname);
+    return vfs_unlink(&thr->ioctx, pathname, 0);
+}
+
+int sys_rmdir(const char *pathname) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    return vfs_unlink(&thr->ioctx, pathname, 1);
 }
 
 int sys_chdir(const char *filename) {

@@ -25,6 +25,7 @@ const void *amd64_syscall_jmp_table[256] = {
     [SYSCALL_NR_UNLINK] = sys_unlink,
     [SYSCALL_NR_MKDIR] = sys_mkdir,
     [SYSCALL_NR_CREAT] = sys_creat,
+    [SYSCALL_NR_RMDIR] = sys_rmdir,
 
     // Process
     [SYSCALL_NR_EXIT] = sys_exit,

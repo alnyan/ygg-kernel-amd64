@@ -1076,11 +1076,7 @@ int vfs_truncate(struct vfs_ioctx *ctx, struct ofile *of, size_t length) {
     return vn->op->truncate(of, length);
 }
 
-// XXX: Linux seems to differentiate between
-//      unlink() and rmdir(). I think just
-//      passing a flag whether sys_rmdir or
-//      sys_unlink was called.
-int vfs_unlink(struct vfs_ioctx *ctx, const char *path) {
+int vfs_unlink(struct vfs_ioctx *ctx, const char *path, int is_rmdir) {
     // XXX: validate this with removing mounted roots
     _assert(path);
     // Find the vnode to unlink
@@ -1093,6 +1089,13 @@ int vfs_unlink(struct vfs_ioctx *ctx, const char *path) {
 
     _assert(vnode && vnode->op);
     vnode_ref(vnode);
+
+    if (vnode->type != VN_DIR && is_rmdir) {
+        return -ENOTDIR;
+    }
+    if (vnode->type == VN_DIR && !is_rmdir) {
+        return -EISDIR;
+    }
 
     // Get node parent
     struct vfs_node *node = vnode->tree_node;
