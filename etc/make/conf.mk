@@ -48,13 +48,23 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/string.o \
 	  $(O)/sys/panic.o \
 	  $(O)/sys/errno.o \
+	  $(O)/sys/vfs/fs_class.o \
+	  $(O)/sys/chr.o \
 	  $(O)/sys/blk.o \
 	  $(O)/sys/dev.o \
-	  $(O)/sys/tty.o \
-	  $(O)/sys/chr.o \
-	  $(O)/sys/vfs/fs_class.o \
 	  $(O)/sys/vfs/node.o \
 	  $(O)/sys/vfs/vfs.o \
+	  $(O)/sys/ring.o \
+	  $(O)/sys/net/eth.o \
+	  $(O)/sys/net/arp.o \
+	  $(O)/sys/net/in.o \
+	  $(O)/sys/net/netdev.o \
+	  $(O)/sys/reboot.o \
+	  $(O)/sys/random.o
+
+#	  $(O)/sys/vfs/pseudo.o \
+	  $(O)/sys/tty.o \
+	  $(O)/sys/vfs/pty.o \
 	  $(O)/sys/vfs/ext2/ext2alloc.o \
 	  $(O)/sys/vfs/ext2/ext2blk.o \
 	  $(O)/sys/vfs/ext2/ext2.o \
@@ -62,15 +72,6 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/vfs/ext2/ext2vnop.o \
 	  $(O)/sys/vfs/tar.o \
 	  $(O)/sys/blk/ram.o \
-	  $(O)/sys/ring.o \
-	  $(O)/sys/net/eth.o \
-	  $(O)/sys/net/arp.o \
-	  $(O)/sys/net/in.o \
-	  $(O)/sys/net/netdev.o \
-	  $(O)/sys/vfs/pseudo.o \
-	  $(O)/sys/vfs/pty.o \
-	  $(O)/sys/reboot.o \
-	  $(O)/sys/random.o
 
 ifeq ($(VESA_ENABLE),1)
 OBJS+=$(O)/sys/psf.o \

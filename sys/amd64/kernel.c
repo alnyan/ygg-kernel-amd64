@@ -61,11 +61,11 @@ void kernel_main(struct amd64_loader_data *data) {
     pci_init();
 
     vfs_init();
-    tty_init();
+    //tty_init();
     if (data->initrd_ptr) {
         // Create ram0 block device
-        ramblk_init(MM_VIRTUALIZE(data->initrd_ptr), data->initrd_len);
-        tarfs_init();
+        //ramblk_init(MM_VIRTUALIZE(data->initrd_ptr), data->initrd_len);
+        //tarfs_init();
     }
 
     // Initial random seed

@@ -141,7 +141,7 @@ int ext2_free_inode(fs_t *ext2, uint32_t ino);
 int ext2_alloc_inode(fs_t *ext2, uint32_t *ino);
 
 // Implemented in ext2dir.c
-int ext2_dir_add_inode(fs_t *ext2, vnode_t *dir, const char *name, uint32_t ino);
-int ext2_dir_remove_inode(fs_t *ext2, vnode_t *dir, const char *name, uint32_t ino);
+int ext2_dir_add_inode(fs_t *ext2, struct vnode *dir, const char *name, uint32_t ino);
+int ext2_dir_remove_inode(fs_t *ext2, struct vnode *dir, const char *name, uint32_t ino);
 
 extern struct vnode_operations ext2_vnode_ops;

@@ -9,7 +9,7 @@
 static struct fs_class *fses[10] = { NULL };
 static struct fs mounts[10];
 
-struct fs *fs_create(struct fs_class *cls, struct blkdev *blk, vnode_t *at) {
+struct fs *fs_create(struct fs_class *cls, struct blkdev *blk, struct vnode *at) {
     for (size_t i = 0; i < 10; ++i) {
         if (mounts[i].cls == NULL) {
             mounts[i].cls = cls;

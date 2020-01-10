@@ -79,12 +79,12 @@ struct blk_part {
     uint64_t lba_size;
 };
 
-int blk_mount_auto(struct vfs_node *at, struct blkdev *blk, const char *opt) {
+int blk_mount_auto(struct vnode *at, struct blkdev *blk, const char *opt) {
     int res;
 
-    if ((res = vfs_mount_internal(at, blk, "ext2", opt)) == 0) {
-        return 0;
-    }
+    //if ((res = vfs_mount_internal(at, blk, "ext2", opt)) == 0) {
+    //    return 0;
+    //}
 
     return -1;
 }

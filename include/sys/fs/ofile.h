@@ -4,8 +4,6 @@
 
 struct ofile {
     int flags;
-    vnode_t *vnode;
+    struct vnode *vnode;
     size_t pos;
-    // Dirent buffer
-    char dirent_buf[512];
 };

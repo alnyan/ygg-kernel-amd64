@@ -153,7 +153,7 @@ void thread_cleanup(struct thread *t) {
     // Release files
     for (size_t i = 0; i < 4; ++i) {
         if (t->fds[i].vnode) {
-            vfs_close(&t->ioctx, &t->fds[i]);
+            //vfs_close(&t->ioctx, &t->fds[i]);
         }
     }
 
@@ -190,32 +190,33 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
     ssize_t bread;
     int res;
 
-    if ((res = vfs_stat(&thr->ioctx, filename, &st)) < 0) {
-        return res;
-    }
+    //if ((res = vfs_stat(&thr->ioctx, filename, &st)) < 0) {
+    //    return res;
+    //}
 
-    if ((st.st_mode & S_IFMT) != S_IFREG) {
-        return -ENOEXEC;
-    }
+    //if ((st.st_mode & S_IFMT) != S_IFREG) {
+    //    return -ENOEXEC;
+    //}
 
-    if (!(st.st_mode & 0111)) {
-        return -ENOEXEC;
-    }
+    //if (!(st.st_mode & 0111)) {
+    //    return -ENOEXEC;
+    //}
 
-    file_buf = kmalloc(st.st_size);
-    if (!file_buf) {
-        return -ENOMEM;
-    }
+    //file_buf = kmalloc(st.st_size);
+    //if (!file_buf) {
+    //    return -ENOMEM;
+    //}
 
-    if ((res = vfs_open(&thr->ioctx, &fd, filename, 0, O_RDONLY)) != 0) {
-        return res;
-    }
+    return -EINVAL;
+    //if ((res = vfs_open(&thr->ioctx, &fd, filename, 0, O_RDONLY)) != 0) {
+    //    return res;
+    //}
 
-    while ((bread = vfs_read(&thr->ioctx, &fd, (char *) file_buf + pos, MIN(512, st.st_size - pos))) > 0) {
-        pos += bread;
-    }
+    //while ((bread = vfs_read(&thr->ioctx, &fd, (char *) file_buf + pos, MIN(512, st.st_size - pos))) > 0) {
+    //    pos += bread;
+    //}
 
-    vfs_close(&thr->ioctx, &fd);
+    //vfs_close(&thr->ioctx, &fd);
 
     mm_space_t space = thr->space;
 
@@ -355,12 +356,12 @@ int sys_fork(void) {
     memset(&thr_dst->ioctx, 0, sizeof(thr_dst->ioctx));
     memset(thr_dst->fds, 0, sizeof(thr_dst->fds));
 
-    if ((res = vfs_open(&thr_dst->ioctx, &thr_dst->fds[0], "/dev/tty0", O_RDONLY, 0)) < 0) {
-        panic("Failed to set up tty0 for input: %s\n", kstrerror(res));
-    }
-    if ((res = vfs_open(&thr_dst->ioctx, &thr_dst->fds[1], "/dev/tty0", O_WRONLY, 0)) < 0) {
-        panic("Failed to set up tty0 for output: %s\n", kstrerror(res));
-    }
+    //if ((res = vfs_open(&thr_dst->ioctx, &thr_dst->fds[0], "/dev/tty0", O_RDONLY, 0)) < 0) {
+    //    panic("Failed to set up tty0 for input: %s\n", kstrerror(res));
+    //}
+    //if ((res = vfs_open(&thr_dst->ioctx, &thr_dst->fds[1], "/dev/tty0", O_WRONLY, 0)) < 0) {
+    //    panic("Failed to set up tty0 for output: %s\n", kstrerror(res));
+    //}
 
     sched_add(thr_dst);
 

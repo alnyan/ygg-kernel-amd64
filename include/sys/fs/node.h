@@ -8,9 +8,11 @@
 #include "dirent.h"
 #include "sys/stat.h"
 
+#define NODE_MAXLEN 256
+
 struct ofile;
 struct vfs_ioctx;
-typedef struct vnode vnode_t;
+struct vnode;
 typedef struct fs fs_t;
 
 enum vnode_type {
@@ -18,7 +20,7 @@ enum vnode_type {
     VN_DIR,
     VN_BLK,
     VN_CHR,
-    VN_LNK
+//    VN_LNK
 };
 
 /**
@@ -26,28 +28,28 @@ enum vnode_type {
  */
 struct vnode_operations {
     // File tree traversal, node instance operations
-    int (*find) (vnode_t *node, const char *path, vnode_t **res);
-    void (*destroy) (vnode_t *node);
+    int (*find) (struct vnode *node, const char *path, struct vnode **res);
+    void (*destroy) (struct vnode *node);
 
     // Symlink
-    int (*readlink) (vnode_t *node, char *path);
-    int (*symlink) (vnode_t *at, struct vfs_ioctx *ctx, const char *name, const char *dst);
+//    int (*readlink) (struct vnode *node, char *path);
+//    int (*symlink) (struct vnode *at, struct vfs_ioctx *ctx, const char *name, const char *dst);
 
     // File entry operations
-    int (*access) (vnode_t *node, uid_t *uid, gid_t *gid, mode_t *mode);
-    int (*creat) (vnode_t *node, struct vfs_ioctx *ctx, const char *name, mode_t mode, int opt, vnode_t **res);
-    int (*mkdir) (vnode_t *at, const char *name, mode_t mode);
-    int (*unlink) (vnode_t *at, vnode_t *vn, const char *name);
-    int (*stat) (vnode_t *node, struct stat *st);
-    int (*chmod) (vnode_t *node, mode_t mode);
-    int (*chown) (vnode_t *node, uid_t uid, gid_t gid);
+    int (*access) (struct vnode *node, uid_t *uid, gid_t *gid, mode_t *mode);
+    int (*creat) (struct vnode *node, struct vfs_ioctx *ctx, const char *name, mode_t mode, int opt, struct vnode **res);
+    int (*mkdir) (struct vnode *at, const char *name, mode_t mode);
+    int (*unlink) (struct vnode *at, struct vnode *vn, const char *name);
+    int (*stat) (struct vnode *node, struct stat *st);
+    int (*chmod) (struct vnode *node, mode_t mode);
+    int (*chown) (struct vnode *node, uid_t uid, gid_t gid);
 
     // Directory access
-    int (*opendir) (vnode_t *node, int opt);
+    int (*opendir) (struct vnode *node, int opt);
     int (*readdir) (struct ofile *fd);
 
     // File access
-    int (*open) (vnode_t *node, int opt);
+    int (*open) (struct vnode *node, int opt);
     void (*close) (struct ofile *fd);
     ssize_t (*read) (struct ofile *fd, void *buf, size_t count);
     ssize_t (*write) (struct ofile *fd, const void *buf, size_t count);
@@ -57,24 +59,28 @@ struct vnode_operations {
 struct vnode {
     enum vnode_type type;
 
+    char name[NODE_MAXLEN];
+
+    struct vnode *first_child;
+    struct vnode *next_child;
+    struct vnode *parent;
+
     uint32_t refcount;
+    uint64_t ino;
 
     fs_t *fs;
-    // Private filesystem-specific data (like inode struct)
     void *fs_data;
-    // Private filesystem-specific number (like inode number)
-    uint32_t fs_number;
-
     /*
      * (struct blkdev *) if type == VN_BLK
      * (struct chrdev *) if type == VN_CHR
      */
     void *dev;
-    void *tree_node;
 
     struct vnode_operations *op;
 };
 
-void vnode_ref(vnode_t *vn);
-void vnode_unref(vnode_t *vn);
-void vnode_free(vnode_t *vn);
+struct vnode *vnode_create(const char *name);
+
+//void vnode_ref(vnode_t *vn);
+//void vnode_unref(vnode_t *vn);
+//void vnode_free(vnode_t *vn);

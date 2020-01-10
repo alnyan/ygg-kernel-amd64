@@ -5,8 +5,8 @@
 
 struct pty {
     int number;
-    vnode_t *master;
-    vnode_t *slave;
+    struct vnode *master;
+    struct vnode *slave;
     // TODO: winsize/termios
 
     struct chrdev dev_master;
