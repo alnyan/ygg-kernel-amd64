@@ -12,8 +12,8 @@ enum vnode_type ext2_inode_type(struct ext2_inode *i) {
         return VN_DIR;
     case EXT2_TYPE_REG:
         return VN_REG;
-    case EXT2_TYPE_LNK:
-        return VN_LNK;
+    //case EXT2_TYPE_LNK:
+    //    return VN_LNK;
     default:
         // fprintf(stderr, "Unknown file type: %x\n", v);
         // abort();
@@ -22,9 +22,9 @@ enum vnode_type ext2_inode_type(struct ext2_inode *i) {
     }
 }
 
-static int ext2_fs_mount(fs_t *fs, const char *opt) {
+static int ext2_fs_init(struct fs *fs, const char *opt) {
     int res;
-    kdebug("ext2_fs_mount()\n");
+    kdebug("ext2_fs_init()\n");
     struct ext2_extsb *sb;
     // ext2's private data is its superblock structure
     sb = (struct ext2_extsb *) kmalloc(EXT2_SBSIZ);
@@ -84,7 +84,7 @@ static int ext2_fs_mount(fs_t *fs, const char *opt) {
     return 0;
 }
 
-static int ext2_fs_umount(fs_t *fs) {
+static int ext2_fs_umount(struct fs *fs) {
     struct ext2_extsb *sb = (struct ext2_extsb *) fs->fs_private;
     // Free block group descriptor table
     kfree(sb->block_group_descriptor_table);
@@ -93,29 +93,32 @@ static int ext2_fs_umount(fs_t *fs) {
     return 0;
 }
 
-static vnode_t *ext2_fs_get_root(fs_t *fs) {
-    struct ext2_extsb *sb = fs->fs_private;
-    kdebug("ext2_fs_get_root()\n");
+static struct vnode *ext2_fs_get_root(struct fs *fs) {
+    // TODO: make sure get_root is only called once per filesystem
+    //struct ext2_extsb *sb = fs->fs_private;
+    //kdebug("ext2_fs_get_root()\n");
 
-    struct ext2_inode *inode = (struct ext2_inode *) kmalloc(sb->inode_struct_size);
-    // Read root inode (2)
-    if (ext2_read_inode(fs, inode, EXT2_ROOTINO) != 0) {
-        kfree(inode);
-        return NULL;
-    }
+    //struct ext2_inode *inode = (struct ext2_inode *) kmalloc(sb->inode_struct_size);
+    //// Read root inode (2)
+    //if (ext2_read_inode(fs, inode, EXT2_ROOTINO) != 0) {
+    //    kfree(inode);
+    //    return NULL;
+    //}
 
-    vnode_t *res = (vnode_t *) kmalloc(sizeof(vnode_t));
+    //vnode_t *res = (vnode_t *) kmalloc(sizeof(vnode_t));
 
-    res->fs = fs;
-    res->fs_data = inode;
-    res->fs_number = EXT2_ROOTINO;
-    res->op = &ext2_vnode_ops;
-    res->type = ext2_inode_type(inode);
+    //res->fs = fs;
+    //res->fs_data = inode;
+    //res->fs_number = EXT2_ROOTINO;
+    //res->op = &ext2_vnode_ops;
+    //res->type = ext2_inode_type(inode);
 
-    return res;
+    //return res;
+    panic("ext2 get root\n");
+    return NULL;
 }
 
-static int ext2_fs_statvfs(fs_t *fs, struct statvfs *st) {
+static int ext2_fs_statvfs(struct fs *fs, struct statvfs *st) {
     struct ext2_extsb *sb = fs->fs_private;
 
     st->f_blocks = sb->sb.block_count;
@@ -141,7 +144,8 @@ static int ext2_fs_statvfs(fs_t *fs, struct statvfs *st) {
 static struct fs_class ext2_class = {
     .name = "ext2",
     .get_root = ext2_fs_get_root,
-    .mount = ext2_fs_mount,
+    .init = ext2_fs_init,
+    .mount = NULL,
     .umount = ext2_fs_umount,
     .statvfs = ext2_fs_statvfs
 };

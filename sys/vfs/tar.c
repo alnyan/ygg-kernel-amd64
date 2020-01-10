@@ -20,23 +20,15 @@ struct tar {
 };
 
 struct tarfs_vnode_attr {
-    uint32_t type_perm;
-    uint32_t uid;
-    uint32_t gid;
-    size_t block;
+    size_t first_block;
     size_t size;
 };
 
-static int tarfs_vnode_access(vnode_t *vn, uid_t *uid, gid_t *gid, mode_t *mode);
-static int tarfs_vnode_stat(vnode_t *vn, struct stat *st);
-static int tarfs_vnode_open(vnode_t *vn, int opt);
 static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count);
 
 static struct vnode_operations _tarfs_vnode_op = {
-    .access = tarfs_vnode_access,
-    .stat = tarfs_vnode_stat,
-    .open = tarfs_vnode_open,
-    .read = tarfs_vnode_read
+    .read = tarfs_vnode_read,
+    NULL
 };
 
 static ssize_t tarfs_octal(const char *buf, size_t lim) {
@@ -52,66 +44,64 @@ static ssize_t tarfs_octal(const char *buf, size_t lim) {
     return res;
 }
 
-static const char *tarfs_path_element(char *dst, const char *src) {
-    const char *sep = strchr(src, '/');
+static const char *path_element(const char *path, char *element) {
+    const char *sep = strchr(path, '/');
     if (!sep) {
-        strcpy(dst, src);
+        strcpy(element, path);
         return NULL;
     } else {
-        strncpy(dst, src, sep - src);
-        dst[sep - src] = 0;
+        _assert(sep - path < NODE_MAXLEN);
+        strncpy(element, path, sep - path);
+        element[sep - path] = 0;
+
         while (*sep == '/') {
             ++sep;
         }
         if (!*sep) {
             return NULL;
         }
+
         return sep;
     }
 }
 
-static int tarfs_node_add(struct vfs_node *at, struct vfs_node **res, const char *name) {
-    // Try to find the node
-    for (struct vfs_node *child = at->child; child; child = child->cdr) {
-        if (!strcmp(child->name, name)) {
-            *res = child;
-            // Already exists
-            return 0;
-        }
+static int tarfs_mapper_create_node(struct vnode *at, struct vnode **res, const char *name, int dir) {
+    _assert(at->type == VN_DIR); // Can only attach child to a directory
+
+    if (vnode_lookup_child(at, name, res) == 0) {
+        // Already exists
+        return 0;
     }
 
-    // Else we need to insert it
-    struct vfs_node *node_new = (struct vfs_node *) kmalloc(sizeof(struct vfs_node));
-    strcpy(node_new->name, name);
-    node_new->ismount = 0;
-    node_new->parent = at;
-    node_new->child = NULL;
-    node_new->cdr = at->child;
-    node_new->real_vnode = NULL;
-    node_new->vnode = NULL;
-    at->child = node_new;
+    struct vnode *node_new = vnode_create(dir ? VN_DIR : VN_REG, name);
+    node_new->flags |= VN_MEMORY;
+    node_new->op = &_tarfs_vnode_op;
+
+    vnode_attach(at, node_new);
     *res = node_new;
 
     return 0;
 }
 
-static int tarfs_mapper_create_path(struct vfs_node *root, struct vfs_node **res, const char *path, int isdir) {
-    char path_element[256];
-    const char *remaining = path;
-    struct vfs_node *node = root;
-    struct vfs_node *new_node;
+static int tarfs_mapper_create_path(struct vnode *root, const char *path, struct vnode **res, int dir) {
+    char name[NODE_MAXLEN];
+    const char *child_path = path;
+    struct vnode *node = root;
+    struct vnode *new_node;
+    int err;
 
     kdebug("Add path %s\n", path);
-    while (1) {
-        remaining = tarfs_path_element(path_element, remaining);
 
-        if (tarfs_node_add(node, &new_node, path_element) < 0) {
-            panic("Failed\n");
+    while (1) {
+        child_path = path_element(child_path, name);
+
+        if ((err = tarfs_mapper_create_node(node, &new_node, name, dir)) != 0) {
+            return err;
         }
 
         node = new_node;
 
-        if (!remaining) {
+        if (!child_path) {
             break;
         }
     }
@@ -121,74 +111,34 @@ static int tarfs_mapper_create_path(struct vfs_node *root, struct vfs_node **res
     return 0;
 }
 
-static vnode_t *tarfs_create_vnode(fs_t *fs, struct vfs_node *node, struct tar *hdr, size_t off) {
-    if (hdr) {
-        struct tarfs_vnode_attr *attr = (struct tarfs_vnode_attr *) kmalloc(sizeof(struct tarfs_vnode_attr));
-        attr->block = off + 512;
-        attr->gid = tarfs_octal(hdr->gid, 8);
-        attr->uid = tarfs_octal(hdr->uid, 8);
-        attr->type_perm = tarfs_octal(hdr->mode, 8);
-
-        if (!(hdr->typeflag[0] == '\0' || hdr->typeflag[0] == '0')) {
-            attr->type_perm |= (1 << 16);
-            attr->size = 0;
-        } else {
-            attr->size = tarfs_octal(hdr->size, 12);
-        }
-
-        vnode_t *res = (vnode_t *) kmalloc(sizeof(vnode_t));
-        res->tree_node = node;
-        res->fs = fs;
-        res->fs_data = attr;
-        res->refcount = 0;
-        res->op = &_tarfs_vnode_op;
-        res->type = (attr->type_perm & (1 << 16)) ? VN_DIR : VN_REG;
-
-        return res;
-    } else {
-
-        vnode_t *res = (vnode_t *) kmalloc(sizeof(vnode_t));
-        res->tree_node = node;
-        res->fs = fs;
-        res->fs_data = NULL;
-        res->refcount = 0;
-        res->op = &_tarfs_vnode_op;
-        res->type = VN_DIR;
-
-        return res;
-    }
-}
-
-static int tarfs_node_mapper(fs_t *tar, struct vfs_node **root) {
-    kdebug("tar: node mapper\n");
-    char block_buffer[512];
+static int tar_init(struct fs *tar, const char *opt) {
+    char block[512];
     size_t off = 0;
-    int was0 = 0;
+    int prev_zero = 0;
+    ssize_t res;
 
-    struct vfs_node *_root = (struct vfs_node *) kmalloc(sizeof(struct vfs_node));
-    _root->child = NULL;
-    _root->cdr = NULL;
-    _root->ismount = 0;
-    _root->parent = NULL;
-    _root->real_vnode = NULL;
-    _root->vnode = NULL;
-    struct vfs_node *curr_node;
+    // Create filesystem root node
+    struct vnode *tar_root = vnode_create(VN_DIR, NULL);
+    tar->fs_private = tar_root;
+    tar_root->fs = tar;
+
+    struct vnode *node;
 
     while (1) {
-        if (blk_read(tar->blk, block_buffer, off, 512) < 0) {
-            return -EIO;
+        if ((res = blk_read(tar->blk, block, off, 512)) < 0) {
+            return res;
         }
-        struct tar *hdr = (struct tar *) block_buffer;
 
-        if (hdr->filename[0] == 0) {
-            if (was0) {
-                // End of archive
+        struct tar *hdr = (struct tar *) block;
+
+        if (!hdr->filename[0]) {
+            if (prev_zero) {
                 break;
-            } else {
-                was0 = 1;
-                off += 512;
-                continue;
             }
+
+            prev_zero = 1;
+            off += 512;
+            continue;
         }
 
         size_t node_size = 0;
@@ -199,117 +149,58 @@ static int tarfs_node_mapper(fs_t *tar, struct vfs_node **root) {
             isdir = 0;
         }
 
-        kdebug("Node %c:%s:%S\n", isdir ? 'd' : '-', hdr->filename, node_size);
+        if ((res = tarfs_mapper_create_path(tar_root, hdr->filename, &node, isdir)) < 0) {
+            return res;
+        }
+        _assert(node);
 
-        tarfs_mapper_create_path(_root, &curr_node, hdr->filename, isdir);
-        _assert(curr_node);
-        vnode_t *vnode = tarfs_create_vnode(tar, curr_node, hdr, off);
-        _assert(vnode);
-        curr_node->vnode = vnode;
+        // Initialize the vnode
+        node->uid = 0;
+        node->gid = 0;
+
+        struct tarfs_vnode_attr *attr = kmalloc(sizeof(struct tarfs_vnode_attr));
+        _assert(attr);
+        node->fs_data = attr;
+        node->fs = tar;
+
+        attr->first_block = off + 512;
+        attr->size = node_size;
 
         off += 512 + ((node_size + 0x1FF) & ~0x1FF);
     }
 
-    // Make a vnode for root
-    vnode_t *vnode = tarfs_create_vnode(tar, _root, NULL, 0);
-    _root->vnode = vnode;
-
-    *root = _root;
-
     return 0;
+}
+
+static struct vnode *tar_get_root(struct fs *tar) {
+    return tar->fs_private;
 }
 
 static struct fs_class _tarfs = {
     .name = "ustar",
-    .opt = FS_NODE_MAPPER,
-    .mapper = tarfs_node_mapper
+    .opt = 0,
+    .init = tar_init,
+    .get_root = tar_get_root
 };
 
 // Vnode operations
 
-static int tarfs_vnode_access(vnode_t *vn, uid_t *uid, gid_t *gid, mode_t *mode) {
-    _assert(vn && uid && gid && mode);
-
-    if (!vn->fs_data) {
-        *uid = 0;
-        *gid = 0;
-        *mode = S_IFDIR | 0755;
-    } else {
-        struct tarfs_vnode_attr *attr = (struct tarfs_vnode_attr *) vn->fs_data;
-        *uid = attr->uid;
-        *gid = attr->gid;
-        *mode = (attr->type_perm & 0x1FF) | ((attr->type_perm & (1 << 16)) ? S_IFDIR : S_IFREG);
-    }
-
-    return 0;
-}
-
-static int tarfs_vnode_stat(vnode_t *vn, struct stat *st) {
-    _assert(vn && st);
-    if (!vn->fs_data) {
-        // Root node
-        st->st_atime = 0;
-        st->st_ctime = 0;
-        st->st_mtime = 0;
-        st->st_dev = 0;
-        st->st_rdev = 0;
-
-        st->st_gid = 0;
-        st->st_uid = 0;
-        st->st_mode = S_IFDIR | 0755;
-
-        st->st_ino = 0;
-        st->st_nlink = 1;
-
-        st->st_blksize = 512;
-        st->st_blocks = 0;
-        st->st_size = 0;
-
-        return 0;
-    }
-    struct tarfs_vnode_attr *attr = (struct tarfs_vnode_attr *) vn->fs_data;
-
-    st->st_atime = 0;
-    st->st_mtime = 0;
-    st->st_ctime = 0;
-    st->st_dev = 0;
-    st->st_rdev = 0;
-
-    st->st_gid = attr->gid;
-    st->st_uid = attr->uid;
-    st->st_mode = (attr->type_perm & 0x1FF) | ((attr->type_perm & (1 << 16)) ? S_IFDIR : S_IFREG);
-
-    st->st_ino = (attr->block / 512) - 1;
-    st->st_nlink = 1;
-
-    st->st_blksize = 512;
-    st->st_blocks = (attr->size + 511) & ~511;
-    st->st_size = attr->size;
-
-    return 0;
-}
-
-static int tarfs_vnode_open(vnode_t *vnode, int opt) {
-    if ((opt & O_ACCMODE) != O_RDONLY) {
-        return -EROFS;
-    }
-    return 0;
-}
-
-#define MIN(x, y) ((x) < (y) ? (x) : (y))
 static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
-    _assert(fd && buf && fd->vnode);
-    vnode_t *vn = fd->vnode;
+    _assert(fd);
+    _assert(buf);
+    _assert(fd->vnode);
+    struct vnode *vn = fd->vnode;
     _assert(vn->fs_data);
-    struct tarfs_vnode_attr *attr = (struct tarfs_vnode_attr *) vn->fs_data;
+    _assert(vn->fs && vn->fs->blk);
+    struct tarfs_vnode_attr *attr = vn->fs_data;
 
     if (fd->pos >= attr->size) {
         return -1;
     }
 
     size_t can = MIN(attr->size - fd->pos, count);
-    // TODO: do it properly with block buffer
-    blk_read(vn->fs->blk, buf, fd->pos + attr->block, can);
+    // TODO: size is not block-size aligned, may fuck up
+    blk_read(vn->fs->blk, buf, fd->pos + attr->first_block, can);
 
     return can;
 }

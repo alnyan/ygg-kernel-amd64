@@ -6,12 +6,12 @@
 
 #define ext2_super(e)       ((struct ext2_extsb *) (e)->fs_private)
 
-int ext2_write_superblock(fs_t *ext2) {
+int ext2_write_superblock(struct fs *ext2) {
     struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
     return blk_write(ext2->blk, sb, EXT2_SBOFF, EXT2_SBSIZ);
 }
 
-int ext2_read_block(fs_t *ext2, uint32_t block_no, void *buf) {
+int ext2_read_block(struct fs *ext2, uint32_t block_no, void *buf) {
     if (!block_no) {
         return -1;
     }
@@ -26,7 +26,7 @@ int ext2_read_block(fs_t *ext2, uint32_t block_no, void *buf) {
     return res;
 }
 
-int ext2_write_block(fs_t *ext2, uint32_t block_no, const void *buf) {
+int ext2_write_block(struct fs *ext2, uint32_t block_no, const void *buf) {
     if (!block_no) {
         return -1;
     }
@@ -41,7 +41,7 @@ int ext2_write_block(fs_t *ext2, uint32_t block_no, const void *buf) {
     return res;
 }
 
-int ext2_write_inode_block(fs_t *ext2, struct ext2_inode *inode, uint32_t index, const void *buf) {
+int ext2_write_inode_block(struct fs *ext2, struct ext2_inode *inode, uint32_t index, const void *buf) {
     if (index < 12) {
         uint32_t block_number = inode->direct_blocks[index];
         return ext2_write_block(ext2, block_number, buf);
@@ -52,7 +52,7 @@ int ext2_write_inode_block(fs_t *ext2, struct ext2_inode *inode, uint32_t index,
     }
 }
 
-int ext2_read_inode_block(fs_t *ext2, struct ext2_inode *inode, uint32_t index, void *buf) {
+int ext2_read_inode_block(struct fs *ext2, struct ext2_inode *inode, uint32_t index, void *buf) {
     if (index < 12) {
         // Use direct ptrs
         uint32_t block_number = inode->direct_blocks[index];
@@ -76,7 +76,7 @@ int ext2_read_inode_block(fs_t *ext2, struct ext2_inode *inode, uint32_t index, 
     }
 }
 
-int ext2_read_inode(fs_t *ext2, struct ext2_inode *inode, uint32_t ino) {
+int ext2_read_inode(struct fs *ext2, struct ext2_inode *inode, uint32_t ino) {
     struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
     //printf("ext2_read_inode %d\n", ino);
     char inode_block_buffer[sb->block_size];
@@ -104,7 +104,7 @@ int ext2_read_inode(fs_t *ext2, struct ext2_inode *inode, uint32_t ino) {
     return 0;
 }
 
-int ext2_write_inode(fs_t *ext2, const struct ext2_inode *inode, uint32_t ino) {
+int ext2_write_inode(struct fs *ext2, const struct ext2_inode *inode, uint32_t ino) {
     struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
     //printf("ext2_read_inode %d\n", ino);
     char inode_block_buffer[sb->block_size];

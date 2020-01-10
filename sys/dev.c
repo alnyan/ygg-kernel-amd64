@@ -10,63 +10,69 @@
 #include "sys/fs/fs.h"
 #include "sys/attr.h"
 #include "sys/heap.h"
+#include "sys/errno.h"
 
 static struct vnode *devfs_root = NULL;
 
-static uint64_t dev_scsi_bitmap = 0;
-static uint64_t dev_ide_bitmap = 0;
-static int dev_ram_count = 0;
+static uint64_t dev_count = 0;
 
-static int dev_alloc_block_name(uint16_t subclass, char *name) {
-    if (subclass == DEV_BLOCK_RAM) {
-        strcpy(name, "ram");
-        name[3] = dev_ram_count++ + '0';
-        name[4] = 0;
-        return 0;
+int dev_add(enum dev_class cls, int subcls, void *dev, const char *name) {
+    char node_name[5];
+    struct vnode *node;
+
+    if (!name) {
+        // TODO: generate proper names for device nodes
+        node_name[4] = 0;
+        node_name[3] = '0' + ++dev_count;
+        node_name[0] = 'd';
+        node_name[1] = 'e';
+        node_name[2] = 'v';
+        name = node_name;
     }
-    if (subclass == DEV_BLOCK_SDx || subclass == DEV_BLOCK_HDx) {
-        uint64_t *bmp = subclass == DEV_BLOCK_SDx ? &dev_scsi_bitmap : &dev_ide_bitmap;
-        name[1] = 'd';
-        name[0] = subclass == DEV_BLOCK_SDx ? 's' : 'h';
 
-        for (size_t i = 0; i < 64; ++i) {
-            if (!(*bmp & (1ULL << i))) {
-                *bmp |= 1ULL << i;
-                name[2] = 'a' + i;
-                name[3] = 0;
-                return 0;
-            }
-        }
+    // Create a filesystem node for the device
+    node = vnode_create(cls == DEV_CLASS_BLOCK ? VN_BLK : VN_CHR, name);
+    node->dev = dev;
+
+    // Use inode number to store full device class:subclass
+    node->ino = ((uint32_t) cls) | ((uint64_t) subcls << 32);
+
+    // If root does not yet exist, make one
+    if (!devfs_root) {
+        devfs_root = vnode_create(VN_DIR, NULL);
     }
-    return -1;
-}
 
-int dev_alloc_name(enum dev_class cls, uint16_t subclass, char *name) {
-    switch (cls) {
-    case DEV_CLASS_BLOCK:
-        return dev_alloc_block_name(subclass, name);
-    default:
-        panic("Not implemented\n");
-    }
-}
+    // TODO: some devices are located in subdirs
+    vnode_attach(devfs_root, node);
 
-static int dev_post_add(struct dev_entry *ent) {
-    if (ent->dev_class == DEV_CLASS_BLOCK) {
-        struct blkdev *blk = (struct blkdev *) ent->dev;
+    kinfo("Created device node: %s\n", node->name);
 
-        blk->ent = ent;
-
-        if (ent->dev_subclass < DEV_BLOCK_PART) {
-            if (blk_enumerate_partitions((struct blkdev *) ent->dev) != 0) {
-                return -1;
-            }
-        }
-    }
+    // Self-test
+    struct vnode *test_node = NULL;
+    _assert(vnode_lookup_child(devfs_root, name, &test_node) == 0);
+    _assert(test_node == node);
+    _assert(vnode_lookup_tree(devfs_root, name, &test_node) == 0);
+    _assert(test_node == node);
 
     return 0;
 }
 
-void dev_entry_add(struct dev_entry *ent) {
-    // For example: enumerate partitions on block devices
-    _assert(dev_post_add(ent) == 0);
+int dev_find(enum dev_class cls, const char *name, struct vnode **node) {
+    _assert(node);
+    int res;
+    if (!devfs_root) {
+        return -ENODEV;
+    }
+    if ((res = vnode_lookup_tree(devfs_root, name, node)) != 0) {
+        return res;
+    }
+
+    if (cls == DEV_CLASS_BLOCK && (*node)->type != VN_BLK) {
+        return -ENODEV;
+    }
+    if (cls == DEV_CLASS_CHAR && (*node)->type != VN_CHR) {
+        return -ENODEV;
+    }
+
+    return 0;
 }

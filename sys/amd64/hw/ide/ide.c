@@ -287,39 +287,39 @@ int ide_ata_read_pio(struct ide_device *dev, void *buf, size_t nsect, uint64_t l
     return 0;
 }
 
-static ssize_t ide_blk_read(struct blkdev *blk, void *buf, size_t off, size_t count) {
-    _assert(blk && blk->dev_data);
-    _assert(!(off & 511));
-    _assert(!(count & 511));
-
-    size_t nsect = count / 512;
-    size_t lba = off / 512;
-
-    // XXX: DMA fucks up for some reason, investigate that
-    ide_ata_read_pio((struct ide_device *) blk->dev_data, buf, nsect, lba);
-
-    return count;
-}
+//static ssize_t ide_blk_read(struct blkdev *blk, void *buf, size_t off, size_t count) {
+//    _assert(blk && blk->dev_data);
+//    _assert(!(off & 511));
+//    _assert(!(count & 511));
+//
+//    size_t nsect = count / 512;
+//    size_t lba = off / 512;
+//
+//    // XXX: DMA fucks up for some reason, investigate that
+//    ide_ata_read_pio((struct ide_device *) blk->dev_data, buf, nsect, lba);
+//
+//    return count;
+//}
 
 static int ide_add_ata_dev(struct ide_device *dev) {
-    void *buf = kmalloc(sizeof(struct blkdev) + sizeof(struct dev_entry));
-    struct dev_entry *ent = (struct dev_entry *) buf;
-    struct blkdev *blk = (struct blkdev *) ((uintptr_t) buf + sizeof(struct dev_entry));
-    _assert(ent);
+    //void *buf = kmalloc(sizeof(struct blkdev) + sizeof(struct dev_entry));
+    //struct dev_entry *ent = (struct dev_entry *) buf;
+    //struct blkdev *blk = (struct blkdev *) ((uintptr_t) buf + sizeof(struct dev_entry));
+    //_assert(ent);
 
-    blk->dev_data = dev;
-    blk->write = NULL;
-    blk->read = ide_blk_read;
-    //blk->write = ahci_blk_write;
+    //blk->dev_data = dev;
+    //blk->write = NULL;
+    //blk->read = ide_blk_read;
+    ////blk->write = ahci_blk_write;
 
-    ent->dev = blk;
-    ent->dev_class = DEV_CLASS_BLOCK;
-    ent->dev_subclass = DEV_BLOCK_HDx;
-    if (dev_alloc_name(ent->dev_class, ent->dev_subclass, ent->dev_name) != 0) {
-        return -1;
-    }
+    //ent->dev = blk;
+    //ent->dev_class = DEV_CLASS_BLOCK;
+    //ent->dev_subclass = DEV_BLOCK_HDx;
+    //if (dev_alloc_name(ent->dev_class, ent->dev_subclass, ent->dev_name) != 0) {
+    //    return -1;
+    //}
 
-    dev_entry_add(ent);
+    //dev_entry_add(ent);
 
     return 0;
 }

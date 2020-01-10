@@ -50,6 +50,9 @@ void kernel_main(struct amd64_loader_data *data) {
     amd64_gdt_init();
     amd64_idt_init();
     amd64_mm_init(data);
+    // XXX: HEAP IS ONLY AVAILABLE AT THIS POINT
+    extern void pseudo_init();
+    pseudo_init();
     amd64_acpi_init();
 #if defined(VESA_ENABLE)
     amd64_vesa_init(multiboot_info);
@@ -64,8 +67,8 @@ void kernel_main(struct amd64_loader_data *data) {
     //tty_init();
     if (data->initrd_ptr) {
         // Create ram0 block device
-        //ramblk_init(MM_VIRTUALIZE(data->initrd_ptr), data->initrd_len);
-        //tarfs_init();
+        ramblk_init(MM_VIRTUALIZE(data->initrd_ptr), data->initrd_len);
+        tarfs_init();
     }
 
     // Initial random seed

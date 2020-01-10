@@ -31,33 +31,15 @@ static struct blkdev _dev_null = {
     .write = pseudo_write,
     .read = pseudo_read
 };
-static struct dev_entry _ent_null = {
-    .dev = &_dev_null,
-    .dev_class = DEV_CLASS_BLOCK,
-    .dev_subclass = DEV_BLOCK_PSEUDO,
-    .dev_name = "null"
-};
 static struct blkdev _dev_zero = {
     .dev_data = (void *) DEV_ZERO,
     .write = pseudo_write,
     .read = pseudo_read
 };
-static struct dev_entry _ent_zero = {
-    .dev = &_dev_zero,
-    .dev_class = DEV_CLASS_BLOCK,
-    .dev_subclass = DEV_BLOCK_PSEUDO,
-    .dev_name = "zero"
-};
 static struct blkdev _dev_urandom = {
     .dev_data = (void *) DEV_URANDOM,
     .write = pseudo_write,
     .read = pseudo_read
-};
-static struct dev_entry _ent_urandom = {
-    .dev = &_dev_urandom,
-    .dev_class = DEV_CLASS_BLOCK,
-    .dev_subclass = DEV_BLOCK_PSEUDO,
-    .dev_name = "urandom"
 };
 
 static ssize_t pseudo_write(struct blkdev *dev, const void *buf, size_t pos, size_t lim) {
@@ -87,8 +69,10 @@ static ssize_t pseudo_read(struct blkdev *dev, void *buf, size_t pos, size_t lim
     }
 }
 
-static __init void pseudo_init(void) {
-    dev_entry_add(&_ent_null);
-    dev_entry_add(&_ent_zero);
-    dev_entry_add(&_ent_urandom);
+// XXX: This is called before heap init, fucked up?
+void pseudo_init(void) {
+    // FIXME: They're actually character devices
+    dev_add(DEV_CLASS_BLOCK, DEV_BLOCK_PSEUDO, &_dev_null, "null");
+    dev_add(DEV_CLASS_BLOCK, DEV_BLOCK_PSEUDO, &_dev_zero, "zero");
+    dev_add(DEV_CLASS_BLOCK, DEV_BLOCK_PSEUDO, &_dev_urandom, "urandom");
 }

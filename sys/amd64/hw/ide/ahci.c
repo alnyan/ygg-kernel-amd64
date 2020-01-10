@@ -62,26 +62,35 @@ static ssize_t ahci_blk_write(struct blkdev *blk, const void *buf, size_t off, s
 }
 
 static int ahci_add_port_dev(struct ahci_port_registers *port) {
-    void *buf = kmalloc(sizeof(struct blkdev) + sizeof(struct dev_entry));
-    struct dev_entry *ent = (struct dev_entry *) buf;
-    struct blkdev *blk = (struct blkdev *) ((uintptr_t) buf + sizeof(struct dev_entry));
-    _assert(ent);
-
+    // Create a new device
+    // XXX: Replace kmalloc with dev_blk_create
+    struct blkdev *blk = kmalloc(sizeof(struct blkdev));
     blk->dev_data = port;
     blk->read = ahci_blk_read;
     blk->write = ahci_blk_write;
 
-    ent->dev = blk;
-    ent->dev_class = DEV_CLASS_BLOCK;
-    ent->dev_subclass = DEV_BLOCK_SDx;
-    if (dev_alloc_name(ent->dev_class, ent->dev_subclass, ent->dev_name) != 0) {
-        return -1;
-    }
-
-    dev_entry_add(ent);
-
-    return 0;
+    return dev_add(DEV_CLASS_BLOCK, DEV_BLOCK_SDx, blk, NULL);
 }
+//    //void *buf = kmalloc(sizeof(struct blkdev) + sizeof(struct dev_entry));
+//    //struct dev_entry *ent = (struct dev_entry *) buf;
+//    //struct blkdev *blk = (struct blkdev *) ((uintptr_t) buf + sizeof(struct dev_entry));
+//    //_assert(ent);
+//
+//    //blk->dev_data = port;
+//    //blk->read = ahci_blk_read;
+//    //blk->write = ahci_blk_write;
+//
+//    //ent->dev = blk;
+//    //ent->dev_class = DEV_CLASS_BLOCK;
+//    //ent->dev_subclass = DEV_BLOCK_SDx;
+//    //if (dev_alloc_name(ent->dev_class, ent->dev_subclass, ent->dev_name) != 0) {
+//    //    return -1;
+//    //}
+//
+//    //dev_entry_add(ent);
+//
+//    return 0;
+//}
 
 uint32_t ahci_irq(void *ctx) {
     struct ahci_registers *controller = ctx;

@@ -32,15 +32,16 @@ void ramblk_init(uintptr_t at, size_t len) {
     ram_priv.begin = at;
     ram_priv.lim = len;
 
-    struct dev_entry *ent = (struct dev_entry *) kmalloc(sizeof(struct dev_entry));
-    _assert(ent);
-
-    ent->dev = ramblk0;
-    ent->dev_class = DEV_CLASS_BLOCK;
-    ent->dev_subclass = DEV_BLOCK_RAM;
-    if (dev_alloc_name(ent->dev_class, ent->dev_subclass, ent->dev_name) != 0) {
-        panic("Failed to allocate a name for ram device\n");
-    }
-
-    dev_entry_add(ent);
+    dev_add(DEV_CLASS_BLOCK, DEV_BLOCK_RAM, &_ramblk0, "ram0");
+//    struct dev_entry *ent = (struct dev_entry *) kmalloc(sizeof(struct dev_entry));
+//    _assert(ent);
+//
+//    ent->dev = ramblk0;
+//    ent->dev_class = DEV_CLASS_BLOCK;
+//    ent->dev_subclass = DEV_BLOCK_RAM;
+//    if (dev_alloc_name(ent->dev_class, ent->dev_subclass, ent->dev_name) != 0) {
+//        panic("Failed to allocate a name for ram device\n");
+//    }
+//
+//    dev_entry_add(ent);
 }
