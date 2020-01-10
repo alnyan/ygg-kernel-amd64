@@ -23,9 +23,6 @@ enum vnode_type {
 //    VN_LNK
 };
 
-/**
- * @brief Set of functions implemented by filesystem driver
- */
 struct vnode_operations {
     // File tree traversal, node instance operations
     int (*find) (struct vnode *node, const char *path, struct vnode **res);
@@ -80,7 +77,3 @@ struct vnode {
 };
 
 struct vnode *vnode_create(const char *name);
-
-//void vnode_ref(vnode_t *vn);
-//void vnode_unref(vnode_t *vn);
-//void vnode_free(vnode_t *vn);

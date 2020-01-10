@@ -212,17 +212,17 @@ static int blk_enumerate_gpt(struct blkdev *dev, uint8_t *head) {
     return 0;
 }
 
-struct blkdev *blk_by_name(const char *name) {
-    struct dev_entry *it = dev_iter();
-
-    for (; it; it = it->cdr) {
-        if (!strcmp(it->dev_name, name)) {
-            return (struct blkdev *) it->dev;
-        }
-    }
-
-    return NULL;
-}
+//struct blkdev *blk_by_name(const char *name) {
+//    struct dev_entry *it = dev_iter();
+//
+//    for (; it; it = it->cdr) {
+//        if (!strcmp(it->dev_name, name)) {
+//            return (struct blkdev *) it->dev;
+//        }
+//    }
+//
+//    return NULL;
+//}
 
 int blk_enumerate_partitions(struct blkdev *dev) {
     kdebug("Enumerating partitions of %s\n", dev->ent->dev_name);
