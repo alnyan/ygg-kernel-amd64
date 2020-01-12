@@ -60,7 +60,8 @@ void init_func(void *arg) {
     const char *root_dev_name = "ram0";
     struct vnode *root_dev;
 
-    kdebug("Entering [init]\n");
+    // Be [init] now
+    thread_set_name(get_cpu()->thread, "init");
 
     // Create an alias for root device
     if ((res = dev_find(DEV_CLASS_BLOCK, root_dev_name, &root_dev)) != 0) {
@@ -79,13 +80,10 @@ void init_func(void *arg) {
         panic("Failed to mount devfs on /dev: %s\n", kstrerror(res));
     }
 
-    while (1) {
-        asm volatile ("sti; hlt");
-
-        // I've decided not to create a separate thread for network handling yet,
-        // so the code will be here
-        ethq_handle();
-    }
+    struct thread *this = get_cpu()->thread;
+    this->exit_code = 0;
+    this->flags |= THREAD_STOPPED;
+    amd64_syscall_yield_stopped();
 }
 
 static uint32_t sched_alloc_pid(int is_kernel) {
@@ -183,6 +181,7 @@ void sched_init(void) {
             THREAD_KERNEL,
             THREAD_INIT_CTX,
             NULL);
+
     sched_add_to(0, &t_init);
 }
 
@@ -293,11 +292,28 @@ void sched_reboot(unsigned int cmd) {
 
 static uint64_t debug_last_tick = 0;
 
+static void debug_print_thread_name(int level, struct thread *thr) {
+    if (thr->flags & THREAD_KERNEL) {
+        if (thr->name[0]) {
+            debugf(level, "[%s] (%u)", thr->name, -thr->pid);
+        } else {
+            debugf(level, "K%u", -thr->pid);
+        }
+    } else {
+        if (thr->name[0]) {
+            debugf(level, "%s (%u)", thr->name, thr->pid);
+        } else {
+            debugf(level, "%u", thr->pid);
+        }
+    }
+}
+
 static void debug_thread_tree(struct thread *thr, size_t depth) {
     for (size_t i = 0; i < depth; ++i) {
         debugs(DEBUG_DEFAULT, "  ");
     }
-    debugf(DEBUG_DEFAULT, "Thread %d", thr->pid);
+
+    debug_print_thread_name(DEBUG_DEFAULT, thr);
 
     if (thr->flags & THREAD_ZOMBIE) {
         debugc(DEBUG_DEFAULT, 'z');
@@ -332,12 +348,7 @@ static void debug_stats(void) {
     for (size_t i = 0; i < sched_ncpus; ++i) {
         debugf(DEBUG_DEFAULT, "  cpu%d [ ", i);
         for (struct thread *it = sched_queue_heads[i]; it; it = it->next) {
-            if (it->flags & THREAD_KERNEL) {
-                // Kernel threads have no pids, lol
-                debugf(DEBUG_DEFAULT, "K%d", -it->pid);
-            } else {
-                debugf(DEBUG_DEFAULT, "%d", it->pid);
-            }
+            debug_print_thread_name(DEBUG_DEFAULT, it);
 
             if (it->next) {
                 debugs(DEBUG_DEFAULT, ", ");

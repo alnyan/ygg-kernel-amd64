@@ -34,6 +34,8 @@ struct image_info {
 struct thread {
     __plat_thread data;
 
+    char name[32];
+
     struct image_info image;
     // Arguments are stored here
     uintptr_t argp_page;
@@ -77,6 +79,8 @@ int thread_init(struct thread *t,
                 uint32_t init_flags,
                 void *arg);
 int thread_fork(struct thread *dst, struct thread *src);
+
+void thread_set_name(struct thread *thr, const char *name);
 
 void thread_cleanup(struct thread *t);
 void thread_terminate(struct thread *t);

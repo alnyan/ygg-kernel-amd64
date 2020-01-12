@@ -126,6 +126,8 @@ int thread_init(
     void *kstack_sig;
     _assert(space);
 
+    t->name[0] = 0;
+
     // 1. Allocate all the required structures
     t->data.data_flags = 0;
 
@@ -217,6 +219,15 @@ void thread_cleanup(struct thread *t) {
 
     memset(t, 0, sizeof(struct thread));
     kfree(t);
+}
+
+void thread_set_name(struct thread *t, const char *name) {
+    if (name) {
+        _assert(strlen(name) < 32);
+        strcpy(t->name, name);
+    } else {
+        t->name[0] = 0;
+    }
 }
 
 // TODO: may be moved to platform-independent file
