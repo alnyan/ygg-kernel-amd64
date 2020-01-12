@@ -3,7 +3,7 @@
 #include "sys/fs/vfs.h"
 
 #define THREAD_KERNEL       (1 << 31)
-#define THREAD_CTX_ONLY     (1 << 30)
+#define THREAD_SIGRET       (1 << 29)
 #define THREAD_CTX_SAVED    (1 << 28)
 // Thread is stopped, wait()ed by its parent and ready for reaping
 #define THREAD_DONE_WAITING (1 << 5)
@@ -14,7 +14,12 @@
 #define THREAD_ZOMBIE       (1 << 4)
 #define THREAD_WAITING      (1 << 3)
 #define THREAD_STOPPED      (1 << 2)
-#define THREAD_SIGRET       (1 << 29)
+
+// Thread init flags:
+// Initialize I/O context and open stdio
+#define THREAD_INIT_IOCTX   (1 << 1)
+// Initialize platform context
+#define THREAD_INIT_CTX     (1 << 0)
 
 #if defined(ARCH_AMD64)
 typedef uint64_t *mm_space_t;
@@ -69,6 +74,7 @@ int thread_init(struct thread *t,
                 uintptr_t stack3_base,
                 size_t stack3_size,
                 uint32_t flags,
+                uint32_t init_flags,
                 void *arg);
 void thread_cleanup(struct thread *t);
 void thread_terminate(struct thread *t);

@@ -14,6 +14,7 @@
 #include "sys/fcntl.h"
 #include "sys/errno.h"
 #include "sys/blk.h"
+#include "sys/dev.h"
 #include "sys/time.h"
 #include "sys/panic.h"
 #include "sys/assert.h"
@@ -45,23 +46,6 @@ static struct thread t_idle[AMD64_MAX_SMP] = {0};
 static struct thread t_init = {0};
 static struct thread *t_user_init = NULL;
 
-static uint64_t fxsave_buf[FXSAVE_REGION / 8] __attribute__((aligned(16)));
-
-void thread_save_context(struct thread *thr) {
-    _assert(thr);
-    asm volatile ("fxsave (%0)"::"r"(fxsave_buf));
-    memcpyq((uint64_t *) thr->data.save_zone0, fxsave_buf, FXSAVE_REGION / 8);
-    thr->flags |= THREAD_CTX_SAVED;
-}
-
-void thread_restore_context(struct thread *thr) {
-    _assert(thr);
-    if (thr->flags & THREAD_CTX_SAVED) {
-        memcpyq(fxsave_buf, (uint64_t *) thr->data.save_zone0, FXSAVE_REGION / 8);
-        asm volatile ("fxrstor (%0)"::"r"(fxsave_buf));
-    }
-}
-
 void idle_func(uintptr_t id) {
     kdebug("Entering [idle] for cpu%d\n", id);
     while (1) {
@@ -70,143 +54,32 @@ void idle_func(uintptr_t id) {
 }
 
 void init_func(void *arg) {
-    kdebug("Entering [init]\n");
-
-    // Mount rootfs if available
-    //struct blkdev *root_blk = blk_by_name("ram0");
     struct vfs_ioctx ioctx = {0};
     struct stat st;
     int res;
+    const char *root_dev_name = "ram0";
+    struct vnode *root_dev;
+
+    kdebug("Entering [init]\n");
+
+    // Create an alias for root device
+    if ((res = dev_find(DEV_CLASS_BLOCK, root_dev_name, &root_dev)) != 0) {
+        panic("Failed to find root device: %s\n", root_dev_name);
+    }
+    dev_add_link("root", root_dev);
 
     ext2_class_init();
 
-    struct fs_class *tarfs_class = fs_class_by_name("ustar");
-    _assert(tarfs_class);
-
-    // Find _ramblk0
-    struct vnode *ramblk0;
-    if ((res = dev_find(DEV_CLASS_BLOCK, "ram0", &ramblk0)) != 0) {
-        panic("Failed to find root device\n");
-    }
-    //if ((res = dev_find(DEV_CLASS_BLOCK, "dev1_0", &dev1)) != 0) {
-    //    panic("Failed to find dev1: %s\n", kstrerror(res));
-    //}
-
-    // Mount /dev/ram0 using ustar on /
-    if ((res = vfs_mount(&ioctx, "/", ramblk0->dev, "ustar", NULL)) != 0) {
+    // Mount rootfs
+    if ((res = vfs_mount(&ioctx, "/", root_dev->dev, "ustar", NULL)) != 0) {
         panic("Failed to mount root device: %s\n", kstrerror(res));
     }
 
-    // Mount /dev/dev1 using ext2 on /mnt
-    // TODO: make some flag for block devices to indicate
-    // they have already been mounted
-    //if ((res = vfs_mount(&ioctx, "/mnt", dev1->dev, "ext2", NULL)) != 0) {
-    //    panic("Failed to mount some shit: %s\n", kstrerror(res));
-    //}
+    if ((res = vfs_mount(&ioctx, "/dev", NULL, "devfs", NULL)) != 0) {
+        panic("Failed to mount devfs on /dev: %s\n", kstrerror(res));
+    }
 
     kinfo("Done\n");
-
-    //if (root_blk) {
-    //    if ((res = vfs_mount(&ioctx, "/", root_blk, "ustar", NULL)) != 0) {
-    //        panic("mount rootfs: %s\n", kstrerror(res));
-    //    }
-
-    //    // Mount devfs
-    //    if ((res = vfs_mount(&ioctx, "/dev", NULL, "devfs", NULL)) != 0) {
-    //        panic("mount devfs: %s\n", kstrerror(res));
-    //    }
-
-    //    // Try to mount /dev/sda1 at /mnt (don't panic on failure, though)
-    //    struct blkdev *sda1_blk = blk_by_name("sda1");
-    //    if (sda1_blk) {
-    //        kinfo("Trying to mount /dev/sda1 -> /mnt\n");
-
-    //        if ((res = vfs_mount(&ioctx, "/mnt", sda1_blk, "auto", NULL)) != 0) {
-    //            kwarn("/dev/sda1: %s\n", kstrerror(res));
-    //        }
-    //    } else {
-    //        // Maybe an IDE drive?
-    //        sda1_blk = blk_by_name("hda1");
-    //        if (sda1_blk) {
-    //            kinfo("Trying to mount /dev/hda1 -> /mnt\n");
-
-    //            if ((res = vfs_mount(&ioctx, "/mnt", sda1_blk, "auto", NULL)) != 0) {
-    //                kwarn("/dev/sda1: %s\n", kstrerror(res));
-    //            }
-    //        }
-    //    }
-
-    //    if ((res = vfs_stat(&ioctx, "/init", &st)) != 0) {
-    //        panic("/init: %s\n", kstrerror(res));
-    //    }
-
-    //    if ((st.st_mode & S_IFMT) != S_IFREG) {
-    //        panic("/init: not a regular file\n");
-    //    }
-
-    //    if (!(st.st_mode & 0111)) {
-    //        panic("/init: not executable\n");
-    //    }
-
-    //    kdebug("/init is %S\n", st.st_size);
-
-    //    void *exec_buf = kmalloc(st.st_size);
-    //    size_t pos = 0;
-    //    ssize_t bread;
-    //    assert(exec_buf, "Failed to allocate buffer for reading\n");
-
-    //    if ((res = vfs_open(&ioctx, &fd, "/init", 0, O_RDONLY)) != 0) {
-    //        panic("open(): %s\n", kstrerror(res));
-    //    }
-
-    //    while ((bread = vfs_read(&ioctx, &fd, (char *) exec_buf + pos, MIN(512, st.st_size - pos))) > 0) {
-    //        pos += bread;
-    //    }
-
-    //    vfs_close(&ioctx, &fd);
-
-    //    kdebug("Successfully read init\n");
-
-    //    struct thread *init_thread = (struct thread *) kmalloc(sizeof(struct thread));
-    //    _assert(init_thread);
-    //    mm_space_t thread_space = amd64_mm_pool_alloc();
-    //    _assert(thread_space);
-    //    mm_space_clone(thread_space, mm_kernel, MM_CLONE_FLG_KERNEL);
-
-    //    if (thread_init(
-    //                init_thread,
-    //                thread_space,
-    //                0,
-    //                0,
-    //                0,
-    //                0,
-    //                0,
-    //                0,
-    //                NULL) < 0) {
-    //        panic("Failed to setup init task\n");
-    //    }
-
-    //    if ((res = elf_load(init_thread, exec_buf)) < 0) {
-    //        panic("Failed to load binary: %s\n", kstrerror(res));
-    //    }
-
-    //    // Free memory
-    //    kfree(exec_buf);
-
-    //    // FIXME: this way of opening requires devfs to be mounted at /dev, I guess
-    //    //        I can just have dev_entry have a vnode for each of them (and remove
-    //    //        ones used in devfs mapper)
-    //    // Set tty0 input
-    //    if ((res = vfs_open(&init_thread->ioctx, &init_thread->fds[0], "/dev/tty0", O_RDONLY, 0)) < 0) {
-    //        panic("Failed to set up tty0 for input: %s\n", kstrerror(res));
-    //    }
-    //    if ((res = vfs_open(&init_thread->ioctx, &init_thread->fds[1], "/dev/tty0", O_WRONLY, 0)) < 0) {
-    //        panic("Failed to set up tty0 for output: %s\n", kstrerror(res));
-    //    }
-
-    //    kdebug("Done\n");
-    //    sched_add(init_thread);
-    //}
 
     while (1) {
         asm volatile ("sti; hlt");
@@ -296,6 +169,7 @@ void sched_init(void) {
                 0,
                 0,
                 THREAD_KERNEL,
+                THREAD_INIT_CTX,
                 (void *) i);
     }
 
@@ -309,6 +183,7 @@ void sched_init(void) {
             0,
             0,
             THREAD_KERNEL,
+            THREAD_INIT_CTX,
             NULL);
     sched_add_to(0, &t_init);
 }

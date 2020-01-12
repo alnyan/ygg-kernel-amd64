@@ -21,6 +21,7 @@ enum dev_class {
 #define DEV_CHAR_TTY        1
 
 int dev_add(enum dev_class cls, int subcls, void *dev, const char *name);
+int dev_add_link(const char *name, struct vnode *to);
 int dev_find(enum dev_class cls, const char *name, struct vnode **dev_node);
 
 //struct dev_entry {
