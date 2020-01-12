@@ -79,8 +79,6 @@ void init_func(void *arg) {
         panic("Failed to mount devfs on /dev: %s\n", kstrerror(res));
     }
 
-    kinfo("Done\n");
-
     while (1) {
         asm volatile ("sti; hlt");
 
@@ -90,10 +88,11 @@ void init_func(void *arg) {
     }
 }
 
-static uint32_t sched_alloc_pid(void) {
+static uint32_t sched_alloc_pid(int is_kernel) {
     // The first pid allocation will be 1 (init process)
-    static uint32_t last_pid = 1;
-    return last_pid++;
+    static uint32_t last_user_pid = 1;
+    static uint32_t last_kernel_pid = 1;
+    return is_kernel ? -(last_kernel_pid++) : last_user_pid++;
 }
 
 #if defined(AMD64_SMP)
@@ -131,14 +130,13 @@ void sched_add_to(int cpu, struct thread *t) {
     t->prev = sched_queue_tails[cpu];
     t->cpu = cpu;
 
+    t->pid = sched_alloc_pid(t->flags & THREAD_KERNEL);
     if (!(t->flags & THREAD_KERNEL)) {
-        t->pid = sched_alloc_pid();
         if (t->pid == 1) {
             t_user_init = t;
         }
-    } else {
-        t->pid = 0;
     }
+
     sched_queue_tails[cpu] = t;
     ++sched_queue_sizes[cpu];
     spin_release(&sched_lock);
@@ -336,7 +334,7 @@ static void debug_stats(void) {
         for (struct thread *it = sched_queue_heads[i]; it; it = it->next) {
             if (it->flags & THREAD_KERNEL) {
                 // Kernel threads have no pids, lol
-                debugs(DEBUG_DEFAULT, "K?");
+                debugf(DEBUG_DEFAULT, "K%d", -it->pid);
             } else {
                 debugf(DEBUG_DEFAULT, "%d", it->pid);
             }
