@@ -33,7 +33,7 @@ uint32_t ps2_irq_keyboard(void *ctx) {
         char key_char = ps2_key_table_0[key];
 
         if (key_char != 0) {
-            //tty_buffer_write(0, key_char);
+            tty_buffer_write(0, key_char);
         }
     }
 

@@ -22,12 +22,6 @@ static struct chrdev _dev_tty0 = {
     .write = tty_write,
     .read = tty_read
 };
-static struct dev_entry _ent_tty0 = {
-    .dev = &_dev_tty0,
-    .dev_class = DEV_CLASS_CHAR,
-    .dev_subclass = DEV_CHAR_TTY,
-    .dev_name = "tty0"
-};
 
 static struct ring tty_ring = {0};
 
@@ -38,7 +32,8 @@ void tty_buffer_write(int tty_no, char c) {
 
 void tty_init(void) {
     ring_init(&tty_ring, 16);
-    dev_entry_add(&_ent_tty0);
+
+    dev_add(DEV_CLASS_CHAR, DEV_CHAR_TTY, &_dev_tty0, "tty0");
 }
 
 // TODO: multiple ttys

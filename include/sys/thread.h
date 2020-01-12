@@ -16,8 +16,6 @@
 #define THREAD_STOPPED      (1 << 2)
 
 // Thread init flags:
-// Initialize I/O context and open stdio
-#define THREAD_INIT_IOCTX   (1 << 1)
 // Initialize platform context
 #define THREAD_INIT_CTX     (1 << 0)
 
@@ -25,6 +23,8 @@
 typedef uint64_t *mm_space_t;
 #include "sys/amd64/sys/thread.h"
 #endif
+
+#define THREAD_MAX_FDS      16
 
 struct image_info {
     uintptr_t image_end;
@@ -47,7 +47,7 @@ struct thread {
     int exit_code;
 
     struct vfs_ioctx ioctx;
-    struct ofile fds[4];
+    struct ofile *fds[THREAD_MAX_FDS];
 
     // Signals
     uint32_t sigq;

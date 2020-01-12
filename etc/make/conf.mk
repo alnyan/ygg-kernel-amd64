@@ -8,7 +8,8 @@ CFLAGS+=-Wall \
 		-Wno-unused-variable \
 		-Wno-language-extension-token \
 		-Wno-gnu-zero-variadic-macro-arguments \
-		-O0
+		-O0 \
+		-ggdb
 
 ifdef KERNEL_TEST_MODE
 CFLAGS+=-DKERNEL_TEST_MODE
@@ -40,7 +41,6 @@ CFLAGS+=-D__KERNEL__
 # 	  $(O)/sys/vfs/tar.o \
 # 	  $(O)/sys/binfmt_elf.o \
 # 	  $(O)/sys/errno.o \
-# 	  $(O)/sys/tty.o \
 # 	  $(O)/sys/chr.o
 
 OBJS+=$(O)/sys/debug.o \
@@ -64,12 +64,12 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/vfs/ext2/ext2blk.o \
 	  $(O)/sys/vfs/tar.o \
 	  $(O)/sys/blk/ram.o \
+ 	  $(O)/sys/tty.o \
 	  $(O)/sys/reboot.o \
 	  $(O)/sys/random.o \
 	  $(O)/sys/init.o
 
 # \
-	  $(O)/sys/tty.o \
 	  $(O)/sys/vfs/pty.o \
 	  $(O)/sys/vfs/ext2/ext2alloc.o \
 	  $(O)/sys/vfs/ext2/ext2dir.o \

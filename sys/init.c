@@ -72,6 +72,33 @@ static void user_init_start(void) {
 
     kfree(file_buffer);
 
+    // Setup I/O context for init task
+    struct ofile *stdin, *stdout, *stderr;
+    file_buffer = kmalloc(sizeof(struct ofile) * 2);
+    _assert(file_buffer);
+
+    stdin = (struct ofile *) file_buffer;
+    stdout = (struct ofile *) (file_buffer + sizeof(struct ofile));
+    stderr = stdout;
+
+    // TODO: use dev_find and open its node instead
+    struct vnode *stdout_device;
+    if ((res = dev_find(DEV_CLASS_CHAR, "tty0", &stdout_device)) != 0) {
+        panic("%s: %s\n", "tty0", kstrerror(res));
+    }
+
+    if ((res = vfs_open_vnode(&user_init->ioctx, stdin, stdout_device, O_RDONLY)) != 0) {
+        panic("Failed to open stdin for init task: %s\n", kstrerror(res));
+    }
+    if ((res = vfs_open_vnode(&user_init->ioctx, stdout, stdout_device, O_WRONLY)) != 0) {
+        panic("Failed to open stdout/stderr for init task: %s\n", kstrerror(res));
+    }
+
+    // TODO: use STDIN_/STDOUT_/STDERR_FILENO macros
+    user_init->fds[0] = stdin;
+    user_init->fds[1] = stdout;
+    user_init->fds[2] = stderr;
+
     sched_add(user_init);
 }
 

@@ -102,14 +102,6 @@ int thread_platctx_init(struct thread *t, uintptr_t entry, void *arg) {
     return 0;
 }
 
-static int thread_ioctx_init(struct thread *t, uint32_t init_flags) {
-    _assert(t);
-
-    // Setup default I/O context
-
-    return 0;
-}
-
 int thread_init(
         struct thread *t,
         mm_space_t space,
@@ -191,11 +183,6 @@ int thread_init(
         thread_platctx_init(t, entry, arg);
     }
 
-    // 4. Setup I/O context if requested
-    if (init_flags & THREAD_INIT_IOCTX) {
-        thread_ioctx_init(t, init_flags);
-    }
-
     return 0;
 }
 
@@ -204,7 +191,7 @@ void thread_cleanup(struct thread *t) {
 
     // Release files
     for (size_t i = 0; i < 4; ++i) {
-        if (t->fds[i].vnode) {
+        if (t->fds[i]) {
             //vfs_close(&t->ioctx, &t->fds[i]);
         }
     }

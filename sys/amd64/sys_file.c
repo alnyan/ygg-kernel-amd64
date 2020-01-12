@@ -10,24 +10,33 @@
 #include "sys/debug.h"
 
 ssize_t sys_read(int fd, void *buf, size_t lim) {
-    return -EINVAL;
-    //if (fd >= 4 || fd < 0) {
-    //    return -EBADF;
-    //}
-    //struct thread *thr = get_cpu()->thread;
-    //_assert(thr);
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
 
-    //struct ofile *of = &thr->fds[fd];
+    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+        return -EBADF;
+    }
 
-    //if (!of->vnode) {
-    //    return -EBADF;
-    //}
+    if (thr->fds[fd] == NULL) {
+        return -EBADF;
+    }
 
-    //return vfs_read(&thr->ioctx, of, buf, lim);
+    return vfs_read(&thr->ioctx, thr->fds[fd], buf, lim);
 }
 
 ssize_t sys_write(int fd, const void *buf, size_t lim) {
-    return -EINVAL;
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+        return -EBADF;
+    }
+
+    if (thr->fds[fd] == NULL) {
+        return -EBADF;
+    }
+
+    return vfs_write(&thr->ioctx, thr->fds[fd], buf, lim);
 }
 
 ssize_t sys_readdir(int fd, struct dirent *ent) {
