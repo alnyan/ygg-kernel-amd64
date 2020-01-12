@@ -108,11 +108,11 @@ static int blk_add_part(struct vnode *of, int n, uint64_t lba, uint64_t size) {
     part->size = size;
 
     char name[16];
-    strcpy(name, of->name);
-    strcat(name, "_");
-    size_t l = strlen(name);
-    name[l] = n + '0';
-    name[l + 1] = 0;
+    size_t len = strlen(of->name);
+    _assert(len < sizeof(name) - 2);
+    strncpy(name, of->name, len);
+    name[len] = '1' + n;
+    name[len + 1] = 0;
 
     dev_add(DEV_CLASS_BLOCK, DEV_BLOCK_PART, dev, name);
 

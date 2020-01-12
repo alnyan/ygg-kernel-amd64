@@ -85,13 +85,12 @@ void init_func(void *arg) {
 
     // Find _ramblk0
     struct vnode *ramblk0;
-    struct vnode *dev1;
     if ((res = dev_find(DEV_CLASS_BLOCK, "ram0", &ramblk0)) != 0) {
         panic("Failed to find root device\n");
     }
-    if ((res = dev_find(DEV_CLASS_BLOCK, "dev1_0", &dev1)) != 0) {
-        panic("Failed to find dev1: %s\n", kstrerror(res));
-    }
+    //if ((res = dev_find(DEV_CLASS_BLOCK, "dev1_0", &dev1)) != 0) {
+    //    panic("Failed to find dev1: %s\n", kstrerror(res));
+    //}
 
     // Mount /dev/ram0 using ustar on /
     if ((res = vfs_mount(&ioctx, "/", ramblk0->dev, "ustar", NULL)) != 0) {
@@ -101,9 +100,9 @@ void init_func(void *arg) {
     // Mount /dev/dev1 using ext2 on /mnt
     // TODO: make some flag for block devices to indicate
     // they have already been mounted
-    if ((res = vfs_mount(&ioctx, "/mnt", dev1->dev, "ext2", NULL)) != 0) {
-        panic("Failed to mount some shit: %s\n", kstrerror(res));
-    }
+    //if ((res = vfs_mount(&ioctx, "/mnt", dev1->dev, "ext2", NULL)) != 0) {
+    //    panic("Failed to mount some shit: %s\n", kstrerror(res));
+    //}
 
     kinfo("Done\n");
 

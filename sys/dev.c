@@ -14,19 +14,31 @@
 
 static struct vnode *devfs_root = NULL;
 
+static char sdx_last = 'a';
+static char hdx_last = 'a';
 static uint64_t dev_count = 0;
 
+static int dev_create_name(enum dev_class cls, int subcls, char *name) {
+    if (cls == DEV_CLASS_BLOCK) {
+        switch (subcls) {
+        case DEV_BLOCK_SDx:
+            strcpy(name, "sdx");
+            name[2] = sdx_last++;
+            return 0;
+        }
+    }
+    return -1;
+}
+
 int dev_add(enum dev_class cls, int subcls, void *dev, const char *name) {
-    char node_name[5];
+    char node_name[32];
     struct vnode *node;
 
     if (!name) {
-        // TODO: generate proper names for device nodes
-        node_name[4] = 0;
-        node_name[3] = '0' + ++dev_count;
-        node_name[0] = 'd';
-        node_name[1] = 'e';
-        node_name[2] = 'v';
+        if (dev_create_name(cls, subcls, node_name) != 0) {
+            return -1;
+        }
+
         name = node_name;
     }
 
@@ -48,7 +60,7 @@ int dev_add(enum dev_class cls, int subcls, void *dev, const char *name) {
     // TODO: some devices are located in subdirs
     vnode_attach(devfs_root, node);
 
-    kinfo("Created device node: %s\n", node->name);
+    kdebug("Created device node: %s\n", node->name);
 
     vnode_dump_tree(DEBUG_DEFAULT, devfs_root, 0);
 
