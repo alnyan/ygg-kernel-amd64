@@ -35,6 +35,8 @@
 #define EDOM            33
 #define ERANGE          34
 
+#define ELOOP           40
+
 #if defined(__KERNEL__)
 const char *kstrerror(int e);
 #endif

@@ -37,9 +37,12 @@ int dev_add(enum dev_class cls, int subcls, void *dev, const char *name) {
     // Use inode number to store full device class:subclass
     node->ino = ((uint32_t) cls) | ((uint64_t) subcls << 32);
 
+    node->flags |= VN_MEMORY;
+
     // If root does not yet exist, make one
     if (!devfs_root) {
         devfs_root = vnode_create(VN_DIR, NULL);
+        devfs_root->flags |= VN_MEMORY;
     }
 
     // TODO: some devices are located in subdirs
@@ -47,12 +50,12 @@ int dev_add(enum dev_class cls, int subcls, void *dev, const char *name) {
 
     kinfo("Created device node: %s\n", node->name);
 
-    // Self-test
-    struct vnode *test_node = NULL;
-    _assert(vnode_lookup_child(devfs_root, name, &test_node) == 0);
-    _assert(test_node == node);
-    _assert(vnode_lookup_tree(devfs_root, name, &test_node) == 0);
-    _assert(test_node == node);
+    vnode_dump_tree(DEBUG_DEFAULT, devfs_root, 0);
+
+    if (cls == DEV_CLASS_BLOCK && subcls < DEV_BLOCK_PART) {
+        // Find partitions of block devices
+        blk_enumerate_partitions(dev, node);
+    }
 
     return 0;
 }
@@ -63,7 +66,7 @@ int dev_find(enum dev_class cls, const char *name, struct vnode **node) {
     if (!devfs_root) {
         return -ENODEV;
     }
-    if ((res = vnode_lookup_tree(devfs_root, name, node)) != 0) {
+    if ((res = vnode_lookup_child(devfs_root, name, node)) != 0) {
         return res;
     }
 

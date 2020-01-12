@@ -85,42 +85,25 @@ void init_func(void *arg) {
 
     // Find _ramblk0
     struct vnode *ramblk0;
+    struct vnode *dev1;
     if ((res = dev_find(DEV_CLASS_BLOCK, "ram0", &ramblk0)) != 0) {
         panic("Failed to find root device\n");
     }
+    if ((res = dev_find(DEV_CLASS_BLOCK, "dev1_0", &dev1)) != 0) {
+        panic("Failed to find dev1: %s\n", kstrerror(res));
+    }
 
-    kinfo("Found root device: %s\n", ramblk0->name);
+    // Mount /dev/ram0 using ustar on /
+    if ((res = vfs_mount(&ioctx, "/", ramblk0->dev, "ustar", NULL)) != 0) {
+        panic("Failed to mount root device: %s\n", kstrerror(res));
+    }
 
-    // Create a filesystem instance at this device
-    struct fs *fs_instance = fs_create(tarfs_class, ramblk0->dev);
-    _assert(fs_instance);
-
-    // Get tarfs root node
-    struct vnode *root_node = tarfs_class->get_root(fs_instance);
-    _assert(root_node);
-
-    vnode_dump_tree(DEBUG_INFO, root_node, 0);
-
-    // Find some file in rootfs
-    struct vnode *etc_file_txt;
-    _assert(vnode_lookup_tree(root_node, "etc/file.txt", &etc_file_txt) == 0);
-    _assert(etc_file_txt);
-
-    // Open it
-    _assert(etc_file_txt->op);
-    _assert(etc_file_txt->op->read);
-
-    struct ofile fd = {
-        .vnode = etc_file_txt,
-        .pos = 0,
-    };
-
-    char buf[512];
-    ssize_t bread;
-    _assert((bread = etc_file_txt->op->read(&fd, buf, sizeof(buf))) > 0);
-
-    buf[bread] = 0;
-    kdebug("\n%s\n", buf);
+    // Mount /dev/dev1 using ext2 on /mnt
+    // TODO: make some flag for block devices to indicate
+    // they have already been mounted
+    if ((res = vfs_mount(&ioctx, "/mnt", dev1->dev, "ext2", NULL)) != 0) {
+        panic("Failed to mount some shit: %s\n", kstrerror(res));
+    }
 
     kinfo("Done\n");
 

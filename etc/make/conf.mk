@@ -61,6 +61,7 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/net/netdev.o \
 	  $(O)/sys/vfs/pseudo.o \
 	  $(O)/sys/vfs/ext2/ext2.o \
+	  $(O)/sys/vfs/ext2/ext2vnop.o \
 	  $(O)/sys/vfs/ext2/ext2blk.o \
 	  $(O)/sys/vfs/tar.o \
 	  $(O)/sys/blk/ram.o \
@@ -72,7 +73,6 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/vfs/pty.o \
 	  $(O)/sys/vfs/ext2/ext2alloc.o \
 	  $(O)/sys/vfs/ext2/ext2dir.o \
-	  $(O)/sys/vfs/ext2/ext2vnop.o \
 
 ifeq ($(VESA_ENABLE),1)
 OBJS+=$(O)/sys/psf.o \

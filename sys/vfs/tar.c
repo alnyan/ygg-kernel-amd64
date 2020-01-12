@@ -121,6 +121,7 @@ static int tar_init(struct fs *tar, const char *opt) {
     struct vnode *tar_root = vnode_create(VN_DIR, NULL);
     tar->fs_private = tar_root;
     tar_root->fs = tar;
+    tar_root->flags |= VN_MEMORY;
 
     struct vnode *node;
 

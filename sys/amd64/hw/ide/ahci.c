@@ -68,6 +68,7 @@ static int ahci_add_port_dev(struct ahci_port_registers *port) {
     blk->dev_data = port;
     blk->read = ahci_blk_read;
     blk->write = ahci_blk_write;
+    blk->flags = 0;
 
     return dev_add(DEV_CLASS_BLOCK, DEV_BLOCK_SDx, blk, NULL);
 }

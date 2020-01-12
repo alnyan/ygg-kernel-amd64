@@ -9,27 +9,6 @@
 #include "sys/string.h"
 #include "sys/heap.h"
 
-static const char *path_element(const char *path, char *element) {
-    const char *sep = strchr(path, '/');
-    if (!sep) {
-        strcpy(element, path);
-        return NULL;
-    } else {
-        _assert(sep - path < NODE_MAXLEN);
-        strncpy(element, path, sep - path);
-        element[sep - path] = 0;
-
-        while (*sep == '/') {
-            ++sep;
-        }
-        if (!*sep) {
-            return NULL;
-        }
-
-        return sep;
-    }
-}
-
 struct vnode *vnode_create(enum vnode_type t, const char *name) {
     struct vnode *node = (struct vnode *) kmalloc(sizeof(struct vnode));
     _assert(node);
@@ -40,6 +19,8 @@ struct vnode *vnode_create(enum vnode_type t, const char *name) {
     node->parent = NULL;
     node->first_child = NULL;
     node->next_child = NULL;
+
+    node->target = NULL;
 
     node->fs = NULL;
     node->fs_data = NULL;
@@ -99,12 +80,23 @@ void vnode_dump_tree(int level, struct vnode *node, int depth) {
     for (int i = 0; i < depth; ++i) {
         debugs(level, "  ");
     }
+
+    if (node->flags & VN_MEMORY) {
+        debugc(level, 'M');
+    }
+
     switch (node->type) {
     case VN_DIR:
         debugs(level, "\033[33m");
         break;
     case VN_REG:
         debugs(level, "\033[1m");
+        break;
+    case VN_MNT:
+        debugs(level, "\033[35m");
+        break;
+    case VN_LNK:
+        debugs(level, "\033[36m");
         break;
     case VN_BLK:
     case VN_CHR:
@@ -120,9 +112,49 @@ void vnode_dump_tree(int level, struct vnode *node, int depth) {
     } else {
         debugs(level, "[root]");
     }
+
+    if (node->type == VN_MNT) {
+        _assert(node->target);
+        debugs(level, " => [root]");
+        node = node->target;
+    }
+    while (node && node->type == VN_LNK) {
+        if (node->target) {
+            debugs(level, "\033[0m -> ");
+            switch (node->target->type) {
+            case VN_DIR:
+                debugs(level, "\033[33m");
+                break;
+            case VN_REG:
+                debugs(level, "\033[1m");
+                break;
+            case VN_MNT:
+                debugs(level, "\033[35m");
+                break;
+            case VN_LNK:
+                debugs(level, "\033[36m");
+                break;
+            case VN_BLK:
+            case VN_CHR:
+                debugs(level, "\033[32m");
+                break;
+            default:
+                debugs(level, "\033[41m");
+                break;
+            }
+            debugs(level, node->target->name);
+        } else {
+            debugs(level, "\033[0m -> \033[41m???");
+        }
+
+        node = node->target;
+    }
+
     debugs(level, "\033[0m");
 
-    if (node->first_child) {
+    if (node && node->first_child) {
+        // Only dirs have children
+        _assert(node->type == VN_DIR);
         debugs(level, " {\n");
 
         for (struct vnode *ch = node->first_child; ch; ch = ch->next_child) {
@@ -156,65 +188,4 @@ int vnode_lookup_child(struct vnode *of, const char *name, struct vnode **child)
     }
 
     return -ENOENT;
-}
-
-int vnode_lookup_tree(struct vnode *at, const char *path, struct vnode **child) {
-    char name[NODE_MAXLEN];
-    const char *child_path;
-    struct vnode *node;
-    int err;
-
-    _assert(at);
-    _assert(child);
-
-    if (!path || !*path) {
-        *child = at;
-        kdebug("empty hit-final %s\n", at->name);
-        return 0;
-    }
-
-    // The paths are always assumed to be relative
-    while (*path == '/') {
-        ++path;
-    }
-
-    while (1) {
-        child_path = path_element(path, name);
-
-        if (!strcmp(name, ".")) {
-            // Refers to this node
-            kdebug(". hit %s\n", at->name);
-            continue;
-        } else if (!strcmp(name, "..")) {
-            // Refers to node's parent
-            // And this won't work for filesystem mountpoints:
-            // Path like a/mnt/.. would still resolve the same point as
-            // a/mnt
-            struct vnode *parent = at->parent;
-            if (!parent) {
-                parent = at;
-            }
-            kdebug(".. hit %s\n", parent->name);
-            return vnode_lookup_tree(parent, child_path, child);
-        }
-
-        break;
-    }
-
-    // TODO: lookup_or_load
-    if ((err = vnode_lookup_child(at, name, &node)) != 0) {
-        kdebug("miss %s\n", name);
-        return err;
-    }
-
-    _assert(node);
-
-    if (!child_path) {
-        kdebug("hit-final %s\n", name);
-        *child = node;
-        return 0;
-    } else {
-        kdebug("hit %s\n", name);
-        return vnode_lookup_tree(node, child_path, child);
-    }
 }
