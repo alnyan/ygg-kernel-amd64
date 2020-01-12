@@ -5,10 +5,14 @@
 #include "sys/panic.h"
 #include "sys/debug.h"
 #include "sys/errno.h"
+#include "sys/fcntl.h"
 
 static int vfs_find_internal(struct vfs_ioctx *ctx, struct vnode *at, const char *path, struct vnode **child);
 
 static struct vnode *vfs_root = NULL;
+static struct vfs_ioctx _kernel_ioctx = {0};
+
+struct vfs_ioctx *const kernel_ioctx = &_kernel_ioctx;
 
 static const char *path_element(const char *path, char *element) {
     const char *sep = strchr(path, '/');
@@ -340,4 +344,86 @@ int vfs_find(struct vfs_ioctx *ctx, struct vnode *rel, const char *path, struct 
     *node = r;
 
     return 0;
+}
+
+///////////
+
+int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int opt, int mode) {
+    struct vnode *node;
+    int res;
+
+    _assert(ctx);
+    _assert(fd);
+    _assert(path);
+
+    // 1. Try to find the file
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+        panic("NYI: O_CREAT\n");
+    }
+
+    if (opt & O_DIRECTORY) {
+        panic("NYI: O_DIRECTORY\n");
+    }
+
+    // 2. If file operations struct specifies some non-trivial open()
+    //    function for the node - use it
+    if (node->op && node->op->open) {
+        if ((res = node->op->open(node, opt)) != 0) {
+            return res;
+        }
+    }
+
+    // 3. Setup ofile
+    fd->pos = 0;
+    fd->vnode = node;
+    fd->flags = opt;
+
+    return 0;
+}
+
+void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd) {
+    // TODO: TODO
+}
+
+int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st) {
+    struct vnode *node;
+    int res;
+
+    _assert(ctx);
+    _assert(path);
+    _assert(st);
+
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+        return res;
+    }
+
+    if (!node->op || !node->op->stat) {
+        kwarn("%s: filesystem has no stat()\n", path);
+        return -EINVAL;
+    }
+
+    return node->op->stat(node, st);
+}
+
+ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t count) {
+    struct vnode *node;
+
+    _assert(fd);
+
+    node = fd->vnode;
+
+    _assert(ctx);
+    _assert(buf);
+    _assert(node);
+
+    switch (node->type) {
+    case VN_REG:
+        _assert(node->op && node->op->read);
+        return node->op->read(fd, buf, count);
+
+    case VN_DIR:
+    default:
+        // Cannot do such things
+        return -EINVAL;
+    }
 }

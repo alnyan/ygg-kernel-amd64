@@ -1,3 +1,4 @@
+#include "sys/amd64/mm/map.h"
 #include "sys/amd64/cpu.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
@@ -10,6 +11,7 @@ int amd64_pfault(uintptr_t cr2) {
     // error happened
     struct cpu *cpu = get_cpu();
     _assert(cpu);
+    uintptr_t addr_phys;
 
     struct thread *thr = cpu->thread;
     _assert(thr);
@@ -24,6 +26,10 @@ int amd64_pfault(uintptr_t cr2) {
 
     // Dump registers
     cpu_print_context(DEBUG_ERROR, ctx);
+
+    if ((addr_phys = amd64_map_get(thr->space, cr2, NULL)) == MM_NADDR) {
+        kerror("Address is not present in page table\n");
+    }
 
     // Can't access IRET-registers (CS/RIP and the likes)
     // because they're presumably fucked up by error code

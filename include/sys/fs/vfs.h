@@ -20,10 +20,17 @@ struct vfs_ioctx {
     gid_t gid;
 };
 
+extern struct vfs_ioctx *const kernel_ioctx;
+
 void vfs_init(void);
 
 int vfs_link_resolve(struct vfs_ioctx *ctx, struct vnode *lnk, struct vnode **res);
 int vfs_find(struct vfs_ioctx *ctx, struct vnode *rel, const char *path, struct vnode **node);
 int vfs_mount(struct vfs_ioctx *ctx, const char *at, void *blk, const char *fs, const char *opt);
 
-int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int mode, int flags);
+int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int flags, int mode);
+void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd);
+
+int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st);
+
+ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t count);

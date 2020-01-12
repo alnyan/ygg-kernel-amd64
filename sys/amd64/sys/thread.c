@@ -50,8 +50,6 @@ void thread_restore_context(struct thread *thr) {
 int thread_platctx_init(struct thread *t, uintptr_t entry, void *arg) {
     _assert(t->data.stack0_base != MM_NADDR);
 
-    t->data.rsp0 = t->data.stack0_base + t->data.stack0_size - sizeof(struct cpu_context);
-
     struct cpu_context *ctx = (struct cpu_context *) t->data.rsp0;
 
     ctx->rip = entry;
@@ -158,6 +156,8 @@ int thread_init(
         _assert(kstack_sig);
     }
 
+    t->data.save_zone0 = (uintptr_t) kmalloc(FXSAVE_REGION);
+    _assert(t->data.save_zone0);
 
     // 2. Assign allocated structure pointers to struct data
     t->data.stack0_base = rsp0_base;
@@ -168,6 +168,8 @@ int thread_init(
         t->data.stack0s_base = (uintptr_t) kstack_sig;
         t->data.stack0s_size = THREAD_KSTACK_SIZE;
     }
+
+    t->data.rsp0 = t->data.stack0_base + t->data.stack0_size - sizeof(struct cpu_context);
 
     t->space = space;
 

@@ -32,8 +32,10 @@ enum vnode_type {
 struct vnode_operations {
     int (*find) (struct vnode *at, const char *name, struct vnode **node);
 
-    int (*open) (struct ofile *fd);
+    int (*open) (struct vnode *node, int opt);
     void (*close) (struct ofile *fd);
+
+    int (*stat) (struct vnode *at, struct stat *st);
 
     int (*readlink) (struct vnode *at, char *buf, size_t lim);
 

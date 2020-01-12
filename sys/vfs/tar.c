@@ -24,9 +24,11 @@ struct tarfs_vnode_attr {
     size_t size;
 };
 
+static int tarfs_vnode_stat(struct vnode *node, struct stat *st);
 static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count);
 
 static struct vnode_operations _tarfs_vnode_op = {
+    .stat = tarfs_vnode_stat,
     .read = tarfs_vnode_read,
     NULL
 };
@@ -185,6 +187,41 @@ static struct fs_class _tarfs = {
 };
 
 // Vnode operations
+
+static int tarfs_vnode_stat(struct vnode *vn, struct stat *st) {
+    _assert(st);
+    _assert(vn);
+    _assert(vn->fs_data);
+    _assert(vn->fs && vn->fs->blk);
+    struct tarfs_vnode_attr *attr = vn->fs_data;
+    char hdr_block[512];
+    int res;
+
+    if ((res = blk_read(vn->fs->blk, hdr_block, attr->first_block - 512, 512)) <= 0) {
+        return res;
+    }
+
+    struct tar *hdr = (struct tar *) hdr_block;
+
+    st->st_size = attr->size;
+
+    st->st_uid = tarfs_octal(hdr->uid, sizeof(hdr->uid));
+    st->st_gid = tarfs_octal(hdr->gid, sizeof(hdr->gid));
+    st->st_mode = (vn->type == VN_DIR ? S_IFDIR : S_IFREG) | tarfs_octal(hdr->mode, sizeof(hdr->mode));
+    st->st_blksize = 512;
+    st->st_blocks = (attr->size + 511) / 512;
+
+    uint32_t mtime = tarfs_octal(hdr->mtime, sizeof(hdr->mtime));
+    st->st_atime = mtime;
+    st->st_ctime = mtime;
+    st->st_mtime = mtime;
+
+    st->st_rdev = 0;
+    st->st_dev = 0;
+    st->st_nlink = 1;
+
+    return 0;
+}
 
 static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
     _assert(fd);

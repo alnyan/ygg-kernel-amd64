@@ -1,26 +1,14 @@
-#include "sys/amd64/mm/mm.h"
-#include "sys/amd64/mm/pool.h"
 #include "sys/amd64/syscall.h"
 #include "sys/amd64/cpu.h"
-#include "sys/net/eth.h"
 #include "sys/signum.h"
-#include "sys/thread.h"
-#include "sys/reboot.h"
-#include "sys/debug.h"
-#include "sys/heap.h"
-#include "sys/spin.h"
-#include "sys/fs/ext2.h"
-#include "sys/fs/vfs.h"
-#include "sys/fcntl.h"
-#include "sys/errno.h"
-#include "sys/blk.h"
-#include "sys/dev.h"
-#include "sys/time.h"
-#include "sys/panic.h"
 #include "sys/assert.h"
-#include "sys/string.h"
-#include "sys/binfmt_elf.h"
-#include "sys/tty.h"
+#include "sys/reboot.h"
+#include "sys/panic.h"
+#include "sys/sched.h"
+#include "sys/debug.h"
+#include "sys/time.h"
+#include "sys/spin.h"
+#include "sys/init.h"
 #include "sys/mm.h"
 
 void sched_add_to(int cpu, struct thread *t);
@@ -51,39 +39,6 @@ void idle_func(uintptr_t id) {
     while (1) {
         asm volatile ("sti; hlt");
     }
-}
-
-void init_func(void *arg) {
-    struct vfs_ioctx ioctx = {0};
-    struct stat st;
-    int res;
-    const char *root_dev_name = "ram0";
-    struct vnode *root_dev;
-
-    // Be [init] now
-    thread_set_name(get_cpu()->thread, "init");
-
-    // Create an alias for root device
-    if ((res = dev_find(DEV_CLASS_BLOCK, root_dev_name, &root_dev)) != 0) {
-        panic("Failed to find root device: %s\n", root_dev_name);
-    }
-    dev_add_link("root", root_dev);
-
-    ext2_class_init();
-
-    // Mount rootfs
-    if ((res = vfs_mount(&ioctx, "/", root_dev->dev, "ustar", NULL)) != 0) {
-        panic("Failed to mount root device: %s\n", kstrerror(res));
-    }
-
-    if ((res = vfs_mount(&ioctx, "/dev", NULL, "devfs", NULL)) != 0) {
-        panic("Failed to mount devfs on /dev: %s\n", kstrerror(res));
-    }
-
-    struct thread *this = get_cpu()->thread;
-    this->exit_code = 0;
-    this->flags |= THREAD_STOPPED;
-    amd64_syscall_yield_stopped();
 }
 
 static uint32_t sched_alloc_pid(int is_kernel) {
