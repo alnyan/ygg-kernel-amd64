@@ -123,13 +123,13 @@ void init_func(void *arg) {
         panic("Failed to mount root device: %s\n", kstrerror(res));
     }
 
-    // Mount something else
-    if ((res = dev_find(DEV_CLASS_BLOCK, "sda1", &root_dev)) != 0) {
-        panic("sda1: %s\n", kstrerror(res));
-    }
-    if ((res = vfs_mount(kernel_ioctx, "/mnt", root_dev->dev, "ext2", NULL)) != 0) {
-        panic("Failed to mount root device: %s\n", kstrerror(res));
-    }
+    //// Mount something else
+    //if ((res = dev_find(DEV_CLASS_BLOCK, "sda1", &root_dev)) != 0) {
+    //    panic("sda1: %s\n", kstrerror(res));
+    //}
+    //if ((res = vfs_mount(kernel_ioctx, "/mnt", root_dev->dev, "ext2", NULL)) != 0) {
+    //    panic("Failed to mount root device: %s\n", kstrerror(res));
+    //}
 
     // Start user init binary
     user_init_start();

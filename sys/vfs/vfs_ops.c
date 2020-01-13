@@ -54,6 +54,115 @@ static const char *vfs_path_parent(const char *input, char *dst) {
     }
 }
 
+static int vfs_opendir(struct vfs_ioctx *ctx, struct ofile *fd) {
+    _assert(ctx);
+    _assert(fd);
+
+    struct vnode *node = fd->vnode;
+
+    _assert(node);
+
+    if (node->type != VN_DIR) {
+        return -ENOTDIR;
+    }
+
+    if (node->flags & VN_MEMORY) {
+        // Filesystem doesn't have to implement opendir/readdir for these - they're all
+        // in memory and can be easily iterated
+        fd->flags |= OF_MEMDIR | OF_MEMDIR_DOT;
+        fd->pos = (size_t) node->first_child;
+
+        return 0;
+    } else {
+        if (!node->op || !node->op->opendir) {
+            return -EINVAL;
+        }
+
+        return node->op->opendir(fd);
+    }
+}
+
+int vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd, struct dirent *ent) {
+    _assert(ctx);
+    _assert(fd);
+
+    if (!(fd->flags & OF_DIRECTORY)) {
+        return -ENOTDIR;
+    }
+
+    if (fd->flags & OF_MEMDIR) {
+        // Kind of hacky but works
+        if (fd->flags & OF_MEMDIR_DOT) {
+            struct vnode *node = fd->vnode;
+            _assert(node);
+
+            fd->flags &= ~OF_MEMDIR_DOT;
+            fd->flags |= OF_MEMDIR_DOTDOT;
+
+            ent->d_ino = node->ino;
+            ent->d_type = DT_DIR;
+            ent->d_off = 0;
+            ent->d_name[0] = '.';
+            ent->d_name[1] = 0;
+            ent->d_reclen = sizeof(struct dirent) + 1;
+
+            return ent->d_reclen;
+        } else if (fd->flags & OF_MEMDIR_DOTDOT) {
+            struct vnode *node = fd->vnode;
+            _assert(node);
+            if (node->parent) {
+                node = node->parent;
+            }
+
+            fd->flags &= ~OF_MEMDIR_DOTDOT;
+
+            ent->d_ino = node->ino;
+            ent->d_type = DT_DIR;
+            ent->d_off = 0;
+            ent->d_name[0] = '.';
+            ent->d_name[1] = '.';
+            ent->d_name[2] = 0;
+            ent->d_reclen = sizeof(struct dirent) + 2;
+
+            return ent->d_reclen;
+        }
+
+        struct vnode *item = (struct vnode *) fd->pos;
+        if (!item) {
+            return -1;
+        }
+
+        // Fill dirent
+        ent->d_ino = item->ino;
+        ent->d_off = 0;
+
+        switch (item->type) {
+        case VN_REG:
+            ent->d_type = DT_REG;
+            break;
+        case VN_DIR:
+        case VN_MNT:
+            ent->d_type = DT_DIR;
+            break;
+        default:
+            ent->d_type = DT_UNKNOWN;
+            break;
+        }
+
+        strcpy(ent->d_name, item->name);
+        ent->d_reclen = sizeof(struct dirent) + strlen(item->name);
+
+        fd->pos = (size_t) item->next_child;
+
+        return ent->d_reclen;
+    } else {
+        struct vnode *node = fd->vnode;
+        _assert(node);
+        _assert(node->op && node->op->readdir);
+        return node->op->readdir(fd, ent);
+    }
+}
+
 int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, int opt) {
     int res;
     int accmode;
@@ -63,7 +172,21 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
     _assert(node);
 
     if (opt & O_DIRECTORY) {
-        panic("NYI: O_DIRECTORY\n");
+        if ((opt & O_ACCMODE) != O_RDONLY) {
+            return -EACCES;
+        }
+
+        // fd->refcount = 0;
+        fd->pos = 0;
+        fd->vnode = node;
+        fd->flags = OF_DIRECTORY | OF_READABLE;
+
+        if ((res = vfs_opendir(ctx, fd)) != 0) {
+            return res;
+        }
+
+        // ++fd->refcount;
+        return 0;
     }
 
     // Check node access
@@ -71,6 +194,17 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
     if ((res = vfs_access_node(ctx, node, accmode)) != 0) {
         kwarn("Access failed: %s\n", node->name);
         return res;
+    }
+
+    // Truncate the file if requested
+    if (opt & O_TRUNC) {
+        if (!node->op || !node->op->truncate) {
+            return -EINVAL;
+        }
+
+        if ((res = node->op->truncate(node, 0)) != 0) {
+            return res;
+        }
     }
 
     //fd->refcount = 0;
@@ -88,17 +222,6 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
     case O_RDWR:
         fd->flags |= OF_READABLE | OF_WRITABLE;
         break;
-    }
-
-    // Truncate the file if requested
-    if (opt & O_TRUNC) {
-        if (!node->op || !node->op->truncate) {
-            return -EINVAL;
-        }
-
-        if ((res = node->op->truncate(node, 0)) != 0) {
-            return res;
-        }
     }
 
     // 1. If file operations struct specifies some non-trivial open()
@@ -152,6 +275,10 @@ int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int opt,
 
     if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
         if (opt & O_CREAT) {
+            if (opt & O_DIRECTORY) {
+                return -EINVAL;
+            }
+
             // Try to create a new file
             if ((res = vfs_creat(ctx, path, mode)) != 0) {
                 return res;
@@ -177,6 +304,25 @@ void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd) {
     if (fd->vnode->op && fd->vnode->op->close) {
         fd->vnode->op->close(fd);
     }
+}
+
+int vfs_access(struct vfs_ioctx *ctx, const char *path, int accmode) {
+    struct vnode *node;
+    int res;
+
+    _assert(ctx);
+    _assert(path);
+
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+        return res;
+    }
+
+    if (accmode == F_OK) {
+        // Just test that file exists
+        return 0;
+    }
+
+    return vfs_access_node(ctx, node, accmode);
 }
 
 int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st) {

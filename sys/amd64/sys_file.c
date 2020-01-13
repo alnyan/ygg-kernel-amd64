@@ -41,7 +41,18 @@ ssize_t sys_write(int fd, const void *buf, size_t lim) {
 }
 
 ssize_t sys_readdir(int fd, struct dirent *ent) {
-    return -EINVAL;
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+        return -EBADF;
+    }
+
+    if (thr->fds[fd] == NULL) {
+        return -EBADF;
+    }
+
+    return vfs_readdir(&thr->ioctx, thr->fds[fd], ent);
 }
 
 int sys_creat(const char *pathname, int mode) {
@@ -125,7 +136,11 @@ int sys_stat(const char *filename, struct stat *st) {
 }
 
 int sys_access(const char *path, int mode) {
-    return -EINVAL;
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    _assert(path);
+
+    return vfs_access(&thr->ioctx, path, mode);
 }
 
 int sys_openpty(int *master, int *slave) {

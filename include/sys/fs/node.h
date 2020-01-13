@@ -32,6 +32,8 @@ enum vnode_type {
 struct vnode_operations {
     int (*find) (struct vnode *at, const char *name, struct vnode **node);
 
+    ssize_t (*readdir) (struct ofile *fd, struct dirent *ent);
+    int (*opendir) (struct ofile *fd);
     int (*open) (struct ofile *fd, int opt);
     void (*close) (struct ofile *fd);
     int (*creat) (struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode);

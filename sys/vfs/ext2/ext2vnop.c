@@ -23,11 +23,11 @@ static int ext2_vnode_find(struct vnode *vn, const char *name, struct vnode **re
 static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode);
 //static int ext2_vnode_mkdir(vnode_t *at, const char *name, mode_t mode);
 static int ext2_vnode_open(struct ofile *fd, int opt);
-//static int ext2_vnode_opendir(vnode_t *vn, int opt);
+static int ext2_vnode_opendir(struct ofile *fd);
 static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count);
 static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count);
 static int ext2_vnode_truncate(struct vnode *vn, size_t length);
-//static int ext2_vnode_readdir(struct ofile *fd);
+static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent);
 //static void ext2_vnode_destroy(vnode_t *vn);
 //static int ext2_vnode_stat(vnode_t *vn, struct stat *st);
 //static int ext2_vnode_chmod(vnode_t *vn, mode_t mode);
@@ -52,9 +52,9 @@ struct vnode_operations ext2_vnode_ops = {
 //    .unlink = ext2_vnode_unlink,
 //    .access = ext2_vnode_access,
 //
-//    .opendir = ext2_vnode_opendir,
-//    .readdir = ext2_vnode_readdir,
-//
+    .opendir = ext2_vnode_opendir,
+    .readdir = ext2_vnode_readdir,
+
     .open = ext2_vnode_open,
     .read = ext2_vnode_read,
     .write = ext2_vnode_write,
@@ -117,18 +117,24 @@ static int ext2_vnode_find(struct vnode *vn, const char *name, struct vnode **re
 
     return -ENOENT;
 }
-//
-//static int ext2_vnode_opendir(vnode_t *vn, int opt) {
-//    _assert(vn->type == VN_DIR);
-//    return 0;
-//}
-//
+
+static int ext2_vnode_opendir(struct ofile *fd) {
+    _assert(fd);
+    _assert(fd->vnode);
+    _assert(fd->vnode->type == VN_DIR);
+
+    fd->pos = 0;
+
+    return 0;
+}
+
 static int ext2_vnode_open(struct ofile *fd, int opt) {
     _assert(fd);
     _assert(fd->vnode);
     _assert(fd->vnode->type == VN_REG);
 
     // TODO: O_APPEND should place fd->pos at the end of the file
+    fd->pos = 0;
 
     return 0;
 }
@@ -464,84 +470,82 @@ static int ext2_vnode_truncate(struct vnode *vn, size_t length) {
     }
 }
 
-//// TODO: replace this with getdents
-//static int ext2_vnode_readdir(struct ofile *fd) {
-//    vnode_t *vn = fd->vnode;
-//    struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
-//    struct ext2_extsb *sb = vn->fs->fs_private;
-//    ssize_t res;
-//
-//    if (fd->pos >= inode->size_lower) {
-//        return -1;
-//    }
-//
-//    size_t block_number = fd->pos / sb->block_size;
-//    char block_buffer[sb->block_size];
-//
-//    if ((res = ext2_read_inode_block(vn->fs, inode, block_number, block_buffer)) < 0) {
-//        return res;
-//    }
-//
-//    size_t block_offset = fd->pos % sb->block_size;
-//    struct ext2_dirent *ext2dir = (struct ext2_dirent *) &block_buffer[block_offset];
-//
-//    if (ext2dir->len == 0) {
-//        // If entry size is zero, guess we're finished - align the fd->pos up to block size
-//        fd->pos = (fd->pos + sb->block_size - 1) / sb->block_size;
-//        return ext2_vnode_readdir(fd);
-//    }
-//
-//    struct dirent *vfsdir = (struct dirent *) fd->dirent_buf;
-//
-//    vfsdir->d_ino = ext2dir->ino;
-//    strncpy(vfsdir->d_name, ext2dir->name, ext2dir->name_len);
-//    vfsdir->d_name[ext2dir->name_len] = 0;
-//    vfsdir->d_reclen = ext2dir->len;
-//    if (sb->required_features & 2 /* Directory entries contain type field */) {
-//        switch (ext2dir->type_ind) {
-//        case 1:
-//            // Regular file
-//            vfsdir->d_type = DT_REG;
-//            break;
-//        case 2:
-//            // Directory
-//            vfsdir->d_type = DT_DIR;
-//            break;
-//        // XXX: Don't know if I should have ANY devices in ext2, we have devfs for that
-//        //      kind of shit
-//        case 0:
-//        default:
-//            vfsdir->d_type = DT_UNKNOWN;
-//            break;
-//        }
-//    } else {
-//        // Have to read each fucking inode to sort this mess out
-//        struct ext2_inode ent_inode_buf;
-//
-//        if ((res = ext2_read_inode(vn->fs, &ent_inode_buf, ext2dir->ino)) < 0) {
-//            return res;
-//        }
-//
-//        switch (ent_inode_buf.type_perm & 0xF000) {
-//        case EXT2_TYPE_REG:
-//            vfsdir->d_type = DT_REG;
-//            break;
-//        case EXT2_TYPE_DIR:
-//            vfsdir->d_type = DT_DIR;
-//            break;
-//        default:
-//            vfsdir->d_type = DT_UNKNOWN;
-//            break;
-//        }
-//    }
-//    // Not implemented, I guess
-//    vfsdir->d_off = 0;
-//
-//    fd->pos += ext2dir->len;
-//
-//    return 0;
-//}
-//
+// TODO: replace this with getdents
+static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *vfsdir) {
+    struct vnode *vn = fd->vnode;
+    struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
+    struct ext2_extsb *sb = vn->fs->fs_private;
+    ssize_t res;
+
+    if (fd->pos >= inode->size_lower) {
+        return -1;
+    }
+
+    size_t block_number = fd->pos / sb->block_size;
+    char block_buffer[sb->block_size];
+
+    if ((res = ext2_read_inode_block(vn->fs, inode, block_number, block_buffer)) < 0) {
+        return res;
+    }
+
+    size_t block_offset = fd->pos % sb->block_size;
+    struct ext2_dirent *ext2dir = (struct ext2_dirent *) &block_buffer[block_offset];
+
+    if (ext2dir->len == 0) {
+        // If entry size is zero, guess we're finished - align the fd->pos up to block size
+        fd->pos = (fd->pos + sb->block_size - 1) / sb->block_size;
+        return ext2_vnode_readdir(fd, vfsdir);
+    }
+
+    vfsdir->d_ino = ext2dir->ino;
+    strncpy(vfsdir->d_name, ext2dir->name, ext2dir->name_len);
+    vfsdir->d_name[ext2dir->name_len] = 0;
+    vfsdir->d_reclen = ext2dir->len;
+    if (sb->required_features & 2 /* Directory entries contain type field */) {
+        switch (ext2dir->type_ind) {
+        case 1:
+            // Regular file
+            vfsdir->d_type = DT_REG;
+            break;
+        case 2:
+            // Directory
+            vfsdir->d_type = DT_DIR;
+            break;
+        // XXX: Don't know if I should have ANY devices in ext2, we have devfs for that
+        //      kind of shit
+        case 0:
+        default:
+            vfsdir->d_type = DT_UNKNOWN;
+            break;
+        }
+    } else {
+        // Have to read each fucking inode to sort this mess out
+        struct ext2_inode ent_inode_buf;
+
+        if ((res = ext2_read_inode(vn->fs, &ent_inode_buf, ext2dir->ino)) < 0) {
+            return res;
+        }
+
+        switch (ent_inode_buf.type_perm & 0xF000) {
+        case EXT2_TYPE_REG:
+            vfsdir->d_type = DT_REG;
+            break;
+        case EXT2_TYPE_DIR:
+            vfsdir->d_type = DT_DIR;
+            break;
+        default:
+            vfsdir->d_type = DT_UNKNOWN;
+            break;
+        }
+    }
+    // Not implemented, I guess
+    vfsdir->d_off = 0;
+
+    fd->pos += ext2dir->len;
+
+    return ext2dir->len;
+}
+
 //static void ext2_vnode_destroy(vnode_t *vn) {
 //    // Release inode struct
 //    kfree(vn->fs_data);
