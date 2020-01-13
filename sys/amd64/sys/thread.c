@@ -42,6 +42,19 @@ void thread_restore_context(struct thread *thr) {
     }
 }
 
+static void thread_ioctx_fork(struct thread *dst, struct thread *src) {
+    for (size_t i = 0; i < THREAD_MAX_FDS; ++i) {
+        dst->fds[i] = src->fds[i];
+        // TODO: ++refcount
+    }
+
+    // Clone ioctx: cwd vnode reference and path
+    strcpy(dst->ioctx.cwd_path, src->ioctx.cwd_path);
+    dst->ioctx.cwd_vnode = src->ioctx.cwd_vnode;
+    dst->ioctx.uid = src->ioctx.uid;
+    dst->ioctx.gid = src->ioctx.gid;
+}
+
 // Initialize platform context to default values
 // Assumes everything was allocated before
 // Requirements for calling:
@@ -231,7 +244,61 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
 }
 
 int sys_fork(void) {
-    panic("fork()\n");
+    asm volatile ("cli");
+
+    struct thread *thr_src;
+    struct thread *thr_dst;
+    mm_space_t space_src;
+    mm_space_t space_dst;
+    int res;
+
+    thr_src = get_cpu()->thread;
+    _assert(thr_src);
+    thr_dst = kmalloc(sizeof(struct thread));
+    _assert(thr_dst);
+    space_src = thr_src->space;
+    _assert(space_src);
+    space_dst = amd64_mm_pool_alloc();
+    _assert(space_dst);
+
+    // Clone memory pages
+    if ((res = mm_space_fork(space_dst, space_src, MM_CLONE_FLG_KERNEL | MM_CLONE_FLG_USER)) != 0) {
+        panic("Fork failed: %s\n", kstrerror(res));
+    }
+
+    // Create a new thread without context initialization
+    if ((res = thread_init(thr_dst,
+                           space_dst,
+                           0,
+                           0,
+                           0,
+                           0,
+                           0,
+                           0,
+                           0,
+                           NULL)) != 0) {
+        panic("Fork failed: %s\n", kstrerror(res));
+    }
+
+    // Clone the source context into destination one
+    struct cpu_context *ctx_src = (struct cpu_context *) thr_src->data.rsp0;
+    _assert(ctx_src);
+    struct cpu_context *ctx_dst = (struct cpu_context *) thr_dst->data.rsp0;
+    _assert(ctx_dst);
+    memcpy(ctx_dst, ctx_src, sizeof(struct cpu_context));
+
+    // Replace some cloned values with new task's ones
+    ctx_dst->cr3 = MM_PHYS(space_dst);
+    // Return 0 to child
+    ctx_dst->rax = 0;
+
+    // Fork file descriptors
+    thread_ioctx_fork(thr_dst, thr_src);
+
+    sched_add(thr_dst);
+    _assert(thr_dst->pid);
+
+    return thr_dst->pid;
 }
 
 void amd64_thread_set_ip(struct thread *t, uintptr_t ip) {
