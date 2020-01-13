@@ -33,6 +33,8 @@ int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int flag
 void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd);
 
 int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st);
+int vfs_access_check(struct vfs_ioctx *ctx, int desm, mode_t mode, uid_t uid, gid_t gid);
+int vfs_access_node(struct vfs_ioctx *ctx, struct vnode *vn, int mode);
 
 ssize_t vfs_write(struct vfs_ioctx *ctx, struct ofile *fd, const void *buf, size_t count);
 ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t count);

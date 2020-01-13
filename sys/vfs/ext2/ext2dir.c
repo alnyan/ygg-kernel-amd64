@@ -12,7 +12,7 @@
 // #include <stdio.h>
 
 // Add an inode to directory
-int ext2_dir_add_inode(fs_t *ext2, vnode_t *dir, const char *name, uint32_t ino) {
+int ext2_dir_add_inode(struct fs *ext2, struct vnode *dir, const char *name, uint32_t ino) {
     struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
     char block_buffer[sb->block_size];
     struct ext2_inode *dir_inode = dir->fs_data;
@@ -74,7 +74,7 @@ int ext2_dir_add_inode(fs_t *ext2, vnode_t *dir, const char *name, uint32_t ino)
     }
 
     dir_inode->size_lower += sb->block_size;
-    if ((res = ext2_inode_alloc_block(ext2, dir_inode, dir->fs_number, dir_size_blocks)) < 0) {
+    if ((res = ext2_inode_alloc_block(ext2, dir_inode, dir->ino, dir_size_blocks)) < 0) {
         dir_inode->size_lower -= sb->block_size;
         return res;
     }
@@ -91,7 +91,7 @@ int ext2_dir_add_inode(fs_t *ext2, vnode_t *dir, const char *name, uint32_t ino)
 }
 
 // Not only free the block itself, but also remove it from index list
-static int ext2_free_block_index(fs_t *ext2, struct ext2_inode *inode, uint32_t index, uint32_t ino, size_t sz) {
+static int ext2_free_block_index(struct fs *ext2, struct ext2_inode *inode, uint32_t index, uint32_t ino, size_t sz) {
     if (index >= 12) {
         // TODO: Implement this
         panic("Not implemented\n");
@@ -116,7 +116,7 @@ static int ext2_free_block_index(fs_t *ext2, struct ext2_inode *inode, uint32_t 
     return ext2_write_inode(ext2, inode, ino);
 }
 
-int ext2_dir_remove_inode(fs_t *ext2, vnode_t *dir, const char *name, uint32_t ino) {
+int ext2_dir_remove_inode(struct fs *ext2, struct vnode *dir, const char *name, uint32_t ino) {
     struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
     char block_buffer[sb->block_size];
     struct ext2_inode *dir_inode = dir->fs_data;
@@ -151,7 +151,7 @@ int ext2_dir_remove_inode(fs_t *ext2, vnode_t *dir, const char *name, uint32_t i
                 if (current_dirent->len + off >= sb->block_size) {
                     // It's the last node in the list
                     if (!prev_dirent) {
-                        return ext2_free_block_index(ext2, dir_inode, i, dir->fs_number, sb->block_size);
+                        return ext2_free_block_index(ext2, dir_inode, i, dir->ino, sb->block_size);
                     }
 
                     // Resize the previous node

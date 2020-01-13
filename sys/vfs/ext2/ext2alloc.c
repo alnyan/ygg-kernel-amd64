@@ -10,7 +10,7 @@
 // #include <errno.h>
 // #include <stdio.h>
 
-int ext2_alloc_block(fs_t *ext2, uint32_t *block_no) {
+int ext2_alloc_block(struct fs *ext2, uint32_t *block_no) {
     struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
     char block_buffer[sb->block_size];
     uint32_t res_block_no = 0;
@@ -94,7 +94,7 @@ int ext2_alloc_block(fs_t *ext2, uint32_t *block_no) {
     return 0;
 }
 
-int ext2_free_block(fs_t *ext2, uint32_t block_no) {
+int ext2_free_block(struct fs *ext2, uint32_t block_no) {
     _assert(block_no);
     struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
     char block_buffer[sb->block_size];
@@ -141,7 +141,7 @@ int ext2_free_block(fs_t *ext2, uint32_t block_no) {
     return 0;
 }
 
-int ext2_inode_alloc_block(fs_t *ext2, struct ext2_inode *inode, uint32_t ino, uint32_t index) {
+int ext2_inode_alloc_block(struct fs *ext2, struct ext2_inode *inode, uint32_t ino, uint32_t index) {
     if (index >= 12) {
         panic("Not implemented\n");
     }
@@ -161,7 +161,7 @@ int ext2_inode_alloc_block(fs_t *ext2, struct ext2_inode *inode, uint32_t ino, u
     return ext2_write_inode(ext2, inode, ino);
 }
 
-int ext2_free_inode_block(fs_t *ext2, struct ext2_inode *inode, uint32_t ino, uint32_t index) {
+int ext2_free_inode_block(struct fs *ext2, struct ext2_inode *inode, uint32_t ino, uint32_t index) {
     if (index >= 12) {
         panic("Not implemented\n");
     }
@@ -184,7 +184,7 @@ int ext2_free_inode_block(fs_t *ext2, struct ext2_inode *inode, uint32_t ino, ui
     return ext2_write_inode(ext2, inode, ino);
 }
 
-int ext2_free_inode(fs_t *ext2, uint32_t ino) {
+int ext2_free_inode(struct fs *ext2, uint32_t ino) {
     _assert(ino);
     struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
     char block_buffer[sb->block_size];
@@ -232,7 +232,7 @@ int ext2_free_inode(fs_t *ext2, uint32_t ino) {
     return 0;
 }
 
-int ext2_alloc_inode(fs_t *ext2, uint32_t *ino) {
+int ext2_alloc_inode(struct fs *ext2, uint32_t *ino) {
     struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
     char block_buffer[sb->block_size];
     uint32_t res_ino = 0;

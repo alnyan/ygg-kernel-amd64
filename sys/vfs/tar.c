@@ -24,12 +24,14 @@ struct tarfs_vnode_attr {
     size_t size;
 };
 
+static int tarfs_vnode_open(struct ofile *of, int opt);
 static int tarfs_vnode_stat(struct vnode *node, struct stat *st);
 static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count);
 
 static struct vnode_operations _tarfs_vnode_op = {
     .stat = tarfs_vnode_stat,
     .read = tarfs_vnode_read,
+    .open = tarfs_vnode_open,
     NULL
 };
 
@@ -241,6 +243,13 @@ static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
     blk_read(vn->fs->blk, buf, fd->pos + attr->first_block, can);
 
     return can;
+}
+
+static int tarfs_vnode_open(struct ofile *of, int opt) {
+    if ((opt & O_ACCMODE) != O_RDONLY) {
+        return -EROFS;
+    }
+    return 0;
 }
 
 //
