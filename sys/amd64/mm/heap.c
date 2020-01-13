@@ -1,4 +1,5 @@
 #include "sys/amd64/mm/heap.h"
+#include "sys/string.h"
 #include "sys/assert.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
@@ -17,6 +18,38 @@ static struct kernel_heap {
     size_t limit;
 } amd64_global_heap;
 heap_t *heap_global = &amd64_global_heap;
+
+void heap_trace(int type, const char *file, const char *func, int line, void *ptr, size_t count) {
+    if (type == HEAP_TRACE_ALLOC) {
+        // Don't want fucktons of ACPI crap
+        if (strncmp(func, "Acpi", 4)) {
+            debugf(DEBUG_DEFAULT, "\033[31m%s:%u: %s allocated %S == %p\033[0m\n", file, line, func, count, ptr);
+        }
+    } else {
+        // Don't want fucktons of ACPI crap
+        if (strncmp(func, "Acpi", 4)) {
+            debugf(DEBUG_DEFAULT, "\033[32m%s:%u: %s freed %p\033[0m\n", file, line, func, ptr);
+        }
+    }
+}
+
+void heap_stat(heap_t *heap, struct heap_stat *st) {
+    heap_block_t *begin = (heap_block_t *) MM_VIRTUALIZE(heap->phys_base);
+
+    st->alloc_count = 0;
+    st->alloc_size = 0;
+    st->free_size = 0;
+    st->total_size = heap->limit;
+
+    for (heap_block_t *block = begin; block; block = block->next) {
+        if (block->magic & 1) {
+            ++st->alloc_count;
+            st->alloc_size += block->size;
+        } else {
+            st->free_size += block->size;
+        }
+    }
+}
 
 void amd64_heap_init(heap_t *heap, uintptr_t phys_base, size_t sz) {
     heap->phys_base = phys_base;

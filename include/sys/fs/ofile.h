@@ -10,6 +10,7 @@
 #define OF_MEMDIR_DOTDOT    (1 << 5)
 
 struct ofile {
+    int refcount;
     int flags;
     struct vnode *vnode;
     size_t pos;

@@ -23,6 +23,31 @@ extern int _kernel_end_phys;
 
 static uint64_t amd64_phys_memory_track[PHYS_MAX_INDEX];
 static uint64_t amd64_phys_last_index = 0;
+static uint64_t amd64_phys_ceiling = 0xFFFFFFFF;
+
+void amd64_phys_stat(struct amd64_phys_stat *st) {
+    st->pages_free = 0;
+    st->pages_used = 0;
+    st->limit = amd64_phys_ceiling;
+
+    for (uint64_t i = 0; i < PHYS_MAX_INDEX; ++i) {
+        if ((i << 18) >= amd64_phys_ceiling) {
+            break;
+        }
+
+        for (uint64_t j = 0; j < 64; ++j) {
+            if (((i << 18) | (j << 12)) >= amd64_phys_ceiling) {
+                break;
+            }
+
+            if (amd64_phys_memory_track[i] & (1ULL << j)) {
+                ++st->pages_used;
+            } else {
+                ++st->pages_free;
+            }
+        }
+    }
+}
 
 // Allocate a single 4K page
 uintptr_t amd64_phys_alloc_page(void) {
@@ -127,6 +152,7 @@ void amd64_phys_memory_map(const multiboot_memory_map_t *mmap, size_t length) {
                 }
                 amd64_phys_memory_track[index] &= ~(1ULL << PHYS_TRACK_BIT(addr));
                 ++total_phys;
+                amd64_phys_ceiling = addr + 0x1000;
             }
         }
 

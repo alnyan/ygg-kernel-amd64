@@ -12,11 +12,26 @@ static struct {
     size_t size;
 } amd64_mm_pool;
 
+void amd64_mm_pool_stat(struct amd64_pool_stat *st) {
+    st->pages_free = 0;
+    st->pages_used = 0;
+
+    for (size_t i = 0; i < amd64_mm_pool.size >> 18; ++i) {
+        for (size_t j = 0; j < 64; ++j) {
+            if (amd64_mm_pool.track[i] & (1ULL << j)) {
+                ++st->pages_used;
+            } else {
+                ++st->pages_free;
+            }
+        }
+    }
+}
+
 uint64_t *amd64_mm_pool_alloc(void) {
     uint64_t *r = NULL;
 
     for (size_t i = amd64_mm_pool.index_last; i < amd64_mm_pool.size >> 18; ++i) {
-        for (size_t j = amd64_mm_pool.index_last; j < 64; ++j) {
+        for (size_t j = 0; j < 64; ++j) {
             if (!(amd64_mm_pool.track[i] & (1ULL << j))) {
                 r = (uint64_t *) (amd64_mm_pool.start + ((i << 18) + (j << 12)));
                 amd64_mm_pool.track[i] |= (1ULL << j);
@@ -28,7 +43,7 @@ uint64_t *amd64_mm_pool_alloc(void) {
     }
 
     for (size_t i = 0; i < amd64_mm_pool.index_last; ++i) {
-        for (size_t j = amd64_mm_pool.index_last; j < 64; ++j) {
+        for (size_t j = 0; j < 64; ++j) {
             if (!(amd64_mm_pool.track[i] & (1ULL << j))) {
                 r = (uint64_t *) (amd64_mm_pool.start + ((i << 18) + (j << 12)));
                 amd64_mm_pool.track[i] |= (1ULL << j);

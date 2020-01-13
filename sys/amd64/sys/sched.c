@@ -1,4 +1,6 @@
 #include "sys/amd64/syscall.h"
+#include "sys/amd64/mm/phys.h"
+#include "sys/amd64/mm/pool.h"
 #include "sys/amd64/cpu.h"
 #include "sys/signum.h"
 #include "sys/assert.h"
@@ -9,6 +11,7 @@
 #include "sys/time.h"
 #include "sys/spin.h"
 #include "sys/init.h"
+#include "sys/heap.h"
 #include "sys/mm.h"
 
 void sched_add_to(int cpu, struct thread *t);
@@ -291,6 +294,10 @@ static void debug_thread_tree(struct thread *thr, size_t depth) {
 }
 
 static void debug_stats(void) {
+    struct heap_stat st;
+    struct amd64_phys_stat phys_st;
+    struct amd64_pool_stat pool_st;
+
     kdebug("--- STATS ---\n");
     kdebug("syscalls/s: %lu\n", syscall_count);
 
@@ -311,6 +318,28 @@ static void debug_stats(void) {
         }
         debugs(DEBUG_DEFAULT, " ]\n");
     }
+
+    heap_stat(heap_global, &st);
+    kdebug("Heap stat:\n");
+    kdebug("Allocated blocks: %u\n", st.alloc_count);
+    kdebug("Used %S, free %S, total %S\n", st.alloc_size, st.free_size, st.total_size);
+
+    amd64_phys_stat(&phys_st);
+    kdebug("Physical memory:\n");
+    kdebug("Used %S (%u), free %S (%u), ceiling %p\n",
+            phys_st.pages_used * 0x1000,
+            phys_st.pages_used,
+            phys_st.pages_free * 0x1000,
+            phys_st.pages_free,
+            phys_st.limit);
+
+    amd64_mm_pool_stat(&pool_st);
+    kdebug("Paging pool:\n");
+    kdebug("Used %S (%u), free %S (%u)\n",
+            pool_st.pages_used * 0x1000,
+            pool_st.pages_used,
+            pool_st.pages_free * 0x1000,
+            pool_st.pages_free);
 
     kdebug("--- ----- ---\n");
 

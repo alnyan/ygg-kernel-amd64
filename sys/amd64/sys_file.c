@@ -148,6 +148,10 @@ void sys_close(int fd) {
     }
 
     vfs_close(&thr->ioctx, thr->fds[fd]);
+    _assert(thr->fds[fd]->refcount >= 0);
+    if (!thr->fds[fd]->refcount) {
+        kfree(thr->fds[fd]);
+    }
     thr->fds[fd] = NULL;
 }
 

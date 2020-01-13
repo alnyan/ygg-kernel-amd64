@@ -176,7 +176,7 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
             return -EACCES;
         }
 
-        // fd->refcount = 0;
+        fd->refcount = 0;
         fd->pos = 0;
         fd->vnode = node;
         fd->flags = OF_DIRECTORY | OF_READABLE;
@@ -185,7 +185,7 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
             return res;
         }
 
-        // ++fd->refcount;
+        ++fd->refcount;
         return 0;
     }
 
@@ -207,7 +207,7 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
         }
     }
 
-    //fd->refcount = 0;
+    fd->refcount = 0;
     fd->pos = 0;
     fd->vnode = node;
     fd->flags = 0;
@@ -232,7 +232,7 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
         }
     }
 
-    //++fd->refcount;
+    ++fd->refcount;
 
     return 0;
 }
@@ -309,6 +309,8 @@ void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd) {
     if (fd->vnode->op && fd->vnode->op->close) {
         fd->vnode->op->close(fd);
     }
+
+    --fd->refcount;
 }
 
 int vfs_access(struct vfs_ioctx *ctx, const char *path, int accmode) {

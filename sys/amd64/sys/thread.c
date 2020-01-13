@@ -45,7 +45,9 @@ void thread_restore_context(struct thread *thr) {
 static void thread_ioctx_fork(struct thread *dst, struct thread *src) {
     for (size_t i = 0; i < THREAD_MAX_FDS; ++i) {
         dst->fds[i] = src->fds[i];
-        // TODO: ++refcount
+        if (dst->fds[i]) {
+            ++dst->fds[i]->refcount;
+        }
     }
 
     // Clone ioctx: cwd vnode reference and path
@@ -204,7 +206,13 @@ void thread_cleanup(struct thread *t) {
     // Release files
     for (size_t i = 0; i < 4; ++i) {
         if (t->fds[i]) {
-            //vfs_close(&t->ioctx, &t->fds[i]);
+            vfs_close(&t->ioctx, t->fds[i]);
+
+            _assert(t->fds[i]->refcount >= 0);
+            if (t->fds[i]->refcount == 0) {
+                kdebug("No one uses fd %d, freeing it\n", i);
+                kfree(t->fds[i]);
+            }
         }
     }
 
@@ -212,7 +220,10 @@ void thread_cleanup(struct thread *t) {
     if (!(t->data.data_flags & THREAD_NOHEAP_STACK0)) {
         kfree((void *) t->data.stack0_base);
     }
-    // TODO: free stack3
+    if (!(t->flags & THREAD_KERNEL)) {
+        kfree((void *) t->data.stack0s_base);
+    }
+    kfree((void *) t->data.save_zone0);
 
     if (t->space != mm_kernel) {
         mm_space_free(t->space);
