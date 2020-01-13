@@ -281,6 +281,8 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
         panic("Failed to load ELF\n");
     }
 
+    kfree(file_buffer);
+
     // Allocate a new userspace stack
     uintptr_t ustack = vmalloc(thr->space, 0x100000, 0xF0000000, 4, VM_ALLOC_WRITE | VM_ALLOC_USER);
     _assert(ustack != MM_NADDR);
