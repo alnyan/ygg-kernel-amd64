@@ -127,6 +127,10 @@ static int tar_init(struct fs *tar, const char *opt) {
     tar_root->fs = tar;
     tar_root->flags |= VN_MEMORY;
 
+    tar_root->uid = 0;
+    tar_root->gid = 0;
+    tar_root->mode = 0555;
+
     struct vnode *node;
 
     while (1) {
@@ -160,8 +164,9 @@ static int tar_init(struct fs *tar, const char *opt) {
         _assert(node);
 
         // Initialize the vnode
-        node->uid = 0;
-        node->gid = 0;
+        node->uid = tarfs_octal(hdr->uid, 8);
+        node->gid = tarfs_octal(hdr->gid, 8);
+        node->mode = tarfs_octal(hdr->mode, 8);
 
         struct tarfs_vnode_attr *attr = kmalloc(sizeof(struct tarfs_vnode_attr));
         _assert(attr);

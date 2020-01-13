@@ -60,11 +60,14 @@ int vfs_access_node(struct vfs_ioctx *ctx, struct vnode *vn, int mode) {
     _assert(vn);
 
     if (!vn->op || !vn->op->access) {
-        return 0;
-    }
-
-    if ((res = vn->op->access(vn, &vn_uid, &vn_gid, &vn_mode)) != 0) {
-        return res;
+        vn_mode = vn->mode;
+        vn_uid = vn->uid;
+        vn_gid = vn->gid;
+    } else {
+        // Filesystem has non-trivial permission storage
+        if ((res = vn->op->access(vn, &vn_uid, &vn_gid, &vn_mode)) != 0) {
+            return res;
+        }
     }
 
     return vfs_access_check(ctx, mode, vn_mode, vn_uid, vn_gid);

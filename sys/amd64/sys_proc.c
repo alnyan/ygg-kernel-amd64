@@ -104,3 +104,39 @@ int sys_getpid(void) {
     _assert(thr);
     return thr->pid;
 }
+
+int sys_setuid(uid_t uid) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    if (thr->ioctx.uid != 0) {
+        return -EACCES;
+    }
+
+    thr->ioctx.uid = uid;
+    return 0;
+}
+
+int sys_setgid(gid_t gid) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    if (thr->ioctx.gid != 0) {
+        return -EACCES;
+    }
+
+    thr->ioctx.gid = gid;
+    return 0;
+}
+
+uid_t sys_getuid(void) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    return thr->ioctx.uid;
+}
+
+gid_t sys_getgid(void) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    return thr->ioctx.gid;
+}

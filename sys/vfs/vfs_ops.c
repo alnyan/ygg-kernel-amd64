@@ -256,6 +256,11 @@ int vfs_creat(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
         return res;
     }
 
+    // Check permission for writing
+    if ((res = vfs_access_node(ctx, at, W_OK)) != 0) {
+        return res;
+    }
+
     // TODO: check if such file already exists
     if (!at->op || !at->op->creat) {
         // Assume it's a read-only filesystem
@@ -338,7 +343,6 @@ int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st) {
     }
 
     if (!node->op || !node->op->stat) {
-        kwarn("%s: filesystem has no stat()\n", path);
         return -EINVAL;
     }
 

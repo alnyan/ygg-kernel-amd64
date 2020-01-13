@@ -29,7 +29,7 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
 static int ext2_vnode_truncate(struct vnode *vn, size_t length);
 static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent);
 //static void ext2_vnode_destroy(vnode_t *vn);
-//static int ext2_vnode_stat(vnode_t *vn, struct stat *st);
+static int ext2_vnode_stat(struct vnode *vn, struct stat *st);
 //static int ext2_vnode_chmod(vnode_t *vn, mode_t mode);
 //static int ext2_vnode_chown(vnode_t *vn, uid_t uid, gid_t gid);
 //static int ext2_vnode_unlink(vnode_t *at, vnode_t *vn, const char *name);
@@ -48,7 +48,7 @@ struct vnode_operations ext2_vnode_ops = {
 //
 //    .chmod = ext2_vnode_chmod,
 //    .chown = ext2_vnode_chown,
-//    .stat = ext2_vnode_stat,
+    .stat = ext2_vnode_stat,
 //    .unlink = ext2_vnode_unlink,
 //    .access = ext2_vnode_access,
 //
@@ -550,31 +550,31 @@ static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *vfsdir) {
 //    // Release inode struct
 //    kfree(vn->fs_data);
 //}
-//
-//static int ext2_vnode_stat(vnode_t *vn, struct stat *st) {
-//    _assert(vn && vn->fs);
-//    struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
-//    _assert(inode);
-//    struct ext2_extsb *sb = (struct ext2_extsb *) vn->fs->fs_private;
-//    _assert(sb);
-//
-//    st->st_atime = inode->atime;
-//    st->st_ctime = inode->ctime;
-//    st->st_mtime = inode->mtime;
-//    st->st_dev = 0;     // Not implemented
-//    st->st_rdev = 0;    // Not implemented
-//    st->st_gid = inode->gid;
-//    st->st_uid = inode->uid;
-//    st->st_mode = inode->type_perm;
-//    st->st_size = inode->size_lower;
-//    st->st_blocks = (inode->size_lower + sb->block_size - 1) / sb->block_size;
-//    st->st_blksize = sb->block_size;
-//    st->st_nlink = 0;
-//    st->st_ino = vn->fs_number;
-//
-//    return 0;
-//}
-//
+
+static int ext2_vnode_stat(struct vnode *vn, struct stat *st) {
+    _assert(vn && vn->fs);
+    struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
+    _assert(inode);
+    struct ext2_extsb *sb = (struct ext2_extsb *) vn->fs->fs_private;
+    _assert(sb);
+
+    st->st_atime = inode->atime;
+    st->st_ctime = inode->ctime;
+    st->st_mtime = inode->mtime;
+    st->st_dev = 0;     // Not implemented
+    st->st_rdev = 0;    // Not implemented
+    st->st_gid = inode->gid;
+    st->st_uid = inode->uid;
+    st->st_mode = inode->type_perm;
+    st->st_size = inode->size_lower;
+    st->st_blocks = (inode->size_lower + sb->block_size - 1) / sb->block_size;
+    st->st_blksize = sb->block_size;
+    st->st_nlink = 0;
+    st->st_ino = vn->ino;
+
+    return 0;
+}
+
 //static int ext2_vnode_chmod(vnode_t *vn, mode_t mode) {
 //    _assert(vn && vn->fs && vn->fs_data);
 //    struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;

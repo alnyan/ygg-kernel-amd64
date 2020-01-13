@@ -35,8 +35,13 @@ const void *amd64_syscall_jmp_table[256] = {
     [SYSCALL_NRX_SIGRET] = sys_sigret,
     [SYSCALL_NRX_SIGNAL] = sys_signal,
     [SYSCALL_NRX_WAITPID] = sys_waitpid,
+    [SYSCALL_NR_SETUID] = sys_setuid,
+    [SYSCALL_NR_SETGID] = sys_setgid,
+    [SYSCALL_NR_GETUID] = sys_getuid,
+    [SYSCALL_NR_GETGID] = sys_getgid,
 
     // System
+    [SYSCALL_NR_MOUNT] = sys_mount,
     [SYSCALL_NR_REBOOT] = sys_reboot,
     [SYSCALL_NR_NANOSLEEP] = sys_nanosleep,
     [SYSCALL_NR_GETTIMEOFDAY] = sys_gettimeofday,

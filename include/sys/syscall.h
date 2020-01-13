@@ -23,7 +23,12 @@
 #define SYSCALL_NR_EXIT         60
 #define SYSCALL_NR_KILL         62
 #define SYSCALL_NR_GETTIMEOFDAY 96
+#define SYSCALL_NR_GETUID       102
+#define SYSCALL_NR_GETGID       104
+#define SYSCALL_NR_SETUID       105
+#define SYSCALL_NR_SETGID       106
 
+#define SYSCALL_NR_MOUNT        165
 #define SYSCALL_NR_REBOOT       169
 
 #define SYSCALL_NRX_OPENPTY     118

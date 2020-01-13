@@ -113,6 +113,10 @@ static struct vnode *ext2_fs_get_root(struct fs *fs) {
     res->op = &ext2_vnode_ops;
     res->type = ext2_inode_type(inode);
 
+    res->uid = inode->uid;
+    res->gid = inode->gid;
+    res->mode = inode->type_perm;
+
     return res;
 }
 

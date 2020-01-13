@@ -2,6 +2,7 @@
 #include "sys/fs/fs.h"
 #include "sys/string.h"
 #include "sys/assert.h"
+#include "sys/fcntl.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
 #include "sys/errno.h"
@@ -15,9 +16,15 @@ struct vfs_ioctx *const kernel_ioctx = &_kernel_ioctx;
 
 int vfs_setcwd(struct vfs_ioctx *ctx, const char *path) {
     struct vnode *node;
+    struct vnode *dst;
     int res;
 
     if (path[0] == '/') {
+        if (path[1] == 0) {
+            ctx->cwd_vnode = NULL;
+            return 0;
+        }
+
         if (!vfs_root) {
             ctx->cwd_vnode = NULL;
         } else {
@@ -25,8 +32,24 @@ int vfs_setcwd(struct vfs_ioctx *ctx, const char *path) {
                 return res;
             }
 
-            // TODO: access, check if directory
-            ctx->cwd_vnode = node;
+            // Resolve mounts and symlinks
+            if ((res = vfs_link_resolve(ctx, node, &dst)) != 0) {
+                return res;
+            }
+
+            if (dst->type == VN_MNT) {
+                _assert(dst->target);
+                dst = dst->target;
+            }
+            if (dst->type != VN_DIR) {
+                return -ENOTDIR;
+            }
+
+            if ((res = vfs_access_node(ctx, dst, X_OK)) != 0) {
+                return res;
+            }
+
+            ctx->cwd_vnode = dst;
         }
         return 0;
     } else {
@@ -34,8 +57,23 @@ int vfs_setcwd(struct vfs_ioctx *ctx, const char *path) {
             return res;
         }
 
-        // TODO: access, check if directory
-        ctx->cwd_vnode = node;
+        if ((res = vfs_link_resolve(ctx, node, &dst)) != 0) {
+            return res;
+        }
+
+        if (dst->type == VN_MNT) {
+            _assert(dst->target);
+            dst = dst->target;
+        }
+        if (dst->type != VN_DIR) {
+            return -ENOTDIR;
+        }
+
+        if ((res = vfs_access_node(ctx, dst, X_OK)) != 0) {
+            return res;
+        }
+
+        ctx->cwd_vnode = dst;
 
         return 0;
     }
@@ -56,31 +94,8 @@ void vfs_vnode_path(char *path, struct vnode *node) {
         return;
     }
 
-    size_t bstp = 10;
-    while (node) {
-        if (bstp == 0) {
-            panic("Node stack overflow\n");
-        }
-
-        backstack[--bstp] = node;
-        node = node->parent;
-    }
-
-    for (size_t i = bstp; i < 10; ++i) {
-        size_t len;
-        if (backstack[i]->parent) {
-            // Non-root
-            len = strlen(backstack[i]->name);
-            strcpy(path + c, backstack[i]->name);
-        } else {
-            len = 0;
-        }
-        c += len;
-        if (i != 9) {
-            path[c] = '/';
-        }
-        ++c;
-    }
+    path[0] = '?';
+    path[1] = 0;
 }
 
 static const char *path_element(const char *path, char *element) {
@@ -234,13 +249,14 @@ static int vfs_find_internal(struct vfs_ioctx *ctx, struct vnode *at, const char
         ++path;
     }
 
+    child_path = path;
     while (1) {
-        child_path = path_element(path, name);
+        child_path = path_element(child_path, name);
 
         if (!strcmp(name, ".")) {
             // Refers to this node
             kdebug(". hit %s\n", at->name);
-            if (!child_path) {
+            if (!child_path || !*child_path) {
                 *child = at;
                 return 0;
             }

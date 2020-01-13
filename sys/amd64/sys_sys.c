@@ -6,6 +6,37 @@
 #include "sys/errno.h"
 #include "sys/sched.h"
 
+int sys_mount(const char *dev_name, const char *dir_name, const char *type, unsigned long flags, void *data) {
+    struct thread *thr = get_cpu()->thread;
+    struct vnode *dev_node;
+    void *dev;
+    int res;
+    _assert(thr);
+    _assert(dir_name);
+
+    if (thr->ioctx.uid != 0) {
+        // Only root can do that
+        return -EACCES;
+    }
+
+    if (dev_name) {
+        if ((res = vfs_find(&thr->ioctx, thr->ioctx.cwd_vnode, dev_name, &dev_node)) != 0) {
+            return res;
+        }
+
+        // Check that it's a block device:
+        if (dev_node->type != VN_BLK) {
+            return -EINVAL;
+        }
+
+        dev = dev_node->dev;
+    } else {
+        dev = NULL;
+    }
+
+    return vfs_mount(&thr->ioctx, dir_name, dev, type, NULL);
+}
+
 int sys_nanosleep(const struct timespec *req, struct timespec *rem) {
     struct thread *cur_thread = get_cpu()->thread;
     _assert(cur_thread);

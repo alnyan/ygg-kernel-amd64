@@ -46,6 +46,9 @@ static void devfs_ensure_root(void) {
     if (!devfs_root) {
         devfs_root = vnode_create(VN_DIR, NULL);
         devfs_root->flags |= VN_MEMORY;
+        devfs_root->mode = 0555;
+        devfs_root->uid = 0;
+        devfs_root->gid = 0;
     }
 }
 
@@ -67,6 +70,10 @@ int dev_add_link(const char *name, struct vnode *to) {
     node->flags |= VN_MEMORY;
 
     devfs_ensure_root();
+
+    node->mode = 0777;
+    node->uid = 0;
+    node->gid = 0;
 
     vnode_attach(devfs_root, node);
 
@@ -93,6 +100,11 @@ int dev_add(enum dev_class cls, int subcls, void *dev, const char *name) {
     node->ino = ((uint32_t) cls) | ((uint64_t) subcls << 32);
 
     node->flags |= VN_MEMORY;
+
+    // Default permissions for devices
+    node->mode = 0600;
+    node->uid = 0;
+    node->gid = 0;
 
     devfs_ensure_root();
 
