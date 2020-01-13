@@ -14,6 +14,23 @@ static struct vfs_ioctx _kernel_ioctx = {0};
 
 struct vfs_ioctx *const kernel_ioctx = &_kernel_ioctx;
 
+mode_t vfs_vnode_to_mode(enum vnode_type type) {
+    switch (type) {
+    case VN_MNT:
+    case VN_DIR:
+        return S_IFDIR;
+    case VN_LNK:
+        return S_IFLNK;
+    case VN_BLK:
+        return S_IFBLK;
+    case VN_CHR:
+        return S_IFCHR;
+    case VN_REG:
+    default:
+        return S_IFREG;
+    }
+}
+
 int vfs_setcwd(struct vfs_ioctx *ctx, const char *path) {
     struct vnode *node;
     struct vnode *dst;

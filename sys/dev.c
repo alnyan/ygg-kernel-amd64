@@ -15,6 +15,7 @@
 static struct vnode *devfs_root = NULL;
 static int devfs_init(struct fs *fs, const char *opt);
 static struct vnode *devfs_get_root(struct fs *fs);
+static int devfs_vnode_stat(struct vnode *node, struct stat *st);
 
 static char sdx_last = 'a';
 static char hdx_last = 'a';
@@ -25,6 +26,10 @@ static struct fs_class _devfs = {
     .opt = 0,
     .init = devfs_init,
     .get_root = devfs_get_root
+};
+
+static struct vnode_operations _devfs_node_ops = {
+    .stat = devfs_vnode_stat
 };
 
 /////
@@ -49,6 +54,7 @@ static void devfs_ensure_root(void) {
         devfs_root->mode = 0555;
         devfs_root->uid = 0;
         devfs_root->gid = 0;
+        devfs_root->op = &_devfs_node_ops;
     }
 }
 
@@ -74,6 +80,7 @@ int dev_add_link(const char *name, struct vnode *to) {
     node->mode = 0777;
     node->uid = 0;
     node->gid = 0;
+    node->op = &_devfs_node_ops;
 
     vnode_attach(devfs_root, node);
 
@@ -100,6 +107,7 @@ int dev_add(enum dev_class cls, int subcls, void *dev, const char *name) {
     node->ino = ((uint32_t) cls) | ((uint64_t) subcls << 32);
 
     node->flags |= VN_MEMORY;
+    node->op = &_devfs_node_ops;
 
     // Default permissions for devices
     node->mode = 0600;
@@ -151,6 +159,29 @@ int dev_find(enum dev_class cls, const char *name, struct vnode **node) {
 
     return 0;
 }
+
+////
+
+static int devfs_vnode_stat(struct vnode *node, struct stat *st) {
+    st->st_mode = (node->mode & 0x1FF) | vfs_vnode_to_mode(node->type);
+    st->st_uid = node->uid;
+    st->st_gid = node->gid;
+    st->st_size = 0;
+    st->st_blksize = 0;
+    st->st_blocks = 0;
+    st->st_ino = 0;
+
+    st->st_atime = 0;
+    st->st_mtime = 0;
+    st->st_ctime = 0;
+
+    st->st_dev = 0;
+    st->st_rdev = 0;
+
+    return 0;
+}
+
+////
 
 static void __init devfs_class_init(void) {
     fs_class_register(&_devfs);

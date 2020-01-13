@@ -21,6 +21,8 @@ struct vfs_ioctx {
 
 extern struct vfs_ioctx *const kernel_ioctx;
 
+mode_t vfs_vnode_to_mode(enum vnode_type type);
+
 void vfs_init(void);
 
 int vfs_setcwd(struct vfs_ioctx *ctx, const char *rel_path);
