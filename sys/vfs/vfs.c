@@ -13,6 +13,76 @@ static struct vfs_ioctx _kernel_ioctx = {0};
 
 struct vfs_ioctx *const kernel_ioctx = &_kernel_ioctx;
 
+int vfs_setcwd(struct vfs_ioctx *ctx, const char *path) {
+    struct vnode *node;
+    int res;
+
+    if (path[0] == '/') {
+        if (!vfs_root) {
+            ctx->cwd_vnode = NULL;
+        } else {
+            if ((res = vfs_find_internal(ctx, vfs_root, path, &node)) != 0) {
+                return res;
+            }
+
+            // TODO: access, check if directory
+            ctx->cwd_vnode = node;
+        }
+        return 0;
+    } else {
+        if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+            return res;
+        }
+
+        // TODO: access, check if directory
+        ctx->cwd_vnode = node;
+
+        return 0;
+    }
+}
+
+void vfs_vnode_path(char *path, struct vnode *node) {
+    size_t c = 0;
+    if (!node) {
+        path[0] = '/';
+        path[1] = 0;
+        return;
+    }
+    struct vnode *backstack[10] = { NULL };
+
+    if (!node->parent) {
+        path[0] = '/';
+        path[1] = 0;
+        return;
+    }
+
+    size_t bstp = 10;
+    while (node) {
+        if (bstp == 0) {
+            panic("Node stack overflow\n");
+        }
+
+        backstack[--bstp] = node;
+        node = node->parent;
+    }
+
+    for (size_t i = bstp; i < 10; ++i) {
+        size_t len;
+        if (backstack[i]->parent) {
+            // Non-root
+            len = strlen(backstack[i]->name);
+            strcpy(path + c, backstack[i]->name);
+        } else {
+            len = 0;
+        }
+        c += len;
+        if (i != 9) {
+            path[c] = '/';
+        }
+        ++c;
+    }
+}
+
 static const char *path_element(const char *path, char *element) {
     const char *sep = strchr(path, '/');
     if (!sep) {

@@ -72,13 +72,38 @@ int sys_rmdir(const char *pathname) {
 }
 
 int sys_chdir(const char *filename) {
-    return -EINVAL;
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    return vfs_setcwd(&thr->ioctx, filename);
 }
 
 // Kinda incompatible with linux, but who cares as long as it's
 // POSIX on the libc side
 int sys_getcwd(char *buf, size_t lim) {
-    return -EINVAL;
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    if (!thr->ioctx.cwd_vnode) {
+        if (lim < 2) {
+            return -1;
+        }
+
+        buf[0] = '/';
+        buf[1] = 0;
+
+        return 0;
+    } else {
+        char tmpbuf[PATH_MAX];
+        vfs_vnode_path(tmpbuf, thr->ioctx.cwd_vnode);
+        if (lim <= strlen(tmpbuf)) {
+            return -1;
+        }
+
+        strcpy(buf, tmpbuf);
+
+        return 0;
+    }
 }
 
 int sys_open(const char *filename, int flags, int mode) {

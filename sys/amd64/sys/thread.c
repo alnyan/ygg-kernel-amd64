@@ -49,7 +49,6 @@ static void thread_ioctx_fork(struct thread *dst, struct thread *src) {
     }
 
     // Clone ioctx: cwd vnode reference and path
-    strcpy(dst->ioctx.cwd_path, src->ioctx.cwd_path);
     dst->ioctx.cwd_vnode = src->ioctx.cwd_vnode;
     dst->ioctx.uid = src->ioctx.uid;
     dst->ioctx.gid = src->ioctx.gid;
@@ -240,7 +239,62 @@ void thread_signal(struct thread *t, int s) {
 }
 
 int sys_execve(const char *filename, const char *const argv[], const char *const envp[]) {
-    panic("execve()\n");
+    asm volatile ("cli");
+
+    int res;
+    ssize_t bread;
+    char *file_buffer;
+    struct stat st;
+    struct ofile fd;
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    // TODO: copy arguments from caller to some intermediate buffer, then map it to user
+    //       argp page
+
+    if ((res = vfs_stat(&thr->ioctx, filename, &st)) != 0) {
+        kerror("execve: %s\n", kstrerror(res));
+        return res;
+    }
+
+    if ((res = vfs_open(&thr->ioctx, &fd, filename, O_RDONLY | O_EXEC, 0)) != 0) {
+        return res;
+    }
+
+    file_buffer = kmalloc(st.st_size);
+    _assert(file_buffer);
+
+    if ((bread = vfs_read(&thr->ioctx, &fd, file_buffer, st.st_size)) != st.st_size) {
+        kfree(file_buffer);
+        return res;
+    }
+
+    vfs_close(&thr->ioctx, &fd);
+
+    // Drop old page tables
+    mm_space_release(thr->space);
+
+    // Initialize a new default platform context
+    thread_platctx_init(thr, 0, NULL);
+
+    // Load ELF
+    if ((res = elf_load(thr, file_buffer)) != 0) {
+        panic("Failed to load ELF\n");
+    }
+
+    // Allocate a new userspace stack
+    uintptr_t ustack = vmalloc(thr->space, 0x100000, 0xF0000000, 4, VM_ALLOC_WRITE | VM_ALLOC_USER);
+    _assert(ustack != MM_NADDR);
+
+    thr->data.stack3_base = ustack;
+    thr->data.stack3_size = 4 * 0x1000;
+
+    // Modify new context
+    struct cpu_context *ctx = (struct cpu_context *) thr->data.rsp0;
+
+    ctx->rsp = thr->data.stack3_base + thr->data.stack3_size;
+
+    amd64_syscall_iretq(ctx);
+    panic("This code shouldn't run\n");
 }
 
 int sys_fork(void) {
@@ -295,10 +349,18 @@ int sys_fork(void) {
     // Fork file descriptors
     thread_ioctx_fork(thr_dst, thr_src);
 
+    // Make fork()er thread a parent of fork()ed thread
+    thr_dst->child = NULL;
+    thr_dst->parent = thr_src;
+    thr_dst->next_child = thr_src->child;
+    thr_src->child = thr_dst;
+
     sched_add(thr_dst);
     _assert(thr_dst->pid);
 
-    return thr_dst->pid;
+    ctx_src->rax = thr_dst->pid;
+
+    return 0;
 }
 
 void amd64_thread_set_ip(struct thread *t, uintptr_t ip) {

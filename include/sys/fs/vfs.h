@@ -14,7 +14,6 @@
 
 struct vfs_ioctx {
     // Process' current working directory
-    char cwd_path[PATH_MAX];
     struct vnode *cwd_vnode;
     uid_t uid;
     gid_t gid;
@@ -23,6 +22,9 @@ struct vfs_ioctx {
 extern struct vfs_ioctx *const kernel_ioctx;
 
 void vfs_init(void);
+
+int vfs_setcwd(struct vfs_ioctx *ctx, const char *rel_path);
+void vfs_vnode_path(char *path, struct vnode *node);
 
 int vfs_link_resolve(struct vfs_ioctx *ctx, struct vnode *lnk, struct vnode **res);
 int vfs_find(struct vfs_ioctx *ctx, struct vnode *rel, const char *path, struct vnode **node);

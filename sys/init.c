@@ -99,6 +99,10 @@ static void user_init_start(void) {
     user_init->fds[1] = stdout;
     user_init->fds[2] = stderr;
 
+    user_init->ioctx.uid = 0;
+    user_init->ioctx.gid = 0;
+    user_init->ioctx.cwd_vnode = NULL;
+
     sched_add(user_init);
 }
 
