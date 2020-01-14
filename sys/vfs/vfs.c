@@ -98,21 +98,33 @@ int vfs_setcwd(struct vfs_ioctx *ctx, const char *path) {
 
 void vfs_vnode_path(char *path, struct vnode *node) {
     size_t c = 0;
-    if (!node) {
-        path[0] = '/';
-        path[1] = 0;
-        return;
-    }
-    struct vnode *backstack[10] = { NULL };
+    size_t off = 0;
+    struct vnode *backstack[16] = { NULL };
 
-    if (!node->parent) {
+    if (!node || !node->parent) {
         path[0] = '/';
         path[1] = 0;
         return;
     }
 
-    path[0] = '?';
-    path[1] = 0;
+    // No need for root node
+    while (node->parent) {
+        _assert(c < 16);
+        backstack[c++] = node;
+        node = node->parent;
+    }
+
+    for (ssize_t i = c - 1; i >= 0; --i) {
+        struct vnode *item = backstack[i];
+        path[off++] = '/';
+        if (item->type == VN_DIR && item->target) {
+            // It's a filesystem root
+            item = item->target;
+        }
+
+        strcpy(path + off, item->name);
+        off += strlen(item->name);
+    }
 }
 
 static const char *path_element(const char *path, char *element) {
@@ -336,6 +348,10 @@ static int vfs_mount_internal(struct vnode *at, void *blk, struct fs_class *cls,
 
     // Mountpoint checks
     if (at) {
+        if (at->target) {
+            // This directory already has something mounted
+            return -EBUSY;
+        }
         if (at->type != VN_DIR) {
             return -ENOTDIR;
         }
@@ -361,6 +377,7 @@ static int vfs_mount_internal(struct vnode *at, void *blk, struct fs_class *cls,
     } else {
         at->type = VN_MNT;
         at->target = fs_root;
+        fs_root->target = at;
 
         // TODO: this prevents root nodes from being mounted at
         // multiple targets

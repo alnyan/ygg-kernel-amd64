@@ -103,6 +103,10 @@ static int ext2_vnode_find(struct vnode *vn, const char *name, struct vnode **re
                     node->ino = dirent->ino;
                     node->op = &ext2_vnode_ops;
 
+                    node->mode = inode->type_perm & 0x1FF;
+                    node->uid = inode->uid;
+                    node->gid = inode->gid;
+
                     *res = node;
 
                     return 0;

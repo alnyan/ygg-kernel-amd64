@@ -2,6 +2,7 @@
 #include "sys/assert.h"
 #include "sys/fcntl.h"
 #include "sys/errno.h"
+#include "sys/debug.h"
 
 int vfs_access_check(struct vfs_ioctx *ctx, int desm, mode_t mode, uid_t uid, gid_t gid) {
     if (ctx->uid == 0) {
@@ -69,6 +70,8 @@ int vfs_access_node(struct vfs_ioctx *ctx, struct vnode *vn, int mode) {
             return res;
         }
     }
+
+    kdebug("%u:%u requset %d access to %s\n", ctx->uid, ctx->gid, mode, vn->name);
 
     return vfs_access_check(ctx, mode, vn_mode, vn_uid, vn_gid);
 }

@@ -60,6 +60,7 @@ struct vnode {
     struct vnode *next_child;
     struct vnode *parent;
 
+    // For filesystem roots, mountpoint directory vnode
     // For symlinks, this is target vnode
     // For mountpoints, this is filesystem root
     struct vnode *target;
