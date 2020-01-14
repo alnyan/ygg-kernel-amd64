@@ -200,3 +200,19 @@ int sys_chown(const char *path, uid_t uid, gid_t gid) {
 
     return vfs_chown(&thr->ioctx, path, uid, gid);
 }
+
+off_t sys_lseek(int fd, off_t offset, int whence) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    struct ofile *ofile;
+
+    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+        return -EBADF;
+    }
+
+    if ((ofile = thr->fds[fd]) == NULL) {
+        return -EBADF;
+    }
+
+    return vfs_lseek(&thr->ioctx, ofile, offset, whence);
+}

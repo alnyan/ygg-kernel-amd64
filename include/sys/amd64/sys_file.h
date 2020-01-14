@@ -25,3 +25,4 @@ int sys_openpty(int *master, int *slave);
 
 int sys_chmod(const char *path, mode_t mode);
 int sys_chown(const char *path, uid_t uid, gid_t gid);
+off_t sys_lseek(int fd, off_t offset, int whence);
