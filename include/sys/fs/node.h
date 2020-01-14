@@ -45,6 +45,8 @@ struct vnode_operations {
 
     int (*stat) (struct vnode *at, struct stat *st);
     int (*access) (struct vnode *node, uid_t *uid, gid_t *gid, mode_t *mode);
+    int (*chmod) (struct vnode *node, mode_t mode);
+    int (*chown) (struct vnode *node, uid_t uid, gid_t gid);
 
     int (*readlink) (struct vnode *at, char *buf, size_t lim);
 

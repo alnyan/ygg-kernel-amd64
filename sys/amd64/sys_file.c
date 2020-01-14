@@ -185,3 +185,18 @@ int sys_openpty(int *master, int *slave) {
     return -EINVAL;
 }
 
+int sys_chmod(const char *path, mode_t mode) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    _assert(path);
+
+    return vfs_chmod(&thr->ioctx, path, mode);
+}
+
+int sys_chown(const char *path, uid_t uid, gid_t gid) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    _assert(path);
+
+    return vfs_chown(&thr->ioctx, path, uid, gid);
+}

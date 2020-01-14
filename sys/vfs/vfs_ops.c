@@ -545,3 +545,60 @@ off_t vfs_lseek(struct vfs_ioctx *ctx, struct ofile *fd, off_t offset, int whenc
 
     return node->op->lseek(fd, offset, whence);
 }
+
+int vfs_chmod(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
+    _assert(ctx);
+    _assert(path);
+    struct vnode *node;
+    int res;
+
+    mode &= 0x1FF;
+
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+        return res;
+    }
+
+    // Only root or file owner can do that
+    if (ctx->uid != 0 && ctx->uid != node->uid) {
+        return -EACCES;
+    }
+
+    if (!node->op || !node->op->chmod) {
+        return -EINVAL;
+    }
+
+    if ((res = node->op->chmod(node, mode)) != 0) {
+        return res;
+    }
+
+    node->mode = mode;
+
+    return 0;
+}
+
+int vfs_chown(struct vfs_ioctx *ctx, const char *path, uid_t uid, gid_t gid) {
+    struct vnode *node;
+    int res;
+
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+        return res;
+    }
+
+    // Only root can chown
+    if (ctx->uid != 0) {
+        return -EACCES;
+    }
+
+    if (!node->op || !node->op->chown) {
+        return -EINVAL;
+    }
+
+    if ((res = node->op->chown(node, uid, gid)) != 0) {
+        return res;
+    }
+
+    node->uid = uid;
+    node->gid = gid;
+
+    return 0;
+}

@@ -30,8 +30,8 @@ static int ext2_vnode_truncate(struct vnode *vn, size_t length);
 static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent);
 //static void ext2_vnode_destroy(vnode_t *vn);
 static int ext2_vnode_stat(struct vnode *vn, struct stat *st);
-//static int ext2_vnode_chmod(vnode_t *vn, mode_t mode);
-//static int ext2_vnode_chown(vnode_t *vn, uid_t uid, gid_t gid);
+static int ext2_vnode_chmod(struct vnode *vn, mode_t mode);
+static int ext2_vnode_chown(struct vnode *vn, uid_t uid, gid_t gid);
 static int ext2_vnode_unlink(struct vnode *vn);
 //static int ext2_vnode_access(vnode_t *vn, uid_t *uid, gid_t *gid, mode_t *mode);
 static int ext2_vnode_readlink(struct vnode *vn, char *dst, size_t lim);
@@ -48,8 +48,8 @@ struct vnode_operations ext2_vnode_ops = {
     .readlink = ext2_vnode_readlink,
 //    .symlink = ext2_vnode_symlink,
 //
-//    .chmod = ext2_vnode_chmod,
-//    .chown = ext2_vnode_chown,
+    .chmod = ext2_vnode_chmod,
+    .chown = ext2_vnode_chown,
     .stat = ext2_vnode_stat,
     .unlink = ext2_vnode_unlink,
 //    .access = ext2_vnode_access,
@@ -427,7 +427,6 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
         }
     }
 
-    kinfo("Wrote %u bytes\n", written);
     return written;
 }
 
@@ -585,28 +584,28 @@ static int ext2_vnode_stat(struct vnode *vn, struct stat *st) {
     return 0;
 }
 
-//static int ext2_vnode_chmod(vnode_t *vn, mode_t mode) {
-//    _assert(vn && vn->fs && vn->fs_data);
-//    struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
-//
-//    // Update only access mode
-//    inode->type_perm &= ~0x1FF;
-//    inode->type_perm |= mode & 0x1FF;
-//
-//    // Write the inode back
-//    return ext2_write_inode(vn->fs, inode, vn->fs_number);
-//}
-//
-//static int ext2_vnode_chown(vnode_t *vn, uid_t uid, gid_t gid) {
-//    _assert(vn && vn->fs && vn->fs_data);
-//    struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
-//
-//    inode->gid = gid;
-//    inode->uid = uid;
-//
-//    // Write the inode back
-//    return ext2_write_inode(vn->fs, inode, vn->fs_number);
-//}
+static int ext2_vnode_chmod(struct vnode *vn, mode_t mode) {
+    _assert(vn && vn->fs && vn->fs_data);
+    struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
+
+    // Update only access mode
+    inode->type_perm &= ~0x1FF;
+    inode->type_perm |= mode & 0x1FF;
+
+    // Write the inode back
+    return ext2_write_inode(vn->fs, inode, vn->ino);
+}
+
+static int ext2_vnode_chown(struct vnode *vn, uid_t uid, gid_t gid) {
+    _assert(vn && vn->fs && vn->fs_data);
+    struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
+
+    inode->gid = gid;
+    inode->uid = uid;
+
+    // Write the inode back
+    return ext2_write_inode(vn->fs, inode, vn->ino);
+}
 
 static int ext2_vnode_unlink(struct vnode *node) {
     _assert(node);

@@ -74,6 +74,7 @@ static ssize_t tty_read(struct chrdev *tty, void *buf, size_t pos, size_t lim) {
         memcpy((char *) buf + p, ibuf, rd);
 
         rem -= rd;
+        p += rd;
     }
 
     return p;

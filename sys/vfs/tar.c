@@ -28,12 +28,17 @@ static int tarfs_vnode_open(struct ofile *of, int opt);
 static int tarfs_vnode_stat(struct vnode *node, struct stat *st);
 static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count);
 static off_t tarfs_vnode_lseek(struct ofile *fd, off_t off, int whence);
+// Nodes can be chmod/chown'd
+static int tarfs_vnode_chmod(struct vnode *node, mode_t mode);
+static int tarfs_vnode_chown(struct vnode *node, uid_t uid, gid_t gid);
 
 static struct vnode_operations _tarfs_vnode_op = {
     .stat = tarfs_vnode_stat,
     .read = tarfs_vnode_read,
     .open = tarfs_vnode_open,
     .lseek = tarfs_vnode_lseek,
+    .chmod = tarfs_vnode_chmod,
+    .chown = tarfs_vnode_chown,
 };
 
 static ssize_t tarfs_octal(const char *buf, size_t lim) {
@@ -311,6 +316,14 @@ static off_t tarfs_vnode_lseek(struct ofile *fd, off_t offset, int whence) {
     }
 
     return fd->pos;
+}
+
+static int tarfs_vnode_chmod(struct vnode *node, mode_t mode) {
+    return 0;
+}
+
+static int tarfs_vnode_chown(struct vnode *node, uid_t uid, gid_t gid) {
+    return 0;
 }
 
 //

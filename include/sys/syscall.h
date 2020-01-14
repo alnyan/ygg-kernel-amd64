@@ -13,6 +13,8 @@
 #define SYSCALL_NR_CREAT        85
 #define SYSCALL_NR_UNLINK       87
 #define SYSCALL_NR_READDIR      89
+#define SYSCALL_NR_CHMOD        90
+#define SYSCALL_NR_CHOWN        92
 
 #define SYSCALL_NR_BRK          12
 #define SYSCALL_NR_NANOSLEEP    35
