@@ -128,7 +128,7 @@ void heap_free(heap_t *heap, void *ptr) {
     // Check if ptr is in a valid block
     heap_block_t *block = (heap_block_t *) (((uintptr_t) ptr) - sizeof(heap_block_t));
 
-    assert((block->magic & HEAP_MAGIC) == HEAP_MAGIC, "Corrupted heap block magic\n");
+    assert((block->magic & HEAP_MAGIC) == HEAP_MAGIC, "Corrupted heap block magic: %p\n", ptr);
     assert(block->magic & 1, "Double free error (kheap): %p\n", ptr);
 
     block->magic = HEAP_MAGIC;

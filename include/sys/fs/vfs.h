@@ -37,6 +37,8 @@ int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int flag
 void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd);
 int vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd, struct dirent *ent);
 int vfs_unlink(struct vfs_ioctx *ctx, const char *path);
+int vfs_rmdir(struct vfs_ioctx *ctx, const char *path);
+int vfs_mkdir(struct vfs_ioctx *ctx, const char *path, mode_t mode);
 
 int vfs_access(struct vfs_ioctx *ctx, const char *path, int accmode);
 int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st);

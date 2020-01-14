@@ -73,13 +73,24 @@ static int vfs_opendir(struct vfs_ioctx *ctx, struct ofile *fd) {
         fd->flags |= OF_MEMDIR | OF_MEMDIR_DOT;
         fd->pos = (size_t) node->first_child;
 
+        ++fd->refcount;
+        ++node->open_count;
+
         return 0;
     } else {
+        int res;
         if (!node->op || !node->op->opendir) {
             return -EINVAL;
         }
 
-        return node->op->opendir(fd);
+        if ((res = node->op->opendir(fd)) != 0) {
+            return res;
+        }
+
+        ++fd->refcount;
+        ++node->open_count;
+
+        return 0;
     }
 }
 
@@ -235,6 +246,74 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
 
     ++fd->refcount;
     ++fd->vnode->open_count;
+
+    return 0;
+}
+
+int vfs_mkdir(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
+    char parent_path[PATH_MAX];
+    const char *filename;
+    int res;
+    struct vnode *at;
+
+    _assert(ctx);
+    _assert(path);
+
+    filename = vfs_path_parent(path, parent_path);
+    if (filename[0] == 0) {
+        return -ENOENT;
+    }
+
+    // Find parent vnode
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, parent_path, &at)) != 0) {
+        return res;
+    }
+
+    // Check permission for writing
+    if ((res = vfs_access_node(ctx, at, W_OK)) != 0) {
+        return res;
+    }
+
+    // TODO: check if such file already exists
+    if (!at->op || !at->op->mkdir) {
+        // Assume it's a read-only filesystem
+        return -EROFS;
+    }
+
+    return at->op->mkdir(at, filename, ctx->uid, ctx->gid, mode);
+}
+
+int vfs_rmdir(struct vfs_ioctx *ctx, const char *path) {
+    struct vnode *node;
+    int res;
+
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+        return res;
+    }
+
+    if (node->type == VN_MNT) {
+        return -EBUSY;
+    }
+
+    if (node->type != VN_DIR) {
+        return -ENOTDIR;
+    }
+
+    if (!node->op || !node->op->unlink) {
+        return -EROFS;
+    }
+
+    if (node->open_count) {
+        return -EBUSY;
+    }
+
+    if ((res = node->op->unlink(node)) != 0) {
+        return res;
+    }
+
+    vnode_detach(node);
+    memset(node, 0, sizeof(struct vnode));
+    kfree(node);
 
     return 0;
 }

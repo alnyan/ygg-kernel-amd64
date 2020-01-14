@@ -21,7 +21,7 @@
 // Forward declaration of ext2 vnode functions
 static int ext2_vnode_find(struct vnode *vn, const char *name, struct vnode **resvn);
 static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode);
-//static int ext2_vnode_mkdir(vnode_t *at, const char *name, mode_t mode);
+static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode);
 static int ext2_vnode_open(struct ofile *fd, int opt);
 static int ext2_vnode_opendir(struct ofile *fd);
 static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count);
@@ -42,7 +42,7 @@ struct vnode_operations ext2_vnode_ops = {
     .find = ext2_vnode_find,
     .creat = ext2_vnode_creat,
     .lseek = ext2_vnode_lseek,
-//    .mkdir = ext2_vnode_mkdir,
+    .mkdir = ext2_vnode_mkdir,
 //    .destroy = ext2_vnode_destroy,
 //
     .readlink = ext2_vnode_readlink,
@@ -107,6 +107,8 @@ static int ext2_vnode_find(struct vnode *vn, const char *name, struct vnode **re
                     node->uid = inode->uid;
                     node->gid = inode->gid;
 
+                    node->open_count = 0;
+
                     *res = node;
 
                     return 0;
@@ -144,94 +146,93 @@ static int ext2_vnode_open(struct ofile *fd, int opt) {
 
     return 0;
 }
-//
-//static int ext2_vnode_mkdir(vnode_t *at, const char *name, mode_t mode) {
-//    fs_t *ext2 = at->fs;
-//    _assert(at->type == VN_DIR);
-//    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
-//    char block_buffer[sb->block_size];
-//
-//    uint32_t new_ino, new_block_no;
-//    int res;
-//
-//    // Allocate a new inode for the directory
-//    if ((res = ext2_alloc_inode(ext2, &new_ino)) != 0) {
-//        kerror("ext2: Failed to allocate an inode\n");
-//        return res;
-//    }
-//
-//    // Allocate a block for "." and ".." entries
-//    if ((res = ext2_alloc_block(ext2, &new_block_no)) < 0) {
-//        kerror("ext2: Failed to allocate a block\n");
-//        return res;
-//    }
-//
-//    struct ext2_inode *ent_inode = (struct ext2_inode *) kmalloc(sb->inode_struct_size);
-//
-//    // Now create an entry in parents dirent list
-//    if ((res = ext2_dir_add_inode(ext2, at, name, new_ino)) < 0) {
-//        return res;
-//    }
-//
-//    // Fill the inode
-//    ent_inode->flags = 0;
-//    ent_inode->dir_acl = 0;
-//    ent_inode->frag_block_addr = 0;
-//    ent_inode->gen_number = 0;
-//    ent_inode->hard_link_count = 1;
-//    ent_inode->acl = 0;
-//    ent_inode->os_value_1 = 0;
-//    memset(ent_inode->os_value_2, 0, sizeof(ent_inode->os_value_2));
-//    // TODO: time support in kernel
-//    ent_inode->atime = 0;
-//    ent_inode->mtime = 0;
-//    ent_inode->ctime = 0;
-//    ent_inode->dtime = 0;
-//
-//    memset(ent_inode->direct_blocks, 0, sizeof(ent_inode->direct_blocks));
-//    ent_inode->direct_blocks[0] = new_block_no;
-//    ent_inode->l1_indirect_block = 0;
-//    ent_inode->l2_indirect_block = 0;
-//    ent_inode->l3_indirect_block = 0;
-//
-//    ent_inode->type_perm = (mode & 0x1FF) | EXT2_TYPE_DIR;
-//    // TODO: obtain these from process context in kernel
-//    ent_inode->uid = 0;
-//    ent_inode->gid = 0;
-//    ent_inode->disk_sector_count = 0;
-//    ent_inode->size_lower = sb->block_size;
-//
-//    memset(block_buffer, 0, sb->block_size);
-//    // "."
-//    struct ext2_dirent *dirent = (struct ext2_dirent *) block_buffer;
-//    dirent->ino = new_ino;
-//    dirent->name_len = 1;
-//    dirent->len = (sizeof(struct ext2_dirent) + 4) & ~3;
-//    dirent->name[0] = '.';
-//    dirent->type_ind = 0;
-//
-//    // ".."
-//    dirent = (struct ext2_dirent *) &block_buffer[dirent->len];
-//    dirent->ino = at->fs_number;
-//    dirent->name_len = 2;
-//    dirent->len = sb->block_size - ((sizeof(struct ext2_dirent) + 4) & ~3);
-//    dirent->name[0] = '.';
-//    dirent->name[1] = '.';
-//    dirent->type_ind = 0;
-//
-//    // Write directory's first block
-//    if ((res = ext2_write_block(ext2, new_block_no, block_buffer)) < 0) {
-//        return res;
-//    }
-//
-//    // Write directory inode
-//    if ((res = ext2_write_inode(ext2, ent_inode, new_ino)) < 0) {
-//        return res;
-//    }
-//
-//    return 0;
-//}
-//
+
+static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode) {
+    struct fs *ext2 = at->fs;
+    _assert(at->type == VN_DIR);
+    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
+    char block_buffer[sb->block_size];
+
+    uint32_t new_ino, new_block_no;
+    int res;
+
+    // Allocate a new inode for the directory
+    if ((res = ext2_alloc_inode(ext2, &new_ino)) != 0) {
+        kerror("ext2: Failed to allocate an inode\n");
+        return res;
+    }
+
+    // Allocate a block for "." and ".." entries
+    if ((res = ext2_alloc_block(ext2, &new_block_no)) < 0) {
+        kerror("ext2: Failed to allocate a block\n");
+        return res;
+    }
+
+    struct ext2_inode *ent_inode = (struct ext2_inode *) kmalloc(sb->inode_struct_size);
+
+    // Now create an entry in parents dirent list
+    if ((res = ext2_dir_add_inode(ext2, at, name, new_ino)) < 0) {
+        return res;
+    }
+
+    // Fill the inode
+    ent_inode->flags = 0;
+    ent_inode->dir_acl = 0;
+    ent_inode->frag_block_addr = 0;
+    ent_inode->gen_number = 0;
+    ent_inode->hard_link_count = 1;
+    ent_inode->acl = 0;
+    ent_inode->os_value_1 = 0;
+    memset(ent_inode->os_value_2, 0, sizeof(ent_inode->os_value_2));
+    // TODO: time support in kernel
+    ent_inode->atime = 0;
+    ent_inode->mtime = 0;
+    ent_inode->ctime = 0;
+    ent_inode->dtime = 0;
+
+    memset(ent_inode->direct_blocks, 0, sizeof(ent_inode->direct_blocks));
+    ent_inode->direct_blocks[0] = new_block_no;
+    ent_inode->l1_indirect_block = 0;
+    ent_inode->l2_indirect_block = 0;
+    ent_inode->l3_indirect_block = 0;
+
+    ent_inode->type_perm = (mode & 0x1FF) | EXT2_TYPE_DIR;
+    ent_inode->uid = uid;
+    ent_inode->gid = gid;
+    ent_inode->disk_sector_count = 0;
+    ent_inode->size_lower = sb->block_size;
+
+    memset(block_buffer, 0, sb->block_size);
+    // "."
+    struct ext2_dirent *dirent = (struct ext2_dirent *) block_buffer;
+    dirent->ino = new_ino;
+    dirent->name_len = 1;
+    dirent->len = (sizeof(struct ext2_dirent) + 4) & ~3;
+    dirent->name[0] = '.';
+    dirent->type_ind = 0;
+
+    // ".."
+    dirent = (struct ext2_dirent *) &block_buffer[dirent->len];
+    dirent->ino = at->ino;
+    dirent->name_len = 2;
+    dirent->len = sb->block_size - ((sizeof(struct ext2_dirent) + 4) & ~3);
+    dirent->name[0] = '.';
+    dirent->name[1] = '.';
+    dirent->type_ind = 0;
+
+    // Write directory's first block
+    if ((res = ext2_write_block(ext2, new_block_no, block_buffer)) < 0) {
+        return res;
+    }
+
+    // Write directory inode
+    if ((res = ext2_write_inode(ext2, ent_inode, new_ino)) < 0) {
+        return res;
+    }
+
+    return 0;
+}
+
 static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode) {
     struct fs *ext2 = at->fs;
     _assert(at->type == VN_DIR);

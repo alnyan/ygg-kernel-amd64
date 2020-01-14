@@ -74,11 +74,11 @@ static void user_init_start(void) {
 
     // Setup I/O context for init task
     struct ofile *stdin, *stdout, *stderr;
-    file_buffer = kmalloc(sizeof(struct ofile) * 2);
-    _assert(file_buffer);
 
-    stdin = (struct ofile *) file_buffer;
-    stdout = (struct ofile *) (file_buffer + sizeof(struct ofile));
+    stdin = kmalloc(sizeof(struct ofile));
+    _assert(stdin);
+    stdout = kmalloc(sizeof(struct ofile));
+    _assert(stdout);
     stderr = stdout;
 
     // TODO: use dev_find and open its node instead
@@ -93,6 +93,7 @@ static void user_init_start(void) {
     if ((res = vfs_open_vnode(&user_init->ioctx, stdout, stdout_device, O_WRONLY)) != 0) {
         panic("Failed to open stdout/stderr for init task: %s\n", kstrerror(res));
     }
+    ++stdout->refcount;
 
     // TODO: use STDIN_/STDOUT_/STDERR_FILENO macros
     user_init->fds[0] = stdin;
