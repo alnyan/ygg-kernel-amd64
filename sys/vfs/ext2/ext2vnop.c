@@ -340,11 +340,8 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
 
     if (fd->pos > inode->size_lower) {
         // This shouldn't be possible, yeah?
-        kinfo("fd pos (%u) greater than file size (%u\n)", fd->pos, inode->size_lower);
         return -ESPIPE;
     }
-
-    kinfo("ext2: write %u to offset %u\n", fd->pos, count);
 
     // How many bytes can we write into the blocks already allocated
     size_t size_blocks = (inode->size_lower + sb->block_size - 1) / sb->block_size;
