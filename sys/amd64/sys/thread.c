@@ -278,6 +278,8 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
     thread_platctx_init(thr, 0, NULL);
 
     if ((res = elf_load(thr, &thr->ioctx, &fd)) != 0) {
+        vfs_close(&thr->ioctx, &fd);
+
         kdebug("%u exited with code -1: elf load failed\n", thr->pid);
         thr->exit_code = -1;
         thr->flags |= THREAD_STOPPED;

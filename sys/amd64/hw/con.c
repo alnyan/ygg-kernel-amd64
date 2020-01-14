@@ -21,6 +21,8 @@
 #define CGA_BUFFER_ADDR     0xB8000
 #define ATTR_DEFAULT        0x1700ULL
 
+#define ATTR_BOLD           1
+
 static uint16_t *con_buffer;
 static uint16_t x = 0, y = 0;
 static uint16_t con_width, con_height;
@@ -54,6 +56,7 @@ static size_t esc_argc;
 static char esc_letter = 0;
 static int esc_mode = 0;
 static uint16_t attr = ATTR_DEFAULT;
+static uint16_t xattr = 0;
 
 static void setc(uint16_t row, uint16_t col, uint16_t v);
 
@@ -140,6 +143,15 @@ static void process_csi(void) {
                 case 0:
                     // Reset
                     attr = ATTR_DEFAULT;
+                    xattr = 0;
+                    break;
+                case 1:
+                    // Bright
+                    xattr |= ATTR_BOLD;
+                    break;
+                case 2:
+                    // Dim
+                    xattr &= ~ATTR_BOLD;
                     break;
                 case 7:
                     // Reverse
@@ -251,6 +263,10 @@ static void process_csi(void) {
 }
 
 static void setc(uint16_t row, uint16_t col, uint16_t v) {
+    if (xattr & ATTR_BOLD) {
+        v += 0x800;
+    }
+
     con_buffer[row * con_width + col] = v;
 
     if (vesa_available) {

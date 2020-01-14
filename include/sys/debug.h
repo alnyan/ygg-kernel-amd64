@@ -18,9 +18,9 @@
 
 #define kdebug(f, ...)      debugf(DEBUG_DEFAULT,   "[%s] " f, __func__, ##__VA_ARGS__)
 #define kinfo(f, ...)       debugf(DEBUG_INFO,      "[%s] " f, __func__, ##__VA_ARGS__)
-#define kwarn(f, ...)       debugf(DEBUG_WARN,      "[%s] " f, __func__, ##__VA_ARGS__)
-#define kerror(f, ...)      debugf(DEBUG_ERROR,     "[%s] " f, __func__, ##__VA_ARGS__)
-#define kfatal(f, ...)      debugf(DEBUG_FATAL,     "[%s] " f, __func__, ##__VA_ARGS__)
+#define kwarn(f, ...)       debugf(DEBUG_WARN,      "\033[1m\033[33m[%s] " f "\033[0m", __func__, ##__VA_ARGS__)
+#define kerror(f, ...)      debugf(DEBUG_ERROR,     "\033[1m\033[31m[%s] " f "\033[0m", __func__, ##__VA_ARGS__)
+#define kfatal(f, ...)      debugf(DEBUG_FATAL,     "\033[41m[%s] " f "\033[0m", __func__, ##__VA_ARGS__)
 #define kprint(l, f, ...)   debugf(l,               "[%s] " f, __func__, ##__VA_ARGS__)
 
 void fmtsiz(char *buf, size_t sz);
