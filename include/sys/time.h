@@ -16,6 +16,8 @@ struct timespec {
     long tv_nsec;
 };
 
+typedef uint64_t time_t;
+
 #if defined(__KERNEL__)
 extern uint64_t system_time;
 #endif

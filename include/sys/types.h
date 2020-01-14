@@ -5,6 +5,9 @@
 #define NULL ((void *) 0)
 #endif
 
+typedef uint64_t uintptr_t;
+typedef int64_t intptr_t;
+
 typedef uintptr_t size_t;
 typedef intptr_t ssize_t;
 
