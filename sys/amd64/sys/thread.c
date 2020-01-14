@@ -135,6 +135,9 @@ int thread_init(
     // 1. Allocate all the required structures
     t->data.data_flags = 0;
 
+    t->argp_page = MM_NADDR;
+    t->argp_page_phys = MM_NADDR;
+
     if (!rsp0_base) {
         void *kstack = kmalloc(THREAD_KSTACK_SIZE);
         _assert(kstack);
@@ -249,6 +252,51 @@ void thread_signal(struct thread *t, int s) {
     t->sigq |= (1 << (s - 1));
 }
 
+static uintptr_t argp_copy(struct thread *thr, const char *const argv[], size_t *arg_count) {
+    uintptr_t dst_page_phys = amd64_phys_alloc_page();
+    if (dst_page_phys == MM_NADDR) {
+        return dst_page_phys;
+    }
+
+    char *dst_page = (char *) MM_VIRTUALIZE(dst_page_phys);
+
+    // Count the arguments
+    size_t argc = 0;
+    while (1) {
+        if (!argv[argc]) {
+            break;
+        }
+        ++argc;
+    }
+    *arg_count = argc;
+
+    // Argp page layout:
+    // ptr0 ptr1 ptr2 ... ptrN NULL str0 str1 str2 ... strN
+    size_t data_offset = (argc + 1) * sizeof(uintptr_t);
+    size_t str_offset = 0;
+
+    // Copy string data
+    for (size_t i = 0; i < argc; ++i) {
+        size_t len = strlen(argv[i]);
+
+        if (len + str_offset + data_offset >= 4096) {
+            panic("Argument list too large\n");
+        }
+
+        // Setup pointer to new offset
+        ((uintptr_t *) dst_page)[i] = str_offset + data_offset;
+
+        // Copy data to that offset
+        strcpy(&dst_page[data_offset + str_offset], argv[i]);
+        str_offset += len + 1;
+    }
+
+    // Setup last entry
+    ((uintptr_t *) dst_page)[argc] = 0;
+
+    return dst_page_phys;
+}
+
 int sys_execve(const char *filename, const char *const argv[], const char *const envp[]) {
     asm volatile ("cli");
 
@@ -258,14 +306,19 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
     struct stat st;
     struct ofile fd;
     struct thread *thr = get_cpu()->thread;
+    size_t argc;
     _assert(thr);
-    // TODO: copy arguments from caller to some intermediate buffer, then map it to user
-    //       argp page
 
     if ((res = vfs_stat(&thr->ioctx, filename, &st)) != 0) {
         kerror("execve: %s\n", kstrerror(res));
         return res;
     }
+
+    _assert(argv);
+
+    // Copy argp page
+    uintptr_t argp_phys = argp_copy(thr, argv, &argc);
+    _assert(argp_phys != MM_NADDR);
 
     if ((res = vfs_open(&thr->ioctx, &fd, filename, O_RDONLY | O_EXEC, 0)) != 0) {
         return res;
@@ -290,6 +343,17 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
 
     vfs_close(&thr->ioctx, &fd);
 
+    // Allocate a virtual address to map argp page
+    uintptr_t argp_virt = vmfind(thr->space, 0x100000, 0xF0000000, 1);
+    _assert(argp_virt != MM_NADDR);
+    // Map it as non-writable user-accessable
+    _assert(amd64_map_single(thr->space, argp_virt, argp_phys, (1 << 2)) == 0);
+    // Fix up the pointers
+    uintptr_t *argp_fixup = (uintptr_t *) MM_VIRTUALIZE(argp_phys);
+    for (size_t i = 0; i < argc; ++i) {
+        argp_fixup[i] += argp_virt;
+    }
+
     // Allocate a new userspace stack
     uintptr_t ustack = vmalloc(thr->space, 0x100000, 0xF0000000, 4, VM_ALLOC_WRITE | VM_ALLOC_USER);
     _assert(ustack != MM_NADDR);
@@ -297,10 +361,14 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
     thr->data.stack3_base = ustack;
     thr->data.stack3_size = 4 * 0x1000;
 
+    thr->argp_page_phys = argp_phys;
+    thr->argp_page = argp_virt;
+
     // Modify new context
     struct cpu_context *ctx = (struct cpu_context *) thr->data.rsp0;
 
     ctx->rsp = thr->data.stack3_base + thr->data.stack3_size;
+    ctx->rdi = thr->argp_page;
 
     amd64_syscall_iretq(ctx);
     panic("This code shouldn't run\n");
