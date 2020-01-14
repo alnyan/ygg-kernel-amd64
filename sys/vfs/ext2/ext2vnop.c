@@ -36,10 +36,12 @@ static int ext2_vnode_stat(struct vnode *vn, struct stat *st);
 //static int ext2_vnode_access(vnode_t *vn, uid_t *uid, gid_t *gid, mode_t *mode);
 static int ext2_vnode_readlink(struct vnode *vn, char *dst, size_t lim);
 //static int ext2_vnode_symlink(vnode_t *at, struct vfs_ioctx *ctx, const char *name, const char *dst);
+static off_t ext2_vnode_lseek(struct ofile *fd, off_t offset, int whence);
 
 struct vnode_operations ext2_vnode_ops = {
     .find = ext2_vnode_find,
     .creat = ext2_vnode_creat,
+    .lseek = ext2_vnode_lseek,
 //    .mkdir = ext2_vnode_mkdir,
 //    .destroy = ext2_vnode_destroy,
 //
@@ -788,3 +790,28 @@ static int ext2_vnode_readlink(struct vnode *vn, char *dst, size_t lim) {
 //
 //    return 0;
 //}
+
+static off_t ext2_vnode_lseek(struct ofile *fd, off_t offset, int whence) {
+    _assert(fd);
+    struct vnode *node = fd->vnode;
+    _assert(node);
+    _assert(node->type == VN_REG);
+    struct ext2_inode *inode = node->fs_data;
+    _assert(inode);
+
+    size_t max = inode->size_lower;
+
+    switch (whence) {
+    case SEEK_SET:
+        if ((size_t) offset > max) {
+            // Don't support seeking beyond file end
+            return -ENXIO;
+        }
+        fd->pos = offset;
+        break;
+    default:
+        panic("Unsupported whence: %d\n", whence);
+    }
+
+    return fd->pos;
+}

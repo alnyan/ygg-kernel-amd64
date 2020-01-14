@@ -44,3 +44,5 @@ int vfs_access_node(struct vfs_ioctx *ctx, struct vnode *vn, int mode);
 
 ssize_t vfs_write(struct vfs_ioctx *ctx, struct ofile *fd, const void *buf, size_t count);
 ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t count);
+
+off_t vfs_lseek(struct vfs_ioctx *ctx, struct ofile *fd, off_t offset, int whence);

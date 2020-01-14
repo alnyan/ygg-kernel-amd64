@@ -420,3 +420,19 @@ ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t coun
         return -EINVAL;
     }
 }
+
+off_t vfs_lseek(struct vfs_ioctx *ctx, struct ofile *fd, off_t offset, int whence) {
+    _assert(fd);
+    struct vnode *node = fd->vnode;
+    _assert(node);
+
+    if (node->type != VN_REG) {
+        return -EINVAL;
+    }
+
+    if (!node->op || !node->op->lseek) {
+        return -EINVAL;
+    }
+
+    return node->op->lseek(fd, offset, whence);
+}

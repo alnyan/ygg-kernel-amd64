@@ -27,12 +27,13 @@ struct tarfs_vnode_attr {
 static int tarfs_vnode_open(struct ofile *of, int opt);
 static int tarfs_vnode_stat(struct vnode *node, struct stat *st);
 static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count);
+static off_t tarfs_vnode_lseek(struct ofile *fd, off_t off, int whence);
 
 static struct vnode_operations _tarfs_vnode_op = {
     .stat = tarfs_vnode_stat,
     .read = tarfs_vnode_read,
     .open = tarfs_vnode_open,
-    NULL
+    .lseek = tarfs_vnode_lseek,
 };
 
 static ssize_t tarfs_octal(const char *buf, size_t lim) {
@@ -255,6 +256,31 @@ static int tarfs_vnode_open(struct ofile *of, int opt) {
         return -EROFS;
     }
     return 0;
+}
+
+static off_t tarfs_vnode_lseek(struct ofile *fd, off_t offset, int whence) {
+    _assert(fd);
+    struct vnode *node = fd->vnode;
+    _assert(node);
+    _assert(node->type == VN_REG);
+    struct tarfs_vnode_attr *attr = node->fs_data;
+    _assert(attr);
+
+    size_t max = attr->size;
+
+    switch (whence) {
+    case SEEK_SET:
+        if ((size_t) offset > max) {
+            // Don't support seeking beyond file end
+            return -ENXIO;
+        }
+        fd->pos = offset;
+        break;
+    default:
+        panic("Unsupported whence: %d\n", whence);
+    }
+
+    return fd->pos;
 }
 
 //

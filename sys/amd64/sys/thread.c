@@ -271,28 +271,19 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
         return res;
     }
 
-    file_buffer = kmalloc(st.st_size);
-    _assert(file_buffer);
-
-    if ((bread = vfs_read(&thr->ioctx, &fd, file_buffer, st.st_size)) != st.st_size) {
-        kfree(file_buffer);
-        return res;
-    }
-
-    vfs_close(&thr->ioctx, &fd);
-
     // Drop old page tables
     mm_space_release(thr->space);
 
     // Initialize a new default platform context
     thread_platctx_init(thr, 0, NULL);
 
-    // Load ELF
-    if ((res = elf_load(thr, file_buffer)) != 0) {
-        panic("Failed to load ELF\n");
+    if ((res = elf_load(thr, &thr->ioctx, &fd)) != 0) {
+        // TODO: maybe just murder the thread and spit out some error
+        //       instead of bringing down the whole system
+        panic("elf file load failed: %s\n", kstrerror(res));
     }
 
-    kfree(file_buffer);
+    vfs_close(&thr->ioctx, &fd);
 
     // Allocate a new userspace stack
     uintptr_t ustack = vmalloc(thr->space, 0x100000, 0xF0000000, 4, VM_ALLOC_WRITE | VM_ALLOC_USER);

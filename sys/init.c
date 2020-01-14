@@ -57,20 +57,20 @@ static void user_init_start(void) {
         panic("Failed to initialize user init process: %s\n", kstrerror(res));
     }
 
-    file_buffer = kmalloc(st.st_size);
-    _assert(file_buffer);
+    //file_buffer = kmalloc(st.st_size);
+    //_assert(file_buffer);
 
-    if ((bread = vfs_read(kernel_ioctx, &fd, file_buffer, st.st_size)) != st.st_size) {
-        panic("Failed to read init binary\n");
+    //if ((bread = vfs_read(kernel_ioctx, &fd, file_buffer, st.st_size)) != st.st_size) {
+    //    panic("Failed to read init binary\n");
+    //}
+
+    if ((res = elf_load(user_init, kernel_ioctx, &fd)) != 0) {
+        panic("Failed to load ELF binary: %s\n", kstrerror(res));
     }
 
     vfs_close(kernel_ioctx, &fd);
 
-    if ((res = elf_load(user_init, file_buffer)) != 0) {
-        panic("Failed to load ELF binary: %s\n", kstrerror(res));
-    }
-
-    kfree(file_buffer);
+    //kfree(file_buffer);
 
     // Setup I/O context for init task
     struct ofile *stdin, *stdout, *stderr;
