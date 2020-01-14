@@ -112,20 +112,18 @@ int elf_load(struct thread *thr, struct vfs_ioctx *ctx, struct ofile *fd) {
 
     if ((res = elf_read(ctx, fd, 0, &ehdr, sizeof(Elf64_Ehdr))) != 0) {
         kerror("elf: failed to read file header\n");
-        goto end;
+        return res;
     }
 
     // Check magic
     if (strncmp((const char *) ehdr.e_ident, "\x7F""ELF", 4) != 0) {
         kerror("elf: magic mismatch\n");
-        res = -EINVAL;
-        goto end;
+        return -EINVAL;
     }
 
     if (ehdr.e_ident[EI_CLASS] != ELFCLASS64) {
         kerror("elf: object was not intended for 64-bit\n");
-        res = -EINVAL;
-        goto end;
+        return -EINVAL;
     }
 
     shdrs = kmalloc(ehdr.e_shentsize * ehdr.e_shnum);

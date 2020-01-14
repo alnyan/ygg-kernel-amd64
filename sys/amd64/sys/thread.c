@@ -278,9 +278,12 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
     thread_platctx_init(thr, 0, NULL);
 
     if ((res = elf_load(thr, &thr->ioctx, &fd)) != 0) {
-        // TODO: maybe just murder the thread and spit out some error
-        //       instead of bringing down the whole system
-        panic("elf file load failed: %s\n", kstrerror(res));
+        kdebug("%u exited with code -1: elf load failed\n", thr->pid);
+        thr->exit_code = -1;
+        thr->flags |= THREAD_STOPPED;
+        amd64_syscall_yield_stopped();
+
+        panic("This code shouldn't run\n");
     }
 
     vfs_close(&thr->ioctx, &fd);
