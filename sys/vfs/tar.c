@@ -127,6 +127,8 @@ static int tar_init(struct fs *tar, const char *opt) {
     tar->fs_private = tar_root;
     tar_root->fs = tar;
     tar_root->flags |= VN_MEMORY;
+    tar_root->op = &_tarfs_vnode_op;
+    tar_root->fs_data = NULL;
 
     tar_root->uid = 0;
     tar_root->gid = 0;
@@ -199,6 +201,30 @@ static struct fs_class _tarfs = {
 static int tarfs_vnode_stat(struct vnode *vn, struct stat *st) {
     _assert(st);
     _assert(vn);
+
+    if (!vn->fs_data) {
+        // Root node
+        st->st_size = 0;
+        st->st_blksize = 0;
+        st->st_blocks = 0;
+
+        st->st_ino = 0;
+
+        st->st_uid = vn->uid;
+        st->st_gid = vn->gid;
+        st->st_mode = vn->mode | S_IFDIR;
+
+        st->st_atime = 0;
+        st->st_mtime = 0;
+        st->st_ctime = 0;
+
+        st->st_nlink = 1;
+        st->st_rdev = 0;
+        st->st_dev = 0;
+
+        return 0;
+    }
+
     _assert(vn->fs_data);
     _assert(vn->fs && vn->fs->blk);
     struct tarfs_vnode_attr *attr = vn->fs_data;
@@ -223,6 +249,8 @@ static int tarfs_vnode_stat(struct vnode *vn, struct stat *st) {
     st->st_atime = mtime;
     st->st_ctime = mtime;
     st->st_mtime = mtime;
+
+    st->st_ino = 0;
 
     st->st_rdev = 0;
     st->st_dev = 0;
