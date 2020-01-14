@@ -38,6 +38,7 @@ struct vnode_operations {
     void (*close) (struct ofile *fd);
     int (*creat) (struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode);
     int (*truncate) (struct vnode *at, size_t size);
+    int (*unlink) (struct vnode *vn);
 
     off_t (*lseek) (struct ofile *fd, off_t offset, int whence);
 

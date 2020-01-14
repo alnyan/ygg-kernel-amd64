@@ -36,6 +36,7 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
 int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int flags, int mode);
 void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd);
 int vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd, struct dirent *ent);
+int vfs_unlink(struct vfs_ioctx *ctx, const char *path);
 
 int vfs_access(struct vfs_ioctx *ctx, const char *path, int accmode);
 int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st);

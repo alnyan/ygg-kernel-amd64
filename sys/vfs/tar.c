@@ -248,6 +248,8 @@ static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
     // TODO: size is not block-size aligned, may fuck up
     blk_read(vn->fs->blk, buf, fd->pos + attr->first_block, can);
 
+    fd->pos += can;
+
     return can;
 }
 

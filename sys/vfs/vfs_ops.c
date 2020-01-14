@@ -6,6 +6,7 @@
 #include "sys/fcntl.h"
 #include "sys/debug.h"
 #include "sys/errno.h"
+#include "sys/heap.h"
 #include "sys/chr.h"
 
 static int vfs_open_mode(int opt) {
@@ -233,6 +234,40 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
     }
 
     ++fd->refcount;
+    ++fd->vnode->open_count;
+
+    return 0;
+}
+
+int vfs_unlink(struct vfs_ioctx *ctx, const char *path) {
+    struct vnode *node;
+    int res;
+
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+        return res;
+    }
+
+    if (node->type == VN_DIR || node->type == VN_MNT) {
+        return -EISDIR;
+    }
+
+    if (!node->op || !node->op->unlink) {
+        // Cannot remove the node, assume readonly filesystem
+        return -EROFS;
+    }
+
+    // Check that no one uses the node
+    if (node->open_count) {
+        return -EBUSY;
+    }
+
+    if ((res = node->op->unlink(node)) != 0) {
+        return res;
+    }
+
+    vnode_detach(node);
+    memset(node, 0, sizeof(struct vnode));
+    kfree(node);
 
     return 0;
 }
@@ -310,6 +345,7 @@ void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd) {
         fd->vnode->op->close(fd);
     }
 
+    --fd->vnode->open_count;
     --fd->refcount;
 }
 
@@ -371,9 +407,6 @@ ssize_t vfs_write(struct vfs_ioctx *ctx, struct ofile *fd, const void *buf, size
     case VN_REG:
         _assert(node->op && node->op->write);
         b = node->op->write(fd, buf, count);
-        if (b > 0) {
-            fd->pos += b;
-        }
         return b;
     case VN_CHR:
         _assert(node->dev && ((struct chrdev *) node->dev)->write);
@@ -406,9 +439,6 @@ ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t coun
     case VN_REG:
         _assert(node->op && node->op->read);
         b = node->op->read(fd, buf, count);
-        if (b > 0) {
-            fd->pos += b;
-        }
         return b;
     case VN_CHR:
         _assert(node->dev && ((struct chrdev *) node->dev)->read);

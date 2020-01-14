@@ -71,7 +71,5 @@ int vfs_access_node(struct vfs_ioctx *ctx, struct vnode *vn, int mode) {
         }
     }
 
-    kdebug("%u:%u requset %d access to %s\n", ctx->uid, ctx->gid, mode, vn->name);
-
     return vfs_access_check(ctx, mode, vn_mode, vn_uid, vn_gid);
 }

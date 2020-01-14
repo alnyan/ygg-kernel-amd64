@@ -30,7 +30,9 @@ struct vnode *vnode_create(enum vnode_type t, const char *name) {
 
     node->uid = 0;
     node->gid = 0;
-    node->mode = 0644;
+    node->mode = 0;
+
+    node->open_count = 0;
 
     if (name) {
         _assert(strlen(name) < NODE_MAXLEN);

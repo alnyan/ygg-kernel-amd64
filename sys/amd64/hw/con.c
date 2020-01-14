@@ -277,7 +277,8 @@ static void setc(uint16_t row, uint16_t col, uint16_t v) {
 }
 
 void amd64_con_putc(int c) {
-    if (!con_avail) {
+    if (!con_avail || !c) {
+        // Ignore NULs
         return;
     }
 

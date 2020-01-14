@@ -64,7 +64,10 @@ int sys_mkdir(const char *pathname, int mode) {
 }
 
 int sys_unlink(const char *pathname) {
-    return -EINVAL;
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    _assert(pathname);
+    return vfs_unlink(&thr->ioctx, pathname);
 }
 
 int sys_rmdir(const char *pathname) {

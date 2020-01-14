@@ -32,7 +32,7 @@ static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent);
 static int ext2_vnode_stat(struct vnode *vn, struct stat *st);
 //static int ext2_vnode_chmod(vnode_t *vn, mode_t mode);
 //static int ext2_vnode_chown(vnode_t *vn, uid_t uid, gid_t gid);
-//static int ext2_vnode_unlink(vnode_t *at, vnode_t *vn, const char *name);
+static int ext2_vnode_unlink(struct vnode *vn);
 //static int ext2_vnode_access(vnode_t *vn, uid_t *uid, gid_t *gid, mode_t *mode);
 static int ext2_vnode_readlink(struct vnode *vn, char *dst, size_t lim);
 //static int ext2_vnode_symlink(vnode_t *at, struct vfs_ioctx *ctx, const char *name, const char *dst);
@@ -51,7 +51,7 @@ struct vnode_operations ext2_vnode_ops = {
 //    .chmod = ext2_vnode_chmod,
 //    .chown = ext2_vnode_chown,
     .stat = ext2_vnode_stat,
-//    .unlink = ext2_vnode_unlink,
+    .unlink = ext2_vnode_unlink,
 //    .access = ext2_vnode_access,
 //
     .opendir = ext2_vnode_opendir,
@@ -323,6 +323,8 @@ static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count) {
         }
     }
 
+    fd->pos += nread;
+
     return nread;
 }
 
@@ -337,8 +339,11 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
 
     if (fd->pos > inode->size_lower) {
         // This shouldn't be possible, yeah?
+        kinfo("fd pos (%u) greater than file size (%u\n)", fd->pos, inode->size_lower);
         return -ESPIPE;
     }
+
+    kinfo("ext2: write %u to offset %u\n", fd->pos, count);
 
     // How many bytes can we write into the blocks already allocated
     size_t size_blocks = (inode->size_lower + sb->block_size - 1) / sb->block_size;
@@ -424,6 +429,7 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
         }
     }
 
+    kinfo("Wrote %u bytes\n", written);
     return written;
 }
 
@@ -603,76 +609,80 @@ static int ext2_vnode_stat(struct vnode *vn, struct stat *st) {
 //    // Write the inode back
 //    return ext2_write_inode(vn->fs, inode, vn->fs_number);
 //}
-//
-//static int ext2_vnode_unlink(vnode_t *at, vnode_t *vn, const char *name) {
-//    struct ext2_inode *inode = vn->fs_data;
-//    struct ext2_inode *at_inode = at->fs_data;
-//    fs_t *ext2 = vn->fs;
-//    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
-//    uint32_t ino = vn->fs_number;
-//    int res;
-//
-//    if (vn->type == VN_DIR) {
-//        // Check if the directory we're unlinking has any entries besides
-//        // . and ..
-//        // Can tell this just by looking at the first block
-//        if (inode->size_lower > sb->block_size) {
-//            // Directory size is more than one block - totally
-//            // has something inside
-//            return -EISDIR;
-//        }
-//        char block_buffer[sb->block_size];
-//        size_t off = 0;
-//
-//        if ((res = ext2_read_inode_block(ext2, inode, 0, block_buffer)) < 0) {
-//            return res;
-//        }
-//
-//        while (off < sb->block_size) {
-//            struct ext2_dirent *ent = (struct ext2_dirent *) &block_buffer[off];
-//            if (!ent->ino) {
-//                break;
-//            }
-//            if (ent->name_len == 1 && ent->name[0] == '.') {
-//                off += ent->len;
-//                continue;
-//            }
-//            if (ent->name_len == 2 && ent->name[1] == '.' && ent->name[0] == '.') {
-//                off += ent->len;
-//                continue;
-//            }
-//
-//            return -EISDIR;
-//        }
-//    }
-//
-//    // Free blocks used by the inode - truncate the file to zero
-//    size_t nblocks = (inode->size_lower + sb->block_size - 1) / sb->block_size;
-//
-//    inode->size_lower = nblocks * sb->block_size;
-//    for (ssize_t i = nblocks - 1; i >= 0; --i) {
-//        inode->size_lower -= sb->block_size;
-//        if ((res = ext2_free_inode_block(ext2, inode, ino, i)) < 0) {
-//            return res;
-//        }
-//    }
-//
-//    // inode->size_lower is now 0
-//    _assert(inode->size_lower == 0);
-//
-//    // Free the inode itself
-//    if ((res = ext2_free_inode(ext2, ino)) < 0) {
-//        return res;
-//    }
-//
-//    // Now remove the entry from directory
-//    if ((res = ext2_dir_remove_inode(ext2, at, name, ino)) < 0) {
-//        return res;
-//    }
-//
-//    return 0;
-//}
-//
+
+static int ext2_vnode_unlink(struct vnode *node) {
+    _assert(node);
+    _assert(node->parent);
+    struct vnode *at = node->parent;
+
+    struct ext2_inode *inode = node->fs_data;
+    struct ext2_inode *at_inode = at->fs_data;
+    struct fs *ext2 = node->fs;
+    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
+    uint32_t ino = node->ino;
+    int res;
+
+    if (node->type == VN_DIR) {
+        // Check if the directory we're unlinking has any entries besides
+        // . and ..
+        // Can tell this just by looking at the first block
+        if (inode->size_lower > sb->block_size) {
+            // Directory size is more than one block - totally
+            // has something inside
+            return -EISDIR;
+        }
+        char block_buffer[sb->block_size];
+        size_t off = 0;
+
+        if ((res = ext2_read_inode_block(ext2, inode, 0, block_buffer)) < 0) {
+            return res;
+        }
+
+        while (off < sb->block_size) {
+            struct ext2_dirent *ent = (struct ext2_dirent *) &block_buffer[off];
+            if (!ent->ino) {
+                break;
+            }
+            if (ent->name_len == 1 && ent->name[0] == '.') {
+                off += ent->len;
+                continue;
+            }
+            if (ent->name_len == 2 && ent->name[1] == '.' && ent->name[0] == '.') {
+                off += ent->len;
+                continue;
+            }
+
+            return -EISDIR;
+        }
+    }
+
+    // Free blocks used by the inode - truncate the file to zero
+    size_t nblocks = (inode->size_lower + sb->block_size - 1) / sb->block_size;
+
+    inode->size_lower = nblocks * sb->block_size;
+    for (ssize_t i = nblocks - 1; i >= 0; --i) {
+        inode->size_lower -= sb->block_size;
+        if ((res = ext2_free_inode_block(ext2, inode, ino, i)) < 0) {
+            return res;
+        }
+    }
+
+    // inode->size_lower is now 0
+    _assert(inode->size_lower == 0);
+
+    // Free the inode itself
+    if ((res = ext2_free_inode(ext2, ino)) < 0) {
+        return res;
+    }
+
+    // Now remove the entry from directory
+    if ((res = ext2_dir_remove_inode(ext2, at, node->name, ino)) < 0) {
+        return res;
+    }
+
+    return 0;
+}
+
 //static int ext2_vnode_access(vnode_t *vn, uid_t *uid, gid_t *gid, mode_t *mode) {
 //    _assert(vn && vn->fs_data);
 //    struct ext2_inode *inode = vn->fs_data;
