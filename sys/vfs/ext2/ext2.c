@@ -94,7 +94,6 @@ static int ext2_fs_umount(struct fs *fs) {
 }
 
 static struct vnode *ext2_fs_get_root(struct fs *fs) {
-    // TODO: make sure get_root is only called once per filesystem
     struct ext2_extsb *sb = fs->fs_private;
     kdebug("ext2_fs_get_root()\n");
 

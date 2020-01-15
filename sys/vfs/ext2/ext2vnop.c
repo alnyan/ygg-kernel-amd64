@@ -280,7 +280,7 @@ static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t
 
     ent_inode->uid = uid;
     ent_inode->gid = gid;
-    // TODO: only regular files can be created this way now
+    // NOTE: only regular files can be created this way now
     ent_inode->type_perm = (mode & 0x1FF) | (EXT2_TYPE_REG);
     ent_inode->disk_sector_count = 0;
     ent_inode->size_lower = 0;
@@ -479,7 +479,6 @@ static int ext2_vnode_truncate(struct vnode *vn, size_t length) {
     }
 }
 
-// TODO: replace this with getdents
 static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *vfsdir) {
     struct vnode *vn = fd->vnode;
     struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;

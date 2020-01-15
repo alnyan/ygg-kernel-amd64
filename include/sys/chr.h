@@ -4,7 +4,6 @@
 struct chrdev {
     void *dev_data;
 
-    // TODO: maybe something like flush()
     ssize_t (*write) (struct chrdev *chr, const void *buf, size_t pos, size_t lim);
     ssize_t (*read) (struct chrdev *chr, void *buf, size_t pos, size_t lim);
 };

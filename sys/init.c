@@ -16,8 +16,6 @@
 #include "sys/mm.h"
 
 static void user_init_start(void) {
-    // TODO: Instead of allocating and reading the whole buffer, rewrite binfmt_elf in a way
-    //       to use lseek and stuff
     const char *init_filename = "/init";
     struct ofile fd;
     struct stat st;
@@ -57,20 +55,11 @@ static void user_init_start(void) {
         panic("Failed to initialize user init process: %s\n", kstrerror(res));
     }
 
-    //file_buffer = kmalloc(st.st_size);
-    //_assert(file_buffer);
-
-    //if ((bread = vfs_read(kernel_ioctx, &fd, file_buffer, st.st_size)) != st.st_size) {
-    //    panic("Failed to read init binary\n");
-    //}
-
     if ((res = elf_load(user_init, kernel_ioctx, &fd)) != 0) {
         panic("Failed to load ELF binary: %s\n", kstrerror(res));
     }
 
     vfs_close(kernel_ioctx, &fd);
-
-    //kfree(file_buffer);
 
     // Setup I/O context for init task
     struct ofile *stdin, *stdout, *stderr;
@@ -81,7 +70,6 @@ static void user_init_start(void) {
     _assert(stdout);
     stderr = stdout;
 
-    // TODO: use dev_find and open its node instead
     struct vnode *stdout_device;
     if ((res = dev_find(DEV_CLASS_CHAR, "tty0", &stdout_device)) != 0) {
         panic("%s: %s\n", "tty0", kstrerror(res));
@@ -95,7 +83,6 @@ static void user_init_start(void) {
     }
     ++stdout->refcount;
 
-    // TODO: use STDIN_/STDOUT_/STDERR_FILENO macros
     user_init->fds[0] = stdin;
     user_init->fds[1] = stdout;
     user_init->fds[2] = stderr;
@@ -127,14 +114,6 @@ void init_func(void *arg) {
     if ((res = vfs_mount(kernel_ioctx, "/", root_dev->dev, "ustar", NULL)) != 0) {
         panic("Failed to mount root device: %s\n", kstrerror(res));
     }
-
-    //// Mount something else
-    //if ((res = dev_find(DEV_CLASS_BLOCK, "sda1", &root_dev)) != 0) {
-    //    panic("sda1: %s\n", kstrerror(res));
-    //}
-    //if ((res = vfs_mount(kernel_ioctx, "/mnt", root_dev->dev, "ext2", NULL)) != 0) {
-    //    panic("Failed to mount root device: %s\n", kstrerror(res));
-    //}
 
     // Start user init binary
     user_init_start();

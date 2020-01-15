@@ -1,2 +1,0 @@
-TODO: Rewrite thread_init, it's shit
-TODO: execve() after fork() should inherit old thread's ioctx

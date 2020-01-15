@@ -3,9 +3,6 @@
 
 struct vnode;
 
-// TODO: something like device name alias
-//       for example, /dev/root aliased to
-//       /dev/ramN or /dev/sdXN
 enum dev_class {
     DEV_CLASS_BLOCK = 1,
     DEV_CLASS_CHAR = 2,

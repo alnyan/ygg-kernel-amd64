@@ -41,39 +41,34 @@ int ext2_write_block(struct fs *ext2, uint32_t block_no, const void *buf) {
     return res;
 }
 
-int ext2_write_inode_block(struct fs *ext2, struct ext2_inode *inode, uint32_t index, const void *buf) {
+static uint32_t ext2_get_inode_block(struct fs *ext2, struct ext2_inode *inode, uint32_t index) {
     if (index < 12) {
-        uint32_t block_number = inode->direct_blocks[index];
-        return ext2_write_block(ext2, block_number, buf);
+        return inode->direct_blocks[index];
     } else {
-        // TODO
-        //abort();
-        panic("Not implemented\n");
+        struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
+        char buf[1024];
+        int res;
+
+        if (index < 12 + (sb->block_size / 4)) {
+            if ((res = ext2_read_block(ext2, inode->l1_indirect_block, buf)) < 0) {
+                return res;
+            }
+
+            return ((uint32_t *) buf)[index - 12];
+        } else {
+            panic("Inode block index has too high indirection level\n");
+        }
     }
 }
 
+int ext2_write_inode_block(struct fs *ext2, struct ext2_inode *inode, uint32_t index, const void *buf) {
+    uint32_t block_number = ext2_get_inode_block(ext2, inode, index);
+    return ext2_write_block(ext2, block_number, buf);
+}
+
 int ext2_read_inode_block(struct fs *ext2, struct ext2_inode *inode, uint32_t index, void *buf) {
-    if (index < 12) {
-        // Use direct ptrs
-        uint32_t block_number = inode->direct_blocks[index];
-        return ext2_read_block(ext2, block_number, buf);
-    } else {
-        struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
-        // Use buf as indirection block buffer (I think we're allowed to do so)
-
-        if (index < 12 + (sb->block_size / 4)) {
-            // Single indirection
-            if (ext2_read_block(ext2, inode->l1_indirect_block, buf) < 0) {
-                return -EIO;
-            }
-
-            uint32_t block_number = ((uint32_t *) buf)[index - 12];
-            return ext2_read_block(ext2, block_number, buf);
-        } else {
-            // Not implemented yet
-            return -EIO;
-        }
-    }
+    uint32_t block_number = ext2_get_inode_block(ext2, inode, index);
+    return ext2_read_block(ext2, block_number, buf);
 }
 
 int ext2_read_inode(struct fs *ext2, struct ext2_inode *inode, uint32_t ino) {
