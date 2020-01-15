@@ -42,20 +42,6 @@ void thread_restore_context(struct thread *thr) {
     }
 }
 
-static void thread_ioctx_fork(struct thread *dst, struct thread *src) {
-    for (size_t i = 0; i < THREAD_MAX_FDS; ++i) {
-        dst->fds[i] = src->fds[i];
-        if (dst->fds[i]) {
-            ++dst->fds[i]->refcount;
-        }
-    }
-
-    // Clone ioctx: cwd vnode reference and path
-    dst->ioctx.cwd_vnode = src->ioctx.cwd_vnode;
-    dst->ioctx.uid = src->ioctx.uid;
-    dst->ioctx.gid = src->ioctx.gid;
-}
-
 // Initialize platform context to default values
 // Assumes everything was allocated before
 // Requirements for calling:
@@ -159,8 +145,6 @@ int thread_init(
             t->data.data_flags |= THREAD_NOHEAP_STACK3;
         }
 
-        // TODO: alloc argp pages here
-
         kstack_sig = kmalloc(THREAD_KSTACK_SIZE);
         _assert(kstack_sig);
     }
@@ -207,17 +191,7 @@ void thread_cleanup(struct thread *t) {
     _assert(t);
 
     // Release files
-    for (size_t i = 0; i < 4; ++i) {
-        if (t->fds[i]) {
-            vfs_close(&t->ioctx, t->fds[i]);
-
-            _assert(t->fds[i]->refcount >= 0);
-            if (t->fds[i]->refcount == 0) {
-                kdebug("No one uses fd %d, freeing it\n", i);
-                kfree(t->fds[i]);
-            }
-        }
-    }
+    thread_ioctx_cleanup(t);
 
     // Release stacks
     if (!(t->data.data_flags & THREAD_NOHEAP_STACK0)) {
@@ -234,22 +208,6 @@ void thread_cleanup(struct thread *t) {
 
     memset(t, 0, sizeof(struct thread));
     kfree(t);
-}
-
-void thread_set_name(struct thread *t, const char *name) {
-    if (name) {
-        _assert(strlen(name) < 32);
-        strcpy(t->name, name);
-    } else {
-        t->name[0] = 0;
-    }
-}
-
-// TODO: may be moved to platform-independent file
-void thread_signal(struct thread *t, int s) {
-    _assert(t);
-    _assert(s > 0 && s <= 32);
-    t->sigq |= (1 << (s - 1));
 }
 
 static uintptr_t argp_copy(struct thread *thr, const char *const argv[], size_t *arg_count) {
@@ -496,12 +454,15 @@ void amd64_thread_sigenter(struct thread *t, int signum) {
     ctx->__canary = AMD64_STACK_CTX_CANARY;
 
     if (t == get_cpu()->thread) {
-        panic("NYI\n");
+        while (t->sigq) {
+            asm volatile ("sti; hlt; cli");
+        }
     }
 }
 
 void amd64_thread_sigret(struct thread *t) {
     _assert(t);
+
 
     t->data.rsp0 = t->data.rsp0s;
 }

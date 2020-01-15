@@ -86,3 +86,6 @@ void thread_cleanup(struct thread *t);
 void thread_terminate(struct thread *t);
 
 void thread_signal(struct thread *t, int signum);
+
+void thread_ioctx_fork(struct thread *dst, struct thread *src);
+void thread_ioctx_cleanup(struct thread *t);

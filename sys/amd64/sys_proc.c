@@ -34,9 +34,9 @@ int sys_kill(int pid, int signum) {
     if (cur_thread == dst_thread) {
         // Suicide signal, just hang on and wait
         // until scheduler decides it's our time
-        asm volatile ("sti; hlt; cli");
-
-        kdebug("Returned from shit\n");
+        while (cur_thread->sigq) {
+            asm volatile ("sti; hlt; cli");
+        }
     }
 
     return 0;
@@ -56,8 +56,6 @@ void sys_sigret(void) {
     thr->flags |= THREAD_SIGRET;
 
     asm volatile ("sti; hlt; cli");
-
-    panic("Fuck\n");
 }
 
 int sys_waitpid(int pid, int *status) {
