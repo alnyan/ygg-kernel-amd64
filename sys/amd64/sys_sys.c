@@ -2,6 +2,7 @@
 #include "sys/amd64/hw/rtc.h"
 #include "sys/amd64/cpu.h"
 #include "sys/reboot.h"
+#include "sys/string.h"
 #include "sys/assert.h"
 #include "sys/errno.h"
 #include "sys/sched.h"
@@ -86,3 +87,20 @@ int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg) {
     }
 }
 
+int sys_uname(struct utsname *name) {
+    if (!name) {
+        return -EFAULT;
+    }
+
+    strcpy(name->sysname, "yggdrasil");
+    // XXX: Hostname is not present in the kernel yet
+    strcpy(name->nodename, "nyan");
+    // XXX: No release numbers yet, only git version
+    strcpy(name->release, "X.Y");
+    strcpy(name->version, KERNEL_VERSION_STR);
+    // It's the only platform I'm developing the kernel for
+    strcpy(name->machine, "x86_64");
+    strcpy(name->domainname, "localhost");
+
+    return 0;
+}

@@ -31,6 +31,7 @@
 #define SYSCALL_NR_SETUID       105
 #define SYSCALL_NR_SETGID       106
 
+#define SYSCALL_NR_UNAME        63
 #define SYSCALL_NR_MOUNT        165
 #define SYSCALL_NR_REBOOT       169
 
