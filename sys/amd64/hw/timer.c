@@ -21,7 +21,6 @@
 #define PIT_CMD                     0x43
 
 uint64_t int_timer_ticks = 0;
-uint64_t system_time = 0;
 
 static uint32_t timer_tick(void *arg) {
     switch ((uint64_t) arg) {

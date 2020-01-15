@@ -19,5 +19,12 @@ struct timespec {
 typedef uint64_t time_t;
 
 #if defined(__KERNEL__)
+struct tm;
+
+// Nanoseconds since boot
 extern uint64_t system_time;
+// Seconds since epoch
+extern time_t system_boot_time;
+
+time_t mktime(struct tm *tm);
 #endif

@@ -50,16 +50,16 @@ static inline uint8_t cmos_read_time(uint8_t reg, uint8_t reg_b) {
     }
 }
 
-void rtc_read(struct rtc_time *time) {
+void rtc_read(struct tm *time) {
     uint8_t reg_b = cmos_inb(RTC_REGB_STATUS);
 
-    time->second = cmos_read_time(RTC_REG_SECOND, reg_b);
-    time->minute = cmos_read_time(RTC_REG_MINUTE, reg_b);
-    time->hour = cmos_read_time(RTC_REG_HOUR, reg_b);
-    time->weekday = cmos_read_time(RTC_REG_WEEKDAY, reg_b);
-    time->day = cmos_read_time(RTC_REG_DAY, reg_b);
-    time->month = cmos_read_time(RTC_REG_MONTH, reg_b);
-    time->year = cmos_read_time(RTC_REG_YEAR, reg_b) + 100 * rtc_century;
+    time->tm_sec = cmos_read_time(RTC_REG_SECOND, reg_b);
+    time->tm_min = cmos_read_time(RTC_REG_MINUTE, reg_b);
+    time->tm_hour = cmos_read_time(RTC_REG_HOUR, reg_b);
+    //time->tm_wday = cmos_read_time(RTC_REG_WEEKDAY, reg_b);
+    time->tm_mday = cmos_read_time(RTC_REG_DAY, reg_b);
+    time->tm_mon = cmos_read_time(RTC_REG_MONTH, reg_b);
+    time->tm_year = cmos_read_time(RTC_REG_YEAR, reg_b) + 100 * rtc_century;
 }
 
 static uint32_t rtc_irq(void *ctx) {
@@ -94,25 +94,7 @@ void rtc_set_century(uint8_t century) {
 }
 
 void rtc_init(void) {
-    static const char *day_names[] = {
-        "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
-    };
-    static const char *month_names[] = {
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
-        "Aug", "Sep", "Oct", "Nov", "Dec"
-    };
-
-    struct rtc_time time;
-
     cmos_inb(RTC_REGC_STATUS);
     irq_add_leg_handler(8, rtc_irq, NULL);
     rtc_enable_irq();
-
-    rtc_read(&time);
-    kdebug("%s %02u %s %04u %02u:%02u:%02u\n",
-            day_names[(time.weekday - 1) % 7],
-            time.day,
-            month_names[(time.month - 1) % 12],
-            time.year,
-            time.hour, time.minute, time.second);
 }

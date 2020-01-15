@@ -62,14 +62,8 @@ int sys_gettimeofday(struct timeval *tv, struct timezone *tz) {
         tz->tz_minuteswest = 0;
     }
 
-    uint64_t secs = system_time / 1000000000ULL;
-
-    struct rtc_time time_rtc;
-    rtc_read(&time_rtc);
-    secs += time_rtc.second + time_rtc.minute * 60 + time_rtc.hour * 3600;
-
+    uint64_t secs = system_time / 1000000000ULL + system_boot_time;
     // System time is in nanos
-    // TODO: use RTC-provided time for full system time
     tv->tv_usec = (system_time / 1000) % 1000000;
     tv->tv_sec = secs;
 

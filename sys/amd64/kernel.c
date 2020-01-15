@@ -28,12 +28,7 @@
 static multiboot_info_t *multiboot_info;
 
 static void amd64_make_random_seed(void) {
-    struct rtc_time t;
-    rtc_read(&t);
-
-    uint64_t s = 137831;
-    s += t.second + t.minute * 60 + t.hour * 3600 + t.day * 86400;
-    random_init(s + system_time);
+    random_init(15267 + system_time);
 }
 
 void kernel_main(struct amd64_loader_data *data) {
@@ -64,6 +59,14 @@ void kernel_main(struct amd64_loader_data *data) {
 
     amd64_apic_init();
     rtc_init();
+    // Setup system time
+    struct tm t;
+    rtc_read(&t);
+    system_boot_time = mktime(&t);
+    kinfo("Boot time: %04u-%02u-%02u %02u:%02u:%02u\n",
+        t.tm_year, t.tm_mon, t.tm_mday,
+        t.tm_hour, t.tm_min, t.tm_sec);
+
     pci_init();
 
     vfs_init();
