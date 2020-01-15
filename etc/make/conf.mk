@@ -1,5 +1,7 @@
 HEADERS=$(shell find ./include -name "*.h")
 
+KERNEL_VERSION_GIT=$(shell git describe --always --tags)
+
 CFLAGS+=-Wall \
 		-Wextra \
 		-Werror \
@@ -15,7 +17,8 @@ ifdef KERNEL_TEST_MODE
 CFLAGS+=-DKERNEL_TEST_MODE
 endif
 
-CFLAGS+=-D__KERNEL__
+CFLAGS+=-D__KERNEL__ \
+		-DKERNEL_VERSION_STR=\"$(KERNEL_VERSION_GIT)\"
 
 # DIRS+=$(O)/sys \
 # 	  $(O)/sys/vfs \

@@ -59,6 +59,9 @@ void kernel_main(struct amd64_loader_data *data) {
 #endif
     amd64_con_init();
 
+    // Print kernel version now
+    kinfo("yggdrasil " KERNEL_VERSION_STR "\n");
+
     amd64_apic_init();
     rtc_init();
     pci_init();
