@@ -333,6 +333,38 @@ void vfs_init(void) {
     }
 }
 
+int vfs_umount(struct vfs_ioctx *ctx, const char *dir_name) {
+    struct vnode *node;
+    int res;
+
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, dir_name, &node)) != 0) {
+        return res;
+    }
+
+    if (!node->parent) {
+        kwarn("Tried to umount root\n");
+        return -EBUSY;
+    }
+
+    if (node->type != VN_DIR) {
+        return -ENOTDIR;
+    }
+
+    if (!node->target) {
+        return -EINVAL;
+    }
+
+    struct vnode *mountpoint = node->target;
+    _assert(mountpoint->target = node);
+
+    mountpoint->type = VN_DIR;
+    mountpoint->target = NULL;
+
+    // TODO: free the filesystem tree nodes and call some hook on filesystem class
+
+    return 0;
+}
+
 static int vfs_mount_internal(struct vnode *at, void *blk, struct fs_class *cls, const char *opt) {
     int res;
     struct fs *fs;

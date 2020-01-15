@@ -33,6 +33,7 @@
 
 #define SYSCALL_NR_UNAME        63
 #define SYSCALL_NR_MOUNT        165
+#define SYSCALL_NRX_UMOUNT      166
 #define SYSCALL_NR_REBOOT       169
 
 #define SYSCALL_NRX_OPENPTY     118

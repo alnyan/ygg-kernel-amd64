@@ -46,6 +46,7 @@ const void *amd64_syscall_jmp_table[256] = {
     // System
     [SYSCALL_NR_UNAME] = sys_uname,
     [SYSCALL_NR_MOUNT] = sys_mount,
+    [SYSCALL_NRX_UMOUNT] = sys_umount,
     [SYSCALL_NR_REBOOT] = sys_reboot,
     [SYSCALL_NR_NANOSLEEP] = sys_nanosleep,
     [SYSCALL_NR_GETTIMEOFDAY] = sys_gettimeofday,

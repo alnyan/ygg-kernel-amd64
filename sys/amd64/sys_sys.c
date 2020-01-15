@@ -38,6 +38,13 @@ int sys_mount(const char *dev_name, const char *dir_name, const char *type, unsi
     return vfs_mount(&thr->ioctx, dir_name, dev, type, NULL);
 }
 
+int sys_umount(const char *dir_name) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    return vfs_umount(&thr->ioctx, dir_name);
+}
+
 int sys_nanosleep(const struct timespec *req, struct timespec *rem) {
     struct thread *cur_thread = get_cpu()->thread;
     _assert(cur_thread);
