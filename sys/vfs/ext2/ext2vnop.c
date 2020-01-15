@@ -141,8 +141,13 @@ static int ext2_vnode_open(struct ofile *fd, int opt) {
     _assert(fd->vnode);
     _assert(fd->vnode->type == VN_REG);
 
-    // TODO: O_APPEND should place fd->pos at the end of the file
-    fd->pos = 0;
+    if (opt & O_APPEND) {
+        struct ext2_inode *inode = (struct ext2_inode *) fd->vnode->fs_data;
+        _assert(inode);
+        fd->pos = inode->size_lower;
+    } else {
+        fd->pos = 0;
+    }
 
     return 0;
 }
@@ -312,7 +317,7 @@ static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count) {
 
     for (size_t i = 0; i < nblocks; ++i) {
         if (ext2_read_inode_block(vn->fs, inode, i + block_number, block_buffer) < 0) {
-            kerror("Failed to read inode %d block #%zu\n", vn->ino, i + block_number);
+            kerror("Failed to read inode %d block #%u\n", vn->ino, i + block_number);
             return -EIO;
         }
         if (i == 0) {
@@ -358,7 +363,7 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
             size_t pos_in_block = fd->pos % sb->block_size;
             size_t need_write = MIN(remaining, sb->block_size - pos_in_block);
 
-            kdebug("Write %zuB to block %zu offset %zu\n", need_write, block_index, pos_in_block);
+            kdebug("Write %uB to block %u offset %u\n", need_write, block_index, pos_in_block);
             if (need_write == sb->block_size) {
                 // Can write block without reading it
                 // TODO: implement this
@@ -447,17 +452,33 @@ static int ext2_vnode_truncate(struct vnode *vn, size_t length) {
     ssize_t delta_blocks = now_blocks - was_blocks;
 
     if (delta_blocks < 0) {
+        int ind1 = 0;
+        char buf1[sb->block_size];
         // Free truncated blocks
-        // XXX: reverse the loop
         for (size_t i = now_blocks; i < was_blocks; ++i) {
-            // Modify inode right here because ext2_free_inode_block will
-            // flush these changes to disk so we don't have to write it
-            // twice
             inode->size_lower -= sb->block_size;
-            if ((res = ext2_free_inode_block(ext2, inode, vn->ino, i)) < 0) {
-                // Put the block size back, couldn't free it
-                inode->size_lower += sb->block_size;
-                return res;
+
+            if (i < 12) {
+                if ((res = ext2_free_block(ext2, inode->direct_blocks[i])) < 0) {
+                    panic("Failed to release inode block\n");
+                }
+                inode->direct_blocks[i] = 0;
+            } else if (i < 12 + (sb->block_size / 4)) {
+                if (!ind1) {
+                    // Read indirection block only once
+                    if ((res = ext2_read_block(ext2, inode->l1_indirect_block, buf1)) < 0) {
+                        // TODO: rollback inode struct and return error
+                        panic("Failed to read indirection block\n");
+                    }
+                    ind1 = 1;
+                }
+
+                if ((res = ext2_free_block(ext2, ((uint32_t *) buf1)[i - 12])) < 0) {
+                    panic("Failed to release inode block\n");
+                }
+                ((uint32_t *) buf1)[i - 12] = 0;
+            } else {
+                panic("Inode block index has too high indirection level\n");
             }
         }
 
@@ -654,17 +675,33 @@ static int ext2_vnode_unlink(struct vnode *node) {
 
     // Free blocks used by the inode - truncate the file to zero
     size_t nblocks = (inode->size_lower + sb->block_size - 1) / sb->block_size;
+    int ind1 = 0;
+    char buf1[sb->block_size];
 
-    inode->size_lower = nblocks * sb->block_size;
-    for (ssize_t i = nblocks - 1; i >= 0; --i) {
-        inode->size_lower -= sb->block_size;
-        if ((res = ext2_free_inode_block(ext2, inode, ino, i)) < 0) {
-            return res;
+    for (size_t i = 0; i < nblocks; ++i) {
+        if (i < 12) {
+            if ((res = ext2_free_block(ext2, inode->direct_blocks[i])) < 0) {
+                panic("Failed to release inode block\n");
+            }
+            inode->direct_blocks[i] = 0;
+        } else if (i < 12 + (sb->block_size / 4)) {
+            if (!ind1) {
+                // Read indirection block only once
+                if ((res = ext2_read_block(ext2, inode->l1_indirect_block, buf1)) < 0) {
+                    // TODO: rollback inode struct and return error
+                    panic("Failed to read indirection block\n");
+                }
+                ind1 = 1;
+            }
+
+            if ((res = ext2_free_block(ext2, ((uint32_t *) buf1)[i - 12])) < 0) {
+                panic("Failed to release inode block\n");
+            }
+            ((uint32_t *) buf1)[i - 12] = 0;
+        } else {
+            panic("Inode block index has too high indirection level\n");
         }
     }
-
-    // inode->size_lower is now 0
-    _assert(inode->size_lower == 0);
 
     // Free the inode itself
     if ((res = ext2_free_inode(ext2, ino)) < 0) {

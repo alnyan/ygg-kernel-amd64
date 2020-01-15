@@ -142,9 +142,7 @@ int ext2_free_block(struct fs *ext2, uint32_t block_no) {
 }
 
 int ext2_inode_alloc_block(struct fs *ext2, struct ext2_inode *inode, uint32_t ino, uint32_t index) {
-    if (index >= 12) {
-        panic("Not implemented\n");
-    }
+    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
 
     int res;
     uint32_t block_no;
@@ -154,35 +152,63 @@ int ext2_inode_alloc_block(struct fs *ext2, struct ext2_inode *inode, uint32_t i
         return res;
     }
 
-    // Write direct block list entry
-    inode->direct_blocks[index] = block_no;
+    if (index < 12) {
+        // Write direct block list entry
+        inode->direct_blocks[index] = block_no;
+    } else if (index < 12 + (sb->block_size / 4)) {
+        // Also allocate L1 indirection block if needed
+        char buf[sb->block_size];
+        if (!inode->l1_indirect_block) {
+            uint32_t l1_block;
+            if ((res = ext2_alloc_block(ext2, &l1_block)) < 0) {
+                return res;
+            }
+            inode->l1_indirect_block = l1_block;
+            _assert(inode->l1_indirect_block);
+            memset(buf, 0, sb->block_size);
+        } else {
+            // Read indirection block
+            if ((res = ext2_read_block(ext2, inode->l1_indirect_block, buf)) < 0) {
+                return res;
+            }
+        }
+
+        ((uint32_t *) buf)[index - 12] = block_no;
+
+        // Write the block back
+        if ((res = ext2_write_block(ext2, inode->l1_indirect_block, buf)) < 0) {
+            return res;
+        }
+    } else {
+        panic("Inode block index has too high indirection level\n");
+    }
 
     // Flush changes to the device
     return ext2_write_inode(ext2, inode, ino);
 }
 
-int ext2_free_inode_block(struct fs *ext2, struct ext2_inode *inode, uint32_t ino, uint32_t index) {
-    if (index >= 12) {
-        panic("Not implemented\n");
-    }
-    // All sanity checks regarding whether the block is present
-    // at all are left to the caller
-
-    int res;
-    uint32_t block_no;
-
-    // Get block number
-    block_no = inode->direct_blocks[index];
-
-    // Free the block
-    if ((res = ext2_free_block(ext2, block_no)) < 0) {
-        return res;
-    }
-
-    // Write updated inode
-    inode->direct_blocks[index] = 0;
-    return ext2_write_inode(ext2, inode, ino);
-}
+//int ext2_free_inode_block(struct fs *ext2, struct ext2_inode *inode, uint32_t ino, uint32_t index) {
+//    if (index >= 12) {
+//        panic("Not implemented\n");
+//    }
+//    // All sanity checks regarding whether the block is present
+//    // at all are left to the caller
+//
+//    int res;
+//    uint32_t block_no;
+//
+//    // Get block number
+//    block_no = inode->direct_blocks[index];
+//
+//    // Free the block
+//    if ((res = ext2_free_block(ext2, block_no)) < 0) {
+//        return res;
+//    }
+//
+//    // Write updated inode
+//    inode->direct_blocks[index] = 0;
+//    return ext2_write_inode(ext2, inode, ino);
+//}
 
 int ext2_free_inode(struct fs *ext2, uint32_t ino) {
     _assert(ino);
