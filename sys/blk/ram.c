@@ -2,6 +2,7 @@
 #include "sys/string.h"
 #include "sys/assert.h"
 #include "sys/heap.h"
+#include "sys/errno.h"
 #include "sys/dev.h"
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
@@ -21,9 +22,23 @@ static ssize_t ramblk_read(struct blkdev *blk, void *buf, size_t off, size_t len
     return r;
 }
 
+static int ramblk_ioctl(struct blkdev *blk, unsigned long req, void *arg) {
+    _assert(blk);
+
+    switch (req) {
+    case RAM_IOC_GETBASE:
+        _assert(arg);
+        *(uintptr_t *) arg = ram_priv.begin;
+        return 0;
+    default:
+        return -EINVAL;
+    }
+}
+
 static struct blkdev _ramblk0 = {
     .dev_data = &ram_priv,
     .read = ramblk_read,
+    .ioctl = ramblk_ioctl,
     .write = NULL
 };
 struct blkdev *ramblk0 = &_ramblk0;

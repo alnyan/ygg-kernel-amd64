@@ -63,6 +63,16 @@ ssize_t blk_write(struct blkdev *blk, const void *buf, size_t off, size_t lim) {
     }
 }
 
+int blk_ioctl(struct blkdev *blk, unsigned long req, void *arg) {
+    _assert(blk);
+
+    if (blk->ioctl) {
+        return blk->ioctl(blk, req, arg);
+    } else {
+        return -EINVAL;
+    }
+}
+
 static ssize_t blk_part_write(struct blkdev *dev, const void *buf, size_t off, size_t count) {
     struct blk_part *part = (struct blk_part *) dev->dev_data;
     size_t part_size_bytes = part->size * 512;
