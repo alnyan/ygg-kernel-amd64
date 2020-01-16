@@ -14,9 +14,12 @@ amd64_exc_isr_14:
     // rip
     swapgs_if_needed
 
+    // Fuck error code
+    addq $8, %rsp
+
     pushq %rax
     movq $(1 << 63), %rax
-    testq %rax, 16(%rsp)
+    testq %rax, 8(%rsp)
     jnz _pfault_kernel
     popq %rax
 
@@ -38,16 +41,7 @@ amd64_exc_isr_14:
 
     movq %cr2, %rdi
     call amd64_pfault
-
-    // If fault handler returned zero, it means next task is selected
-    // and should be run
-    test %rax, %rax
-    jnz 1f
-
-    // Ok, continue
-
-
-    // Fail
+    // Failed to handle the fault
 1:
     cli
     hlt

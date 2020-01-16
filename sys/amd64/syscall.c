@@ -53,6 +53,5 @@ const void *amd64_syscall_jmp_table[256] = {
 
     // Memory
     [SYSCALL_NR_BRK] = sys_brk,
-    NULL
 };
 

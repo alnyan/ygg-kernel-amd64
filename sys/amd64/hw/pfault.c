@@ -1,7 +1,9 @@
 #include "sys/amd64/mm/map.h"
+#include "sys/amd64/syscall.h"
 #include "sys/amd64/cpu.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
+#include "sys/signum.h"
 #include "sys/debug.h"
 
 extern void amd64_syscall_yield_stopped();
@@ -23,6 +25,7 @@ int amd64_pfault(uintptr_t cr2) {
         thr->pid);
 
     kerror("CR2 = %p\n", cr2);
+    kerror("RIP = %p\n", ctx->rip);
 
     // Dump registers
     cpu_print_context(DEBUG_ERROR, ctx);
@@ -35,9 +38,25 @@ int amd64_pfault(uintptr_t cr2) {
     // because they're presumably fucked up by error code
     // push
 
-    thr->flags |= THREAD_STOPPED;
-    amd64_syscall_yield_stopped();
-    return -1;
+    // The whole thread context is on the stack
+
+    if (thr->pid > 0) {
+        thread_signal(thr, SIGSEGV);
+
+        // Suicide signal, just hang on and wait
+        // until scheduler decides it's our time
+        while (thr->sigq) {
+            asm volatile ("sti; hlt; cli");
+        }
+
+        amd64_syscall_iretq(ctx);
+    } else {
+        panic("Segmentation fault happened in kernel thread\n");
+    }
+
+    //thr->flags |= THREAD_STOPPED;
+    //amd64_syscall_yield_stopped();
+    //return -1;
 }
 
 void amd64_pfault_kernel(uintptr_t rip, uintptr_t cr2) {

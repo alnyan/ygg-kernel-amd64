@@ -76,15 +76,15 @@ amd64_syscall_entry:
     movq %r10, %rcx
     incq syscall_count(%rip)
     leaq amd64_syscall_jmp_table(%rip), %r10
-    movq (%r10, %rax, 8), %rax
-    test %rax, %rax
+    movq (%r10, %rax, 8), %r10
+    test %r10, %r10
     jz 1f
     sti
-    call *%rax
+    call *%r10
     jmp 2f
 1:
-    // -EINVAL
-    mov $-22, %rax
+    movq %rax, %rdi
+    call sys_unknown
 2:
     //movq %rax, %r9
     //call amd64_syscall

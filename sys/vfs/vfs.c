@@ -307,7 +307,6 @@ static int vfs_find_internal(struct vfs_ioctx *ctx, struct vnode *at, const char
         break;
     }
 
-    // TODO: lookup_or_load
     if ((err = vfs_lookup_or_load(at, name, &node)) != 0) {
         kdebug("miss %s in %s\n", name, at->name);
         return err;

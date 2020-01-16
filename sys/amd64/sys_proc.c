@@ -2,6 +2,7 @@
 #include "sys/amd64/syscall.h"
 #include "sys/amd64/cpu.h"
 #include "sys/assert.h"
+#include "sys/signum.h"
 #include "sys/sched.h"
 #include "sys/thread.h"
 #include "sys/debug.h"
@@ -137,4 +138,20 @@ gid_t sys_getgid(void) {
     struct thread *thr = get_cpu()->thread;
     _assert(thr);
     return thr->ioctx.gid;
+}
+
+int sys_unknown(int no) {
+    asm volatile ("cli");
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    thread_signal(thr, SIGSYS);
+
+    // Suicide signal, just hang on and wait
+    // until scheduler decides it's our time
+    while (thr->sigq) {
+        asm volatile ("sti; hlt; cli");
+    }
+
+    return -EINVAL;
 }
