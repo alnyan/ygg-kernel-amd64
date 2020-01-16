@@ -197,7 +197,6 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
             return res;
         }
 
-        ++fd->refcount;
         return 0;
     }
 
@@ -419,6 +418,7 @@ void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd) {
     _assert(ctx);
     _assert(fd);
     _assert(fd->vnode);
+    _assert(fd->refcount > 0);
 
     if (fd->vnode->op && fd->vnode->op->close) {
         fd->vnode->op->close(fd);
