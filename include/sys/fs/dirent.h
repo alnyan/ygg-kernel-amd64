@@ -1,5 +1,9 @@
 #pragma once
+#if defined(__KERNEL__)
 #include <stdint.h>
+#else
+#include "sys/types.h"
+#endif
 
 #define DT_UNKNOWN      0
 #define DT_FIFO         1

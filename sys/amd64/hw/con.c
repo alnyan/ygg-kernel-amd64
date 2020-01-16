@@ -91,31 +91,41 @@ void amd64_con_sync_cursor(void) {
 }
 
 static void amd64_con_flush(void) {
-    memcpyq((uint64_t *) MM_VIRTUALIZE(CGA_BUFFER_ADDR), (uint64_t *) con_buffer, 25 * 20);
+#if defined(VESA_ENABLE)
+    if (vesa_available) {
+        for (uint16_t row = 0; row < con_height; ++row) {
+            for (uint16_t col = 0; col < con_width; ++col) {
+                uint16_t v = con_buffer[row * con_width + col];
+                psf_draw(row, col, v & 0xFF, rgb_map[(v >> 8) & 0xF], rgb_map[(v >> 12) & 0xF]);
+            }
+        }
+    } else {
+#else
+    {
+#endif
+        memcpyq((uint64_t *) MM_VIRTUALIZE(CGA_BUFFER_ADDR), (uint64_t *) con_buffer, 25 * 20);
+    }
 }
 
 static void amd64_scroll_down(void) {
 #if defined(VESA_ENABLE)
     if (vesa_available) {
-        for (uint16_t row = 0; row < con_height; ++row) {
-            for (uint16_t col = 0; col < con_width; ++col) {
-                uint16_t ch = con_buffer[row * con_width + col];
-                psf_draw(row, col, ch & 0xFF, rgb_map[(ch >> 8) & 0xF], rgb_map[(ch >> 12) & 0xF]);
-            }
-        }
-    }
+        memcpy(con_buffer, &con_buffer[con_width], (con_height - 1) * con_width * 2);
+        memsetw(&con_buffer[(con_height - 1) * con_width], ATTR_DEFAULT, con_width);
+    } else {
 #else
-    memcpyq((uint64_t *) con_buffer, (uint64_t *) &con_buffer[con_width], 20 * 24);
-    memsetq((uint64_t *) &con_buffer[(con_height - 1) * con_width],
-            ATTR_DEFAULT | (ATTR_DEFAULT << 16) | (ATTR_DEFAULT << 32) | (ATTR_DEFAULT << 48), 20);
+    {
+#endif
+        memcpyq((uint64_t *) con_buffer, (uint64_t *) &con_buffer[con_width], 20 * 24);
+        memsetq((uint64_t *) &con_buffer[(con_height - 1) * con_width],
+                ATTR_DEFAULT | (ATTR_DEFAULT << 16) | (ATTR_DEFAULT << 32) | (ATTR_DEFAULT << 48), 20);
+    }
     // Flush whole backbuffer
     amd64_con_flush();
     y = con_height - 1;
-#endif
 }
 
 static void clear(void) {
-
 #if defined(VESA_ENABLE)
     memsetw(con_buffer, attr, con_width * con_height);
     if (vesa_available) {
@@ -124,8 +134,6 @@ static void clear(void) {
         }
     }
 #else
-    memsetq((uint64_t *) con_buffer,
-            attr | ((uint64_t) attr << 16) | ((uint64_t) attr << 32) | ((uint64_t) attr << 48), 20 * 25);
     amd64_con_flush();
 #endif
 }

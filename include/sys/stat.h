@@ -3,7 +3,6 @@
  * @brief File status structure
  */
 #pragma once
-#include <stdint.h>
 #include "sys/types.h"
 
 #define S_IFMT          0170000
