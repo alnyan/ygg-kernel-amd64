@@ -61,17 +61,27 @@ static uint16_t xattr = 0;
 static void setc(uint16_t row, uint16_t col, uint16_t v);
 
 #if defined(VESA_ENABLE)
+static uint16_t old_blink_x, old_blink_y;
+
 void con_blink(void) {
     if (vesa_available) {
         uint32_t fg = rgb_map[(attr >> 8) & 0xF];
         uint32_t bg = rgb_map[(attr >> 12) & 0xF];
         con_blink_state = !con_blink_state;
 
+        if (old_blink_x != x || old_blink_y != y) {
+            uint16_t v = con_buffer[old_blink_y * con_width + old_blink_x];
+            psf_draw(old_blink_y, old_blink_x, v & 0xFF, rgb_map[(v >> 8) & 0xF], rgb_map[(v >> 12) & 0xF]);
+        }
+
         if (con_blink_state) {
             psf_draw(y, x, ' ', bg, fg);
         } else {
             psf_draw(y, x, ' ', fg, bg);
         }
+
+        old_blink_x = x;
+        old_blink_y = y;
     }
 }
 #endif

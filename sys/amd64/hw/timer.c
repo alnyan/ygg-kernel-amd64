@@ -27,7 +27,7 @@ static uint32_t timer_tick(void *arg) {
     case TIMER_PIT:
 #if defined(VESA_ENABLE)
         ++int_timer_ticks;
-        if (int_timer_ticks >= 500) {
+        if (int_timer_ticks >= 300) {
             con_blink();
             int_timer_ticks = 0;
         }
