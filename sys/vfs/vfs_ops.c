@@ -184,6 +184,10 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
     _assert(node);
 
     if (opt & O_DIRECTORY) {
+        if (node->type != VN_DIR) {
+            return -ENOTDIR;
+        }
+
         if ((opt & O_ACCMODE) != O_RDONLY) {
             return -EACCES;
         }
@@ -198,6 +202,8 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
         }
 
         return 0;
+    } else if (node->type == VN_DIR || node->type == VN_MNT) {
+        return -EISDIR;
     }
 
     // Check node access
