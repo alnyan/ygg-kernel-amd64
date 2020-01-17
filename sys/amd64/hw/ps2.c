@@ -62,6 +62,35 @@ uint32_t ps2_irq_keyboard(void *ctx) {
     }
 
     if (!(key & 0x80)) {
+        // Special keys
+        switch (key) {
+        case 0x01:
+            tty_buffer_write(0, '\033');
+            return IRQ_HANDLED;
+        case 0x48:
+            tty_buffer_write(0, '\033');
+            tty_buffer_write(0, '[');
+            tty_buffer_write(0, 'A');
+            return IRQ_HANDLED;
+        case 0x50:
+            tty_buffer_write(0, '\033');
+            tty_buffer_write(0, '[');
+            tty_buffer_write(0, 'B');
+            return IRQ_HANDLED;
+        case 0x4D:
+            tty_buffer_write(0, '\033');
+            tty_buffer_write(0, '[');
+            tty_buffer_write(0, 'C');
+            return IRQ_HANDLED;
+        case 0x4B:
+            tty_buffer_write(0, '\033');
+            tty_buffer_write(0, '[');
+            tty_buffer_write(0, 'D');
+            return IRQ_HANDLED;
+        default:
+            break;
+        }
+
         char key_char = ((ps2_mods & PS2_MOD_SHIFT) ? ps2_key_table_1 : ps2_key_table_0)[key];
 
         if (key_char != 0) {
