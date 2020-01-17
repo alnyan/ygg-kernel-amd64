@@ -27,6 +27,10 @@ static int tm_check(const struct tm *tm) {
            tm->tm_sec < 0 || tm->tm_sec > 59;
 }
 
+time_t time(void) {
+    return system_boot_time + (time_t) (system_time / 1000000000ULL);
+}
+
 time_t mktime(struct tm *tm) {
     if (tm_check(tm) != 0) {
         return 0;

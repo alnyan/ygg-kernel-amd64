@@ -9,6 +9,7 @@
 #include "sys/assert.h"
 #include "sys/panic.h"
 #include "sys/errno.h"
+#include "sys/time.h"
 #include "sys/heap.h"
 
 // #include <string.h>
@@ -189,10 +190,10 @@ static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t
     ent_inode->acl = 0;
     ent_inode->os_value_1 = 0;
     memset(ent_inode->os_value_2, 0, sizeof(ent_inode->os_value_2));
-    // TODO: time support in kernel
-    ent_inode->atime = 0;
-    ent_inode->mtime = 0;
-    ent_inode->ctime = 0;
+    time_t cur_time = time();
+    ent_inode->atime = cur_time;
+    ent_inode->mtime = cur_time;
+    ent_inode->ctime = cur_time;
     ent_inode->dtime = 0;
 
     memset(ent_inode->direct_blocks, 0, sizeof(ent_inode->direct_blocks));
@@ -272,10 +273,11 @@ static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t
     ent_inode->acl = 0;
     ent_inode->os_value_1 = 0;
     memset(ent_inode->os_value_2, 0, sizeof(ent_inode->os_value_2));
-    // TODO: time support in kernel
-    ent_inode->atime = 0;
-    ent_inode->mtime = 0;
-    ent_inode->ctime = 0;
+
+    time_t cur_time = time();
+    ent_inode->atime = cur_time;
+    ent_inode->mtime = cur_time;
+    ent_inode->ctime = cur_time;
     ent_inode->dtime = 0;
 
     memset(ent_inode->direct_blocks, 0, sizeof(ent_inode->direct_blocks));
@@ -355,6 +357,10 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
     size_t written = 0;
     size_t remaining = count;
 
+    // Update mtime on writes
+    // TODO: something like nomtime option
+    inode->mtime = time();
+
     if (can_write) {
         size_t can_write_blocks = (can_write + sb->block_size - 1) / sb->block_size;
 
@@ -425,12 +431,9 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
             fd->pos += need_write;
             remaining -= need_write;
         }
-    } else {
-        if (written) {
-            // Flush inode struct to disk - size has changed
-            ext2_write_inode(ext2, inode, vn->ino);
-        }
     }
+
+    ext2_write_inode(ext2, inode, vn->ino);
 
     return written;
 }

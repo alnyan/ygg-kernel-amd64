@@ -171,9 +171,9 @@ static int devfs_vnode_stat(struct vnode *node, struct stat *st) {
     st->st_blocks = 0;
     st->st_ino = 0;
 
-    st->st_atime = 0;
-    st->st_mtime = 0;
-    st->st_ctime = 0;
+    st->st_atime = system_boot_time;
+    st->st_mtime = system_boot_time;
+    st->st_ctime = system_boot_time;
 
     st->st_dev = 0;
     st->st_rdev = 0;

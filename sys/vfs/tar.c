@@ -35,7 +35,7 @@ struct tar {
             uint32_t size;
             uint64_t __pad3;
             uint32_t mtime;
-            uint64_t __pad4;
+            uint32_t ctime;
             // The rest is irrelevant
         } __attribute__((packed)) meta;
     };
@@ -202,6 +202,8 @@ static int tar_init(struct fs *tar, const char *opt) {
         gid_t gid = tarfs_octal(hdr->meta_oct.gid, 8);
         mode_t mode = tarfs_octal(hdr->meta_oct.mode, 8) & 0x1FF;
 
+        time_t mtime = tarfs_octal(hdr->meta_oct.mtime, 12);
+
         if (hdr->meta_oct.typeflag[0] == '\0' || hdr->meta_oct.typeflag[0] == '0') {
             node_size = tarfs_octal(hdr->meta_oct.size, 12);
             mode |= S_IFREG;
@@ -248,6 +250,8 @@ static int tar_init(struct fs *tar, const char *opt) {
         hdr->meta.gid = gid;
         hdr->meta.mode = mode;
         hdr->meta.size = node_size;
+        hdr->meta.mtime = mtime;
+        hdr->meta.ctime = mtime;
 
         node->uid = hdr->meta.uid;
         node->gid = hdr->meta.gid;
@@ -291,9 +295,9 @@ static int tarfs_vnode_stat(struct vnode *vn, struct stat *st) {
         st->st_gid = vn->gid;
         st->st_mode = vn->mode | S_IFDIR;
 
-        st->st_atime = 0;
-        st->st_mtime = 0;
-        st->st_ctime = 0;
+        st->st_atime = system_boot_time;
+        st->st_mtime = system_boot_time;
+        st->st_ctime = system_boot_time;
 
         st->st_nlink = 1;
         st->st_rdev = 0;
@@ -316,9 +320,9 @@ static int tarfs_vnode_stat(struct vnode *vn, struct stat *st) {
         st->st_rdev = 0;
         st->st_dev = 0;
 
-        st->st_mtime = 0;
-        st->st_ctime = 0;
-        st->st_atime = 0;
+        st->st_mtime = hdr->meta.mtime;
+        st->st_ctime = hdr->meta.ctime;
+        st->st_atime = st->st_mtime;
 
         st->st_nlink = 1;
 
@@ -339,6 +343,9 @@ static int tarfs_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_
     hdr->meta.gid = gid;
     hdr->meta.mode = mode & 0x1FF;
     hdr->meta.size = 0;
+    time_t cur_time = time();
+    hdr->meta.mtime = cur_time;
+    hdr->meta.ctime = cur_time;
 
     node->uid = uid;
     node->gid = gid;
@@ -367,6 +374,9 @@ static int tarfs_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_
     hdr->meta.gid = gid;
     hdr->meta.mode = mode & 0x1FF;
     hdr->meta.size = 0;
+    time_t cur_time = time();
+    hdr->meta.mtime = cur_time;
+    hdr->meta.ctime = cur_time;
 
     for (size_t i = 0; i < TAR_DIRECT_BLOCKS; ++i) {
         hdr->direct_blocks[i] = 0;
@@ -422,6 +432,8 @@ static ssize_t tarfs_vnode_write(struct ofile *fd, const void *buf, size_t count
     _assert(node);
     struct tar *hdr = node->fs_data;
     _assert(hdr);
+    // Update mtime on writes
+    hdr->meta.mtime = time();
 
     if (fd->pos > hdr->meta.size) {
         return -1;

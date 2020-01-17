@@ -27,4 +27,5 @@ extern uint64_t system_time;
 extern time_t system_boot_time;
 
 time_t mktime(struct tm *tm);
+time_t time(void);
 #endif
