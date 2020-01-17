@@ -74,10 +74,11 @@ void con_blink(void) {
             psf_draw(old_blink_y, old_blink_x, v & 0xFF, rgb_map[(v >> 8) & 0xF], rgb_map[(v >> 12) & 0xF]);
         }
 
+        uint16_t v = con_buffer[y * con_width + x];
         if (con_blink_state) {
-            psf_draw(y, x, ' ', bg, fg);
+            psf_draw(y, x, v & 0xFF, bg, fg);
         } else {
-            psf_draw(y, x, ' ', fg, bg);
+            psf_draw(y, x, v & 0xFF, fg, bg);
         }
 
         old_blink_x = x;
