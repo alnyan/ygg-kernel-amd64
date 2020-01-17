@@ -364,7 +364,7 @@ int vfs_umount(struct vfs_ioctx *ctx, const char *dir_name) {
     return 0;
 }
 
-static int vfs_mount_internal(struct vnode *at, void *blk, struct fs_class *cls, const char *opt) {
+int vfs_mount_internal(struct vnode *at, void *blk, struct fs_class *cls, const char *opt) {
     int res;
     struct fs *fs;
     struct vnode *fs_root;
@@ -437,7 +437,7 @@ int vfs_mount(struct vfs_ioctx *ctx, const char *at, void *blk, const char *fs, 
     }
 
     if (!fs || !strcmp(fs, "auto")) {
-        panic("TODO: support filesystem guessing\n");
+        fs_class = NULL;
     } else {
         fs_class = fs_class_by_name(fs);
 
@@ -456,7 +456,15 @@ int vfs_mount(struct vfs_ioctx *ctx, const char *at, void *blk, const char *fs, 
         }
     }
 
-    return vfs_mount_internal(mountpoint, blk, fs_class, opt);
+    if (!fs_class) {
+        if (!blk) {
+            return -EINVAL;
+        }
+
+        return blk_mount_auto(mountpoint, blk, opt);
+    } else {
+        return vfs_mount_internal(mountpoint, blk, fs_class, opt);
+    }
 }
 
 int vfs_find(struct vfs_ioctx *ctx, struct vnode *rel, const char *path, struct vnode **node) {

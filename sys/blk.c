@@ -5,6 +5,7 @@
 #include "sys/string.h"
 #include "sys/heap.h"
 #include "sys/fs/vfs.h"
+#include "sys/fs/fs.h"
 
 // Taken as-is from MBR partition types
 #define PART_HINT_LINUX              0x83
@@ -71,6 +72,18 @@ int blk_ioctl(struct blkdev *blk, unsigned long req, void *arg) {
     } else {
         return -EINVAL;
     }
+}
+
+int blk_mount_auto(struct vnode *at, struct blkdev *blk, const char *opt) {
+    struct fs_class *cls;
+    int res;
+
+    if ((cls = fs_class_by_name("ext2")) != NULL &&
+        (res = vfs_mount_internal(at, blk, cls, opt)) == 0) {
+        return 0;
+    }
+
+    return -EINVAL;
 }
 
 static ssize_t blk_part_write(struct blkdev *dev, const void *buf, size_t off, size_t count) {
