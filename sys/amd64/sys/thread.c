@@ -272,6 +272,15 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
         return res;
     }
 
+    const char *e = strrchr(filename, '/');
+    const char *name = e + 1;
+    if (!e) {
+        name = filename;
+    }
+    size_t name_len = MIN(strlen(name), sizeof(thr->name) - 1);
+    strncpy(thr->name, name, name_len);
+    thr->name[name_len] = 0;
+
     _assert(argv);
 
     // Copy argp page
