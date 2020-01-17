@@ -216,3 +216,77 @@ off_t sys_lseek(int fd, off_t offset, int whence) {
 
     return vfs_lseek(&thr->ioctx, ofile, offset, whence);
 }
+
+int sys_select(int nfds, fd_set *rd, fd_set *wr, fd_set *exc, struct timeval *tv) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    // Not implemented yet
+    _assert(!wr);
+    _assert(!exc);
+
+    // TODO: write fd_set
+    fd_set _rd;
+    memcpy(&_rd, rd, sizeof(fd_set));
+    FD_ZERO(rd);
+
+    if (!rd) {
+        return 0;
+    }
+
+    // Check file descriptors
+    for (int i = 0; i < nfds; ++i) {
+        if (FD_ISSET(i, &_rd)) {
+            if (i > THREAD_MAX_FDS) {
+                kwarn("Bad FD: %d\n", i);
+                return -EBADF;
+            }
+            struct ofile *fd = thr->fds[i];
+            if (!fd) {
+                kwarn("Bad FD: %d\n", i);
+                return -EBADF;
+            }
+
+            _assert(fd->vnode);
+            if (fd->vnode->type != VN_CHR) {
+                // select() does not make sense for non-char devices yet
+                FD_SET(i, rd);
+                return 0;
+            }
+        }
+    }
+
+    uint64_t deadline = tv->tv_sec * 1000000000ULL + tv->tv_usec * 1000ULL + system_time;
+    int res;
+
+    while (1) {
+        // Check for any ready FD
+        for (int i = 0; i < nfds; ++i) {
+            if (FD_ISSET(i, &_rd)) {
+                struct ofile *fd = thr->fds[i];
+                _assert(fd && fd->vnode && fd->vnode->type == VN_CHR);
+
+                struct chrdev *chr = fd->vnode->dev;
+                _assert(chr);
+
+                if (ring_avail(&chr->buffer) > 0) {
+                    FD_SET(i, rd);
+                    res = 0;
+                    goto done;
+                }
+            }
+        }
+
+        // Check timer deadline
+        if (system_time >= deadline) {
+            res = 0;
+            goto done;
+        }
+
+        // Yield
+        asm volatile ("sti; hlt; cli");
+    }
+
+done:
+    return res;
+}

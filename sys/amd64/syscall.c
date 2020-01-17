@@ -18,6 +18,7 @@ const void *amd64_syscall_jmp_table[256] = {
     [SYSCALL_NR_OPEN] = sys_open,
     [SYSCALL_NR_CLOSE] = sys_close,
     [SYSCALL_NR_LSEEK] = sys_lseek,
+    [SYSCALL_NR_SELECT] = sys_select,
     [SYSCALL_NR_GETCWD] = sys_getcwd,
     [SYSCALL_NR_CHDIR] = sys_chdir,
     [SYSCALL_NR_STAT] = sys_stat,

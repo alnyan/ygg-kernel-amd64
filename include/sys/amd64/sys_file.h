@@ -2,6 +2,9 @@
 #include "sys/types.h"
 #include "sys/fs/dirent.h"
 #include "sys/stat.h"
+#include "sys/select.h"
+
+struct timeval;
 
 ssize_t sys_read(int fd, void *buf, size_t lim);
 ssize_t sys_write(int fd, const void *buf, size_t lim);
@@ -19,6 +22,11 @@ int sys_rmdir(const char *pathname);
 
 int sys_stat(const char *filename, struct stat *st);
 int sys_access(const char *path, int mode);
+
+// XXX: Except timeout is const, as I don't want to modify it
+//      No one cares about how much time is remaining once
+//      select() returns, right?
+int sys_select(int nfds, fd_set *rd, fd_set *wr, fd_set *exc, struct timeval *timeout);
 
 // TODO: const struct termios *termp, const struct winsize *winp
 int sys_openpty(int *master, int *slave);

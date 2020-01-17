@@ -23,15 +23,17 @@ static struct chrdev _dev_tty0 = {
     .read = tty_read
 };
 
-static struct ring tty_ring = {0};
-
 // This function receives keystrokes from keyboard drivers
 void tty_buffer_write(int tty_no, char c) {
-    ring_putc(NULL, &tty_ring, c);
+    switch (tty_no) {
+    case 0:
+        ring_putc(NULL, &_dev_tty0.buffer, c);
+        break;
+    }
 }
 
 void tty_init(void) {
-    ring_init(&tty_ring, 16);
+    ring_init(&_dev_tty0.buffer, 16);
 
     dev_add(DEV_CLASS_CHAR, DEV_CHAR_TTY, &_dev_tty0, "tty0");
 }
@@ -67,7 +69,7 @@ static ssize_t tty_read(struct chrdev *tty, void *buf, size_t pos, size_t lim) {
     size_t p = 0;
 
     while (rem) {
-        ssize_t rd = ring_read(get_cpu()->thread, &tty_ring, ibuf, MIN(16, rem));
+        ssize_t rd = ring_read(get_cpu()->thread, &tty->buffer, ibuf, MIN(16, rem));
         if (rd < 0) {
             break;
         }
