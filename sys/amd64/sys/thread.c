@@ -286,9 +286,56 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
     // Copy argp page
     uintptr_t argp_phys = argp_copy(thr, argv, &argc);
     _assert(argp_phys != MM_NADDR);
+    char shebang_buf[512];
 
     if ((res = vfs_open(&thr->ioctx, &fd, filename, O_RDONLY | O_EXEC, 0)) != 0) {
         return res;
+    }
+
+    // Read first line of the file
+    if ((bread = vfs_read(&thr->ioctx, &fd, shebang_buf, sizeof(shebang_buf))) < 0) {
+        kwarn("%s: %s\n", filename, kstrerror(bread));
+        vfs_close(&thr->ioctx, &fd);
+        return res;
+    }
+
+    if (bread > 2 && shebang_buf[0] == '#' && shebang_buf[1] == '!') {
+        // Do a new execve() with interpreter instead
+        const char *p = shebang_buf + 2;
+        while (*p == ' ') {
+            ++p;
+        }
+
+        char *e = strchr(p, ' ');
+        if (e) {
+            *e = 0;
+        }
+        e = strchr(p, '\n');
+        if (e) {
+            *e = 0;
+        }
+        vfs_close(&thr->ioctx, &fd);
+
+        const char *argv_buf[64];
+
+        // p is now interpreter path. No arguments are supported yet
+        for (size_t i = 0; i < sizeof(argv_buf) / sizeof(argv_buf[0]); ++i) {
+            if (!argv[i]) {
+                argv_buf[i + 1] = NULL;
+                break;
+            }
+
+            argv_buf[i + 1] = argv[i];
+        }
+
+        argv_buf[0] = p;
+        return sys_execve(p, (const char *const *) argv_buf, envp);
+    } else {
+        // Otherwise check that it's ELF
+        if (strncmp(shebang_buf, "\x7F" "ELF", 4)) {
+            vfs_close(&thr->ioctx, &fd);
+            return -ENOEXEC;
+        }
     }
 
     // Drop old page tables

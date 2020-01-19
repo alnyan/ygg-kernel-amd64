@@ -290,3 +290,29 @@ int sys_select(int nfds, fd_set *rd, fd_set *wr, fd_set *exc, struct timeval *tv
 done:
     return res;
 }
+
+int sys_isatty(int fd) {
+    struct thread *thr = get_cpu()->thread;
+    struct ofile *of;
+    _assert(thr);
+
+    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+        return -EBADF;
+    }
+
+    if (!(of = thr->fds[fd])) {
+        return -EBADF;
+    }
+
+    _assert(of->vnode);
+    if (of->vnode->type == VN_CHR) {
+        struct chrdev *chr = of->vnode->dev;
+        _assert(chr);
+
+        // TODO: somehow check that this is a tty
+        //       via flags
+        return 1;
+    }
+
+    return -ENOTTY;
+}
