@@ -67,6 +67,12 @@ uint32_t ps2_irq_keyboard(void *ctx) {
         case 0x01:
             tty_buffer_write(0, '\033');
             return IRQ_HANDLED;
+        case 0x47:
+            tty_buffer_write(0, '\033');
+            tty_buffer_write(0, '[');
+            tty_buffer_write(0, '[');
+            tty_buffer_write(0, 'H');
+            return IRQ_HANDLED;
         case 0x48:
             tty_buffer_write(0, '\033');
             tty_buffer_write(0, '[');
@@ -81,6 +87,12 @@ uint32_t ps2_irq_keyboard(void *ctx) {
             tty_buffer_write(0, '\033');
             tty_buffer_write(0, '[');
             tty_buffer_write(0, 'C');
+            return IRQ_HANDLED;
+        case 0x4F:
+            tty_buffer_write(0, '\033');
+            tty_buffer_write(0, '[');
+            tty_buffer_write(0, '[');
+            tty_buffer_write(0, 'F');
             return IRQ_HANDLED;
         case 0x4B:
             tty_buffer_write(0, '\033');

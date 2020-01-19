@@ -68,13 +68,13 @@ struct vnode_operations ext2_vnode_ops = {
 
 static int ext2_vnode_find(struct vnode *vn, const char *name, struct vnode **res) {
     struct fs *ext2 = vn->fs;
-    struct ext2_extsb *sb = vn->fs->fs_private;
+    struct ext2_info *info = vn->fs->fs_private;
     struct ext2_inode *inode = vn->fs_data;
 
-    char buffer[sb->block_size];
+    char buffer[info->block_size];
     struct ext2_dirent *dirent = NULL;
 
-    size_t block_count = (inode->size_lower + (sb->block_size - 1)) / sb->block_size;
+    size_t block_count = (inode->size_lower + (info->block_size - 1)) / info->block_size;
     // char ent_name[256];
     size_t index = 0;
 
@@ -93,7 +93,7 @@ static int ext2_vnode_find(struct vnode *vn, const char *name, struct vnode **re
             if (dirent->ino) {
                 if (strlen(name) == dirent->name_len && !strncmp(dirent->name, name, dirent->name_len)) {
                     // Found the entry
-                    inode = kmalloc(sb->inode_struct_size);
+                    inode = kmalloc(info->sb.inode_struct_size);
                     if (ext2_read_inode(ext2, inode, dirent->ino) != 0) {
                         return -EIO;
                     }
@@ -116,7 +116,7 @@ static int ext2_vnode_find(struct vnode *vn, const char *name, struct vnode **re
                 }
             }
             offset += dirent->len;
-            if (offset >= sb->block_size) {
+            if (offset >= info->block_size) {
                 break;
             }
         }
@@ -156,8 +156,8 @@ static int ext2_vnode_open(struct ofile *fd, int opt) {
 static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode) {
     struct fs *ext2 = at->fs;
     _assert(at->type == VN_DIR);
-    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
-    char block_buffer[sb->block_size];
+    struct ext2_info *info = ext2->fs_private;
+    char block_buffer[info->block_size];
 
     uint32_t new_ino, new_block_no;
     int res;
@@ -174,7 +174,7 @@ static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t
         return res;
     }
 
-    struct ext2_inode *ent_inode = (struct ext2_inode *) kmalloc(sb->inode_struct_size);
+    struct ext2_inode *ent_inode = (struct ext2_inode *) kmalloc(info->sb.inode_struct_size);
 
     // Now create an entry in parents dirent list
     if ((res = ext2_dir_add_inode(ext2, at, name, new_ino)) < 0) {
@@ -206,9 +206,9 @@ static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t
     ent_inode->uid = uid;
     ent_inode->gid = gid;
     ent_inode->disk_sector_count = 0;
-    ent_inode->size_lower = sb->block_size;
+    ent_inode->size_lower = info->block_size;
 
-    memset(block_buffer, 0, sb->block_size);
+    memset(block_buffer, 0, info->block_size);
     // "."
     struct ext2_dirent *dirent = (struct ext2_dirent *) block_buffer;
     dirent->ino = new_ino;
@@ -221,7 +221,7 @@ static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t
     dirent = (struct ext2_dirent *) &block_buffer[dirent->len];
     dirent->ino = at->ino;
     dirent->name_len = 2;
-    dirent->len = sb->block_size - ((sizeof(struct ext2_dirent) + 4) & ~3);
+    dirent->len = info->block_size - ((sizeof(struct ext2_dirent) + 4) & ~3);
     dirent->name[0] = '.';
     dirent->name[1] = '.';
     dirent->type_ind = 0;
@@ -243,7 +243,7 @@ static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t
     struct fs *ext2 = at->fs;
     _assert(at->type == VN_DIR);
     _assert(/* Don't support making directories like this */ !(mode & O_DIRECTORY));
-    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
+    struct ext2_info *info = ext2->fs_private;
 
     uint32_t new_ino;
     int res;
@@ -257,7 +257,7 @@ static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t
     kdebug("Allocated inode %d\n", new_ino);
 
     // Create an inode struct in memory
-    struct ext2_inode *ent_inode = (struct ext2_inode *) kmalloc(sb->inode_struct_size);
+    struct ext2_inode *ent_inode = (struct ext2_inode *) kmalloc(info->sb.inode_struct_size);
 
     // Now create an entry in parents dirent list
     if ((res = ext2_dir_add_inode(ext2, at, name, new_ino)) < 0) {
@@ -305,7 +305,7 @@ static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t
 static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count) {
     struct vnode *vn = fd->vnode;
     struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
-    struct ext2_extsb *sb = vn->fs->fs_private;
+    struct ext2_info *info = vn->fs->fs_private;
 
     size_t nread = MIN(inode->size_lower - fd->pos, count);
 
@@ -313,9 +313,9 @@ static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count) {
         return -1;
     }
 
-    size_t block_number = fd->pos / sb->block_size;
-    size_t nblocks = (nread + sb->block_size - 1) / sb->block_size;
-    char block_buffer[sb->block_size];
+    size_t block_number = fd->pos / info->block_size;
+    size_t nblocks = (nread + info->block_size - 1) / info->block_size;
+    char block_buffer[info->block_size];
 
     for (size_t i = 0; i < nblocks; ++i) {
         if (ext2_read_inode_block(vn->fs, inode, i + block_number, block_buffer) < 0) {
@@ -323,11 +323,11 @@ static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count) {
             return -EIO;
         }
         if (i == 0) {
-            size_t ncpy = MIN(sb->block_size - fd->pos % sb->block_size, nread);
-            memcpy(buf, block_buffer + fd->pos % sb->block_size, ncpy);
+            size_t ncpy = MIN(info->block_size - fd->pos % info->block_size, nread);
+            memcpy(buf, block_buffer + fd->pos % info->block_size, ncpy);
         } else {
-            size_t ncpy = MIN(sb->block_size, nread - sb->block_size * i);
-            memcpy((void *) (((uintptr_t) buf) + sb->block_size * i), block_buffer, ncpy);
+            size_t ncpy = MIN(info->block_size, nread - info->block_size * i);
+            memcpy((void *) (((uintptr_t) buf) + info->block_size * i), block_buffer, ncpy);
         }
     }
 
@@ -341,8 +341,8 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
     _assert(vn);
     struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
     struct fs *ext2 = vn->fs;
-    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
-    char block_buffer[sb->block_size];
+    struct ext2_info *info = ext2->fs_private;
+    char block_buffer[info->block_size];
     int res;
 
     if (fd->pos > inode->size_lower) {
@@ -351,9 +351,9 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
     }
 
     // How many bytes can we write into the blocks already allocated
-    size_t size_blocks = (inode->size_lower + sb->block_size - 1) / sb->block_size;
-    size_t can_write = size_blocks * sb->block_size - inode->size_lower;
-    size_t current_block = fd->pos / sb->block_size;
+    size_t size_blocks = (inode->size_lower + info->block_size - 1) / info->block_size;
+    size_t can_write = size_blocks * info->block_size - inode->size_lower;
+    size_t current_block = fd->pos / info->block_size;
     size_t written = 0;
     size_t remaining = count;
 
@@ -362,15 +362,15 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
     inode->mtime = time();
 
     if (can_write) {
-        size_t can_write_blocks = (can_write + sb->block_size - 1) / sb->block_size;
+        size_t can_write_blocks = (can_write + info->block_size - 1) / info->block_size;
 
         for (size_t i = 0; i < can_write_blocks; ++i) {
             size_t block_index = current_block + i;
-            size_t pos_in_block = fd->pos % sb->block_size;
-            size_t need_write = MIN(remaining, sb->block_size - pos_in_block);
+            size_t pos_in_block = fd->pos % info->block_size;
+            size_t need_write = MIN(remaining, info->block_size - pos_in_block);
 
             kdebug("Write %uB to block %u offset %u\n", need_write, block_index, pos_in_block);
-            if (need_write == sb->block_size) {
+            if (need_write == info->block_size) {
                 // Can write block without reading it
                 // TODO: implement this
                 panic("Not implemented\n");
@@ -399,11 +399,11 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
 
     if (remaining) {
         // Need to allocate additional blocks
-        size_t need_blocks = (remaining + sb->block_size - 1) / sb->block_size;
+        size_t need_blocks = (remaining + info->block_size - 1) / info->block_size;
 
         for (size_t i = 0; i < need_blocks; ++i) {
             size_t block_index = current_block + i;
-            size_t need_write = MIN(remaining, sb->block_size);
+            size_t need_write = MIN(remaining, info->block_size);
 
             // Update the size here so it gets written when the block is allocated
             // and inode struct is flushed
@@ -415,7 +415,7 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
             }
 
 
-            if (need_write == sb->block_size) {
+            if (need_write == info->block_size) {
                 // TODO: implement this
                 panic("Not implemented\n");
             } else {
@@ -442,7 +442,7 @@ static int ext2_vnode_truncate(struct vnode *vn, size_t length) {
     _assert(vn);
     struct fs *ext2 = vn->fs;
     struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
-    struct ext2_extsb *sb = vn->fs->fs_private;
+    struct ext2_info *info = vn->fs->fs_private;
     int res;
 
     if (length == inode->size_lower) {
@@ -450,23 +450,23 @@ static int ext2_vnode_truncate(struct vnode *vn, size_t length) {
         return 0;
     }
 
-    size_t was_blocks = (inode->size_lower + sb->block_size - 1) / sb->block_size;
-    size_t now_blocks = (length + sb->block_size - 1) / sb->block_size;
+    size_t was_blocks = (inode->size_lower + info->block_size - 1) / info->block_size;
+    size_t now_blocks = (length + info->block_size - 1) / info->block_size;
     ssize_t delta_blocks = now_blocks - was_blocks;
 
     if (delta_blocks < 0) {
         int ind1 = 0;
-        char buf1[sb->block_size];
+        char buf1[info->block_size];
         // Free truncated blocks
         for (size_t i = now_blocks; i < was_blocks; ++i) {
-            inode->size_lower -= sb->block_size;
+            inode->size_lower -= info->block_size;
 
             if (i < 12) {
                 if ((res = ext2_free_block(ext2, inode->direct_blocks[i])) < 0) {
                     panic("Failed to release inode block\n");
                 }
                 inode->direct_blocks[i] = 0;
-            } else if (i < 12 + (sb->block_size / 4)) {
+            } else if (i < 12 + (info->block_size / 4)) {
                 if (!ind1) {
                     // Read indirection block only once
                     if ((res = ext2_read_block(ext2, inode->l1_indirect_block, buf1)) < 0) {
@@ -506,26 +506,26 @@ static int ext2_vnode_truncate(struct vnode *vn, size_t length) {
 static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *vfsdir) {
     struct vnode *vn = fd->vnode;
     struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
-    struct ext2_extsb *sb = vn->fs->fs_private;
+    struct ext2_info *info = vn->fs->fs_private;
     ssize_t res;
 
     if (fd->pos >= inode->size_lower) {
         return -1;
     }
 
-    size_t block_number = fd->pos / sb->block_size;
-    char block_buffer[sb->block_size];
+    size_t block_number = fd->pos / info->block_size;
+    char block_buffer[info->block_size];
 
     if ((res = ext2_read_inode_block(vn->fs, inode, block_number, block_buffer)) < 0) {
         return res;
     }
 
-    size_t block_offset = fd->pos % sb->block_size;
+    size_t block_offset = fd->pos % info->block_size;
     struct ext2_dirent *ext2dir = (struct ext2_dirent *) &block_buffer[block_offset];
 
     if (ext2dir->len == 0) {
         // If entry size is zero, guess we're finished - align the fd->pos up to block size
-        fd->pos = (fd->pos + sb->block_size - 1) / sb->block_size;
+        fd->pos = (fd->pos + info->block_size - 1) / info->block_size;
         return ext2_vnode_readdir(fd, vfsdir);
     }
 
@@ -533,7 +533,7 @@ static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *vfsdir) {
     strncpy(vfsdir->d_name, ext2dir->name, ext2dir->name_len);
     vfsdir->d_name[ext2dir->name_len] = 0;
     vfsdir->d_reclen = ext2dir->len;
-    if (sb->required_features & 2 /* Directory entries contain type field */) {
+    if (info->sb.required_features & 2 /* Directory entries contain type field */) {
         switch (ext2dir->type_ind) {
         case 1:
             // Regular file
@@ -587,8 +587,8 @@ static int ext2_vnode_stat(struct vnode *vn, struct stat *st) {
     _assert(vn && vn->fs);
     struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
     _assert(inode);
-    struct ext2_extsb *sb = (struct ext2_extsb *) vn->fs->fs_private;
-    _assert(sb);
+    struct ext2_info *info = vn->fs->fs_private;
+    _assert(info);
 
     st->st_atime = inode->atime;
     st->st_ctime = inode->ctime;
@@ -599,8 +599,8 @@ static int ext2_vnode_stat(struct vnode *vn, struct stat *st) {
     st->st_uid = inode->uid;
     st->st_mode = inode->type_perm;
     st->st_size = inode->size_lower;
-    st->st_blocks = (inode->size_lower + sb->block_size - 1) / sb->block_size;
-    st->st_blksize = sb->block_size;
+    st->st_blocks = (inode->size_lower + info->block_size - 1) / info->block_size;
+    st->st_blksize = info->block_size;
     st->st_nlink = 0;
     st->st_ino = vn->ino;
 
@@ -638,7 +638,7 @@ static int ext2_vnode_unlink(struct vnode *node) {
     struct ext2_inode *inode = node->fs_data;
     struct ext2_inode *at_inode = at->fs_data;
     struct fs *ext2 = node->fs;
-    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
+    struct ext2_info *info = ext2->fs_private;
     uint32_t ino = node->ino;
     int res;
 
@@ -646,19 +646,19 @@ static int ext2_vnode_unlink(struct vnode *node) {
         // Check if the directory we're unlinking has any entries besides
         // . and ..
         // Can tell this just by looking at the first block
-        if (inode->size_lower > sb->block_size) {
+        if (inode->size_lower > info->block_size) {
             // Directory size is more than one block - totally
             // has something inside
             return -EISDIR;
         }
-        char block_buffer[sb->block_size];
+        char block_buffer[info->block_size];
         size_t off = 0;
 
         if ((res = ext2_read_inode_block(ext2, inode, 0, block_buffer)) < 0) {
             return res;
         }
 
-        while (off < sb->block_size) {
+        while (off < info->block_size) {
             struct ext2_dirent *ent = (struct ext2_dirent *) &block_buffer[off];
             if (!ent->ino) {
                 break;
@@ -677,9 +677,9 @@ static int ext2_vnode_unlink(struct vnode *node) {
     }
 
     // Free blocks used by the inode - truncate the file to zero
-    size_t nblocks = (inode->size_lower + sb->block_size - 1) / sb->block_size;
+    size_t nblocks = (inode->size_lower + info->block_size - 1) / info->block_size;
     int ind1 = 0;
-    char buf1[sb->block_size];
+    char buf1[info->block_size];
 
     for (size_t i = 0; i < nblocks; ++i) {
         if (i < 12) {
@@ -687,7 +687,7 @@ static int ext2_vnode_unlink(struct vnode *node) {
                 panic("Failed to release inode block\n");
             }
             inode->direct_blocks[i] = 0;
-        } else if (i < 12 + (sb->block_size / 4)) {
+        } else if (i < 12 + (info->block_size / 4)) {
             if (!ind1) {
                 // Read indirection block only once
                 if ((res = ext2_read_block(ext2, inode->l1_indirect_block, buf1)) < 0) {
@@ -734,14 +734,14 @@ static int ext2_vnode_readlink(struct vnode *vn, char *dst, size_t lim) {
     _assert(vn && vn->fs_data);
     struct ext2_inode *inode = vn->fs_data;
     struct fs *ext2 = vn->fs;
-    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
+    struct ext2_info *info = ext2->fs_private;
 
     if (lim <= inode->size_lower) {
         return -1;
     }
 
     if (inode->size_lower >= 60) {
-        char block_buffer[sb->block_size];
+        char block_buffer[info->block_size];
         int res;
 
         if ((res = ext2_read_inode_block(ext2, inode, 0, block_buffer)) < 0) {

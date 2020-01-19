@@ -13,8 +13,8 @@
 
 // Add an inode to directory
 int ext2_dir_add_inode(struct fs *ext2, struct vnode *dir, const char *name, uint32_t ino) {
-    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
-    char block_buffer[sb->block_size];
+    struct ext2_info *info = ext2->fs_private;
+    char block_buffer[info->block_size];
     struct ext2_inode *dir_inode = dir->fs_data;
     struct ext2_dirent *current_dirent, *result_dirent;
     int res;
@@ -25,7 +25,7 @@ int ext2_dir_add_inode(struct fs *ext2, struct vnode *dir, const char *name, uin
 
     // Try reading parent dirent blocks to see if any has
     // some space to fit our file
-    size_t dir_size_blocks = (dir_inode->size_lower + sb->block_size - 1) / sb->block_size;
+    size_t dir_size_blocks = (dir_inode->size_lower + info->block_size - 1) / info->block_size;
     for (size_t i = 0; i < dir_size_blocks; ++i) {
         current_dirent = NULL;
         result_dirent = NULL;
@@ -37,7 +37,7 @@ int ext2_dir_add_inode(struct fs *ext2, struct vnode *dir, const char *name, uin
         }
 
         // Check if any of the entries can be split to fit our entry
-        while (off < sb->block_size) {
+        while (off < info->block_size) {
             current_dirent = (struct ext2_dirent *) &block_buffer[off];
             if (current_dirent->ino == 0) {
                 kwarn("ext2: found dirent with ino = 0\n");
@@ -73,16 +73,16 @@ int ext2_dir_add_inode(struct fs *ext2, struct vnode *dir, const char *name, uin
         }
     }
 
-    dir_inode->size_lower += sb->block_size;
+    dir_inode->size_lower += info->block_size;
     if ((res = ext2_inode_alloc_block(ext2, dir_inode, dir->ino, dir_size_blocks)) < 0) {
-        dir_inode->size_lower -= sb->block_size;
+        dir_inode->size_lower -= info->block_size;
         return res;
     }
 
-    memset(block_buffer, 0, sb->block_size);
+    memset(block_buffer, 0, info->block_size);
     current_dirent = (struct ext2_dirent *) block_buffer;
     current_dirent->ino = ino;
-    current_dirent->len = sb->block_size;
+    current_dirent->len = info->block_size;
     current_dirent->name_len = strlen(name);
     current_dirent->type_ind = 0;
     strncpy(current_dirent->name, name, current_dirent->name_len);
@@ -117,13 +117,13 @@ static int ext2_free_block_index(struct fs *ext2, struct ext2_inode *inode, uint
 }
 
 int ext2_dir_remove_inode(struct fs *ext2, struct vnode *dir, const char *name, uint32_t ino) {
-    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
-    char block_buffer[sb->block_size];
+    struct ext2_info *info = ext2->fs_private;
+    char block_buffer[info->block_size];
     struct ext2_inode *dir_inode = dir->fs_data;
     struct ext2_dirent *current_dirent, *prev_dirent;
     int res;
 
-    size_t dir_size_blocks = (dir_inode->size_lower + sb->block_size - 1) / sb->block_size;
+    size_t dir_size_blocks = (dir_inode->size_lower + info->block_size - 1) / info->block_size;
 
     for (size_t i = 0; i < dir_size_blocks; ++i) {
         if ((res = ext2_read_inode_block(ext2, dir_inode, i, block_buffer)) < 0) {
@@ -134,7 +134,7 @@ int ext2_dir_remove_inode(struct fs *ext2, struct vnode *dir, const char *name, 
         current_dirent = NULL;
         prev_dirent = NULL;
 
-        while (off < sb->block_size) {
+        while (off < info->block_size) {
             prev_dirent = current_dirent;
             current_dirent = (struct ext2_dirent *) &block_buffer[off];
 
@@ -148,10 +148,10 @@ int ext2_dir_remove_inode(struct fs *ext2, struct vnode *dir, const char *name, 
                 // Sanity
                 _assert(current_dirent->ino == ino);
 
-                if (current_dirent->len + off >= sb->block_size) {
+                if (current_dirent->len + off >= info->block_size) {
                     // It's the last node in the list
                     if (!prev_dirent) {
-                        return ext2_free_block_index(ext2, dir_inode, i, dir->ino, sb->block_size);
+                        return ext2_free_block_index(ext2, dir_inode, i, dir->ino, info->block_size);
                     }
 
                     // Resize the previous node

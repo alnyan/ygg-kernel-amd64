@@ -11,26 +11,26 @@
 // #include <stdio.h>
 
 int ext2_alloc_block(struct fs *ext2, uint32_t *block_no) {
-    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
-    char block_buffer[sb->block_size];
+    struct ext2_info *info = ext2->fs_private;
+    char block_buffer[info->block_size];
     uint32_t res_block_no = 0;
     uint32_t res_group_no = 0;
     uint32_t res_block_no_in_group = 0;
     int found = 0;
     int res;
 
-    for (size_t i = 0; i < sb->block_group_count; ++i) {
-        if (sb->block_group_descriptor_table[i].free_blocks > 0) {
+    for (size_t i = 0; i < info->block_group_count; ++i) {
+        if (info->block_group_descriptor_table[i].free_blocks > 0) {
             // Found a free block here
             kdebug("Allocating a block in group #%u\n", i);
 
             if ((res = ext2_read_block(ext2,
-                                       sb->block_group_descriptor_table[i].block_usage_bitmap_block,
+                                       info->block_group_descriptor_table[i].block_usage_bitmap_block,
                                        block_buffer)) < 0) {
                 return res;
             }
 
-            for (size_t j = 0; j < sb->block_size / sizeof(uint64_t); ++j) {
+            for (size_t j = 0; j < info->block_size / sizeof(uint64_t); ++j) {
                 uint64_t qw = ((uint64_t *) block_buffer)[j];
                 if (qw != (uint64_t) -1) {
                     for (size_t k = 0; k < 64; ++k) {
@@ -44,7 +44,7 @@ int ext2_alloc_block(struct fs *ext2, uint32_t *block_no) {
                             //      block. So I just had to make it allocate
                             //      #532 instead as a workaround (though
                             //      block numbering should start with 0)
-                            res_block_no = res_block_no_in_group + i * sb->sb.block_group_size_blocks + 1;
+                            res_block_no = res_block_no_in_group + i * info->sb.block_group_size_blocks + 1;
                             found = 1;
                             break;
                         }
@@ -68,23 +68,23 @@ int ext2_alloc_block(struct fs *ext2, uint32_t *block_no) {
     // Write block usage bitmap
     ((uint64_t *) block_buffer)[res_block_no_in_group / 64] |= (1 << (res_block_no_in_group % 64));
     if ((res = ext2_write_block(ext2,
-                                sb->block_group_descriptor_table[res_group_no].block_usage_bitmap_block,
+                                info->block_group_descriptor_table[res_group_no].block_usage_bitmap_block,
                                 block_buffer)) < 0) {
         return res;
     }
 
     // Update BGDT
-    --sb->block_group_descriptor_table[res_group_no].free_blocks;
-    for (size_t i = 0; i < sb->block_group_descriptor_table_size_blocks; ++i) {
-        void *blk_ptr = (void *) (((uintptr_t) sb->block_group_descriptor_table) + i * sb->block_size);
+    --info->block_group_descriptor_table[res_group_no].free_blocks;
+    for (size_t i = 0; i < info->block_group_descriptor_table_size_blocks; ++i) {
+        void *blk_ptr = (void *) (((uintptr_t) info->block_group_descriptor_table) + i * info->block_size);
 
-        if ((res = ext2_write_block(ext2, sb->block_group_descriptor_table_block + i, blk_ptr)) < 0) {
+        if ((res = ext2_write_block(ext2, info->block_group_descriptor_table_block + i, blk_ptr)) < 0) {
             return res;
         }
     }
 
     // Update global block count and flush superblock
-    --sb->sb.free_block_count;
+    --info->sb.free_block_count;
     if ((res = ext2_write_superblock(ext2)) < 0) {
         return res;
     }
@@ -96,16 +96,16 @@ int ext2_alloc_block(struct fs *ext2, uint32_t *block_no) {
 
 int ext2_free_block(struct fs *ext2, uint32_t block_no) {
     _assert(block_no);
-    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
-    char block_buffer[sb->block_size];
+    struct ext2_info *info = ext2->fs_private;
+    char block_buffer[info->block_size];
     int res;
 
-    uint32_t block_group_no = (block_no - 1) / sb->sb.block_group_size_blocks;
-    uint32_t block_no_in_group = (block_no - 1) % sb->sb.block_group_size_blocks;
+    uint32_t block_group_no = (block_no - 1) / info->sb.block_group_size_blocks;
+    uint32_t block_no_in_group = (block_no - 1) % info->sb.block_group_size_blocks;
 
     // Read block ussge bitmap block
     if ((res = ext2_read_block(ext2,
-                               sb->block_group_descriptor_table[block_group_no].block_usage_bitmap_block,
+                               info->block_group_descriptor_table[block_group_no].block_usage_bitmap_block,
                                block_buffer)) < 0) {
         return res;
     }
@@ -115,23 +115,23 @@ int ext2_free_block(struct fs *ext2, uint32_t block_no) {
     ((uint64_t *) block_buffer)[block_no_in_group / 64] &= ~(1 << (block_no_in_group % 64));
 
     if ((res = ext2_write_block(ext2,
-                                sb->block_group_descriptor_table[block_group_no].block_usage_bitmap_block,
+                                info->block_group_descriptor_table[block_group_no].block_usage_bitmap_block,
                                 block_buffer)) < 0) {
         return res;
     }
 
     // Update BGDT
-    ++sb->block_group_descriptor_table[block_group_no].free_blocks;
-    for (size_t i = 0; i < sb->block_group_descriptor_table_size_blocks; ++i) {
-        void *blk_ptr = (void *) (((uintptr_t) sb->block_group_descriptor_table) + i * sb->block_size);
+    ++info->block_group_descriptor_table[block_group_no].free_blocks;
+    for (size_t i = 0; i < info->block_group_descriptor_table_size_blocks; ++i) {
+        void *blk_ptr = (void *) (((uintptr_t) info->block_group_descriptor_table) + i * info->block_size);
 
-        if ((res = ext2_write_block(ext2, sb->block_group_descriptor_table_block + i, blk_ptr)) < 0) {
+        if ((res = ext2_write_block(ext2, info->block_group_descriptor_table_block + i, blk_ptr)) < 0) {
             return res;
         }
     }
 
     // Update global block count
-    ++sb->sb.free_block_count;
+    ++info->sb.free_block_count;
     if ((res = ext2_write_superblock(ext2)) < 0) {
         return res;
     }
@@ -142,7 +142,7 @@ int ext2_free_block(struct fs *ext2, uint32_t block_no) {
 }
 
 int ext2_inode_alloc_block(struct fs *ext2, struct ext2_inode *inode, uint32_t ino, uint32_t index) {
-    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
+    struct ext2_info *info = ext2->fs_private;
 
     int res;
     uint32_t block_no;
@@ -155,9 +155,9 @@ int ext2_inode_alloc_block(struct fs *ext2, struct ext2_inode *inode, uint32_t i
     if (index < 12) {
         // Write direct block list entry
         inode->direct_blocks[index] = block_no;
-    } else if (index < 12 + (sb->block_size / 4)) {
+    } else if (index < 12 + (info->block_size / 4)) {
         // Also allocate L1 indirection block if needed
-        char buf[sb->block_size];
+        char buf[info->block_size];
         if (!inode->l1_indirect_block) {
             uint32_t l1_block;
             if ((res = ext2_alloc_block(ext2, &l1_block)) < 0) {
@@ -165,7 +165,7 @@ int ext2_inode_alloc_block(struct fs *ext2, struct ext2_inode *inode, uint32_t i
             }
             inode->l1_indirect_block = l1_block;
             _assert(inode->l1_indirect_block);
-            memset(buf, 0, sb->block_size);
+            memset(buf, 0, info->block_size);
         } else {
             // Read indirection block
             if ((res = ext2_read_block(ext2, inode->l1_indirect_block, buf)) < 0) {
@@ -212,15 +212,15 @@ int ext2_inode_alloc_block(struct fs *ext2, struct ext2_inode *inode, uint32_t i
 
 int ext2_free_inode(struct fs *ext2, uint32_t ino) {
     _assert(ino);
-    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
-    char block_buffer[sb->block_size];
-    uint32_t ino_block_group_number = (ino - 1) / sb->sb.block_group_size_inodes;
-    uint32_t ino_inode_index_in_group = (ino - 1) % sb->sb.block_group_size_inodes;
+    struct ext2_info *info = ext2->fs_private;
+    char block_buffer[info->block_size];
+    uint32_t ino_block_group_number = (ino - 1) / info->sb.block_group_size_inodes;
+    uint32_t ino_inode_index_in_group = (ino - 1) % info->sb.block_group_size_inodes;
     int res;
 
     // Read inode usage block
     if ((res = ext2_read_block(ext2,
-                               sb->block_group_descriptor_table[ino_block_group_number].inode_usage_bitmap_block,
+                               info->block_group_descriptor_table[ino_block_group_number].inode_usage_bitmap_block,
                                block_buffer)) < 0) {
         return res;
     }
@@ -231,7 +231,7 @@ int ext2_free_inode(struct fs *ext2, uint32_t ino) {
 
     // Write modified bitmap back
     if ((res = ext2_write_block(ext2,
-                                sb->block_group_descriptor_table[ino_block_group_number].inode_usage_bitmap_block,
+                                info->block_group_descriptor_table[ino_block_group_number].inode_usage_bitmap_block,
                                 block_buffer)) < 0) {
         return res;
     }
@@ -239,17 +239,17 @@ int ext2_free_inode(struct fs *ext2, uint32_t ino) {
     // Increment free inode count in BGDT entry and write it back
     // TODO: this code is repetitive and maybe should be moved to
     //       ext2_bgdt_inode_inc/_dec()
-    ++sb->block_group_descriptor_table[ino_block_group_number].free_inodes;
-    for (size_t i = 0; i < sb->block_group_descriptor_table_size_blocks; ++i) {
-        void *blk_ptr = (void *) (((uintptr_t) sb->block_group_descriptor_table) + i * sb->block_size);
+    ++info->block_group_descriptor_table[ino_block_group_number].free_inodes;
+    for (size_t i = 0; i < info->block_group_descriptor_table_size_blocks; ++i) {
+        void *blk_ptr = (void *) (((uintptr_t) info->block_group_descriptor_table) + i * info->block_size);
 
-        if ((res = ext2_write_block(ext2, sb->block_group_descriptor_table_block + i, blk_ptr)) < 0) {
+        if ((res = ext2_write_block(ext2, info->block_group_descriptor_table_block + i, blk_ptr)) < 0) {
             return res;
         }
     }
 
     // Update global inode count
-    ++sb->sb.free_inode_count;
+    ++info->sb.free_inode_count;
     if ((res = ext2_write_superblock(ext2)) < 0) {
         return res;
     }
@@ -259,29 +259,29 @@ int ext2_free_inode(struct fs *ext2, uint32_t ino) {
 }
 
 int ext2_alloc_inode(struct fs *ext2, uint32_t *ino) {
-    struct ext2_extsb *sb = (struct ext2_extsb *) ext2->fs_private;
-    char block_buffer[sb->block_size];
+    struct ext2_info *info = ext2->fs_private;
+    char block_buffer[info->block_size];
     uint32_t res_ino = 0;
     uint32_t res_group_no = 0;
     uint32_t res_ino_number_in_group = 0;
     int res;
 
     // Look through BGDT to find any block groups with free inodes
-    for (size_t i = 0; i < sb->block_group_count; ++i) {
-        if (sb->block_group_descriptor_table[i].free_inodes > 0) {
+    for (size_t i = 0; i < info->block_group_count; ++i) {
+        if (info->block_group_descriptor_table[i].free_inodes > 0) {
             // Found a block group with free inodes
             kdebug("Allocating an inode inside block group #%u\n", i);
 
             // Read inode usage bitmap
             if ((res = ext2_read_block(ext2,
-                                       sb->block_group_descriptor_table[i].inode_usage_bitmap_block,
+                                       info->block_group_descriptor_table[i].inode_usage_bitmap_block,
                                        block_buffer)) < 0) {
                 return res;
             }
 
             // Find a free bit
             // Think this should be fine on amd64
-            for (size_t j = 0; j < sb->block_size / sizeof(uint64_t); ++j) {
+            for (size_t j = 0; j < info->block_size / sizeof(uint64_t); ++j) {
                 // Get bitmap qword
                 uint64_t qw = ((uint64_t *) block_buffer)[j];
                 // If not all bits are set in this qword, find exactly which one
@@ -290,7 +290,7 @@ int ext2_alloc_inode(struct fs *ext2, uint32_t *ino) {
                         if (!(qw & (1 << k))) {
                             res_ino_number_in_group = k + j * 64;
                             res_group_no = i;
-                            res_ino = res_ino_number_in_group + i * sb->sb.block_group_size_inodes + 1;
+                            res_ino = res_ino_number_in_group + i * info->sb.block_group_size_inodes + 1;
                             break;
                         }
                     }
@@ -317,23 +317,23 @@ int ext2_alloc_inode(struct fs *ext2, uint32_t *ino) {
     // Write updated bitmap
     ((uint64_t *) block_buffer)[res_ino_number_in_group / 64] |= (1 << (res_ino_number_in_group % 64));
     if ((res = ext2_write_block(ext2,
-                                sb->block_group_descriptor_table[res_group_no].inode_usage_bitmap_block,
+                                info->block_group_descriptor_table[res_group_no].inode_usage_bitmap_block,
                                 block_buffer)) < 0) {
         return res;
     }
 
     // Write updated BGDT
-    --sb->block_group_descriptor_table[res_group_no].free_inodes;
-    for (size_t i = 0; i < sb->block_group_descriptor_table_size_blocks; ++i) {
-        void *blk_ptr = (void *) (((uintptr_t) sb->block_group_descriptor_table) + i * sb->block_size);
+    --info->block_group_descriptor_table[res_group_no].free_inodes;
+    for (size_t i = 0; i < info->block_group_descriptor_table_size_blocks; ++i) {
+        void *blk_ptr = (void *) (((uintptr_t) info->block_group_descriptor_table) + i * info->block_size);
 
-        if ((res = ext2_write_block(ext2, sb->block_group_descriptor_table_block + i, blk_ptr)) < 0) {
+        if ((res = ext2_write_block(ext2, info->block_group_descriptor_table_block + i, blk_ptr)) < 0) {
             return res;
         }
     }
 
     // Update global inode count and flush superblock
-    --sb->sb.free_inode_count;
+    --info->sb.free_inode_count;
     if ((res = ext2_write_superblock(ext2)) < 0) {
         return res;
     }

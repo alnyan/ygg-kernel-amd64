@@ -45,10 +45,6 @@ struct ext2_sb {
     uint32_t version_major;
     uint16_t su_uid;
     uint16_t su_gid;
-} __attribute__((packed));
-
-struct ext2_extsb {
-    struct ext2_sb sb;
     uint32_t first_non_reserved;
     uint16_t inode_struct_size;
     uint16_t backup_group_number;
@@ -66,14 +62,20 @@ struct ext2_extsb {
     uint32_t journal_inode;
     uint32_t journal_dev;
     uint32_t orphan_inode_head;
+} __attribute__((packed));
 
+struct ext2_info {
+    union {
+        char __sb_data[1024];
+        struct ext2_sb sb;
+    };
     // driver-specific info
     uint32_t block_size;
     uint32_t block_group_count;
     uint32_t block_group_descriptor_table_block;
     uint32_t block_group_descriptor_table_size_blocks;
     struct ext2_grp_desc *block_group_descriptor_table;
-} __attribute__((packed));
+};
 
 struct ext2_grp_desc {
     uint32_t block_usage_bitmap_block;

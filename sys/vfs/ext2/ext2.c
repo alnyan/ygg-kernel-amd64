@@ -25,13 +25,13 @@ enum vnode_type ext2_inode_type(struct ext2_inode *i) {
 static int ext2_fs_init(struct fs *fs, const char *opt) {
     int res;
     kdebug("ext2_fs_init()\n");
-    struct ext2_extsb *sb;
+    struct ext2_info *info;
     // ext2's private data is its superblock structure
-    sb = (struct ext2_extsb *) kmalloc(EXT2_SBSIZ);
-    fs->fs_private = sb;
+    info = kmalloc(sizeof(struct ext2_info));
+    fs->fs_private = info;
 
     // Read the superblock from blkdev
-    if ((res = blk_read(fs->blk, sb, EXT2_SBOFF, EXT2_SBSIZ)) != EXT2_SBSIZ) {
+    if ((res = blk_read(fs->blk, info, EXT2_SBOFF, EXT2_SBSIZ)) != EXT2_SBSIZ) {
         kfree(fs->fs_private);
 
         kerror("ext2: superblock read failed\n");
@@ -39,65 +39,65 @@ static int ext2_fs_init(struct fs *fs, const char *opt) {
     }
 
     // Check if superblock is ext2
-    if (sb->sb.magic != EXT2_MAGIC) {
-        kfree(sb);
+    if (info->sb.magic != EXT2_MAGIC) {
+        kfree(info);
 
         kdebug("ext2: magic mismatch\n");
         return -EINVAL;
     }
 
     // Check if we have an extended ext2 sb
-    if (sb->sb.version_major == 0) {
+    if (info->sb.version_major == 0) {
         // Initialize params which are missing in non-extended sbs
-        sb->inode_struct_size = 128;
-        sb->first_non_reserved = 11;
+        info->sb.inode_struct_size = 128;
+        info->sb.first_non_reserved = 11;
     }
-    sb->block_size = 1024 << sb->sb.block_size_log;
+    info->block_size = 1024 << info->sb.block_size_log;
 
     // Load block group descriptor table
     // Get descriptor table size
-    uint32_t block_group_descriptor_table_length = sb->sb.block_count / sb->sb.block_group_size_blocks;
-    if (block_group_descriptor_table_length * sb->sb.block_group_size_blocks < sb->sb.block_count) {
+    uint32_t block_group_descriptor_table_length = info->sb.block_count / info->sb.block_group_size_blocks;
+    if (block_group_descriptor_table_length * info->sb.block_group_size_blocks < info->sb.block_count) {
         ++block_group_descriptor_table_length;
     }
-    sb->block_group_count = block_group_descriptor_table_length;
+    info->block_group_count = block_group_descriptor_table_length;
 
     uint32_t block_group_descriptor_table_size_blocks = 32 * block_group_descriptor_table_length /
-                                                        sb->block_size + 1;
+                                                        info->block_size + 1;
 
     uint32_t block_group_descriptor_table_block = 2;
-    if (sb->block_size > 1024) {
+    if (info->block_size > 1024) {
         block_group_descriptor_table_block = 1;
     }
-    sb->block_group_descriptor_table_block = block_group_descriptor_table_block;
-    sb->block_group_descriptor_table_size_blocks = block_group_descriptor_table_size_blocks;
+    info->block_group_descriptor_table_block = block_group_descriptor_table_block;
+    info->block_group_descriptor_table_size_blocks = block_group_descriptor_table_size_blocks;
 
     // Load all block group descriptors into memory
-    kdebug("Allocating %u bytes for BGDT\n", sb->block_group_descriptor_table_size_blocks * sb->block_size);
-    sb->block_group_descriptor_table = (struct ext2_grp_desc *) kmalloc(sb->block_group_descriptor_table_size_blocks * sb->block_size);
+    kdebug("Allocating %u bytes for BGDT\n", info->block_group_descriptor_table_size_blocks * info->block_size);
+    info->block_group_descriptor_table = kmalloc(info->block_group_descriptor_table_size_blocks * info->block_size);
 
-    for (size_t i = 0; i < sb->block_group_descriptor_table_size_blocks; ++i) {
-        ext2_read_block(fs, i + sb->block_group_descriptor_table_block,
-                        (void *) (((uintptr_t) sb->block_group_descriptor_table) + i * sb->block_size));
+    for (size_t i = 0; i < info->block_group_descriptor_table_size_blocks; ++i) {
+        ext2_read_block(fs, i + info->block_group_descriptor_table_block,
+                        (void *) (((uintptr_t) info->block_group_descriptor_table) + i * info->block_size));
     }
 
     return 0;
 }
 
 static int ext2_fs_umount(struct fs *fs) {
-    struct ext2_extsb *sb = (struct ext2_extsb *) fs->fs_private;
+    struct ext2_info *info = fs->fs_private;
     // Free block group descriptor table
-    kfree(sb->block_group_descriptor_table);
+    kfree(info->block_group_descriptor_table);
     // Free superblock
-    kfree(sb);
+    kfree(info);
     return 0;
 }
 
 static struct vnode *ext2_fs_get_root(struct fs *fs) {
-    struct ext2_extsb *sb = fs->fs_private;
+    struct ext2_info *info = fs->fs_private;
     kdebug("ext2_fs_get_root()\n");
 
-    struct ext2_inode *inode = (struct ext2_inode *) kmalloc(sb->inode_struct_size);
+    struct ext2_inode *inode = kmalloc(info->sb.inode_struct_size);
     // Read root inode (2)
     if (ext2_read_inode(fs, inode, EXT2_ROOTINO) != 0) {
         kfree(inode);
@@ -120,18 +120,18 @@ static struct vnode *ext2_fs_get_root(struct fs *fs) {
 }
 
 static int ext2_fs_statvfs(struct fs *fs, struct statvfs *st) {
-    struct ext2_extsb *sb = fs->fs_private;
+    struct ext2_info *info = fs->fs_private;
 
-    st->f_blocks = sb->sb.block_count;
-    st->f_bfree = sb->sb.free_block_count;
-    st->f_bavail = sb->sb.block_count - sb->sb.su_reserved;
+    st->f_blocks = info->sb.block_count;
+    st->f_bfree = info->sb.free_block_count;
+    st->f_bavail = info->sb.block_count - info->sb.su_reserved;
 
-    st->f_files = sb->sb.inode_count;
-    st->f_ffree = sb->sb.free_inode_count;
-    st->f_favail = sb->sb.inode_count - sb->first_non_reserved + 1;
+    st->f_files = info->sb.inode_count;
+    st->f_ffree = info->sb.free_inode_count;
+    st->f_favail = info->sb.inode_count - info->sb.first_non_reserved + 1;
 
-    st->f_bsize = sb->block_size;
-    st->f_frsize = sb->block_size;
+    st->f_bsize = info->block_size;
+    st->f_frsize = info->block_size;
 
     // XXX: put something here
     st->f_fsid = 0;
