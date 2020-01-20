@@ -36,6 +36,3 @@ int sys_chown(const char *path, uid_t uid, gid_t gid);
 off_t sys_lseek(int fd, off_t offset, int whence);
 
 int sys_ioctl(int fd, unsigned int cmd, void *arg);
-
-// XXX: Will be removed once ioctl(fd, TCGETS, ...) is possible
-int sys_isatty(int fd);
