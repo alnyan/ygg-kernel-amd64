@@ -1,6 +1,7 @@
 #include "sys/amd64/hw/ps2.h"
 #include "sys/amd64/hw/irq.h"
 #include "sys/amd64/hw/io.h"
+#include "sys/ctype.h"
 #include "sys/signum.h"
 #include "sys/debug.h"
 #include "sys/tty.h"
@@ -13,8 +14,11 @@
 #define PS2_KEY_LCTRL_DOWN      0x1D
 #define PS2_KEY_LCTRL_UP        0x9D
 
+#define PS2_KEY_CAPS_LOCK_DOWN  0x3A
+
 #define PS2_MOD_SHIFT           (1 << 0)
 #define PS2_MOD_CTRL            (1 << 1)
+#define PS2_MOD_CAPS            (1 << 2)
 
 static uint32_t ps2_mods = 0;
 
@@ -72,6 +76,10 @@ uint32_t ps2_irq_keyboard(void *ctx) {
         ps2_mods &= ~PS2_MOD_CTRL;
     }
 
+    if (key == PS2_KEY_CAPS_LOCK_DOWN) {
+        ps2_mods ^= PS2_MOD_CAPS;
+    }
+
     if (!(key & 0x80) && !(ps2_mods & PS2_MOD_CTRL)) {
         // Special keys
         switch (key) {
@@ -115,6 +123,14 @@ uint32_t ps2_irq_keyboard(void *ctx) {
         }
 
         char key_char = ((ps2_mods & PS2_MOD_SHIFT) ? ps2_key_table_1 : ps2_key_table_0)[key];
+
+        if (ps2_mods & PS2_MOD_CAPS) {
+            if (isupper(key_char)) {
+                key_char = tolower(key_char);
+            } else if (islower(key_char)) {
+                key_char = toupper(key_char);
+            }
+        }
 
         if (key_char != 0) {
             tty_buffer_write(0, key_char);
