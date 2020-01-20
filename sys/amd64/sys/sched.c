@@ -6,6 +6,7 @@
 #include "sys/assert.h"
 #include "sys/reboot.h"
 #include "sys/panic.h"
+#include "sys/errno.h"
 #include "sys/sched.h"
 #include "sys/debug.h"
 #include "sys/time.h"
@@ -44,7 +45,7 @@ void idle_func(uintptr_t id) {
     }
 }
 
-static uint32_t sched_alloc_pid(int is_kernel) {
+static pid_t sched_alloc_pid(int is_kernel) {
     // The first pid allocation will be 1 (init process)
     static uint32_t last_user_pid = 1;
     static uint32_t last_kernel_pid = 1;
@@ -62,6 +63,8 @@ struct thread *sched_find(int pid) {
         return NULL;
     }
 
+    // TODO: this only finds processes which are queued. Implement a global process list
+    //       to fix this
     // Search through queues
     for (size_t cpu = 0; cpu < sched_ncpus; ++cpu) {
         for (struct thread *t = sched_queue_heads[cpu]; t; t = t->next) {
@@ -72,6 +75,26 @@ struct thread *sched_find(int pid) {
     }
 
     return NULL;
+}
+
+int sched_signal_group(int pgid, int signum) {
+    int res = 0;
+
+    for (size_t cpu = 0; cpu < sched_ncpus; ++cpu) {
+        for (struct thread *t = sched_queue_heads[cpu]; t; t = t->next) {
+            if ((int) t->pgid == pgid) {
+                ++res;
+
+                thread_signal(t, signum);
+            }
+        }
+    }
+
+    if (!res) {
+        return -ESRCH;
+    } else {
+        return res;
+    }
 }
 
 void sched_add_to(int cpu, struct thread *t) {
@@ -89,6 +112,7 @@ void sched_add_to(int cpu, struct thread *t) {
     t->pid = sched_alloc_pid(t->flags & THREAD_KERNEL);
     if (!(t->flags & THREAD_KERNEL)) {
         if (t->pid == 1) {
+            t->pgid = 1;
             t_user_init = t;
         }
     }

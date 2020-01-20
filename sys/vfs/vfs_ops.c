@@ -558,7 +558,7 @@ int vfs_chmod(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
     struct vnode *node;
     int res;
 
-    mode &= 0x1FF;
+    mode &= VFS_MODE_MASK;
 
     if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
         return res;
@@ -607,4 +607,18 @@ int vfs_chown(struct vfs_ioctx *ctx, const char *path, uid_t uid, gid_t gid) {
     node->gid = gid;
 
     return 0;
+}
+
+int vfs_ioctl(struct vfs_ioctx *ctx, struct ofile *fd, unsigned int cmd, void *arg) {
+    _assert(ctx);
+    _assert(fd);
+    struct vnode *node = fd->vnode;
+    _assert(node);
+
+    switch (node->type) {
+    case VN_CHR:
+        return chr_ioctl(node->dev, cmd, arg);
+    default:
+        return -EINVAL;
+    }
 }

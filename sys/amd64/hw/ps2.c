@@ -1,6 +1,7 @@
 #include "sys/amd64/hw/ps2.h"
 #include "sys/amd64/hw/irq.h"
 #include "sys/amd64/hw/io.h"
+#include "sys/signum.h"
 #include "sys/debug.h"
 #include "sys/tty.h"
 
@@ -9,7 +10,11 @@
 #define PS2_KEY_LSHIFT_UP       0xAA
 #define PS2_KEY_RSHIFT_UP       0xB6
 
+#define PS2_KEY_LCTRL_DOWN      0x1D
+#define PS2_KEY_LCTRL_UP        0x9D
+
 #define PS2_MOD_SHIFT           (1 << 0)
+#define PS2_MOD_CTRL            (1 << 1)
 
 static uint32_t ps2_mods = 0;
 
@@ -60,8 +65,14 @@ uint32_t ps2_irq_keyboard(void *ctx) {
     if (key == PS2_KEY_LSHIFT_UP || key == PS2_KEY_RSHIFT_UP) {
         ps2_mods &= ~PS2_MOD_SHIFT;
     }
+    if (key == PS2_KEY_LCTRL_DOWN) {
+        ps2_mods |= PS2_MOD_CTRL;
+    }
+    if (key == PS2_KEY_LCTRL_UP) {
+        ps2_mods &= ~PS2_MOD_CTRL;
+    }
 
-    if (!(key & 0x80)) {
+    if (!(key & 0x80) && !(ps2_mods & PS2_MOD_CTRL)) {
         // Special keys
         switch (key) {
         case 0x01:
@@ -107,6 +118,12 @@ uint32_t ps2_irq_keyboard(void *ctx) {
 
         if (key_char != 0) {
             tty_buffer_write(0, key_char);
+        }
+    } else {
+        switch (key) {
+        case 0x2E:  // ^C
+            tty_signal_write(0, SIGINT);
+            break;
         }
     }
 

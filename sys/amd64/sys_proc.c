@@ -120,7 +120,7 @@ int sys_setgid(gid_t gid) {
     struct thread *thr = get_cpu()->thread;
     _assert(thr);
 
-    if (thr->ioctx.gid != 0) {
+    if (thr->ioctx.gid != 0 && thr->ioctx.uid != 0) {
         return -EACCES;
     }
 
@@ -138,6 +138,48 @@ gid_t sys_getgid(void) {
     struct thread *thr = get_cpu()->thread;
     _assert(thr);
     return thr->ioctx.gid;
+}
+
+pid_t sys_getpgid(pid_t pid) {
+    struct thread *thr;
+
+    if (pid == 0) {
+        thr = get_cpu()->thread;
+        _assert(thr);
+    } else {
+        thr = sched_find(pid);
+    }
+
+    if (!thr) {
+        return -ESRCH;
+    }
+
+    return thr->pgid;
+}
+
+int sys_setpgid(pid_t pid, pid_t pgrp) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    if (pid == 0 && pgrp == 0) {
+        thr->pgid = thr->pid;
+        return 0;
+    }
+
+    // Find child with pid pid (guess only children can be setpgid'd)
+    struct thread *ch;
+    for (ch = thr->child; ch; ch = ch->next_child) {
+        if (ch->pid == pid) {
+            if (ch->pgid != thr->pgid) {
+                return -EACCES;
+            }
+
+            ch->pgid = pgrp;
+            return 0;
+        }
+    }
+
+    return -ESRCH;
 }
 
 int sys_unknown(int no) {

@@ -137,8 +137,8 @@ static void amd64_scroll_down(void) {
 }
 
 static void clear(void) {
-#if defined(VESA_ENABLE)
     memsetw(con_buffer, attr, con_width * con_height);
+#if defined(VESA_ENABLE)
     if (vesa_available) {
         for (size_t i = 0; i < vesa_height; ++i) {
             memsetl((uint32_t *) (vesa_addr + vesa_pitch * i), rgb_map[(attr >> 12) & 0xF], vesa_width);
@@ -361,6 +361,9 @@ void amd64_con_putc(int c) {
 }
 
 void amd64_con_init(void) {
+    // XXX XXX XXX: Had to do this because of memory allocation problem:
+    //              setc overwrites data in heap headers
+    static uint16_t second_buffer[80 * 25];
 #if defined(VESA_ENABLE)
     if (vesa_available) {
         psf_init(vesa_addr, vesa_pitch, &char_width, &char_height);
@@ -372,7 +375,7 @@ void amd64_con_init(void) {
 #else
     {
 #endif
-        con_buffer = kmalloc(80 * 25 * 2); //(uint16_t *) MM_VIRTUALIZE(CGA_BUFFER_ADDR);
+        con_buffer = second_buffer;
         con_width = 80;
         con_height = 25;
     }

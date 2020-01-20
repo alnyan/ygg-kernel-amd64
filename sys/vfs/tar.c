@@ -200,7 +200,7 @@ static int tar_init(struct fs *tar, const char *opt) {
         // Convert node metadata values from octal
         uid_t uid = tarfs_octal(hdr->meta_oct.uid, 8);
         gid_t gid = tarfs_octal(hdr->meta_oct.gid, 8);
-        mode_t mode = tarfs_octal(hdr->meta_oct.mode, 8) & 0x1FF;
+        mode_t mode = tarfs_octal(hdr->meta_oct.mode, 8) & VFS_MODE_MASK;
 
         time_t mtime = tarfs_octal(hdr->meta_oct.mtime, 12);
 
@@ -255,12 +255,12 @@ static int tar_init(struct fs *tar, const char *opt) {
 
         node->uid = hdr->meta.uid;
         node->gid = hdr->meta.gid;
-        node->mode = hdr->meta.mode & 0x1FF;
+        node->mode = hdr->meta.mode & VFS_MODE_MASK;
 
         node->fs_data = hdr;
         node->fs = tar;
 
-        off += 512 + ((node_size + 0x1FF) & ~0x1FF);
+        off += 512 + ((node_size + 511) & ~511);
     }
 
     return 0;
@@ -313,7 +313,7 @@ static int tarfs_vnode_stat(struct vnode *vn, struct stat *st) {
 
         st->st_uid = vn->uid;
         st->st_gid = vn->gid;
-        st->st_mode = (vn->mode & 0x1FF) | (vn->type == VN_DIR ? S_IFDIR : S_IFREG);
+        st->st_mode = (vn->mode & VFS_MODE_MASK) | (vn->type == VN_DIR ? S_IFDIR : S_IFREG);
 
         st->st_ino = 0;
 
@@ -341,7 +341,7 @@ static int tarfs_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_
 
     hdr->meta.uid = uid;
     hdr->meta.gid = gid;
-    hdr->meta.mode = mode & 0x1FF;
+    hdr->meta.mode = mode & VFS_MODE_MASK;
     hdr->meta.size = 0;
     time_t cur_time = time();
     hdr->meta.mtime = cur_time;
@@ -349,7 +349,7 @@ static int tarfs_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_
 
     node->uid = uid;
     node->gid = gid;
-    node->mode = mode & 0x1FF;
+    node->mode = mode & VFS_MODE_MASK;
     node->flags = VN_MEMORY;
 
     node->fs_data = hdr;
@@ -372,7 +372,7 @@ static int tarfs_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_
 
     hdr->meta.uid = uid;
     hdr->meta.gid = gid;
-    hdr->meta.mode = mode & 0x1FF;
+    hdr->meta.mode = mode & VFS_MODE_MASK;
     hdr->meta.size = 0;
     time_t cur_time = time();
     hdr->meta.mtime = cur_time;
@@ -387,7 +387,7 @@ static int tarfs_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_
 
     node->uid = uid;
     node->gid = gid;
-    node->mode = mode & 0x1FF;
+    node->mode = mode & VFS_MODE_MASK;
     node->flags = VN_MEMORY;
 
     node->fs_data = hdr;
@@ -496,7 +496,6 @@ static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
     uintptr_t blk_addr;
 
     while (can_read) {
-        kdebug("pos = %u\n", fd->pos);
         size_t blk_off = fd->pos % 512;
         size_t blk_ind = fd->pos / 512;
         size_t bread = MIN(can_read, 512 - blk_off);

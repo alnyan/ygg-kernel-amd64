@@ -4,6 +4,9 @@
 #include "sys/debug.h"
 #include "sys/panic.h"
 #include "sys/string.h"
+#include "sys/assert.h"
+#include "sys/termios.h"
+#include "sys/sched.h"
 #include "sys/ring.h"
 #include "sys/mm.h"
 #include "sys/amd64/cpu.h"
@@ -11,17 +14,45 @@
 #include "sys/dev.h"
 
 #define DEV_TTY(n)          (n ## ULL)
-#define DEV_DATA_TTY(n)     ((void *) n ## ULL)
-#define DEV_DATA_GETTTY(d)  ((uint64_t) (d)->dev_data)
 
 static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t lim);
 static ssize_t tty_read(struct chrdev *tty, void *buf, size_t pos, size_t lim);
+static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg);
+
+struct tty_data {
+    // Process group ID of the foreground group (session leader)
+    pid_t fg_pgid;
+    // Number
+    int tty_n;
+    // TODO: make console screen and keyboard character devices
+};
+
+static struct tty_data _dev_tty0_data = {
+    .fg_pgid = 1,
+    .tty_n = DEV_TTY(0)
+};
 
 static struct chrdev _dev_tty0 = {
-    .dev_data = DEV_DATA_TTY(0),
+    .dev_data = &_dev_tty0_data,
     .write = tty_write,
-    .read = tty_read
+    .read = tty_read,
+    .ioctl = tty_ioctl
 };
+
+static void tty_signal_group(struct chrdev *tty, int signum) {
+    struct tty_data *data = tty->dev_data;
+    _assert(data);
+    sched_signal_group(data->fg_pgid, signum);
+}
+
+void tty_signal_write(int tty_no, int signum) {
+    kdebug("Send signal %d on tty%d\n", signum, tty_no);
+    switch (tty_no) {
+    case 0:
+        tty_signal_group(&_dev_tty0, signum);
+        break;
+    }
+}
 
 // This function receives keystrokes from keyboard drivers
 void tty_buffer_write(int tty_no, char c) {
@@ -40,9 +71,9 @@ void tty_init(void) {
 
 // TODO: multiple ttys
 static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t lim) {
-    uint64_t tty_no = DEV_DATA_GETTTY(tty);
-
-    if (tty_no != DEV_TTY(0)) {
+    struct tty_data *data = tty->dev_data;
+    _assert(data);
+    if (data->tty_n != DEV_TTY(0)) {
         return -EINVAL;
     }
 
@@ -54,10 +85,11 @@ static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t
 }
 
 static ssize_t tty_read(struct chrdev *tty, void *buf, size_t pos, size_t lim) {
-    uint64_t tty_no = DEV_DATA_GETTTY(tty);
+    struct tty_data *data = tty->dev_data;
+    _assert(data);
     char ibuf[16];
 
-    if (tty_no != DEV_TTY(0)) {
+    if (data->tty_n != DEV_TTY(0)) {
         return -EINVAL;
     }
 
@@ -80,4 +112,17 @@ static ssize_t tty_read(struct chrdev *tty, void *buf, size_t pos, size_t lim) {
     }
 
     return p;
+}
+
+static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg) {
+    struct tty_data *data = tty->dev_data;
+    _assert(data);
+
+    switch (cmd) {
+    case TIOCSPGRP:
+        data->fg_pgid = *(pid_t *) arg;
+        return 0;
+    default:
+        return -EINVAL;
+    }
 }

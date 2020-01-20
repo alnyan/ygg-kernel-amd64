@@ -4,6 +4,8 @@
 # amd64-specific
 export AMD64_TRACE_IRQ=1
 
+export ALL_SETUID_0=0
+
 # Emulation
 export QEMU_SMP=4
 # export QEMU_MEM=512

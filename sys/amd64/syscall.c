@@ -18,6 +18,7 @@ const void *amd64_syscall_jmp_table[256] = {
     [SYSCALL_NR_OPEN] = sys_open,
     [SYSCALL_NR_CLOSE] = sys_close,
     [SYSCALL_NR_LSEEK] = sys_lseek,
+    [SYSCALL_NR_IOCTL] = sys_ioctl,
     [SYSCALL_NR_SELECT] = sys_select,
     [SYSCALL_NR_GETCWD] = sys_getcwd,
     [SYSCALL_NR_CHDIR] = sys_chdir,
@@ -44,6 +45,8 @@ const void *amd64_syscall_jmp_table[256] = {
     [SYSCALL_NR_SETGID] = sys_setgid,
     [SYSCALL_NR_GETUID] = sys_getuid,
     [SYSCALL_NR_GETGID] = sys_getgid,
+    [SYSCALL_NR_SETPGID] = sys_setpgid,
+    [SYSCALL_NR_GETPGID] = sys_getpgid,
 
     // System
     [SYSCALL_NR_UNAME] = sys_uname,

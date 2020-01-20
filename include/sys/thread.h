@@ -42,7 +42,9 @@ struct thread {
     uintptr_t argp_page_phys;
 
     uint64_t flags;
-    uint32_t pid;
+    pid_t pid;
+    pid_t pgid;
+    pid_t sid;
 
     int exit_code;
 

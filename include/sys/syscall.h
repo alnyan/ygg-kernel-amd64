@@ -6,6 +6,7 @@
 #define SYSCALL_NR_CLOSE        3
 #define SYSCALL_NR_STAT         4
 #define SYSCALL_NR_LSEEK        8
+#define SYSCALL_NR_IOCTL        16
 #define SYSCALL_NR_ACCESS       21
 #define SYSCALL_NR_SELECT       23
 #define SYSCALL_NR_GETCWD       79
@@ -32,6 +33,8 @@
 #define SYSCALL_NR_GETGID       104
 #define SYSCALL_NR_SETUID       105
 #define SYSCALL_NR_SETGID       106
+#define SYSCALL_NR_SETPGID      109
+#define SYSCALL_NR_GETPGID      121
 
 #define SYSCALL_NR_UNAME        63
 #define SYSCALL_NR_MOUNT        165

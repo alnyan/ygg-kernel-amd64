@@ -5,6 +5,8 @@
 #include "sys/debug.h"
 #include "sys/mm.h"
 
+#include "sys/amd64/sys_file.h"
+
 #define HEAP_MAGIC 0x1BAD83A0
 
 typedef struct heap_block {
@@ -42,6 +44,9 @@ void heap_stat(heap_t *heap, struct heap_stat *st) {
     st->total_size = heap->limit;
 
     for (heap_block_t *block = begin; block; block = block->next) {
+        if ((block->magic & HEAP_MAGIC) != HEAP_MAGIC) {
+            panic("Broken heap");
+        }
         if (block->magic & 1) {
             ++st->alloc_count;
             st->alloc_size += block->size;
@@ -74,6 +79,7 @@ void amd64_heap_init(heap_t *heap, uintptr_t phys_base, size_t sz) {
 
 // Heap interface implementation
 void *heap_alloc(heap_t *heap, size_t count) {
+    asm volatile ("cli");
     heap_block_t *begin = (heap_block_t *) MM_VIRTUALIZE(heap->phys_base);
 
     // Some alignment fuck ups led me to this
@@ -115,8 +121,12 @@ void *heap_alloc(heap_t *heap, size_t count) {
 }
 
 void heap_free(heap_t *heap, void *ptr) {
+    asm volatile ("cli");
     if (!ptr) {
         return;
+    }
+
+    if (ptr == (void *) 0xffffff00042ddd70) {
     }
 
     // Check if the pointer belongs to the heap
@@ -136,6 +146,9 @@ void heap_free(heap_t *heap, void *ptr) {
     heap_block_t *begin = (heap_block_t *) MM_VIRTUALIZE(heap->phys_base);
 
     for (heap_block_t *block = begin; block; block = block->next) {
+        if (block->next == (struct heap_block *) 0xffffff00042ddd70) {
+            kdebug("%p's NEXT IS %p\n", block, block->next);
+        }
         if ((block->magic & HEAP_MAGIC) != HEAP_MAGIC) {
             panic("Heap is broken: magic %08x, %p (%lu), size could be %S\n", block->magic, block, (uintptr_t) block - (uintptr_t) begin, block->size);
         }

@@ -15,7 +15,9 @@ KERNEL_HEADERS="include/sys/fcntl.h \
                 include/sys/errno.h \
                 include/sys/signum.h \
                 include/sys/utsname.h \
-                include/sys/select.h"
+                include/sys/select.h \
+                include/sys/termios.h \
+                include/sys/ioctl.h"
 
 for src_file in $KERNEL_HEADERS; do
     dst_file=$INSTALL_HDR$(echo $src_file | sed -e 's/^include//g')

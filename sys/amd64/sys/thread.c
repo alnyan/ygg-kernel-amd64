@@ -18,6 +18,8 @@
 #include "sys/debug.h"
 #include "sys/mm.h"
 
+#include "sys/amd64/sys_proc.h"
+
 #define THREAD_KSTACK_SIZE      32768
 
 // Means stack0 wasn't kmalloc'd, so don't free it
@@ -167,6 +169,8 @@ int thread_init(
     t->space = space;
 
     // Set this stuff to prevent undefined behavior
+    t->pgid = 0;
+    t->sid = 0;
     t->sigq = 0;
     t->flags = flags;
 
@@ -290,6 +294,18 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
 
     if ((res = vfs_open(&thr->ioctx, &fd, filename, O_RDONLY | O_EXEC, 0)) != 0) {
         return res;
+    }
+
+    // If the file has setuid bit, apply owner's UID:
+    if (st.st_mode & S_ISUID) {
+        // I don't want to compromise my development machine by having SUID
+        // binaries written by myself residing there with root UID. Better
+        // employ this kind of hack for that.
+#if defined(ALL_SETUID_0)
+        thr->ioctx.uid = 0;
+#else
+        thr->ioctx.uid = st.st_uid;
+#endif
     }
 
     // Read first line of the file
@@ -445,6 +461,8 @@ int sys_fork(void) {
     thr_dst->parent = thr_src;
     thr_dst->next_child = thr_src->child;
     thr_src->child = thr_dst;
+    thr_dst->sid = thr_src->sid;
+    thr_dst->pgid = thr_src->pgid;
 
     sched_add(thr_dst);
     _assert(thr_dst->pid);

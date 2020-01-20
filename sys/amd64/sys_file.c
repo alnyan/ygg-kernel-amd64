@@ -291,6 +291,22 @@ done:
     return res;
 }
 
+int sys_ioctl(int fd, unsigned int cmd, void *arg) {
+    struct thread *thr = get_cpu()->thread;
+    struct ofile *of;
+    _assert(thr);
+
+    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+        return -EBADF;
+    }
+
+    if (!(of = thr->fds[fd])) {
+        return -EBADF;
+    }
+
+    return vfs_ioctl(&thr->ioctx, of, cmd, arg);
+}
+
 int sys_isatty(int fd) {
     struct thread *thr = get_cpu()->thread;
     struct ofile *of;

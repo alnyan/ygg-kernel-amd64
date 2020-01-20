@@ -163,7 +163,7 @@ int dev_find(enum dev_class cls, const char *name, struct vnode **node) {
 ////
 
 static int devfs_vnode_stat(struct vnode *node, struct stat *st) {
-    st->st_mode = (node->mode & 0x1FF) | vfs_vnode_to_mode(node->type);
+    st->st_mode = (node->mode & VFS_MODE_MASK) | vfs_vnode_to_mode(node->type);
     st->st_uid = node->uid;
     st->st_gid = node->gid;
     st->st_size = 0;

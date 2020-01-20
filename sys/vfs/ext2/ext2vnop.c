@@ -104,7 +104,7 @@ static int ext2_vnode_find(struct vnode *vn, const char *name, struct vnode **re
                     node->ino = dirent->ino;
                     node->op = &ext2_vnode_ops;
 
-                    node->mode = inode->type_perm & 0x1FF;
+                    node->mode = inode->type_perm & VFS_MODE_MASK;
                     node->uid = inode->uid;
                     node->gid = inode->gid;
 
@@ -202,7 +202,7 @@ static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t
     ent_inode->l2_indirect_block = 0;
     ent_inode->l3_indirect_block = 0;
 
-    ent_inode->type_perm = (mode & 0x1FF) | EXT2_TYPE_DIR;
+    ent_inode->type_perm = (mode & VFS_MODE_MASK) | EXT2_TYPE_DIR;
     ent_inode->uid = uid;
     ent_inode->gid = gid;
     ent_inode->disk_sector_count = 0;
@@ -288,7 +288,7 @@ static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t
     ent_inode->uid = uid;
     ent_inode->gid = gid;
     // NOTE: only regular files can be created this way now
-    ent_inode->type_perm = (mode & 0x1FF) | (EXT2_TYPE_REG);
+    ent_inode->type_perm = (mode & VFS_MODE_MASK) | (EXT2_TYPE_REG);
     ent_inode->disk_sector_count = 0;
     ent_inode->size_lower = 0;
 
@@ -612,8 +612,8 @@ static int ext2_vnode_chmod(struct vnode *vn, mode_t mode) {
     struct ext2_inode *inode = (struct ext2_inode *) vn->fs_data;
 
     // Update only access mode
-    inode->type_perm &= ~0x1FF;
-    inode->type_perm |= mode & 0x1FF;
+    inode->type_perm &= ~VFS_MODE_MASK;
+    inode->type_perm |= mode & VFS_MODE_MASK;
 
     // Write the inode back
     return ext2_write_inode(vn->fs, inode, vn->ino);
@@ -725,7 +725,7 @@ static int ext2_vnode_unlink(struct vnode *node) {
 //
 //    *uid = inode->uid;
 //    *gid = inode->gid;
-//    *mode = inode->type_perm & 0x1FF;
+//    *mode = inode->type_perm & VFS_MODE_MASK;
 //
 //    return 0;
 //}
