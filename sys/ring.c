@@ -53,7 +53,11 @@ int ring_getc(struct thread *ctx, struct ring *ring, char *out) {
         }
         //spin_release(&ring->lock);
         ctx->flags |= THREAD_WAITING;
+        ctx->flags &= ~THREAD_INTERRUPTED;
         asm volatile ("sti; hlt");
+        if (ctx->flags & (THREAD_INTERRUPTED | THREAD_EOF)) {
+            return -1;
+        }
         ctx->flags &= ~THREAD_WAITING;
         //spin_lock(&ring->lock);
     } while (1);
@@ -78,6 +82,10 @@ ssize_t ring_read(struct thread *ctx, struct ring *ring, void *buf, size_t count
 
         --rem;
         ++pos;
+    }
+
+    if (pos == 0) {
+        return -1;
     }
 
 	return pos;

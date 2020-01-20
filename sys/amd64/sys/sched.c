@@ -77,6 +77,36 @@ struct thread *sched_find(int pid) {
     return NULL;
 }
 
+int sched_close_stdin_group(int pgid) {
+    int res = 0;
+
+    for (size_t cpu = 0; cpu < sched_ncpus; ++cpu) {
+        for (struct thread *t = sched_queue_heads[cpu]; t; t = t->next) {
+            if ((int) t->pgid == pgid) {
+                ++res;
+
+                // Correct behavior - flush TTY line instead and make read return zero
+                t->flags |= THREAD_INTERRUPTED;
+                if (t->fds[0]) {
+                    vfs_close(&t->ioctx, t->fds[0]);
+                    _assert(t->fds[0]->refcount >= 0);
+
+                    if (!t->fds[0]->refcount) {
+                        kfree(t->fds[0]);
+                    }
+                    t->fds[0] = NULL;
+                }
+            }
+        }
+    }
+
+    if (!res) {
+        return -ESRCH;
+    } else {
+        return res;
+    }
+}
+
 int sched_signal_group(int pgid, int signum) {
     int res = 0;
 
@@ -85,6 +115,8 @@ int sched_signal_group(int pgid, int signum) {
             if ((int) t->pgid == pgid) {
                 ++res;
 
+                // Correct behavior - interrupt and restart read
+                t->flags |= THREAD_INTERRUPTED;
                 thread_signal(t, signum);
             }
         }

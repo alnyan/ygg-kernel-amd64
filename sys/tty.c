@@ -2,6 +2,7 @@
 #include "sys/chr.h"
 #include "sys/errno.h"
 #include "sys/debug.h"
+#include "sys/signum.h"
 #include "sys/panic.h"
 #include "sys/string.h"
 #include "sys/assert.h"
@@ -39,17 +40,28 @@ static struct chrdev _dev_tty0 = {
     .ioctl = tty_ioctl
 };
 
-static void tty_signal_group(struct chrdev *tty, int signum) {
+static void tty_control(struct chrdev *tty, char c) {
     struct tty_data *data = tty->dev_data;
     _assert(data);
-    sched_signal_group(data->fg_pgid, signum);
+
+    switch (c) {
+    case 'd':
+        // Close stdin for process group
+        sched_close_stdin_group(data->fg_pgid);
+        break;
+    case 'c':
+        sched_signal_group(data->fg_pgid, SIGINT);
+        break;
+    default:
+        panic("Unhandled control to TTY: ^%c\n", c);
+    }
 }
 
-void tty_signal_write(int tty_no, int signum) {
-    kdebug("Send signal %d on tty%d\n", signum, tty_no);
+void tty_control_write(int tty_no, char c) {
+    kdebug("^%c on tty%d\n", c, tty_no);
     switch (tty_no) {
     case 0:
-        tty_signal_group(&_dev_tty0, signum);
+        tty_control(&_dev_tty0, c);
         break;
     }
 }
@@ -86,6 +98,8 @@ static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t
 
 static ssize_t tty_read(struct chrdev *tty, void *buf, size_t pos, size_t lim) {
     struct tty_data *data = tty->dev_data;
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
     _assert(data);
     char ibuf[16];
 
@@ -101,14 +115,20 @@ static ssize_t tty_read(struct chrdev *tty, void *buf, size_t pos, size_t lim) {
     size_t p = 0;
 
     while (rem) {
-        ssize_t rd = ring_read(get_cpu()->thread, &tty->buffer, ibuf, MIN(16, rem));
-        if (rd < 0) {
+        ssize_t rd = ring_read(thr, &tty->buffer, ibuf, MIN(16, rem));
+        if (rd <= 0) {
+            // Interrupt or end of stream
             break;
         }
         memcpy((char *) buf + p, ibuf, rd);
 
         rem -= rd;
         p += rd;
+
+        if (thr->flags & THREAD_INTERRUPTED) {
+            thr->flags &= ~THREAD_INTERRUPTED;
+            return p;
+        }
     }
 
     return p;
@@ -119,6 +139,10 @@ static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg) {
     _assert(data);
 
     switch (cmd) {
+    case TIOCGWINSZ:
+        // TODO: See comment on tty data struct
+        amd64_con_get_size(arg);
+        return 0;
     case TIOCSPGRP:
         data->fg_pgid = *(pid_t *) arg;
         return 0;

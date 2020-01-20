@@ -121,8 +121,11 @@ uint32_t ps2_irq_keyboard(void *ctx) {
         }
     } else {
         switch (key) {
+        case 0x20:  // ^D
+            tty_control_write(0, 'd');
+            break;
         case 0x2E:  // ^C
-            tty_signal_write(0, SIGINT);
+            tty_control_write(0, 'c');
             break;
         }
     }

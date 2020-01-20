@@ -1,4 +1,5 @@
 #include "sys/amd64/hw/con.h"
+#include "sys/termios.h"
 #include "sys/string.h"
 #include "sys/types.h"
 #include "sys/debug.h"
@@ -357,6 +358,22 @@ void amd64_con_putc(int c) {
             }
         }
         break;
+    }
+}
+
+void amd64_con_get_size(struct winsize *ws) {
+    ws->ws_row = con_height;
+    ws->ws_col = con_width;
+#if defined(VESA_ENABLE)
+    if (vesa_available) {
+        ws->ws_xpixel = vesa_width;
+        ws->ws_ypixel = vesa_height;
+    } else {
+#else
+    {
+#endif
+        ws->ws_xpixel = con_width;
+        ws->ws_ypixel = con_height;
     }
 }
 
