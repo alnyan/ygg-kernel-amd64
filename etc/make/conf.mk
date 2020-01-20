@@ -95,3 +95,7 @@ endif
 DIRS+=$(O)/sys/vfs/ext2 \
 	  $(O)/sys/net \
 	  $(O)/sys/blk
+
+ifeq ($(DEBUG_COUNTERS),1)
+CFLAGS+=-DDEBUG_COUNTERS
+endif

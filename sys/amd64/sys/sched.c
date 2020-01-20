@@ -304,6 +304,7 @@ void sched_reboot(unsigned int cmd) {
     t_user_init->sigq |= 1 << (SIGTERM - 1);
 }
 
+#if defined(DEBUG_COUNTERS)
 static uint64_t debug_last_tick = 0;
 
 static void debug_print_thread_name(int level, struct thread *thr) {
@@ -401,6 +402,7 @@ static void debug_stats(void) {
 
     syscall_count = 0;
 }
+#endif
 
 int sched(void) {
     struct thread *from = get_cpu()->thread;
@@ -408,12 +410,13 @@ int sched(void) {
     int cpu = get_cpu()->processor_id;
     uintptr_t flags;
 
-    (void) debug_stats;
+#if defined(DEBUG_COUNTERS)
     // Print various stuff every second
     if (!cpu && system_time - debug_last_tick >= 1000000000) {
-        //debug_stats();
+        debug_stats();
         debug_last_tick = system_time;
     }
+#endif
 
     if (from == &t_idle[cpu]) {
         from = NULL;
