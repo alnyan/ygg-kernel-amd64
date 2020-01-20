@@ -9,9 +9,11 @@ struct ring {
     size_t rdptr;
     size_t cap;
     spin_t lock;
+    int post;
     struct thread *listener;
 };
 
+void ring_post(struct ring *b);
 size_t ring_avail(struct ring *b);
 ssize_t ring_read(struct thread *ctx, struct ring *b, void *buf, size_t lim);
 int ring_putc(struct thread *ctx, struct ring *b, char c);

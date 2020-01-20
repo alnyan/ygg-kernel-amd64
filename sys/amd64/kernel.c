@@ -46,8 +46,11 @@ void kernel_main(struct amd64_loader_data *data) {
     amd64_idt_init();
     amd64_mm_init(data);
     // XXX: HEAP IS ONLY AVAILABLE AT THIS POINT
+    // Register devices after heap is ready
     extern void pseudo_init();
     pseudo_init();
+    ps2_register_device();
+
     amd64_acpi_init();
 #if defined(VESA_ENABLE)
     amd64_vesa_init(multiboot_info);

@@ -1,4 +1,5 @@
 #include "sys/amd64/mm/pool.h"
+#include "sys/amd64/hw/io.h"
 #include "sys/amd64/syscall.h"
 #include "sys/binfmt_elf.h"
 #include "sys/amd64/cpu.h"
@@ -117,6 +118,9 @@ void init_func(void *arg) {
 
     // Start user init binary
     user_init_start();
+
+    outb(0x20, 0x20);
+    outb(0xA0, 0x20);
 
     struct thread *this = get_cpu()->thread;
     this->exit_code = 0;

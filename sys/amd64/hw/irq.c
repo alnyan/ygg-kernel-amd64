@@ -1,5 +1,6 @@
 #include "sys/amd64/asm/asm_irq.h"
 #include "sys/amd64/hw/ioapic.h"
+#include "sys/amd64/hw/io.h"
 #include "sys/amd64/hw/irq.h"
 #include "sys/amd64/hw/idt.h"
 #include "sys/string.h"

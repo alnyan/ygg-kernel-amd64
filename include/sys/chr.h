@@ -11,6 +11,9 @@ struct chrdev {
     ssize_t (*read) (struct chrdev *chr, void *buf, size_t pos, size_t lim);
 };
 
+// Generic ring-buffer reader
+ssize_t chr_read_ring(struct chrdev *chr, void *buf, size_t pos, size_t lim);
+
 int chr_ioctl(struct chrdev *chr, unsigned int cmd, void *arg);
 ssize_t chr_write(struct chrdev *chr, const void *buf, size_t pos, size_t lim);
 ssize_t chr_read(struct chrdev *chr, void *buf, size_t pos, size_t lim);

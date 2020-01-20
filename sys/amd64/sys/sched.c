@@ -408,9 +408,10 @@ int sched(void) {
     int cpu = get_cpu()->processor_id;
     uintptr_t flags;
 
+    (void) debug_stats;
     // Print various stuff every second
     if (!cpu && system_time - debug_last_tick >= 1000000000) {
-        debug_stats();
+        //debug_stats();
         debug_last_tick = system_time;
     }
 

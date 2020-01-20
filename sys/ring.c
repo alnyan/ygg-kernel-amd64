@@ -28,6 +28,10 @@ size_t ring_writable(struct ring *ring) {
     }
 }
 
+void ring_post(struct ring *ring) {
+    ring->post = 1;
+}
+
 static inline void ring_advance_read(struct ring *ring) {
 	ring->rdptr++;
     if (ring->rdptr == ring->cap) {
@@ -55,6 +59,9 @@ int ring_getc(struct thread *ctx, struct ring *ring, char *out) {
         ctx->flags |= THREAD_WAITING;
         ctx->flags &= ~THREAD_INTERRUPTED;
         asm volatile ("sti; hlt");
+        if (ring->post) {
+            break;
+        }
         if (ctx->flags & (THREAD_INTERRUPTED | THREAD_EOF)) {
             return -1;
         }
@@ -76,6 +83,10 @@ ssize_t ring_read(struct thread *ctx, struct ring *ring, void *buf, size_t count
     size_t pos = 0;
 
     while (rem) {
+        if (ring->post) {
+            break;
+        }
+
         if (ring_getc(ctx, ring, (char *) buf + pos) != 0) {
             break;
         }

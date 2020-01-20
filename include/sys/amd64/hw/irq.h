@@ -4,6 +4,7 @@
 
 #define IRQ_LEG_KEYBOARD        1
 #define IRQ_LEG_COM1_3          4
+#define IRQ_LEG_MOUSE           12
 
 #define IRQ_HANDLED             ((uint32_t) 0)
 #define IRQ_UNHANDLED           ((uint32_t) -1)

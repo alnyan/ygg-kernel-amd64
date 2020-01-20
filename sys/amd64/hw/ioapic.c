@@ -69,40 +69,13 @@ void amd64_ioapic_set(uintptr_t addr) {
     }
     amd64_ioapic_base = addr;
     memset(ioapic_leg_rt, 0xFF, sizeof(ioapic_leg_rt));
-
-//    kdebug("I/O APIC @ %p\n", addr);
-
-    // Dump the entries of I/O APIC
-
-    for (uint8_t i = 0x10; i < 0x3F; i += 2) {
-        uint32_t low = amd64_ioapic_read(i + 0);
-        uint32_t high = amd64_ioapic_read(i + 1);
-
-        static const char *del_type[] = {
-            "Normal",
-            "Low priority",
-            "SMI",
-            "???",
-            "NMI",
-            "INIT",
-            "???",
-            "EXTI"
-        };
-
-//        kdebug("[%d] %s, %s, DST 0x%02x:0x%02x\n",
-//               i,
-//               (low & IOAPIC_REDIR_MSK) ? "Masked" : "",
-//               del_type[(low >> 8) & 0x7],
-//               IOAPIC_REDIR_DST_GET(high),
-//               low & 0xF);
-    }
 }
 
 void amd64_ioapic_map_gsi(uint8_t gsi, uint8_t lapic, uint8_t vector) {
     uint32_t low = amd64_ioapic_read((gsi * 2) + 0x10);
     uint32_t high = amd64_ioapic_read((gsi * 2) + 0x11);
 
-    low &= ~0xFF;
+    low &= (~0xFF) & (IOAPIC_REDIR_POL_LOW | IOAPIC_REDIR_TRG_LEVEL);
     low |= vector;
 
     high = IOAPIC_REDIR_DST_SET(lapic);

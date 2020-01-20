@@ -2,12 +2,12 @@
 #include "sys/chr.h"
 #include "sys/errno.h"
 #include "sys/debug.h"
+#include "sys/sched.h"
 #include "sys/signum.h"
 #include "sys/panic.h"
 #include "sys/string.h"
 #include "sys/assert.h"
 #include "sys/termios.h"
-#include "sys/sched.h"
 #include "sys/ring.h"
 #include "sys/mm.h"
 #include "sys/amd64/cpu.h"
@@ -17,7 +17,6 @@
 #define DEV_TTY(n)          (n ## ULL)
 
 static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t lim);
-static ssize_t tty_read(struct chrdev *tty, void *buf, size_t pos, size_t lim);
 static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg);
 
 struct tty_data {
@@ -36,7 +35,7 @@ static struct tty_data _dev_tty0_data = {
 static struct chrdev _dev_tty0 = {
     .dev_data = &_dev_tty0_data,
     .write = tty_write,
-    .read = tty_read,
+    .read = chr_read_ring,
     .ioctl = tty_ioctl
 };
 
@@ -94,44 +93,6 @@ static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t
         amd64_con_putc(((const char *) buf)[i]);
     }
     return lim;
-}
-
-static ssize_t tty_read(struct chrdev *tty, void *buf, size_t pos, size_t lim) {
-    struct tty_data *data = tty->dev_data;
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
-    _assert(data);
-    char ibuf[16];
-
-    if (data->tty_n != DEV_TTY(0)) {
-        return -EINVAL;
-    }
-
-    if (lim == 0) {
-        return 0;
-    }
-
-    size_t rem = lim;
-    size_t p = 0;
-
-    while (rem) {
-        ssize_t rd = ring_read(thr, &tty->buffer, ibuf, MIN(16, rem));
-        if (rd <= 0) {
-            // Interrupt or end of stream
-            break;
-        }
-        memcpy((char *) buf + p, ibuf, rd);
-
-        rem -= rd;
-        p += rd;
-
-        if (thr->flags & THREAD_INTERRUPTED) {
-            thr->flags &= ~THREAD_INTERRUPTED;
-            return p;
-        }
-    }
-
-    return p;
 }
 
 static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg) {
