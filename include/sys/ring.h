@@ -2,19 +2,24 @@
 #include "sys/types.h"
 #include "sys/spin.h"
 
+struct thread;
+
+#define RING_SIGNAL_BRK     (1 << 0)
+#define RING_SIGNAL_EOF     (1 << 1)
+
 // Ring buffer
 struct ring {
-    char *data;
-    size_t wrptr;
-    size_t rdptr;
+    size_t rd, wr;
     size_t cap;
-    spin_t lock;
-    int post;
-    struct thread *listener;
+    char *base;
+    int flags;
 };
 
-void ring_post(struct ring *b);
-size_t ring_avail(struct ring *b);
-ssize_t ring_read(struct thread *ctx, struct ring *b, void *buf, size_t lim);
-int ring_putc(struct thread *ctx, struct ring *b, char c);
-void ring_init(struct ring *b, size_t cap);
+int ring_readable(struct ring *b);
+int ring_getc(struct thread *ctx, struct ring *b, char *c, int err);
+
+void ring_signal(struct ring *b, int type);
+int ring_putc(struct thread *ctx, struct ring *b, char c, int wait);
+int ring_write(struct thread *ctx, struct ring *b, const void *data, size_t count, int wait);
+
+int ring_init(struct ring *b, size_t cap);

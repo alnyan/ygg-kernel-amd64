@@ -81,7 +81,8 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/vfs/vfs_access.o \
 	  $(O)/sys/time.o \
 	  $(O)/sys/thread.o \
-	  $(O)/sys/ctype.o
+	  $(O)/sys/ctype.o \
+	  $(O)/sys/line.o
 
 # \
 	  $(O)/sys/vfs/pty.o \

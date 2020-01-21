@@ -1,7 +1,32 @@
 #pragma once
 
+#define TCGETS          0x5401
+#define TCSETS          0x5402
 #define TIOCSPGRP       0x5410
 #define TIOCGWINSZ      0x5413
+
+// Output flags
+#define OPOST           (1 << 0)
+#define ONLCR           (1 << 2)
+#define OCRNL           (1 << 4)
+#define ONLRET          (1 << 6)
+
+// Control flags
+#define ECHO            (1 << 4)        // Echo input characters
+#define ECHOE           (1 << 5)        // if ICANON, ERASE erases prec. character,
+                                        //            WERASE erases prec. word
+#define ECHOK           (1 << 6)        // if ICANON, KILL character erases the line
+#define ECHONL          (1 << 8)        // if ICANON, echo newline (even if no ECHO)
+
+#define TERMIOS_DEFAULT \
+    { \
+        .c_iflag = 0, \
+        .c_oflag = OPOST, \
+        .c_cflag = 0, \
+        .c_lflag = ECHO | ECHONL | ECHOE | ECHOK, \
+    }
+
+typedef unsigned int tcflag_t;
 
 struct winsize {
     unsigned short ws_row;
@@ -9,3 +34,12 @@ struct winsize {
     unsigned short ws_xpixel;
     unsigned short ws_ypixel;
 };
+
+struct termios {
+    tcflag_t c_iflag;
+    tcflag_t c_oflag;
+    tcflag_t c_cflag;
+    tcflag_t c_lflag;
+};
+
+#define TCSANOW         0

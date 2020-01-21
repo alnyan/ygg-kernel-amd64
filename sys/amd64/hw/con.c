@@ -361,6 +361,11 @@ void amd64_con_putc(int c) {
     }
 }
 
+int pc_con_putc(void *dev, char c) {
+    amd64_con_putc(c);
+    return 0;
+}
+
 void amd64_con_get_size(struct winsize *ws) {
     ws->ws_row = con_height;
     ws->ws_col = con_width;

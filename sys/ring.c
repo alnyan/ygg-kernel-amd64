@@ -4,136 +4,108 @@
 #include "sys/ring.h"
 #include "sys/heap.h"
 
-size_t ring_avail(struct ring *ring) {
-    if (ring->rdptr == ring->wrptr) {
+int ring_readable(struct ring *ring) {
+    // | . . . . R X X X W . . . |
+    if (ring->rd <= ring->wr) {
+        return ring->wr - ring->rd;
+    // | X X W . . . . . . R X X |
+    } else {
+        return ring->wr + (ring->cap - ring->rd);
+    }
+}
+
+static int ring_writable(struct ring *ring) {
+    if (ring->wr == ring->cap - 1 && ring->rd == 0) {
         return 0;
     }
 
-    if (ring->rdptr > ring->wrptr) {
-        return (ring->cap - ring->rdptr) + ring->wrptr;
+    // | X X X X R . . . W X X X |
+    if (ring->rd <= ring->wr) {
+        return ring->wr + (ring->cap - ring->rd);
+    // | . . W X X X X R . . . . |
     } else {
-        return (ring->wrptr - ring->rdptr);
+        if (ring->rd == ring->wr + 1) {
+            return 0;
+        }
+        return ring->rd - ring->wr;
     }
 }
 
-size_t ring_writable(struct ring *ring) {
-    if (ring->rdptr == ring->wrptr) {
-        return ring->cap - 1;
-    }
-
-    if (ring->rdptr > ring->wrptr) {
-        return ring->rdptr - ring->wrptr - 1;
+static void ring_advance_read(struct ring *ring) {
+    if (ring->rd == ring->cap - 1) {
+        ring->rd = 0;
     } else {
-        return (ring->cap - ring->wrptr) + ring->rdptr - 1;
+        ++ring->rd;
     }
 }
 
-void ring_post(struct ring *ring) {
-    ring->post = 1;
-}
-
-static inline void ring_advance_read(struct ring *ring) {
-	ring->rdptr++;
-    if (ring->rdptr == ring->cap) {
-        ring->rdptr = 0;
+static void ring_advance_write(struct ring *ring) {
+    if (ring->wr == ring->cap - 1) {
+        ring->wr = 0;
+    } else {
+        ++ring->wr;
     }
 }
 
-static inline void ring_advance_write(struct ring *ring) {
-	ring->wrptr++;
-	if (ring->wrptr == ring->cap) {
-	    ring->wrptr = 0;
-	}
-}
-
-int ring_getc(struct thread *ctx, struct ring *ring, char *out) {
-    uintptr_t flags;
-
-    //spin_lock_irqsave(&ring->lock, &flags);
-
-    do {
-        if (ring_avail(ring)) {
-            break;
-        }
-        //spin_release(&ring->lock);
-        ctx->flags |= THREAD_WAITING;
-        ctx->flags &= ~THREAD_INTERRUPTED;
-        asm volatile ("sti; hlt");
-        if (ring->post) {
-            break;
-        }
-        if (ctx->flags & (THREAD_INTERRUPTED | THREAD_EOF)) {
+int ring_getc(struct thread *ctx, struct ring *ring, char *c, int err) {
+    if (err) {
+        if (!ring_readable(ring)) {
             return -1;
         }
-        ctx->flags &= ~THREAD_WAITING;
-        //spin_lock(&ring->lock);
-    } while (1);
+    } else {
+        do {
+            if (ring->flags & (RING_SIGNAL_BRK | RING_SIGNAL_EOF)) {
+                ring->flags &= ~RING_SIGNAL_BRK;
+                // TODO: send SIGINT on break
+                return -1;
+            }
 
+            if (!ring_readable(ring)) {
+                asm volatile ("sti; hlt; cli");
+            } else {
+                break;
+            }
+        } while (1);
+    }
 
-    *out = ring->data[ring->rdptr];
+    *c = ring->base[ring->rd];
     ring_advance_read(ring);
-
-    //spin_release_irqrestore(&ring->lock, &flags);
-
     return 0;
 }
 
-ssize_t ring_read(struct thread *ctx, struct ring *ring, void *buf, size_t count) {
-    size_t rem = count;
-    size_t pos = 0;
-
-    while (rem) {
-        if (ring->post) {
-            break;
+int ring_putc(struct thread *ctx, struct ring *ring, char c, int wait) {
+    if (wait) {
+        while (!ring_writable(ring)) {
+            asm volatile ("sti; hlt; cli");
         }
-
-        if (ring_getc(ctx, ring, (char *) buf + pos) != 0) {
-            break;
-        }
-
-        --rem;
-        ++pos;
     }
 
-    if (pos == 0) {
+    ring->base[ring->wr] = c;
+    ring_advance_write(ring);
+    return 0;
+}
+
+int ring_write(struct thread *ctx, struct ring *ring, const void *buf, size_t len, int wait) {
+    for (size_t i = 0; i < len; ++i) {
+        if (ring_putc(ctx, ring, ((const char *) buf)[i], wait) != 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+void ring_signal(struct ring *r, int s) {
+    r->flags |= s;
+}
+
+int ring_init(struct ring *r, size_t cap) {
+    r->cap = cap;
+    r->rd = 0;
+    r->wr = 0;
+    r->flags = 0;
+    if (!(r->base = kmalloc(cap))) {
         return -1;
     }
-
-	return pos;
+    return 0;
 }
 
-int ring_putc(struct thread *ctx, struct ring *ring, char c) {
-    uintptr_t flags;
-
-    //spin_lock_irqsave(&ring->lock, &flags);
-
-    do {
-        if (ring_writable(ring)) {
-            break;
-        }
-        //spin_release(&ring->lock);
-        if (ctx) {
-            asm volatile ("sti; hlt");
-        } else {
-            asm volatile ("sti; hlt");
-        }
-        //spin_lock(&ring->lock);
-    } while (1);
-
-
-    ring->data[ring->wrptr] = c;
-    ring_advance_write(ring);
-
-    //spin_release_irqrestore(&ring->lock, &flags);
-
-	return 0;
-}
-
-void ring_init(struct ring *ring, size_t cap) {
-    ring->lock = 0;
-    ring->wrptr = 0;
-    ring->rdptr = 0;
-    ring->data = kmalloc(cap);
-    _assert(ring->data);
-    ring->cap = cap;
-}

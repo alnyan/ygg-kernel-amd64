@@ -5,6 +5,7 @@
 #include "sys/ctype.h"
 #include "sys/signum.h"
 #include "sys/debug.h"
+#include "sys/line.h"
 #include "sys/tty.h"
 #include "sys/chr.h"
 #include "sys/dev.h"
@@ -31,13 +32,15 @@
 
 // Controller stuff
 
+// TTY owning the keyboard
+static struct chrdev *_keyboard_tty = NULL;
 static uint32_t ps2_kbd_mods = 0;
 static uint32_t ps2_aux_state = 0;
 
 static struct chrdev _ps2_mouse = {
     .dev_data = NULL,
     .write = NULL,
-    .read = chr_read_ring,
+    .read = simple_line_read,
     .ioctl = NULL
 };
 
@@ -73,6 +76,10 @@ static const char ps2_key_table_1[128] = {
     [0x7F] = 0
 };
 
+void ps2_kbd_set_tty(struct chrdev *dev) {
+    _keyboard_tty = dev;
+}
+
 uint32_t ps2_irq_keyboard(void *ctx) {
     uint8_t st = inb(0x64);
 
@@ -99,43 +106,48 @@ uint32_t ps2_irq_keyboard(void *ctx) {
         ps2_kbd_mods ^= PS2_MOD_CAPS;
     }
 
+    if (!_keyboard_tty) {
+        // No TTY to send strokes to
+        return IRQ_HANDLED;
+    }
+
     if (!(key & 0x80) && !(ps2_kbd_mods & PS2_MOD_CTRL)) {
         // Special keys
         switch (key) {
         case 0x01:
-            tty_buffer_write(0, '\033');
+            tty_data_write(_keyboard_tty, '\033');
             return IRQ_HANDLED;
         case 0x47:
-            tty_buffer_write(0, '\033');
-            tty_buffer_write(0, '[');
-            tty_buffer_write(0, '[');
-            tty_buffer_write(0, 'H');
+            tty_data_write(_keyboard_tty, '\033');
+            tty_data_write(_keyboard_tty, '[');
+            tty_data_write(_keyboard_tty, '[');
+            tty_data_write(_keyboard_tty, 'H');
             return IRQ_HANDLED;
         case 0x48:
-            tty_buffer_write(0, '\033');
-            tty_buffer_write(0, '[');
-            tty_buffer_write(0, 'A');
+            tty_data_write(_keyboard_tty, '\033');
+            tty_data_write(_keyboard_tty, '[');
+            tty_data_write(_keyboard_tty, 'A');
             return IRQ_HANDLED;
         case 0x50:
-            tty_buffer_write(0, '\033');
-            tty_buffer_write(0, '[');
-            tty_buffer_write(0, 'B');
+            tty_data_write(_keyboard_tty, '\033');
+            tty_data_write(_keyboard_tty, '[');
+            tty_data_write(_keyboard_tty, 'B');
             return IRQ_HANDLED;
         case 0x4D:
-            tty_buffer_write(0, '\033');
-            tty_buffer_write(0, '[');
-            tty_buffer_write(0, 'C');
+            tty_data_write(_keyboard_tty, '\033');
+            tty_data_write(_keyboard_tty, '[');
+            tty_data_write(_keyboard_tty, 'C');
             return IRQ_HANDLED;
         case 0x4F:
-            tty_buffer_write(0, '\033');
-            tty_buffer_write(0, '[');
-            tty_buffer_write(0, '[');
-            tty_buffer_write(0, 'F');
+            tty_data_write(_keyboard_tty, '\033');
+            tty_data_write(_keyboard_tty, '[');
+            tty_data_write(_keyboard_tty, '[');
+            tty_data_write(_keyboard_tty, 'F');
             return IRQ_HANDLED;
         case 0x4B:
-            tty_buffer_write(0, '\033');
-            tty_buffer_write(0, '[');
-            tty_buffer_write(0, 'D');
+            tty_data_write(_keyboard_tty, '\033');
+            tty_data_write(_keyboard_tty, '[');
+            tty_data_write(_keyboard_tty, 'D');
             return IRQ_HANDLED;
         default:
             break;
@@ -152,15 +164,15 @@ uint32_t ps2_irq_keyboard(void *ctx) {
         }
 
         if (key_char != 0) {
-            tty_buffer_write(0, key_char);
+            tty_data_write(_keyboard_tty, key_char);
         }
     } else {
         switch (key) {
         case 0x20:  // ^D
-            tty_control_write(0, 'd');
+            tty_control_write(_keyboard_tty, 'd');
             break;
         case 0x2E:  // ^C
-            tty_control_write(0, 'c');
+            tty_control_write(_keyboard_tty, 'c');
             break;
         }
     }
@@ -179,6 +191,9 @@ uint32_t ps2_irq_mouse(void *arg) {
         packet[i] = inb(0x60);
     }
 
+    // TODO: ability to "hold" and "release" the buffer
+    //       so objects are written at least in one piece
+
     int16_t dx, dy;
     dx = packet[1];
     dx -= (packet[0] << 4) & 0x100;
@@ -186,30 +201,13 @@ uint32_t ps2_irq_mouse(void *arg) {
     dy = packet[2];
     dy -= (packet[0] << 3) & 0x100;
 
-    if ((packet[0] & PS2_AUX_BM) != (ps2_aux_state & PS2_AUX_BM)) {
-        if (packet[0] & PS2_AUX_BM) {
-            ring_putc(NULL, &_ps2_mouse.buffer, 'M');
-        } else {
-            ring_putc(NULL, &_ps2_mouse.buffer, 'm');
-        }
+    if (dx || dy) {
+        // Write "delta" event
+        ring_putc(NULL, &_ps2_mouse.buffer, 'd', 0);
+        ring_write(NULL, &_ps2_mouse.buffer, &dx, 2, 0);
+        ring_write(NULL, &_ps2_mouse.buffer, &dy, 2, 0);
     }
-    if ((packet[0] & PS2_AUX_BR) != (ps2_aux_state & PS2_AUX_BR)) {
-        if (packet[0] & PS2_AUX_BR) {
-            ring_putc(NULL, &_ps2_mouse.buffer, 'R');
-        } else {
-            ring_putc(NULL, &_ps2_mouse.buffer, 'r');
-        }
-    }
-    if ((packet[0] & PS2_AUX_BL) != (ps2_aux_state & PS2_AUX_BL)) {
-        if (packet[0] & PS2_AUX_BL) {
-            ring_putc(NULL, &_ps2_mouse.buffer, 'L');
-        } else {
-            ring_putc(NULL, &_ps2_mouse.buffer, 'l');
-        }
-    }
-    if ((packet[0] & 7) != ps2_aux_state) {
-        ring_post(&_ps2_mouse.buffer);
-    }
+
     ps2_aux_state = packet[0] & 7;
 
     return IRQ_HANDLED;

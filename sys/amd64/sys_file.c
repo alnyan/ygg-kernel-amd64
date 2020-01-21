@@ -269,7 +269,7 @@ int sys_select(int nfds, fd_set *rd, fd_set *wr, fd_set *exc, struct timeval *tv
                 struct chrdev *chr = fd->vnode->dev;
                 _assert(chr);
 
-                if (ring_avail(&chr->buffer) > 0) {
+                if (ring_readable(&chr->buffer) > 0) {
                     FD_SET(i, rd);
                     res = 0;
                     goto done;

@@ -48,7 +48,7 @@ static uint32_t rs232_irq(void *ctx) {
             c = '\n';
         }
 
-        tty_buffer_write(0, c);
+        // TODO: send data to bound TTY
     }
 
     return has_data ? IRQ_HANDLED : IRQ_UNHANDLED;
