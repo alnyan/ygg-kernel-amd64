@@ -65,7 +65,7 @@ static void setc(uint16_t row, uint16_t col, uint16_t v);
 static uint16_t old_blink_x, old_blink_y;
 
 void con_blink(void) {
-    if (vesa_available) {
+    if (vesa_available && !vesa_hold) {
         uint32_t fg = rgb_map[(attr >> 8) & 0xF];
         uint32_t bg = rgb_map[(attr >> 12) & 0xF];
         con_blink_state = !con_blink_state;
@@ -121,7 +121,7 @@ static void amd64_con_flush(void) {
 
 static void amd64_scroll_down(void) {
 #if defined(VESA_ENABLE)
-    if (vesa_available) {
+    if (vesa_available && !vesa_hold) {
         memcpy(con_buffer, &con_buffer[con_width], (con_height - 1) * con_width * 2);
         memsetw(&con_buffer[(con_height - 1) * con_width], ATTR_DEFAULT, con_width);
     } else {
@@ -289,7 +289,7 @@ static void setc(uint16_t row, uint16_t col, uint16_t v) {
 
     con_buffer[row * con_width + col] = v;
 
-    if (vesa_available) {
+    if (vesa_available && !vesa_hold) {
         psf_draw(row, col, v & 0xFF, rgb_map[(v >> 8) & 0xF], rgb_map[(v >> 12) & 0xF]);
     } else {
         ((uint16_t *) MM_VIRTUALIZE(CGA_BUFFER_ADDR))[row * 80 + col] = v;

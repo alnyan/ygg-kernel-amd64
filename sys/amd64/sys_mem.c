@@ -6,6 +6,35 @@
 #include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/errno.h"
+#include "sys/mman.h"
+#include "sys/blk.h"
+
+void *sys_mmap(void *hint, size_t length, int prot, int flags, int fd, off_t offset) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    struct ofile *of;
+
+    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+        return (void *) -EBADF;
+    }
+
+    if (!(of = thr->fds[fd])) {
+        return (void *) -EBADF;
+    }
+
+    uintptr_t _hint = (uintptr_t) hint;
+    _hint = (_hint + 0xFFF) & ~0xFFF;
+    hint = (void *) _hint;
+
+    _assert(of->vnode);
+
+    switch (of->vnode->type) {
+    case VN_BLK:
+        return blk_mmap(of->vnode->dev, of, hint, length, flags);
+    default:
+        return (void *) -EINVAL;
+    }
+}
 
 int sys_brk(void *addr) {
     struct thread *thr = get_cpu()->thread;

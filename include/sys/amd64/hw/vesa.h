@@ -2,7 +2,7 @@
 #include "sys/amd64/loader/multiboot.h"
 #include "sys/types.h"
 
-extern int vesa_available;
+extern int vesa_available, vesa_hold;
 extern uint32_t vesa_width, vesa_height, vesa_pitch, vesa_bpp;
 extern uint64_t vesa_addr;
 

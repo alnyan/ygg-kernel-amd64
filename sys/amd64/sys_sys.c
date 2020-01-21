@@ -3,6 +3,7 @@
 #include "sys/amd64/cpu.h"
 #include "sys/reboot.h"
 #include "sys/string.h"
+#include "sys/debug.h"
 #include "sys/assert.h"
 #include "sys/errno.h"
 #include "sys/sched.h"
@@ -50,7 +51,7 @@ int sys_nanosleep(const struct timespec *req, struct timespec *rem) {
     _assert(cur_thread);
 
     uint64_t time_now = system_time;
-    uint64_t deadline = time_now + req->tv_sec * 1000000000ULL + req->tv_nsec;
+    uint64_t deadline = time_now + (req->tv_sec * 1000000000ULL) + req->tv_nsec;
 
     // Make sure scheduler won't select a waiting thread
     while (1) {

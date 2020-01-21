@@ -14,6 +14,7 @@ enum dev_class {
 #define DEV_BLOCK_RAM       3
 #define DEV_BLOCK_PART      127
 #define DEV_BLOCK_PSEUDO    128
+#define DEV_BLOCK_OTHER     255
 
 #define DEV_CHAR_TTY        1
 

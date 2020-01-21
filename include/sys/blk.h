@@ -5,21 +5,22 @@
 #define BLK_BUSY        (1 << 0)
 
 struct vnode;
+struct ofile;
 
 struct blkdev {
     uint32_t flags;
 
     void *dev_data;
-    struct dev_entry *ent;
-    struct dev_entry *ent_parent;
 
     ssize_t (*read) (struct blkdev *blk, void *buf, size_t off, size_t count);
     ssize_t (*write) (struct blkdev *blk, const void *buf, size_t off, size_t count);
     int (*ioctl) (struct blkdev *blk, unsigned long req, void *ptr);
+    void *(*mmap) (struct blkdev *blk, struct ofile *fd, void *hint, size_t length, int flags);
 
     void (*destroy) (struct blkdev *blk);
 };
 
+void *blk_mmap(struct blkdev *blk, struct ofile *fd, void *hint, size_t length, int flags);
 ssize_t blk_read(struct blkdev *blk, void *buf, size_t off, size_t count);
 ssize_t blk_write(struct blkdev *blk, const void *buf, size_t off, size_t count);
 int blk_ioctl(struct blkdev *blk, unsigned long req, void *ptr);

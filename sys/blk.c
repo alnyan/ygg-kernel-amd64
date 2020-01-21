@@ -44,6 +44,15 @@ struct gpt_part_entry {
     char part_name[72];
 };
 
+void *blk_mmap(struct blkdev *blk, struct ofile *of, void *hint, size_t length, int flags) {
+    _assert(blk);
+    if (blk->mmap) {
+        return blk->mmap(blk, of, hint, length, flags);
+    } else {
+        return (void *) -EINVAL;
+    }
+}
+
 ssize_t blk_read(struct blkdev *blk, void *buf, size_t off, size_t lim) {
     _assert(blk);
 

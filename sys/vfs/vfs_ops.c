@@ -8,6 +8,7 @@
 #include "sys/errno.h"
 #include "sys/heap.h"
 #include "sys/chr.h"
+#include "sys/blk.h"
 
 static int vfs_open_mode(int opt) {
     int r = 0;
@@ -618,6 +619,8 @@ int vfs_ioctl(struct vfs_ioctx *ctx, struct ofile *fd, unsigned int cmd, void *a
     switch (node->type) {
     case VN_CHR:
         return chr_ioctl(node->dev, cmd, arg);
+    case VN_BLK:
+        return blk_ioctl(node->dev, cmd, arg);
     default:
         return -EINVAL;
     }
