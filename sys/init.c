@@ -22,6 +22,7 @@
 extern uintptr_t argp_copy(struct thread *thr, const char *const argv[], size_t *arg_count);
 
 static int user_init_start(const char *init_filename) {
+    const char *init_console = (const char *) kernel_config[CFG_CONSOLE];
     struct ofile fd;
     struct stat st;
     struct thread *user_init;
@@ -100,8 +101,8 @@ static int user_init_start(const char *init_filename) {
     stderr = stdout;
 
     struct vnode *stdout_device;
-    if ((res = dev_find(DEV_CLASS_CHAR, "tty0", &stdout_device)) != 0) {
-        panic("%s: %s\n", "tty0", kstrerror(res));
+    if ((res = dev_find(DEV_CLASS_CHAR, init_console, &stdout_device)) != 0) {
+        panic("%s: %s\n", init_console, kstrerror(res));
     }
 
     if ((res = vfs_open_vnode(&user_init->ioctx, stdin, stdout_device, O_RDONLY)) != 0) {

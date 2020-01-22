@@ -256,7 +256,10 @@ int sys_select(int nfds, fd_set *rd, fd_set *wr, fd_set *exc, struct timeval *tv
         }
     }
 
-    uint64_t deadline = tv->tv_sec * 1000000000ULL + tv->tv_usec * 1000ULL + system_time;
+    uint64_t deadline = (uint64_t) -1;
+    if (tv) {
+        deadline = tv->tv_sec * 1000000000ULL + tv->tv_usec * 1000ULL + system_time;
+    }
     int res;
 
     while (1) {
@@ -269,10 +272,19 @@ int sys_select(int nfds, fd_set *rd, fd_set *wr, fd_set *exc, struct timeval *tv
                 struct chrdev *chr = fd->vnode->dev;
                 _assert(chr);
 
-                if (ring_readable(&chr->buffer) > 0) {
+                if (chr->buffer.flags & (RING_SIGNAL_EOF | RING_SIGNAL_BRK | RING_SIGNAL_RET)) {
                     FD_SET(i, rd);
                     res = 0;
                     goto done;
+                }
+
+                // Report data available for non-canonical devices
+                if (chr->type == CHRDEV_TTY && !(chr->tc.c_iflag & ICANON)) {
+                    if (ring_readable(&chr->buffer) > 0) {
+                        FD_SET(i, rd);
+                        res = 0;
+                        goto done;
+                    }
                 }
             }
         }

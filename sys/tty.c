@@ -10,6 +10,7 @@
 #include "sys/string.h"
 #include "sys/assert.h"
 #include "sys/termios.h"
+#include "sys/amd64/hw/rs232.h"
 #include "sys/ring.h"
 #include "sys/mm.h"
 #include "sys/amd64/cpu.h"
@@ -45,6 +46,23 @@ static struct chrdev _dev_tty0 = {
     .ioctl = tty_ioctl
 };
 
+// Serial console
+static struct tty_data _dev_ttyS0_data = {
+    .fg_pgid = 1,
+    .out_dev = (void *) RS232_COM1,
+    .out_putc = rs232_putc
+};
+
+static struct chrdev _dev_ttyS0 = {
+    .type = CHRDEV_TTY,
+    .dev_data = &_dev_ttyS0_data,
+    .tc = TERMIOS_DEFAULT,
+    .write = tty_write,
+    // Line discipline
+    .read = line_read,
+    .ioctl = tty_ioctl
+};
+
 void tty_control_write(struct chrdev *tty, char c) {
     struct tty_data *data = tty->dev_data;
     _assert(data);
@@ -71,6 +89,10 @@ void tty_data_write(struct chrdev *tty, char c) {
         // TODO: this should also check ICANON
         if (tty->tc.c_lflag & ECHONL) {
             tty_putc(tty, c);
+        }
+        if (tty->tc.c_iflag & ICANON) {
+            // Trigger line flush
+            ring_signal(&tty->buffer, RING_SIGNAL_RET);
         }
         break;
     case '\b':
@@ -101,12 +123,15 @@ void tty_putc(struct chrdev *tty, char c) {
 }
 
 void tty_init(void) {
+    // tty0
     ring_init(&_dev_tty0.buffer, 16);
-
-    // Bind tty0 to keyboard
     ps2_kbd_set_tty(&_dev_tty0);
-
     dev_add(DEV_CLASS_CHAR, DEV_CHAR_TTY, &_dev_tty0, "tty0");
+
+    // ttyS0
+    ring_init(&_dev_ttyS0.buffer, 16);
+    rs232_set_tty(RS232_COM1, &_dev_ttyS0);
+    dev_add(DEV_CLASS_CHAR, DEV_CHAR_TTY, &_dev_ttyS0, "ttyS0");
 }
 
 static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t lim) {

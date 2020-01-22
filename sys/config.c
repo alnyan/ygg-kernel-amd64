@@ -16,6 +16,7 @@ static const struct __kernel_cmdline_pair {
     { "root",       CFG_ROOT,       VALUE_STRING },
     { "init",       CFG_INIT,       VALUE_STRING },
     { "rdinit",     CFG_RDINIT,     VALUE_STRING },
+    { "console",    CFG_CONSOLE,    VALUE_STRING },
 };
 
 // Default config
@@ -24,6 +25,7 @@ uintptr_t kernel_config[__CFG_SIZE] = {
     [CFG_ROOT] = (uintptr_t) "ram0",
     [CFG_INIT] = (uintptr_t) "/init",
     [CFG_RDINIT] = (uintptr_t) "/init",
+    [CFG_CONSOLE] = (uintptr_t) "tty0",
 };
 
 static int parse_number(const char *s, intptr_t *res) {

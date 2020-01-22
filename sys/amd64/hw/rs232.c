@@ -29,10 +29,25 @@
 #define RS232_LSR_TEMT  64
 #define RS232_LSR_ERR   128
 
+static struct chrdev *_rs232_tty[4] = {NULL};
+
 void rs232_send(uint16_t port, char c) {
     while (!(inb(port + RS232_LSR) & RS232_LSR_THRE)) {
     }
     outb(port, c);
+}
+
+int rs232_putc(void *dev, char c) {
+    rs232_send(((uintptr_t) dev) & 0xFFFF, c);
+    return 0;
+}
+
+void rs232_set_tty(uint16_t com, struct chrdev *tty) {
+    switch (com) {
+    case RS232_COM1:
+        _rs232_tty[0] = tty;
+        break;
+    }
 }
 
 static uint32_t rs232_irq(void *ctx) {
@@ -44,11 +59,33 @@ static uint32_t rs232_irq(void *ctx) {
         has_data = 1;
         uint8_t c = inb(port);
 
-        if (c == '\r') {
-            c = '\n';
+        if (c < ' ') {
+            kdebug("Special character in serial input: 0x%02x\n", c);
         }
 
-        // TODO: send data to bound TTY
+        // Translate serial codes to proper values recognized by kernel
+        // line discipline. TODO: make c_cc in termios handle special characters
+        int control = 0;
+
+        switch (c) {
+        case 0x0D:
+            c = '\n';
+            break;
+        case 0x7F:
+            c = '\b';
+            break;
+        case 0x04:
+            control = 'd';
+            break;
+        }
+
+        if (_rs232_tty[0]) {
+            if (!control) {
+                tty_data_write(_rs232_tty[0], c);
+            } else {
+                tty_control_write(_rs232_tty[0], control);
+            }
+        }
     }
 
     return has_data ? IRQ_HANDLED : IRQ_UNHANDLED;

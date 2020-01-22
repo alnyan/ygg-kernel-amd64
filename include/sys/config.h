@@ -5,6 +5,7 @@ enum {
     CFG_ROOT = 1,
     CFG_INIT,
     CFG_RDINIT,
+    CFG_CONSOLE,
 
     __CFG_SIZE
 };

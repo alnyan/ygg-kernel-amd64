@@ -5,6 +5,9 @@
 #define TIOCSPGRP       0x5410
 #define TIOCGWINSZ      0x5413
 
+// Input flags
+#define ICANON          (1 << 1)
+
 // Output flags
 #define OPOST           (1 << 0)
 #define ONLCR           (1 << 2)
@@ -20,7 +23,7 @@
 
 #define TERMIOS_DEFAULT \
     { \
-        .c_iflag = 0, \
+        .c_iflag = ICANON, \
         .c_oflag = OPOST, \
         .c_cflag = 0, \
         .c_lflag = ECHO | ECHONL | ECHOE | ECHOK, \

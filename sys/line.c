@@ -4,6 +4,7 @@
 #include "sys/chr.h"
 #include "sys/tty.h"
 #include "sys/amd64/cpu.h"
+#include "sys/line.h"
 
 ssize_t line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) {
     struct thread *thr = get_cpu()->thread;
@@ -15,8 +16,16 @@ ssize_t line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) {
     char *wr = buf;
     char c;
 
+    // Only needed for stuff like select(), which is called before read()
+    chr->buffer.flags &= ~RING_SIGNAL_RET;
+
     if (r->flags & RING_SIGNAL_EOF) {
-        return -1;
+        return 0;
+    }
+
+    if (!(chr->tc.c_iflag & ICANON)) {
+        // Just spit out data as soon as it's available
+        return simple_line_read(chr, buf, pos, lim);
     }
 
     // NO ICANON YET
@@ -68,6 +77,7 @@ ssize_t line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) {
         }
     }
 
+    chr->buffer.flags &= ~RING_SIGNAL_RET;
     return rd;
 }
 
