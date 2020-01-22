@@ -289,9 +289,13 @@ static void setc(uint16_t row, uint16_t col, uint16_t v) {
 
     con_buffer[row * con_width + col] = v;
 
+#if defined(VESA_ENABLE)
     if (vesa_available && !vesa_hold) {
         psf_draw(row, col, v & 0xFF, rgb_map[(v >> 8) & 0xF], rgb_map[(v >> 12) & 0xF]);
     } else {
+#else
+    {
+#endif
         ((uint16_t *) MM_VIRTUALIZE(CGA_BUFFER_ADDR))[row * 80 + col] = v;
     }
 }
