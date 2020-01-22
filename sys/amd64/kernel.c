@@ -15,6 +15,7 @@
 #include "sys/amd64/hw/rtc.h"
 #include "sys/amd64/hw/con.h"
 #include "sys/amd64/fpu.h"
+#include "sys/config.h"
 #include "sys/random.h"
 #include "sys/time.h"
 #include "sys/panic.h"
@@ -32,12 +33,15 @@ static void amd64_make_random_seed(void) {
 }
 
 void kernel_main(struct amd64_loader_data *data) {
+    data = (struct amd64_loader_data *) MM_VIRTUALIZE(data);
+    multiboot_info = (multiboot_info_t *) MM_VIRTUALIZE(data->multiboot_info_ptr);
+
+    // Parse kernel command line
+    kernel_set_cmdline(data->cmdline);
+
     // Reinitialize RS232 properly
     ps2_init();
     rs232_init(RS232_COM1);
-
-    data = (struct amd64_loader_data *) MM_VIRTUALIZE(data);
-    multiboot_info = (multiboot_info_t *) MM_VIRTUALIZE(data->multiboot_info_ptr);
 
     amd64_phys_memory_map((multiboot_memory_map_t *) MM_VIRTUALIZE(multiboot_info->mmap_addr),
                           multiboot_info->mmap_length);

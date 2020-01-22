@@ -14,6 +14,20 @@ void *memcpy(void *dst, const void *src, size_t sz) {
     return dst;
 }
 
+size_t strlen(const char *s) {
+    size_t r;
+    for (r = 0; *s; ++s, ++r);
+    return r;
+}
+
+char *strcpy(char *dst, const char *src) {
+    char *r = dst;
+    for (; *src; ++src, ++dst) {
+        *dst = *src;
+    }
+    return r;
+}
+
 int strcmp(const char *a, const char *b) {
     for (; *a && *b; ++a, ++b) {
         if (*a != *b) {

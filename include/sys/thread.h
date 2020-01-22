@@ -41,9 +41,6 @@ struct thread {
     char name[32];
 
     struct image_info image;
-    // Arguments are stored here
-    uintptr_t argp_page;
-    uintptr_t argp_page_phys;
 
     uint64_t flags;
     pid_t pid;

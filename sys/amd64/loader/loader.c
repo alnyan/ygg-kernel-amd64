@@ -91,7 +91,7 @@ void loader_main(uint32_t magic, struct multiboot_info *mb_info) {
     loader_data.multiboot_info_ptr = (uintptr_t) mb_info;
 
     struct multiboot_mod_list *mod_list = (struct multiboot_mod_list *) (uintptr_t) mb_info->mods_addr;
-    const char *kernel_cmdline = NULL;
+    char *kernel_cmdline = NULL;
     uintptr_t kernel_mod = 0;
     uintptr_t initrd_mod = 0;
 
@@ -111,7 +111,7 @@ void loader_main(uint32_t magic, struct multiboot_info *mb_info) {
                     panic("Two \"kernel\"s provided!");
                 }
                 kernel_mod = mod_list[i].mod_start;
-                kernel_cmdline = (const char *) (uintptr_t) mod_list[i].cmdline;
+                kernel_cmdline = (char *) (uintptr_t) mod_list[i].cmdline;
             } else {
                 if (initrd_mod) {
                     panic("Two \"initrd\"s provided!");
@@ -138,9 +138,16 @@ void loader_main(uint32_t magic, struct multiboot_info *mb_info) {
     }
 
     if (kernel_cmdline) {
+        if (strlen(kernel_cmdline) >= KERNEL_CMDLINE_MAX) {
+            kernel_cmdline[KERNEL_CMDLINE_MAX - 1] = 0;
+        }
+        strcpy(loader_data.cmdline, kernel_cmdline);
+
         puts("Kernel cmdline: ");
         puts(kernel_cmdline);
         putc('\n');
+    } else {
+        loader_data.cmdline[0] = 0;
     }
     puts("Modules end addr: ");
     putx(modules_end);

@@ -123,9 +123,6 @@ int thread_init(
     // 1. Allocate all the required structures
     t->data.data_flags = 0;
 
-    t->argp_page = MM_NADDR;
-    t->argp_page_phys = MM_NADDR;
-
     if (!rsp0_base) {
         void *kstack = kmalloc(THREAD_KSTACK_SIZE);
         _assert(kstack);
@@ -214,7 +211,7 @@ void thread_cleanup(struct thread *t) {
     kfree(t);
 }
 
-static uintptr_t argp_copy(struct thread *thr, const char *const argv[], size_t *arg_count) {
+uintptr_t argp_copy(struct thread *thr, const char *const argv[], size_t *arg_count) {
     uintptr_t dst_page_phys = amd64_phys_alloc_page();
     if (dst_page_phys == MM_NADDR) {
         return dst_page_phys;
@@ -391,14 +388,11 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
     thr->data.stack3_base = ustack;
     thr->data.stack3_size = 4 * 0x1000;
 
-    thr->argp_page_phys = argp_phys;
-    thr->argp_page = argp_virt;
-
     // Modify new context
     struct cpu_context *ctx = (struct cpu_context *) thr->data.rsp0;
 
     ctx->rsp = thr->data.stack3_base + thr->data.stack3_size;
-    ctx->rdi = thr->argp_page;
+    ctx->rdi = argp_virt;
 
     amd64_syscall_iretq(ctx);
     panic("This code shouldn't run\n");
