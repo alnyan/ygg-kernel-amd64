@@ -5,7 +5,6 @@
 #include "sys/binfmt_elf.h"
 #include "sys/amd64/cpu.h"
 #include "sys/config.h"
-#include "sys/fs/ext2.h"
 #include "sys/vmalloc.h"
 #include "sys/string.h"
 #include "sys/assert.h"

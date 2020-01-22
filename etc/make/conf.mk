@@ -66,11 +66,6 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/net/in.o \
 	  $(O)/sys/net/netdev.o \
 	  $(O)/sys/vfs/pseudo.o \
-	  $(O)/sys/vfs/ext2/ext2.o \
-	  $(O)/sys/vfs/ext2/ext2vnop.o \
-	  $(O)/sys/vfs/ext2/ext2blk.o \
-	  $(O)/sys/vfs/ext2/ext2alloc.o \
-	  $(O)/sys/vfs/ext2/ext2dir.o \
 	  $(O)/sys/vfs/tar.o \
 	  $(O)/sys/blk/ram.o \
  	  $(O)/sys/tty.o \
