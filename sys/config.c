@@ -17,6 +17,7 @@ static const struct __kernel_cmdline_pair {
     { "init",       CFG_INIT,       VALUE_STRING },
     { "rdinit",     CFG_RDINIT,     VALUE_STRING },
     { "console",    CFG_CONSOLE,    VALUE_STRING },
+    { "debug",      CFG_DEBUG,      VALUE_NUMBER },
 };
 
 // Default config
@@ -26,6 +27,11 @@ uintptr_t kernel_config[__CFG_SIZE] = {
     [CFG_INIT] = (uintptr_t) "/init",
     [CFG_RDINIT] = (uintptr_t) "/init",
     [CFG_CONSOLE] = (uintptr_t) "tty0",
+    [CFG_DEBUG] = DEBUG_ALL_SERIAL |
+                  DEBUG_DISP(DEBUG_INFO) |
+                  DEBUG_DISP(DEBUG_WARN) |
+                  DEBUG_DISP(DEBUG_ERROR) |
+                  DEBUG_DISP(DEBUG_FATAL),
 };
 
 static int parse_number(const char *s, intptr_t *res) {
@@ -34,6 +40,7 @@ static int parse_number(const char *s, intptr_t *res) {
     while (isdigit(*s)) {
         *res *= 10;
         *res += (*s) - '0';
+        ++s;
     }
 
     if (*s) {

@@ -15,8 +15,18 @@
 #define DEBUG_ERROR     3
 #define DEBUG_FATAL     4
 
-#define DEBUG_OUT_SERIAL    0
-#define DEBUG_OUT_DISP      1
+#define DEBUG_SERIAL(bit)   (1 << (bit))
+#define DEBUG_DISP(bit)     (1 << ((bit) + 8))
+#define DEBUG_ALL_SERIAL    (DEBUG_SERIAL(DEBUG_DEFAULT) | \
+                             DEBUG_SERIAL(DEBUG_INFO) | \
+                             DEBUG_SERIAL(DEBUG_WARN) | \
+                             DEBUG_SERIAL(DEBUG_ERROR) | \
+                             DEBUG_SERIAL(DEBUG_FATAL))
+#define DEBUG_ALL_DISP      (DEBUG_DISP(DEBUG_DEFAULT) | \
+                             DEBUG_DISP(DEBUG_INFO) | \
+                             DEBUG_DISP(DEBUG_WARN) | \
+                             DEBUG_DISP(DEBUG_ERROR) | \
+                             DEBUG_DISP(DEBUG_FATAL))
 
 #define DEBUG_BASE_FMT      "[%08lu %s] "
 #define DEBUG_BASE_ARGS     system_time / 1000000ULL, __func__

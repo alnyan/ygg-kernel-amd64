@@ -3,6 +3,7 @@
 #include "sys/ctype.h"
 #include "sys/attr.h"
 #include "sys/spin.h"
+#include "sys/config.h"
 #include <stdint.h>
 
 #if defined(ARCH_AMD64)
@@ -47,8 +48,10 @@ void fmtsiz(char *out, size_t sz) {
 
 void debugc(int level, char c) {
 #if defined(ARCH_AMD64)
-    rs232_send(RS232_COM1, c);
-    if (level > DEBUG_DEFAULT) {
+    if (DEBUG_SERIAL(level) & kernel_config[CFG_DEBUG]) {
+        rs232_send(RS232_COM1, c);
+    }
+    if (DEBUG_DISP(level) & kernel_config[CFG_DEBUG]) {
         amd64_con_putc(c);
     }
 #endif

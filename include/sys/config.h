@@ -6,6 +6,7 @@ enum {
     CFG_INIT,
     CFG_RDINIT,
     CFG_CONSOLE,
+    CFG_DEBUG,
 
     __CFG_SIZE
 };
