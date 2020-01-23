@@ -12,6 +12,7 @@ enum dev_class {
 #define DEV_BLOCK_SDx       1
 #define DEV_BLOCK_HDx       2
 #define DEV_BLOCK_RAM       3
+#define DEV_BLOCK_CDx       4
 #define DEV_BLOCK_PART      127
 #define DEV_BLOCK_PSEUDO    128
 #define DEV_BLOCK_OTHER     255

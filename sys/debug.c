@@ -307,6 +307,8 @@ void debug_dump(int level, const void *block, size_t count) {
     const char *bytes = block;
 
     for (size_t l = 0; l < n_lines; ++l) {
+        debugf(level, "%08X: ", l * 16);
+
         for (size_t i = 0; i < 8; ++i) {
             if (i * 2 + l * 16 < count) {
                 uint16_t word = *(const uint16_t *) (bytes + i * 2 + l * 16);

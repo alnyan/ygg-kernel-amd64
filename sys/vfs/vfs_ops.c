@@ -529,6 +529,13 @@ ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t coun
     case VN_CHR:
         _assert(node->dev && ((struct chrdev *) node->dev)->read);
         return chr_read(node->dev, buf, fd->pos, count);
+    case VN_BLK:
+        _assert(node->dev);
+        b = blk_read(node->dev, buf, fd->pos, count);
+        if (b > 0) {
+            fd->pos += b;
+        }
+        return b;
 
     case VN_DIR:
     default:

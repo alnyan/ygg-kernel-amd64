@@ -17,6 +17,7 @@ static int devfs_init(struct fs *fs, const char *opt);
 static struct vnode *devfs_get_root(struct fs *fs);
 static int devfs_vnode_stat(struct vnode *node, struct stat *st);
 
+static char cdx_last = 'a';
 static char sdx_last = 'a';
 static char hdx_last = 'a';
 static uint64_t dev_count = 0;
@@ -40,6 +41,10 @@ static int dev_create_name(enum dev_class cls, int subcls, char *name) {
         case DEV_BLOCK_SDx:
             strcpy(name, "sdx");
             name[2] = sdx_last++;
+            return 0;
+        case DEV_BLOCK_CDx:
+            strcpy(name, "cdx");
+            name[2] = cdx_last++;
             return 0;
         }
     }

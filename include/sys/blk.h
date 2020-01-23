@@ -9,6 +9,7 @@ struct ofile;
 
 struct blkdev {
     uint32_t flags;
+    size_t block_size;
 
     void *dev_data;
 
@@ -26,5 +27,5 @@ ssize_t blk_write(struct blkdev *blk, const void *buf, size_t off, size_t count)
 int blk_ioctl(struct blkdev *blk, unsigned long req, void *ptr);
 int blk_mount_auto(struct vnode *at, struct blkdev *blkdev, const char *opt);
 
-struct blkdev *blk_by_name(const char *name);
+int blk_add_part(struct vnode *of, int n, uint64_t lba, uint64_t size);
 int blk_enumerate_partitions(struct blkdev *blk, struct vnode *node);

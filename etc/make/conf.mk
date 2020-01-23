@@ -68,6 +68,7 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/vfs/pseudo.o \
 	  $(O)/sys/vfs/tar.o \
 	  $(O)/sys/blk/ram.o \
+	  $(O)/sys/blk/part_gpt.o \
  	  $(O)/sys/tty.o \
 	  $(O)/sys/reboot.o \
 	  $(O)/sys/random.o \
