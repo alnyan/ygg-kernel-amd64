@@ -43,7 +43,7 @@ static struct chrdev _ps2_mouse = {
 static const char ps2_key_table_0[128] = {
     [0x00] = 0,
 
-    [0x01] = '\003',
+    [0x01] = '\033',
     [0x02] = '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\b',
     [0x0F] = '\t',
     [0x10] = 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']',
@@ -59,7 +59,7 @@ static const char ps2_key_table_0[128] = {
 static const char ps2_key_table_1[128] = {
     [0x00] = 0,
 
-    [0x01] = '\003',
+    [0x01] = '\033',
     [0x02] = '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\b',
     [0x0F] = '\t',
     [0x10] = 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}',
@@ -82,7 +82,24 @@ uint32_t ps2_irq_keyboard(void *ctx) {
     uint8_t key = inb(0x60);
 
     if (key == 0xE0) {
-        kinfo("0xE0 key\n");
+        key = inb(0x60);
+
+        switch (key) {
+        case 0x48:
+            input_scan(INPUT_KEY_UP);
+            break;
+        case 0x50:
+            input_scan(INPUT_KEY_DOWN);
+            break;
+        case 0x4B:
+            input_scan(INPUT_KEY_LEFT);
+            break;
+        case 0x4D:
+            input_scan(INPUT_KEY_RIGHT);
+            break;
+        }
+
+        return IRQ_HANDLED;
     }
 
     if (key == PS2_KEY_LSHIFT_DOWN || key == PS2_KEY_RSHIFT_DOWN) {
@@ -102,13 +119,8 @@ uint32_t ps2_irq_keyboard(void *ctx) {
         ps2_kbd_mods ^= INPUT_MOD_CAPS;
     }
 
-    if (!g_keyboard_tty) {
-        // No TTY to send strokes to
-        return IRQ_HANDLED;
-    }
-
     if (!(key & 0x80)) {
-        input_key(ps2_kbd_mods, key, ps2_key_table_0, ps2_key_table_1);
+        input_key(key, ps2_kbd_mods, ps2_key_table_0, ps2_key_table_1);
     }
 
     return IRQ_HANDLED;

@@ -16,3 +16,4 @@ extern struct chrdev *g_keyboard_tty;
 #define INPUT_KEY_END       0x85
 
 void input_key(uint8_t byte, uint8_t mods, const char *map0, const char *map1);
+void input_scan(uint8_t key);
