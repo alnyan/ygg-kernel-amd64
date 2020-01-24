@@ -54,7 +54,11 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/sys_sys.o \
 	  $(O)/sys/amd64/sys_mem.o \
 	  $(O)/sys/amd64/fpu.o \
-	  $(O)/sys/amd64/hw/pci/ahci.o
+	  $(O)/sys/amd64/hw/pci/ahci.o \
+	  $(O)/sys/amd64/hw/pci/usb.o \
+	  $(O)/sys/amd64/hw/pci/usb_uhci.o \
+	  $(O)/sys/amd64/hw/usb/device.o \
+	  $(O)/sys/amd64/hw/usb/usb.o
 
 kernel_LINKER=sys/amd64/link.ld
 kernel_LDFLAGS=-nostdlib \
@@ -101,5 +105,6 @@ DIRS+=$(O)/sys/amd64/image/boot/grub \
 	  $(O)/sys/amd64/mm \
 	  $(O)/sys/amd64/hw/pci \
 	  $(O)/sys/amd64/hw/ide \
+	  $(O)/sys/amd64/hw/usb \
 	  $(O)/sys/font \
 	  $(ACPICA_OBJD)
