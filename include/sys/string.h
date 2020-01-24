@@ -16,6 +16,7 @@ uint16_t *memsetw(uint16_t *dst, uint16_t v, size_t count);
 uint32_t *memsetl(uint32_t *dst, uint32_t v, size_t count);
 uint64_t *memsetq(uint64_t *dst, uint64_t v, size_t count);
 int memcmp(const void *a, const void *b, size_t count);
+void *memchr(const void *a, int c, size_t count);
 
 size_t strlen(const char *s);
 int strncmp(const char *a, const char *b, size_t lim);

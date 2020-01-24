@@ -1,5 +1,6 @@
 #include "sys/tty.h"
 #include "sys/chr.h"
+#include "sys/input.h"
 #include "sys/ctype.h"
 #include "sys/line.h"
 #include "sys/errno.h"
@@ -125,7 +126,7 @@ void tty_putc(struct chrdev *tty, char c) {
 void tty_init(void) {
     // tty0
     ring_init(&_dev_tty0.buffer, 16);
-    ps2_kbd_set_tty(&_dev_tty0);
+    g_keyboard_tty = &_dev_tty0;
     dev_add(DEV_CLASS_CHAR, DEV_CHAR_TTY, &_dev_tty0, "tty0");
 
     // ttyS0

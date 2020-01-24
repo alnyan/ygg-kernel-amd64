@@ -1,3 +1,4 @@
+#include "sys/amd64/hw/usb/usb.h"
 #include "sys/amd64/mm/pool.h"
 #include "sys/amd64/mm/map.h"
 #include "sys/amd64/hw/io.h"
@@ -19,6 +20,7 @@
 #include "sys/mm.h"
 
 extern uintptr_t argp_copy(struct thread *thr, const char *const argv[], size_t *arg_count);
+static struct thread t_usbd;
 
 static int user_init_start(const char *init_filename) {
     const char *init_console = (const char *) kernel_config[CFG_CONSOLE];
@@ -125,7 +127,30 @@ static int user_init_start(const char *init_filename) {
     return 0;
 }
 
+static void usbd_func(void *arg) {
+    thread_set_name(get_cpu()->thread, "usbd");
+
+    while (1) {
+        usb_poll();
+    }
+}
+
 void init_func(void *arg) {
+    // Start kernel threads for stuff handling
+    thread_init(
+            &t_usbd,
+            mm_kernel,
+            (uintptr_t) usbd_func,
+            0,
+            0,
+            0,
+            0,
+            THREAD_KERNEL,
+            THREAD_INIT_CTX,
+            NULL);
+
+    sched_add(&t_usbd);
+
     const char *root_dev_name = (const char *) kernel_config[CFG_ROOT];
     const char *root_fallback = "ram0";
     const char *init_filename =

@@ -1,6 +1,7 @@
 #include "sys/amd64/hw/ps2.h"
 #include "sys/panic.h"
 #include "sys/amd64/hw/irq.h"
+#include "sys/input.h"
 #include "sys/amd64/hw/io.h"
 #include "sys/ctype.h"
 #include "sys/signum.h"
@@ -21,19 +22,14 @@
 
 #define PS2_KEY_CAPS_LOCK_DOWN  0x3A
 
-#define PS2_MOD_SHIFT           (1 << 0)
-#define PS2_MOD_CTRL            (1 << 1)
-#define PS2_MOD_CAPS            (1 << 2)
-
 // Mouse stuff
 #define PS2_AUX_BM              (1 << 2)
 #define PS2_AUX_BR              (1 << 1)
 #define PS2_AUX_BL              (1 << 0)
 
 // Controller stuff
+// ...
 
-// TTY owning the keyboard
-static struct chrdev *_keyboard_tty = NULL;
 static uint32_t ps2_kbd_mods = 0;
 static uint32_t ps2_aux_state = 0;
 
@@ -76,10 +72,6 @@ static const char ps2_key_table_1[128] = {
     [0x7F] = 0
 };
 
-void ps2_kbd_set_tty(struct chrdev *dev) {
-    _keyboard_tty = dev;
-}
-
 uint32_t ps2_irq_keyboard(void *ctx) {
     uint8_t st = inb(0x64);
 
@@ -89,92 +81,34 @@ uint32_t ps2_irq_keyboard(void *ctx) {
 
     uint8_t key = inb(0x60);
 
+    if (key == 0xE0) {
+        kinfo("0xE0 key\n");
+    }
+
     if (key == PS2_KEY_LSHIFT_DOWN || key == PS2_KEY_RSHIFT_DOWN) {
-        ps2_kbd_mods |= PS2_MOD_SHIFT;
+        ps2_kbd_mods |= INPUT_MOD_SHIFT;
     }
     if (key == PS2_KEY_LSHIFT_UP || key == PS2_KEY_RSHIFT_UP) {
-        ps2_kbd_mods &= ~PS2_MOD_SHIFT;
+        ps2_kbd_mods &= ~INPUT_MOD_SHIFT;
     }
     if (key == PS2_KEY_LCTRL_DOWN) {
-        ps2_kbd_mods |= PS2_MOD_CTRL;
+        ps2_kbd_mods |= INPUT_MOD_CONTROL;
     }
     if (key == PS2_KEY_LCTRL_UP) {
-        ps2_kbd_mods &= ~PS2_MOD_CTRL;
+        ps2_kbd_mods &= ~INPUT_MOD_CONTROL;
     }
 
     if (key == PS2_KEY_CAPS_LOCK_DOWN) {
-        ps2_kbd_mods ^= PS2_MOD_CAPS;
+        ps2_kbd_mods ^= INPUT_MOD_CAPS;
     }
 
-    if (!_keyboard_tty) {
+    if (!g_keyboard_tty) {
         // No TTY to send strokes to
         return IRQ_HANDLED;
     }
 
-    if (!(key & 0x80) && !(ps2_kbd_mods & PS2_MOD_CTRL)) {
-        // Special keys
-        switch (key) {
-        case 0x01:
-            tty_data_write(_keyboard_tty, '\033');
-            return IRQ_HANDLED;
-        case 0x47:
-            tty_data_write(_keyboard_tty, '\033');
-            tty_data_write(_keyboard_tty, '[');
-            tty_data_write(_keyboard_tty, '[');
-            tty_data_write(_keyboard_tty, 'H');
-            return IRQ_HANDLED;
-        case 0x48:
-            tty_data_write(_keyboard_tty, '\033');
-            tty_data_write(_keyboard_tty, '[');
-            tty_data_write(_keyboard_tty, 'A');
-            return IRQ_HANDLED;
-        case 0x50:
-            tty_data_write(_keyboard_tty, '\033');
-            tty_data_write(_keyboard_tty, '[');
-            tty_data_write(_keyboard_tty, 'B');
-            return IRQ_HANDLED;
-        case 0x4D:
-            tty_data_write(_keyboard_tty, '\033');
-            tty_data_write(_keyboard_tty, '[');
-            tty_data_write(_keyboard_tty, 'C');
-            return IRQ_HANDLED;
-        case 0x4F:
-            tty_data_write(_keyboard_tty, '\033');
-            tty_data_write(_keyboard_tty, '[');
-            tty_data_write(_keyboard_tty, '[');
-            tty_data_write(_keyboard_tty, 'F');
-            return IRQ_HANDLED;
-        case 0x4B:
-            tty_data_write(_keyboard_tty, '\033');
-            tty_data_write(_keyboard_tty, '[');
-            tty_data_write(_keyboard_tty, 'D');
-            return IRQ_HANDLED;
-        default:
-            break;
-        }
-
-        char key_char = ((ps2_kbd_mods & PS2_MOD_SHIFT) ? ps2_key_table_1 : ps2_key_table_0)[key];
-
-        if (ps2_kbd_mods & PS2_MOD_CAPS) {
-            if (isupper(key_char)) {
-                key_char = tolower(key_char);
-            } else if (islower(key_char)) {
-                key_char = toupper(key_char);
-            }
-        }
-
-        if (key_char != 0) {
-            tty_data_write(_keyboard_tty, key_char);
-        }
-    } else {
-        switch (key) {
-        case 0x20:  // ^D
-            tty_control_write(_keyboard_tty, 'd');
-            break;
-        case 0x2E:  // ^C
-            tty_control_write(_keyboard_tty, 'c');
-            break;
-        }
+    if (!(key & 0x80)) {
+        input_key(ps2_kbd_mods, key, ps2_key_table_0, ps2_key_table_1);
     }
 
     return IRQ_HANDLED;

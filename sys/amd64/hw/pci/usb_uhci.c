@@ -78,7 +78,10 @@ struct uhci_qh {
     // System
     uint32_t list_index;
     struct usb_transfer *transfer;
+    struct uhci_qh *prev, *next;
+    struct uhci_td *head_real;
     uint32_t used;
+    uintptr_t pad;
 };
 
 struct uhci {
@@ -96,6 +99,7 @@ struct uhci {
 static struct uhci_td *uhci_alloc_td(struct uhci *hc) {
     for (size_t i = 0; i < UHCI_MAX_TD; ++i) {
         if (!(hc->td_pool[i].system.flags & UHCI_TD_USED)) {
+            _assert(!(((uintptr_t) &hc->td_pool[i]) & 0xF));
             hc->td_pool[i].system.flags |= UHCI_TD_USED;
             return &hc->td_pool[i];
         }
@@ -106,6 +110,7 @@ static struct uhci_td *uhci_alloc_td(struct uhci *hc) {
 static struct uhci_qh *uhci_alloc_qh(struct uhci *hc) {
     for (size_t i = 0; i < UHCI_MAX_QH; ++i) {
         if (!hc->qh_pool[i].used) {
+            _assert(!(((uintptr_t) &hc->qh_pool[i]) & 0xF));
             hc->qh_pool[i].used = 1;
             return &hc->qh_pool[i];
         }
@@ -134,6 +139,8 @@ static void uhci_data_init(struct uhci *data, uint32_t bar4) {
     data->qh_async->head_td = USB_FRAME_EMPTY;
     data->qh_async->element_td = USB_FRAME_EMPTY;
     data->qh_async->transfer = NULL;
+    data->qh_async->prev = data->qh_async;
+    data->qh_async->next = data->qh_async;
 
     for (uint32_t i = 0; i < 2048; ++i) {
         data->frame_list[i] = USB_FRAME_QUEUE | MM_PHYS(data->qh_async);
@@ -182,69 +189,104 @@ static uint16_t uhci_port_reset(struct uhci *uhci, int port) {
 }
 
 static void uhci_start_qh(struct uhci *hc, struct uhci_qh *qh) {
-    _assert(hc->qh_async->head_td == USB_FRAME_EMPTY || hc->qh_async->head_td == 0);
-    hc->qh_async->head_td = (uint32_t) MM_PHYS(qh) | USB_FRAME_QUEUE;
-    hc->qh_async->element_td = 0; //(uint32_t) MM_PHYS(qh) | USB_FRAME_QUEUE;
-    //for (size_t i = 0; i < 1024; ++i) {
-    //    //if ((hc->frame_list[i] & ~0xF) == MM_PHYS(hc->qh_async)) {
-    //    //    _assert(!(MM_PHYS(qh) & 0xF));
-    //    //    qh->list_index = i;
-    //    //    hc->frame_list[i] = MM_PHYS(qh) | USB_FRAME_QUEUE;
-    //    //    return;
-    //    //}
-    //}
-    //panic("Failed to allocate a frame for USB transfer\n");
+    //kdebug("Assign QH: %p\n", qh);
+    struct uhci_qh *list = hc->qh_async;
+    _assert(list);
+    struct uhci_qh *end = hc->qh_async->prev;
+    _assert(end);
+
+    qh->head_td = USB_FRAME_EMPTY;
+    end->head_td = (uint32_t) MM_PHYS(qh) | USB_FRAME_QUEUE;
+    qh->prev = end;
+    end->next = qh;
+    list->prev = qh;
+    qh->next = list;
+
+    //kdebug("---- After add ----\n");
+    //uhci_dumpq(hc);
+    //kdebug("---- After add ----\n");
+}
+
+static void uhci_remove_qh(struct uhci *hc, struct uhci_qh *qh) {
+    //kdebug("Unassign QH: %p\n", qh);
+    struct uhci_qh *list = hc->qh_async;
+    _assert(list);
+    struct uhci_qh *prev = qh->prev;
+    _assert(prev);
+
+    prev->head_td = qh->head_td;
+    prev->next = list;
+    list->prev = prev;
+
+    qh->next = NULL;
+    qh->prev = NULL;
+
+    //kdebug("---- After remove ----\n");
+    //uhci_dumpq(hc);
+    //kdebug("---- After remove ----\n");
+}
+
+static void uhci_free_td(struct uhci_td *td) {
+    //kdebug("Free TD: %p\n", td);
+    td->system.flags = 0;
+    td->next_td = USB_FRAME_EMPTY;
+    td->buffer = 0;
+}
+
+static void uhci_free_qh(struct uhci_qh *qh) {
+    //kdebug("Free QH: %p\n", qh);
+    qh->transfer = 0;
+    qh->used = 0;
+    qh->head_real = NULL;
+    qh->head_td = 0;
+    qh->element_td = 0;
+}
+
+static void uhci_process_qh(struct uhci *hc, struct uhci_qh *qh) {
+    struct usb_transfer *t = qh->transfer;
+    uint32_t elem_phys = qh->element_td & ~0xF;
+
+    if (!elem_phys) {
+        t->flags = USB_TRANSFER_COMPLETE | USB_TRANSFER_SUCCESS;
+    } else {
+        struct uhci_td *td = (struct uhci_td *) MM_VIRTUALIZE(elem_phys);
+
+        if (td->status & (1 << 22)) {
+            kwarn("Transfer descriptor is stalled\n");
+            t->flags = USB_TRANSFER_COMPLETE;
+        }
+    }
+
+    if (t->flags & USB_TRANSFER_COMPLETE) {
+        //kdebug("Transfer is complete\n");
+        uhci_remove_qh(hc, qh);
+
+        (void) uhci_free_td;
+        // Release TDs
+        uint32_t td_ptr = 1234;
+        struct uhci_td *td = qh->head_real;
+        _assert(td);
+        while (1) {
+            td_ptr = td->next_td;
+
+            uhci_free_td(td);
+
+            if (!(td_ptr & ~0xF) || (td_ptr & USB_FRAME_EMPTY)) {
+                break;
+            }
+            td = (struct uhci_td *) MM_VIRTUALIZE(td_ptr & ~0xF);
+        }
+
+        uhci_free_qh(qh);
+    }
 }
 
 static void uhci_wait_qh(struct uhci *hc, struct uhci_qh *qh) {
+    //kdebug("Wait for QH: %p\n", qh);
     struct usb_transfer *t = qh->transfer;
     while (!(t->flags & USB_TRANSFER_COMPLETE)) {
-        uint32_t elem_phys = qh->element_td & ~0xF;
-
-        if (!elem_phys) {
-            t->flags = USB_TRANSFER_COMPLETE | USB_TRANSFER_SUCCESS;
-            break;
-        } else {
-            struct uhci_td *td = (struct uhci_td *) MM_VIRTUALIZE(elem_phys);
-
-            if (td->status & (1 << 22)) {
-                kdebug("Transfer descriptor is stalled\n");
-                t->flags = USB_TRANSFER_COMPLETE;
-                break;
-            }
-        }
+        uhci_process_qh(hc, qh);
     }
-    hc->qh_async->head_td = USB_FRAME_EMPTY;
-    uint32_t td_ptr = (qh->head_td & ~0xF);
-    _assert(td_ptr);
-
-    do {
-        if (!td_ptr) {
-            break;
-        }
-
-        struct uhci_td *td = (struct uhci_td *) MM_VIRTUALIZE(td_ptr);
-        if (td->next_td == USB_FRAME_EMPTY || !td->next_td) {
-            td->next_td = USB_FRAME_EMPTY;
-            td->buffer = 0;
-            td->system.flags &= ~UHCI_TD_USED;
-            break;
-        }
-
-        td_ptr = td->next_td & ~0xF;
-        _assert(td_ptr);
-
-        td->system.flags &= ~UHCI_TD_USED;
-        td->next_td = USB_FRAME_EMPTY;
-        td->buffer = 0;
-    } while (1);
-
-    // TODO: Properly release the queue
-    qh->transfer = NULL;
-    qh->head_td = USB_FRAME_EMPTY;
-    qh->element_td = USB_FRAME_EMPTY;
-    qh->used = 0;
-
     kdebug("Transfer is complete\n");
 }
 
@@ -284,6 +326,35 @@ static void uhci_init_td(struct uhci_td *td, struct uhci_td *prev, uint8_t speed
     }
 
     td->buffer = MM_PHYS(buf);
+}
+
+static void uhci_device_interrupt(struct usb_device *dev, struct usb_transfer *t) {
+    struct uhci *hc = dev->hc;
+
+    uint8_t speed = dev->speed;
+    uint8_t addr = dev->address;
+    uint8_t endp = dev->desc_endpoint.address & 0xF;
+
+    struct uhci_td *td = uhci_alloc_td(hc);
+    _assert(td);
+
+    struct uhci_td *head = td;
+    struct uhci_td *prev = NULL;
+
+    uint8_t toggle = dev->endpoint_toggle;
+    uint8_t packet_type = 0x69;
+    uint8_t packet_size = t->length;
+
+    uhci_init_td(td, prev, speed, addr, endp, toggle, packet_type, packet_size, t->data);
+
+    struct uhci_qh *qh = uhci_alloc_qh(hc);
+    _assert(qh);
+    qh->head_real = head;
+    qh->head_td = (uint32_t) MM_PHYS(head) | USB_FRAME_FULLQ;
+    qh->element_td = (uint32_t) MM_PHYS(head) | USB_FRAME_FULLQ;
+    qh->transfer = t;
+
+    uhci_start_qh(hc, qh);
 }
 
 static void uhci_device_control(struct usb_device *dev, struct usb_transfer *t) {
@@ -335,6 +406,7 @@ static void uhci_device_control(struct usb_device *dev, struct usb_transfer *t) 
 
     qh = uhci_alloc_qh(hc);
     _assert(qh);
+    qh->head_real = head;
     qh->head_td = (uint32_t) MM_PHYS(head) | USB_FRAME_FULLQ;
     qh->element_td = (uint32_t) MM_PHYS(head) | USB_FRAME_FULLQ;
     qh->transfer = t;
@@ -357,7 +429,9 @@ static void uhci_probe(struct uhci *uhci) {
             dev->hc = uhci;
             dev->max_packet = 8;
             dev->hc_control = uhci_device_control;
+            dev->hc_interrupt = uhci_device_interrupt;
             dev->address = 0;
+            dev->endpoint_toggle = 0;
 
             if (portsc & USBPORT_LSPD) {
                 dev->speed = USB_SPEED_LOW;
@@ -367,6 +441,23 @@ static void uhci_probe(struct uhci *uhci) {
 
             usb_device_init(dev);
         }
+    }
+}
+
+static void uhci_poll(struct usb_controller *_hc) {
+    struct uhci *hc = (struct uhci *) _hc;
+
+    struct uhci_qh *qh = hc->qh_async;
+    struct uhci_qh *next;
+    while (qh) {
+        next = qh->next;
+
+        if (qh->transfer) {
+            uhci_process_qh(hc, qh);
+            break;
+        }
+
+        qh = next;
     }
 }
 
@@ -396,6 +487,7 @@ void pci_usb_uhci_init(pci_addr_t addr) {
     uhci_probe(hc);
 
     hc->hc.spec = USB_SPEC_UHCI;
+    hc->hc.hc_poll = uhci_poll;
 
     usb_controller_add((struct usb_controller *) hc);
 }

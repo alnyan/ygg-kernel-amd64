@@ -9,6 +9,8 @@
 
 struct usb_controller {
     uint8_t spec;
+    void (*hc_poll)(struct usb_controller *hc);
+
     struct usb_controller *next;
 };
 

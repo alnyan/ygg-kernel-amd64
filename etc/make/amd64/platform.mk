@@ -58,6 +58,8 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/hw/pci/usb.o \
 	  $(O)/sys/amd64/hw/pci/usb_uhci.o \
 	  $(O)/sys/amd64/hw/usb/device.o \
+	  $(O)/sys/amd64/hw/usb/driver.o \
+	  $(O)/sys/amd64/hw/usb/usbkbd.o \
 	  $(O)/sys/amd64/hw/usb/usb.o
 
 kernel_LINKER=sys/amd64/link.ld

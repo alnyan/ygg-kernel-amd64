@@ -79,7 +79,8 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/thread.o \
 	  $(O)/sys/ctype.o \
 	  $(O)/sys/line.o \
-	  $(O)/sys/config.o
+	  $(O)/sys/config.o \
+	  $(O)/sys/input.o
 
 # \
 	  $(O)/sys/vfs/pty.o \

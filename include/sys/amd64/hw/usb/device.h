@@ -1,5 +1,6 @@
 #pragma once
 #include "sys/types.h"
+#include "sys/amd64/hw/usb/request.h"
 
 struct usb_transfer;
 struct usb_request;
@@ -11,7 +12,14 @@ struct usb_device {
     uint8_t speed;
     uint32_t max_packet;
 
+    uint8_t endpoint_toggle;
+    struct usb_desc_interface desc_interface;
+    struct usb_desc_endpoint desc_endpoint;
+    struct usb_driver *driver;
+    void *driver_data;
+
     void (*hc_control)(struct usb_device *, struct usb_transfer *);
+    void (*hc_interrupt)(struct usb_device *, struct usb_transfer *);
 
     struct usb_device *next;
 };

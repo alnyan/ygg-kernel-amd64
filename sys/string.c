@@ -95,6 +95,15 @@ char *strrchr(const char *s, int c) {
     return NULL;
 }
 
+void *memchr(const void *a, int v, size_t c) {
+    for (size_t i = 0; i < c; ++i) {
+        if (((const char *) a)[i] == v) {
+            return (void *) a + i;
+        }
+    }
+    return 0;
+}
+
 int memcmp(const void *a, const void *b, size_t n) {
     const char *l = a;
     const char *r = b;
