@@ -14,4 +14,5 @@ struct ofile {
     int flags;
     struct vnode *vnode;
     size_t pos;
+    void *priv_data;
 };

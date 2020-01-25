@@ -15,7 +15,9 @@
 #include "sys/amd64/hw/rtc.h"
 #include "sys/amd64/hw/con.h"
 #include "sys/amd64/fpu.h"
+#include "sys/fs/sysfs.h"
 #include "sys/config.h"
+#include "sys/string.h"
 #include "sys/random.h"
 #include "sys/time.h"
 #include "sys/panic.h"
@@ -54,6 +56,9 @@ void kernel_main(struct amd64_loader_data *data) {
     extern void pseudo_init();
     pseudo_init();
     ps2_register_device();
+
+    // Add kernel version to sysfs for testing
+    sysfs_add_config_endpoint("kernel.version", sizeof(KERNEL_VERSION_STR), KERNEL_VERSION_STR, sysfs_config_getter, NULL);
 
     amd64_acpi_init();
 #if defined(VESA_ENABLE)

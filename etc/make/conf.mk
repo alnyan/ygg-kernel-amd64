@@ -80,7 +80,8 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/ctype.o \
 	  $(O)/sys/line.o \
 	  $(O)/sys/config.o \
-	  $(O)/sys/input.o
+	  $(O)/sys/input.o \
+	  $(O)/sys/vfs/sysfs.o
 
 USB_ENABLE?=1
 ifeq ($(USB_ENABLE),1)
