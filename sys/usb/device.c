@@ -272,12 +272,32 @@ int usb_device_init(struct usb_device *dev) {
                         interface_desc->interface_class,
                         interface_desc->interface_subclass,
                         interface_desc->interface_protocol);
+
+                if (usb_device_get_string(dev, string_buffer, sizeof(string_buffer), lang, interface_desc->idx_interface) > 0) {
+                    kinfo("Interface name: \"%s\"\n", string_buffer);
+                }
+
                 break;
             case USB_DESCRIPTOR_ENDPOINT:
-                kinfo("* Endpoint descriptor\n");
                 endpoint_desc = (struct usb_desc_endpoint *) data;
                 if (!picked_endpoint_desc) {
                     picked_endpoint_desc = endpoint_desc;
+                }
+                kinfo("* Endpoint descriptor\n");
+                kinfo("Address: %02x\n", endpoint_desc->address);
+                switch (endpoint_desc->attributes & 0x3) {
+                case 0:
+                    kinfo("Control transfers\n");
+                    break;
+                case 1:
+                    kinfo("Isochronous transfers\n");
+                    break;
+                case 2:
+                    kinfo("Bulk transfers\n");
+                    break;
+                case 3:
+                    kinfo("Interrupt transfers\n");
+                    break;
                 }
                 break;
             }
