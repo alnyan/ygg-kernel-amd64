@@ -57,8 +57,6 @@ void kernel_main(struct amd64_loader_data *data) {
     pseudo_init();
     ps2_register_device();
 
-    // Add kernel version to sysfs for testing
-    sysfs_add_config_endpoint("kernel.version", sizeof(KERNEL_VERSION_STR), KERNEL_VERSION_STR, sysfs_config_getter, NULL);
 
     amd64_acpi_init();
 #if defined(VESA_ENABLE)
@@ -98,6 +96,7 @@ void kernel_main(struct amd64_loader_data *data) {
     amd64_smp_init();
 #endif
     sched_init();
+    sysfs_populate();
 
     amd64_syscall_init();
 

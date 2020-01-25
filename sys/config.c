@@ -20,6 +20,7 @@ static const struct __kernel_cmdline_pair {
     { "debug",      CFG_DEBUG,      VALUE_NUMBER },
 };
 
+char g_kernel_cmdline[KERNEL_CMDLINE_MAX];
 // Default config
 uintptr_t kernel_config[__CFG_SIZE] = {
     0,
@@ -115,6 +116,7 @@ static void kernel_cmdline_opt(char *opt) {
 
 // TODO: support stuff with spaces
 void kernel_set_cmdline(char *cmdline) {
+    strcpy(g_kernel_cmdline, cmdline);
     char *p = cmdline;
 
     while (1) {

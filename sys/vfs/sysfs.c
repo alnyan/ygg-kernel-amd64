@@ -1,8 +1,10 @@
+#include "sys/amd64/cpu.h"
 #include "sys/fs/sysfs.h"
 #include "sys/fs/ofile.h"
 #include "sys/fs/node.h"
 #include "sys/assert.h"
 #include "sys/string.h"
+#include "sys/thread.h"
 #include "sys/fs/fs.h"
 #include "sys/debug.h"
 #include "sys/fcntl.h"
@@ -116,6 +118,7 @@ static ssize_t sysfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
 
 
 int sysfs_config_getter(void *ctx, char *buf, size_t lim) {
+    kdebug("Read config value: buffer size %u, actual value length %u\n", lim, strlen(ctx));
     strncpy(buf, ctx, lim);
     buf[lim - 1] = 0;
     return 0;
@@ -140,6 +143,59 @@ int sysfs_add_config_endpoint(const char *name, size_t bufsz, void *ctx, cfg_rea
     vnode_attach(g_sysfs_root, node);
 
     return 0;
+}
+
+// TODO: move this to an appropriate place
+#define PROC_PROP_PID           1
+#define PROC_PROP_NAME          2
+
+static int proc_property_getter(void *ctx, char *buf, size_t lim) {
+    uint64_t prop = (uint64_t) ctx;
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    switch (prop) {
+    case PROC_PROP_PID:
+        debug_ds(thr->pid, buf, 0, 0);
+        break;
+    case PROC_PROP_NAME:
+        strcpy(buf, thr->name);
+        break;
+    }
+
+    return 0;
+}
+
+static int system_uptime_getter(void *ctx, char *buf, size_t lim) {
+    // TODO: snprintf to print days
+    //       (Don't think the OS will run more than a day, but still)
+    char *p = buf;
+    uint64_t t = system_time / 1000000000ULL;
+    int days = (t / 86400),
+        hours = (t / 3600) % 24,
+        minutes = (t / 60) % 60,
+        seconds = t % 60;
+
+    *p++ = ('0' + (hours / 10));
+    *p++ = ('0' + (hours % 10));
+    *p++ = ':';
+    *p++ = ('0' + (minutes / 10));
+    *p++ = ('0' + (minutes % 10));
+    *p++ = ':';
+    *p++ = ('0' + (seconds / 10));
+    *p++ = ('0' + (seconds % 10));
+    *p = 0;
+
+    return 0;
+}
+
+void sysfs_populate(void) {
+    sysfs_add_config_endpoint("version", sizeof(KERNEL_VERSION_STR), KERNEL_VERSION_STR, sysfs_config_getter, NULL);
+
+    sysfs_add_config_endpoint("uptime", 16, NULL, system_uptime_getter, NULL);
+
+    sysfs_add_config_endpoint("self.pid", 16, (void *) PROC_PROP_PID, proc_property_getter, NULL);
+    sysfs_add_config_endpoint("self.name", 128, (void *) PROC_PROP_NAME, proc_property_getter, NULL);
 }
 
 static void __init sysfs_class_init(void) {
