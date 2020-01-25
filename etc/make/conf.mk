@@ -82,6 +82,14 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/config.o \
 	  $(O)/sys/input.o
 
+USB_ENABLE?=1
+ifeq ($(USB_ENABLE),1)
+CFLAGS+=-DUSB_ENABLE
+OBJS+=$(O)/sys/usb/device.o \
+	  $(O)/sys/usb/driver.o \
+	  $(O)/sys/usb/usbkbd.o \
+	  $(O)/sys/usb/usb.o
+endif
 # \
 	  $(O)/sys/vfs/pty.o \
 
@@ -93,7 +101,8 @@ endif
 
 DIRS+=$(O)/sys/vfs/ext2 \
 	  $(O)/sys/net \
-	  $(O)/sys/blk
+	  $(O)/sys/blk \
+	  $(O)/sys/usb
 
 ifeq ($(DEBUG_COUNTERS),1)
 CFLAGS+=-DDEBUG_COUNTERS

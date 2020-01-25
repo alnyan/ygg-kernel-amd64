@@ -8,9 +8,11 @@ static void pci_usb_init(pci_addr_t addr) {
     uint8_t prog_if = (class >> 8) & 0xFF;
 
     switch (prog_if) {
+#if defined(PCI_UHCI_ENABLE)
     case 0x00:
         pci_usb_uhci_init(addr);
         break;
+#endif
     default:
         kwarn("Unsupported USB controller type: %02x\n", prog_if);
         break;

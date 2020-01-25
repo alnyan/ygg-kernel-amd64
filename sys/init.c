@@ -1,12 +1,12 @@
-#include "sys/amd64/hw/usb/usb.h"
 #include "sys/amd64/mm/pool.h"
+#include "sys/amd64/syscall.h"
 #include "sys/amd64/mm/map.h"
 #include "sys/amd64/hw/io.h"
-#include "sys/amd64/syscall.h"
 #include "sys/binfmt_elf.h"
 #include "sys/amd64/cpu.h"
-#include "sys/config.h"
+#include "sys/usb/usb.h"
 #include "sys/vmalloc.h"
+#include "sys/config.h"
 #include "sys/string.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
@@ -127,6 +127,7 @@ static int user_init_start(const char *init_filename) {
     return 0;
 }
 
+#if defined(USB_ENABLE)
 static void usbd_func(void *arg) {
     thread_set_name(get_cpu()->thread, "usbd");
 
@@ -134,9 +135,11 @@ static void usbd_func(void *arg) {
         usb_poll();
     }
 }
+#endif
 
 void init_func(void *arg) {
     // Start kernel threads for stuff handling
+#if defined(USB_ENABLE)
     thread_init(
             &t_usbd,
             mm_kernel,
@@ -150,6 +153,7 @@ void init_func(void *arg) {
             NULL);
 
     sched_add(&t_usbd);
+#endif
 
     const char *root_dev_name = (const char *) kernel_config[CFG_ROOT];
     const char *root_fallback = "ram0";

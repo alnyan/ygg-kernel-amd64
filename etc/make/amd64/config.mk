@@ -46,4 +46,10 @@ DEFINES+=-DVESA_MODE=$(VESA_MODE) \
 OBJS+=$(O)/sys/amd64/hw/vesa.o
 endif
 
+PCI_UHCI_ENABLE?=1
+ifeq ($(PCI_UHCI_ENABLE),1)
+DEFINES+=-DPCI_UHCI_ENABLE
+OBJS+=$(O)/sys/amd64/hw/pci/usb_uhci.o
+endif
+
 DEFINES+=-DAMD64_KERNEL_STACK=$(AMD64_KERNEL_STACK)

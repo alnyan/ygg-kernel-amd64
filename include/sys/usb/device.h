@@ -1,6 +1,6 @@
 #pragma once
 #include "sys/types.h"
-#include "sys/amd64/hw/usb/request.h"
+#include "sys/usb/request.h"
 
 struct usb_transfer;
 struct usb_request;

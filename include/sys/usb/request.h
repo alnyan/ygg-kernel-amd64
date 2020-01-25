@@ -1,4 +1,5 @@
 #pragma once
+#include "sys/types.h"
 
 #define USB_REQUEST_TYPE_D2H            (1 << 7)
 #define USB_REQUEST_TYPE_CLASS          (1 << 5)

@@ -1,6 +1,6 @@
-#include "sys/amd64/hw/usb/device.h"
-#include "sys/amd64/hw/usb/driver.h"
-#include "sys/amd64/hw/usb/usb.h"
+#include "sys/usb/device.h"
+#include "sys/usb/driver.h"
+#include "sys/usb/usb.h"
 #include "sys/assert.h"
 #include "sys/heap.h"
 

@@ -1,4 +1,4 @@
-#include "sys/amd64/hw/usb/driver.h"
+#include "sys/usb/driver.h"
 #include "sys/types.h"
 
 static struct usb_driver *g_driver_head = NULL;
