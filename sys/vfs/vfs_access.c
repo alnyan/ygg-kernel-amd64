@@ -52,24 +52,8 @@ int vfs_access_check(struct vfs_ioctx *ctx, int desm, mode_t mode, uid_t uid, gi
 }
 
 int vfs_access_node(struct vfs_ioctx *ctx, struct vnode *vn, int mode) {
-    mode_t vn_mode;
-    uid_t vn_uid;
-    gid_t vn_gid;
-    int res;
-
     _assert(ctx);
     _assert(vn);
 
-    if (!vn->op || !vn->op->access) {
-        vn_mode = vn->mode;
-        vn_uid = vn->uid;
-        vn_gid = vn->gid;
-    } else {
-        // Filesystem has non-trivial permission storage
-        if ((res = vn->op->access(vn, &vn_uid, &vn_gid, &vn_mode)) != 0) {
-            return res;
-        }
-    }
-
-    return vfs_access_check(ctx, mode, vn_mode, vn_uid, vn_gid);
+    return vfs_access_check(ctx, mode, vn->mode, vn->uid, vn->gid);
 }
