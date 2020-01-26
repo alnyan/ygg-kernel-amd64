@@ -81,7 +81,10 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/line.o \
 	  $(O)/sys/config.o \
 	  $(O)/sys/input.o \
-	  $(O)/sys/vfs/sysfs.o
+	  $(O)/sys/vfs/sysfs.o \
+	  $(O)/sys/vfs/ext2/ext2.o \
+	  $(O)/sys/vfs/ext2/block.o \
+	  $(O)/sys/vfs/ext2/node.o
 
 USB_ENABLE?=1
 ifeq ($(USB_ENABLE),1)
@@ -103,7 +106,8 @@ endif
 DIRS+=$(O)/sys/vfs/ext2 \
 	  $(O)/sys/net \
 	  $(O)/sys/blk \
-	  $(O)/sys/usb
+	  $(O)/sys/usb \
+	  $(O)/sys/vfs/ext2
 
 ifeq ($(DEBUG_COUNTERS),1)
 CFLAGS+=-DDEBUG_COUNTERS

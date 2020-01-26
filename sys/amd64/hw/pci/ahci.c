@@ -451,7 +451,31 @@ static int ahci_port_identify(struct ahci_port *port) {
 }
 
 static ssize_t ahci_blk_write(struct blkdev *blk, const void *buf, size_t off, size_t len) {
-    return -EIO;
+    if ((off % blk->block_size) != 0) {
+        panic("Misaligned AHCI device write: offset of %lu, block size is %lu\n", off, blk->block_size);
+    }
+    if ((len % blk->block_size) != 0) {
+        panic("Misaligned AHCI device write: size of %lu\n", len);
+    }
+
+    kdebug("AHCI write %S at %p\n", len, off);
+    struct ahci_port *port = blk->dev_data;
+    _assert(port);
+    uintptr_t lba = (off / blk->block_size);
+    size_t n_blocks = len / blk->block_size;
+    int res;
+
+    switch (port->sig) {
+    case AHCI_PORT_SIG_SATA:
+        if ((res = ahci_port_ata_cmd(port, ATA_CMD_WRITE_DMA_EX, lba, (void *) buf, len)) != 0) {
+            return res;
+        }
+        return len;
+    case AHCI_PORT_SIG_SATAPI:
+        return -EROFS;
+    default:
+        return -EIO;
+    }
 }
 
 static ssize_t ahci_blk_read(struct blkdev *blk, void *buf, size_t off, size_t len) {
