@@ -13,11 +13,16 @@
 
 static int ext2_vnode_find(struct vnode *at, const char *name, struct vnode **res);
 static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count);
+static int ext2_vnode_opendir(struct ofile *fd);
+static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent);
 
 ////
 
 struct vnode_operations g_ext2_vnode_ops = {
     .find = ext2_vnode_find,
+
+    .opendir = ext2_vnode_opendir,
+    .readdir = ext2_vnode_readdir,
 
     .read = ext2_vnode_read,
 };
@@ -122,6 +127,83 @@ static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count) {
     }
 
     return bread;
+}
+
+static int ext2_vnode_opendir(struct ofile *fd) {
+    _assert(fd && fd->vnode);
+    _assert(fd->vnode->type == VN_DIR);
+    fd->pos = 0;
+    return 0;
+}
+
+static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent) {
+    _assert(fd);
+    _assert(ent);
+    struct vnode *node = fd->vnode;
+    _assert(node);
+    struct ext2_inode *inode = node->fs_data;
+    _assert(inode);
+    struct fs *ext2 = node->fs;
+    _assert(ext2);
+    struct ext2_data *data = ext2->fs_private;
+    _assert(data);
+
+    if (fd->pos >= inode->size_lower) {
+        return 0;
+    }
+
+    char block_buffer[data->block_size];
+    uint32_t block_index = fd->pos / data->block_size;
+    struct ext2_dirent *dirent = (struct ext2_dirent *) (block_buffer + fd->pos % data->block_size);
+    int res;
+
+    if ((res = ext2_read_inode_block(ext2, inode, block_buffer, block_index)) != 0) {
+        return res;
+    }
+
+    if (!dirent->ino) {
+        fd->pos += dirent->ent_size;
+
+        if (fd->pos / data->block_size != block_index) {
+            // Dirent reclen cannot point beyond block size
+            _assert(!(fd->pos % data->block_size));
+            // Requires reading a next block for dirent
+            return ext2_vnode_readdir(fd, ent);
+        }
+
+        // Don't think the scenario of two empty dirents following each other is likely
+        dirent = (struct ext2_dirent *) (block_buffer + fd->pos % data->block_size);
+        _assert(dirent->ino);
+    }
+
+    uint32_t name_length = dirent->name_length_low;
+    ent->d_type = DT_UNKNOWN;
+    if (data->sb.required_features & EXT2_REQ_ENT_TYPE) {
+        switch (dirent->type_indicator) {
+        case 1:
+            ent->d_type = DT_REG;
+            break;
+        case 2:
+            ent->d_type = DT_DIR;
+            break;
+        case 7:
+            ent->d_type = DT_LNK;
+            break;
+        default:
+            panic("Unsupported dirent type: %u\n", dirent->type_indicator);
+        }
+    } else {
+        name_length += (uint16_t) dirent->name_length_high << 8;
+    }
+    strncpy(ent->d_name, dirent->name, name_length);
+    ent->d_name[name_length] = 0;
+    ent->d_off = fd->pos;
+    ent->d_reclen = dirent->ent_size;
+
+    // Calculate next dirent position
+    fd->pos += dirent->ent_size;
+
+    return ent->d_reclen;
 }
 
 ////
