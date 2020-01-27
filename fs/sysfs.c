@@ -18,6 +18,7 @@ static struct vnode *sysfs_get_root(struct fs *fs);
 static int sysfs_vnode_open(struct ofile *fd, int opt);
 static void sysfs_vnode_close(struct ofile *fd);
 static ssize_t sysfs_vnode_read(struct ofile *fd, void *buf, size_t count);
+static int sysfs_vnode_stat(struct vnode *node, struct stat *st);
 
 struct sysfs_config_endpoint {
     size_t bufsz;
@@ -39,7 +40,8 @@ static struct vnode_operations g_sysfs_vnode_ops = {
     .open = sysfs_vnode_open,
     .close = sysfs_vnode_close,
     .read = sysfs_vnode_read,
-    .write = NULL
+    .write = NULL,
+    .stat = sysfs_vnode_stat,
 };
 
 ////
@@ -115,6 +117,29 @@ static ssize_t sysfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
     return r;
 }
 
+static int sysfs_vnode_stat(struct vnode *node, struct stat *st) {
+    st->st_size = 0;
+    st->st_blksize = 0;
+    st->st_blocks = 0;
+    st->st_dev = 0;
+    st->st_rdev = 0;
+    st->st_ctime = system_boot_time;
+    st->st_mtime = 0;
+    st->st_atime = 0;
+    st->st_nlink = 1;
+
+    if (node->fs_data) {
+        st->st_mode = S_IFREG;
+    } else {
+        st->st_mode = S_IFDIR;
+    }
+    st->st_mode |= node->mode & 0xFFF;
+    st->st_uid = node->uid;
+    st->st_gid = node->gid;
+
+    return 0;
+}
+
 ////
 
 
@@ -130,7 +155,7 @@ int sysfs_config_int64_getter(void *ctx, char *buf, size_t lim) {
     return 0;
 }
 
-int sysfs_add_config_endpoint(const char *name, size_t bufsz, void *ctx, cfg_read_func_t read, cfg_write_func_t write) {
+int sysfs_add_config_endpoint(const char *name, mode_t mode, size_t bufsz, void *ctx, cfg_read_func_t read, cfg_write_func_t write) {
     struct sysfs_config_endpoint *endp = kmalloc(sizeof(struct sysfs_config_endpoint));
     _assert(endp);
 
@@ -141,7 +166,16 @@ int sysfs_add_config_endpoint(const char *name, size_t bufsz, void *ctx, cfg_rea
 
     struct vnode *node = vnode_create(VN_REG, name);
     node->flags |= VN_MEMORY;
-    node->mode = 0600;
+    node->mode = mode;
+    // Clear permission bits for unsupported operations
+    if (!write) {
+        node->mode &= ~(S_IWUSR | S_IWOTH | S_IWGRP);
+    }
+    if (!read) {
+        node->mode &= ~(S_IRUSR | S_IROTH | S_IRGRP);
+    }
+    // Cannot be executable
+    node->mode &= ~(S_IXUSR | S_IXOTH | S_IXGRP);
     node->op = &g_sysfs_vnode_ops;
     node->fs_data = endp;
 
@@ -191,12 +225,12 @@ static int system_uptime_getter(void *ctx, char *buf, size_t lim) {
 }
 
 void sysfs_populate(void) {
-    sysfs_add_config_endpoint("version", sizeof(KERNEL_VERSION_STR) + 1, KERNEL_VERSION_STR, sysfs_config_getter, NULL);
+    sysfs_add_config_endpoint("version", SYSFS_MODE_DEFAULT, sizeof(KERNEL_VERSION_STR) + 1, KERNEL_VERSION_STR, sysfs_config_getter, NULL);
 
-    sysfs_add_config_endpoint("uptime", 32, NULL, system_uptime_getter, NULL);
+    sysfs_add_config_endpoint("uptime", SYSFS_MODE_DEFAULT, 32, NULL, system_uptime_getter, NULL);
 
-    sysfs_add_config_endpoint("self.pid", 16, (void *) PROC_PROP_PID, proc_property_getter, NULL);
-    sysfs_add_config_endpoint("self.name", 128, (void *) PROC_PROP_NAME, proc_property_getter, NULL);
+    sysfs_add_config_endpoint("self.pid", SYSFS_MODE_DEFAULT, 16, (void *) PROC_PROP_PID, proc_property_getter, NULL);
+    sysfs_add_config_endpoint("self.name", SYSFS_MODE_DEFAULT, 128, (void *) PROC_PROP_NAME, proc_property_getter, NULL);
 }
 
 static void __init sysfs_class_init(void) {
