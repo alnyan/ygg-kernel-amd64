@@ -1,6 +1,7 @@
 #include "sys/amd64/cpu.h"
 #include "sys/fs/sysfs.h"
 #include "sys/fs/ofile.h"
+#include "sys/snprintf.h"
 #include "sys/fs/node.h"
 #include "sys/assert.h"
 #include "sys/string.h"
@@ -118,14 +119,14 @@ static ssize_t sysfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
 
 
 int sysfs_config_getter(void *ctx, char *buf, size_t lim) {
-    kdebug("Read config value: buffer size %u, actual value length %u\n", lim, strlen(ctx));
-    strncpy(buf, ctx, lim);
-    buf[lim - 1] = 0;
+    sysfs_buf_puts(buf, lim, ctx);
+    sysfs_buf_puts(buf, lim, "\n");
     return 0;
 }
 
 int sysfs_config_int64_getter(void *ctx, char *buf, size_t lim) {
-    debug_ds(*(int64_t *) ctx, buf, 1, 1);
+    // TODO: long format for snprintf
+    sysfs_buf_printf(buf, lim, "%d\n", *(int *) ctx);
     return 0;
 }
 
@@ -161,10 +162,11 @@ static int proc_property_getter(void *ctx, char *buf, size_t lim) {
 
     switch (prop) {
     case PROC_PROP_PID:
-        debug_ds(thr->pid, buf, 0, 0);
+        sysfs_buf_printf(buf, lim, "%d\n", (int) thr->pid);
         break;
     case PROC_PROP_NAME:
-        strcpy(buf, thr->name);
+        sysfs_buf_puts(buf, lim, thr->name);
+        sysfs_buf_puts(buf, lim, "\n");
         break;
     }
 
@@ -172,8 +174,6 @@ static int proc_property_getter(void *ctx, char *buf, size_t lim) {
 }
 
 static int system_uptime_getter(void *ctx, char *buf, size_t lim) {
-    // TODO: snprintf to print days
-    //       (Don't think the OS will run more than a day, but still)
     char *p = buf;
     uint64_t t = system_time / 1000000000ULL;
     int days = (t / 86400),
@@ -181,23 +181,19 @@ static int system_uptime_getter(void *ctx, char *buf, size_t lim) {
         minutes = (t / 60) % 60,
         seconds = t % 60;
 
-    *p++ = ('0' + (hours / 10));
-    *p++ = ('0' + (hours % 10));
-    *p++ = ':';
-    *p++ = ('0' + (minutes / 10));
-    *p++ = ('0' + (minutes % 10));
-    *p++ = ':';
-    *p++ = ('0' + (seconds / 10));
-    *p++ = ('0' + (seconds % 10));
-    *p = 0;
+    sysfs_buf_printf(buf, lim, "%u day", days);
+    if (days != 1) {
+        sysfs_buf_puts(buf, lim, "s");
+    }
+    sysfs_buf_printf(buf, lim, ", %02u:%02u:%02u\n", hours, minutes, seconds);
 
     return 0;
 }
 
 void sysfs_populate(void) {
-    sysfs_add_config_endpoint("version", sizeof(KERNEL_VERSION_STR), KERNEL_VERSION_STR, sysfs_config_getter, NULL);
+    sysfs_add_config_endpoint("version", sizeof(KERNEL_VERSION_STR) + 1, KERNEL_VERSION_STR, sysfs_config_getter, NULL);
 
-    sysfs_add_config_endpoint("uptime", 16, NULL, system_uptime_getter, NULL);
+    sysfs_add_config_endpoint("uptime", 32, NULL, system_uptime_getter, NULL);
 
     sysfs_add_config_endpoint("self.pid", 16, (void *) PROC_PROP_PID, proc_property_getter, NULL);
     sysfs_add_config_endpoint("self.name", 128, (void *) PROC_PROP_NAME, proc_property_getter, NULL);

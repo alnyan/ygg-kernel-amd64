@@ -3,6 +3,7 @@
 #include "sys/amd64/mm/pool.h"
 #include "sys/amd64/cpu.h"
 #include "sys/fs/sysfs.h"
+#include "sys/snprintf.h"
 #include "sys/signum.h"
 #include "sys/string.h"
 #include "sys/assert.h"
@@ -172,48 +173,27 @@ void sched_add(struct thread *t) {
 }
 
 static int sched_cpu_queue_getter(void *ctx, char *buf, size_t lim) {
-    // TODO: FUCKING SNPRINTF
     for (size_t i = 0; i < sched_ncpus; ++i) {
-        *buf++ = 'c';
-        *buf++ = 'p';
-        *buf++ = 'u';
-        *buf++ = '0' + i;
-        *buf++ = ':';
-        *buf++ = ' ';
-
+        sysfs_buf_printf(buf, lim, "cpu%u: ", i);
         for (struct thread *thr = sched_queue_heads[i]; thr; thr = thr->next) {
             if (thr->flags & THREAD_KERNEL) {
-                *buf++ = '[';
+                sysfs_buf_puts(buf, lim, "[");
             }
-
             if (thr->name[0]) {
-                strcat(buf, thr->name);
-                buf += strlen(buf);
+                sysfs_buf_puts(buf, lim, thr->name);
             } else {
-                *buf++ = '-';
+                sysfs_buf_puts(buf, lim, "---");
             }
-
             if (thr->flags & THREAD_KERNEL) {
-                *buf++ = ']';
+                sysfs_buf_puts(buf, lim, "]");
             }
-
-            *buf++ = ' ';
-            *buf++ = '(';
-
-            debug_ds(thr->pid, buf, 1, 1);
-            buf += strlen(buf);
-
-            *buf++ = ')';
-
+            sysfs_buf_printf(buf, lim, " (%d)", (int) thr->pid);
             if (thr->next) {
-                *buf++ = ',';
-                *buf++ = ' ';
+                sysfs_buf_puts(buf, lim, ", ");
             }
         }
-
-        *buf++ = '\n';
+        sysfs_buf_puts(buf, lim, "\n");
     }
-    *buf = 0;
     return 0;
 }
 

@@ -1,6 +1,27 @@
 #pragma once
 #include "sys/types.h"
 
+#define sysfs_buf_puts(buf, lim, s) \
+    { \
+        if (lim > 0) { \
+            size_t l = MIN(strlen(s), (lim) - 1); \
+            strncpy(buf, s, l); \
+            buf += l; \
+            *buf = 0; \
+            lim -= l; \
+        } \
+    }
+#define sysfs_buf_printf(buf, lim, fmt, ...) \
+    { \
+        int res = snprintf(buf, lim, fmt, ##__VA_ARGS__); \
+        if (res >= (int) lim) { \
+            lim = 0; \
+        } else { \
+            buf += res; \
+            lim -= res; \
+        } \
+    }
+
 typedef int (*cfg_read_func_t)(void *ctx, char *buf, size_t lim);
 typedef int (*cfg_write_func_t)(void *ctx, const char *value);
 

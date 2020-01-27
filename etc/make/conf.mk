@@ -62,7 +62,8 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/vfs/sysfs.o \
 	  $(O)/sys/vfs/ext2/ext2.o \
 	  $(O)/sys/vfs/ext2/block.o \
-	  $(O)/sys/vfs/ext2/node.o
+	  $(O)/sys/vfs/ext2/node.o \
+	  $(O)/sys/snprintf.o
 
 USB_ENABLE?=1
 ifeq ($(USB_ENABLE),1)
