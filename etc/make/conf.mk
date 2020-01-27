@@ -28,32 +28,6 @@ endif
 CFLAGS+=-D__KERNEL__ \
 		-DKERNEL_VERSION_STR='"$(KERNEL_VERSION_STR)"'
 
-# DIRS+=$(O)/sys \
-# 	  $(O)/sys/vfs \
-# 	  $(O)/sys/vfs/ext2 \
-# 	  $(O)/sys/blk
-# OBJS+=$(O)/sys/mem.o \
-# 	  $(O)/sys/string.o \
-# 	  $(O)/sys/debug.o \
-# 	  $(O)/sys/panic.o \
-# 	  $(O)/sys/thread.o \
-# 	  $(O)/sys/sched.o \
-# 	  $(O)/sys/time.o \
-# 	  $(O)/sys/blk.o \
-# 	  $(O)/sys/vfs/node.o \
-# 	  $(O)/sys/vfs/vfs.o \
-# 	  $(O)/sys/vfs/fs_class.o \
-# 	  $(O)/sys/vfs/ext2/ext2.o \
-# 	  $(O)/sys/vfs/ext2/ext2blk.o \
-# 	  $(O)/sys/vfs/ext2/ext2alloc.o \
-# 	  $(O)/sys/vfs/ext2/ext2vnop.o \
-# 	  $(O)/sys/vfs/ext2/ext2dir.o \
-# 	  $(O)/sys/blk/ram.o \
-# 	  $(O)/sys/vfs/tar.o \
-# 	  $(O)/sys/binfmt_elf.o \
-# 	  $(O)/sys/errno.o \
-# 	  $(O)/sys/chr.o
-
 OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/string.o \
 	  $(O)/sys/panic.o \
@@ -98,8 +72,6 @@ OBJS+=$(O)/sys/usb/device.o \
 	  $(O)/sys/usb/usbkbd.o \
 	  $(O)/sys/usb/usb.o
 endif
-# \
-	  $(O)/sys/vfs/pty.o \
 
 ifeq ($(VESA_ENABLE),1)
 OBJS+=$(O)/sys/psf.o \
