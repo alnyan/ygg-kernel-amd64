@@ -26,7 +26,7 @@ struct ahci_fis_reg_h2d {
 };
 
 struct ahci_controller {
-    pci_addr_t addr;
+//    pci_addr_t addr;
     uintptr_t abar_phys;
     struct ahci_registers *regs;
 };

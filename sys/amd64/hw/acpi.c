@@ -8,6 +8,7 @@
 
 struct acpi_madt *acpi_madt = NULL;
 struct acpi_fadt *acpi_fadt = NULL;
+struct acpi_mcfg *acpi_mcfg = NULL;
 
 static uint8_t checksum(const void *ptr, size_t size) {
     uint8_t v = 0;
@@ -128,8 +129,13 @@ void amd64_acpi_init(void) {
                 kdebug("Entry is invalid\n");
                 while (1);
             }
+        } else if (!strncmp((const char *) hdr, "MCFG", 4)) {
+            kdebug("Found MCFG = %p\n", entry_addr);
+            if (checksum(hdr, hdr->length) != 0) {
+                panic("Entry is invalid\n");
+            }
 
-            // ...
+            acpi_mcfg = (struct acpi_mcfg *) hdr;
         }
     }
 

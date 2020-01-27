@@ -118,7 +118,7 @@ static struct uhci_qh *uhci_alloc_qh(struct uhci *hc) {
     return NULL;
 }
 
-static void uhci_data_init(struct uhci *data, uint32_t bar4) {
+/* static */ void uhci_data_init(struct uhci *data, uint32_t bar4) {
     uintptr_t frame_list_page = amd64_phys_alloc_contiguous(2);
     _assert(frame_list_page != MM_NADDR && frame_list_page < 0x100000000);
     uintptr_t pool_page = amd64_phys_alloc_page();
@@ -415,7 +415,7 @@ static void uhci_device_control(struct usb_device *dev, struct usb_transfer *t) 
     uhci_wait_qh(hc, qh);
 }
 
-static void uhci_probe(struct uhci *uhci) {
+/* static */ void uhci_probe(struct uhci *uhci) {
     uint16_t portsc;
 
     for (int port = 0; port < 2; ++port) {
@@ -444,7 +444,7 @@ static void uhci_probe(struct uhci *uhci) {
     }
 }
 
-static void uhci_poll(struct usb_controller *_hc) {
+/* static */ void uhci_poll(struct usb_controller *_hc) {
     struct uhci *hc = (struct uhci *) _hc;
 
     struct uhci_qh *qh = hc->qh_async;
@@ -461,33 +461,34 @@ static void uhci_poll(struct usb_controller *_hc) {
     }
 }
 
-void pci_usb_uhci_init(pci_addr_t addr) {
-    uint32_t bar4;
-    struct uhci *hc = kmalloc(sizeof(struct uhci));
-    _assert(hc);
-
-    kdebug("Initializing USB UHCI at " PCI_FMTADDR "\n", PCI_VAADDR(addr));
-
-    bar4 = pci_config_read_dword(addr, PCI_CONFIG_BAR(4));
-    _assert(bar4 & 1);
-    uhci_data_init(hc, bar4);
-    kdebug("Base addr %p\n", hc->frame_list);
-
-    // Disable IRQs
-    outw(hc->iobase + IO_USBINTR, 0);
-    // Setup frame lists
-    outl(hc->iobase + IO_FRBASEADD, (uint32_t) MM_PHYS(hc->frame_list));
-    outw(hc->iobase + IO_FRNUM, 0);
-    outw(hc->iobase + IO_SOFMOD, 0x40);
-    // Clear status
-    outw(hc->iobase + IO_USBSTS, 0xFFFF);
-    // Enable controller
-    outw(hc->iobase + IO_USBCMD, USBCMD_RUN);
-
-    uhci_probe(hc);
-
-    hc->hc.spec = USB_SPEC_UHCI;
-    hc->hc.hc_poll = uhci_poll;
-
-    usb_controller_add((struct usb_controller *) hc);
-}
+//void pci_usb_uhci_init(pci_addr_t addr) {
+//}
+//    uint32_t bar4;
+//    struct uhci *hc = kmalloc(sizeof(struct uhci));
+//    _assert(hc);
+//
+//    kdebug("Initializing USB UHCI at " PCI_FMTADDR "\n", PCI_VAADDR(addr));
+//
+//    bar4 = pci_config_read_dword(addr, PCI_CONFIG_BAR(4));
+//    _assert(bar4 & 1);
+//    uhci_data_init(hc, bar4);
+//    kdebug("Base addr %p\n", hc->frame_list);
+//
+//    // Disable IRQs
+//    outw(hc->iobase + IO_USBINTR, 0);
+//    // Setup frame lists
+//    outl(hc->iobase + IO_FRBASEADD, (uint32_t) MM_PHYS(hc->frame_list));
+//    outw(hc->iobase + IO_FRNUM, 0);
+//    outw(hc->iobase + IO_SOFMOD, 0x40);
+//    // Clear status
+//    outw(hc->iobase + IO_USBSTS, 0xFFFF);
+//    // Enable controller
+//    outw(hc->iobase + IO_USBCMD, USBCMD_RUN);
+//
+//    uhci_probe(hc);
+//
+//    hc->hc.spec = USB_SPEC_UHCI;
+//    hc->hc.hc_poll = uhci_poll;
+//
+//    usb_controller_add((struct usb_controller *) hc);
+//}

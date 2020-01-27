@@ -44,6 +44,19 @@ struct acpi_madt {
     char entry[];
 } __attribute__((packed));
 
+struct acpi_mcfg {
+    struct acpi_header hdr;
+
+    uint64_t __res0;
+    struct acpi_mcfg_entry {
+        uint64_t base_address;
+        uint16_t pci_segment_group;
+        uint8_t start_pci_bus;
+        uint8_t end_pci_bus;
+        uint32_t reserved;
+    } __attribute__((packed)) entry[];
+} __attribute__((packed));
+
 struct acpi_fadt {
     struct acpi_header hdr;
 
@@ -88,5 +101,6 @@ struct acpi_fadt {
 } __attribute__((packed));
 
 extern struct acpi_madt *acpi_madt;
+extern struct acpi_mcfg *acpi_mcfg;
 
 void amd64_acpi_init(void);

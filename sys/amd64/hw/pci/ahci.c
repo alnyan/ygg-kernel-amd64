@@ -553,7 +553,7 @@ static void ahci_port_init(struct ahci_controller *ahci, struct ahci_port *port,
     ahci_port_add(port);
 }
 
-static void ahci_controller_init(struct ahci_controller *ahci) {
+/* static */ void ahci_controller_init(struct ahci_controller *ahci) {
     // Check controller version
     kinfo("AHCI controller version is %02x.%02x\n", (ahci->regs->vs >> 16), (ahci->regs->vs & 0xFFFF));
 
@@ -582,27 +582,27 @@ static void ahci_controller_init(struct ahci_controller *ahci) {
 
 //// PCI-specific
 
-static void pci_ahci_init(pci_addr_t addr) {
-    uint32_t info = pci_config_read_dword(addr, PCI_CONFIG_CLASS);
-
-    if (((info >> 8) & 0xFF) == 0x01) {
-        // AHCI 1.0 controller
-        uint32_t abar_phys = pci_config_read_dword(addr, PCI_CONFIG_BAR(5));
-        if (abar_phys & 1) {
-            kwarn("AHCI controller " PCI_FMTADDR " has ABAR in I/O space\n", PCI_VAADDR(addr));
-            return;
-        }
-
-        struct ahci_controller *obj = kmalloc(sizeof(struct ahci_controller));
-
-        obj->addr = addr;
-        obj->abar_phys = abar_phys;
-        obj->regs = (void *) MM_VIRTUALIZE(abar_phys);
-
-        ahci_controller_init(obj);
-    }
-}
-
-static __init void ahci_register_class(void) {
-    pci_add_class_driver(0x0106, pci_ahci_init);
-}
+//static void pci_ahci_init(pci_addr_t addr) {
+//    //uint32_t info = pci_config_read_dword(addr, PCI_CONFIG_CLASS);
+//
+//    //if (((info >> 8) & 0xFF) == 0x01) {
+//    //    // AHCI 1.0 controller
+//    //    uint32_t abar_phys = pci_config_read_dword(addr, PCI_CONFIG_BAR(5));
+//    //    if (abar_phys & 1) {
+//    //        kwarn("AHCI controller " PCI_FMTADDR " has ABAR in I/O space\n", PCI_VAADDR(addr));
+//    //        return;
+//    //    }
+//
+//    //    struct ahci_controller *obj = kmalloc(sizeof(struct ahci_controller));
+//
+//    //    obj->addr = addr;
+//    //    obj->abar_phys = abar_phys;
+//    //    obj->regs = (void *) MM_VIRTUALIZE(abar_phys);
+//
+//    //    ahci_controller_init(obj);
+//    //}
+//}
+//
+//static __init void ahci_register_class(void) {
+//    pci_add_class_driver(0x0106, pci_ahci_init);
+//}
