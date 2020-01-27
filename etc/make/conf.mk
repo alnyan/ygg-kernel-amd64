@@ -1,6 +1,10 @@
 HEADERS=$(shell find ./include -name "*.h")
 
 KERNEL_VERSION_GIT=$(shell git describe --always --tags)
+KERNEL_VERSION_STR=$(KERNEL_VERSION_GIT)
+ifeq ($(AMD64_SMP),1)
+KERNEL_VERSION_STR+= +SMP
+endif
 
 CFLAGS+=-Wall \
 		-Wextra \
@@ -22,7 +26,7 @@ CFLAGS+=-DALL_SETUID_0
 endif
 
 CFLAGS+=-D__KERNEL__ \
-		-DKERNEL_VERSION_STR=\"$(KERNEL_VERSION_GIT)\"
+		-DKERNEL_VERSION_STR='"$(KERNEL_VERSION_STR)"'
 
 # DIRS+=$(O)/sys \
 # 	  $(O)/sys/vfs \
