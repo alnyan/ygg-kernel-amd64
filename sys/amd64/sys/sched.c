@@ -227,8 +227,8 @@ void sched_init(void) {
 
     sched_add_to(0, &t_init);
 
-    sysfs_add_config_endpoint("sched.cpu_count", 16, &sched_ncpus, sysfs_config_int64_getter, NULL);
-    sysfs_add_config_endpoint("sched.cpu_queue", 1024, NULL, sched_cpu_queue_getter, NULL);
+    sysfs_add_config_endpoint("sched.cpu_count", SYSFS_MODE_DEFAULT, 16, &sched_ncpus, sysfs_config_int64_getter, NULL);
+    sysfs_add_config_endpoint("sched.cpu_queue", SYSFS_MODE_DEFAULT, 1024, NULL, sched_cpu_queue_getter, NULL);
 
     sched_ready = 1;
 }
