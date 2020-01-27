@@ -23,7 +23,9 @@ ifeq ($(AMD64_SMP),1)
 DEFINES+=-DAMD64_SMP
 DEFINES+=-DAMD64_MAX_SMP=$(AMD64_MAX_SMP)
 OBJS+=$(O)/sys/amd64/hw/ap_code_blob.o \
-	  $(O)/sys/amd64/smp/smp.o
+	  $(O)/sys/amd64/smp/smp.o \
+	  $(O)/sys/amd64/smp/ipi.o \
+	  $(O)/sys/amd64/smp/irq_ipi_s.o
 DIRS+=$(O)/sys/amd64/smp
 else
 DEFINES+=-DAMD64_MAX_SMP=1

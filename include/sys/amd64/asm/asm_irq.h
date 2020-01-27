@@ -133,4 +133,9 @@ extern void amd64_irq12();
 extern void amd64_irq13();
 extern void amd64_irq14();
 extern void amd64_irq15();
+
+#if defined(AMD64_MAX_SMP)
+extern void amd64_irq_ipi();
+extern void amd64_irq_ipi_panic();
+#endif
 #endif

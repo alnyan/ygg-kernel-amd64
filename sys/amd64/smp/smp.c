@@ -27,7 +27,7 @@ struct ap_param_block {
 
 extern char kernel_stacks_top[];
 // TODO: use mutual exclusion for this
-static size_t ncpus = 1;
+size_t smp_ncpus = 1;
 static inline void wrmsr(uint32_t addr, uint64_t v) {
     uint32_t low = (v & 0xFFFFFFFF), high = v >> 32;
     asm volatile ("wrmsr"::"c"(addr),"a"(low),"d"(high));
@@ -150,13 +150,13 @@ void amd64_smp_ap_initialize(uint8_t cpu_no) {
 }
 
 void amd64_smp_add(uint8_t apic_id) {
-    if (ncpus == AMD64_MAX_SMP) {
+    if (smp_ncpus == AMD64_MAX_SMP) {
         // TODO: panic();
-        kfatal("Kernel does not support ncpus >%u\n", ncpus);
+        kfatal("Kernel does not support ncpus >%u\n", smp_ncpus);
         while (1);
     }
 
-    size_t i = ncpus++;
+    size_t i = smp_ncpus++;
     cpus[i].flags = 0;
     cpus[i].self = &cpus[i];
     cpus[i].apic_id = (uint64_t) apic_id;
@@ -177,10 +177,10 @@ void amd64_smp_bsp_configure(void) {
 void amd64_smp_init(void) {
     kdebug("SMP init\n");
 
-    for (size_t i = 1; i < ncpus; ++i) {
+    for (size_t i = 1; i < smp_ncpus; ++i) {
         amd64_smp_ap_initialize(i);
     }
 
-    sched_set_cpu_count(ncpus);
+    sched_set_cpu_count(smp_ncpus);
 }
 

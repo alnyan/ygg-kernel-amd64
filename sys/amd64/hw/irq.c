@@ -1,4 +1,7 @@
 #include "sys/amd64/asm/asm_irq.h"
+#if defined(AMD64_MAX_SMP)
+#include "sys/amd64/smp/ipi.h"
+#endif
 #include "sys/amd64/hw/ioapic.h"
 #include "sys/amd64/hw/io.h"
 #include "sys/amd64/hw/irq.h"
@@ -150,4 +153,10 @@ void irq_init(int cpu) {
     amd64_idt_set(cpu, 45, (uintptr_t) amd64_irq13, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(cpu, 46, (uintptr_t) amd64_irq14, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(cpu, 47, (uintptr_t) amd64_irq15, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+
+#if defined(AMD64_MAX_SMP)
+    // Common for all CPUs
+    amd64_idt_set(cpu, IPI_VECTOR_GENERIC, (uintptr_t) amd64_irq_ipi, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, IPI_VECTOR_PANIC, (uintptr_t) amd64_irq_ipi_panic, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+#endif
 }
