@@ -15,6 +15,7 @@ static int ext2_vnode_find(struct vnode *at, const char *name, struct vnode **re
 static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count);
 static int ext2_vnode_opendir(struct ofile *fd);
 static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent);
+static int ext2_vnode_stat(struct vnode *at, struct stat *st);
 
 ////
 
@@ -23,6 +24,8 @@ struct vnode_operations g_ext2_vnode_ops = {
 
     .opendir = ext2_vnode_opendir,
     .readdir = ext2_vnode_readdir,
+
+    .stat = ext2_vnode_stat,
 
     .read = ext2_vnode_read,
 };
@@ -204,6 +207,40 @@ static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent) {
     fd->pos += dirent->ent_size;
 
     return ent->d_reclen;
+}
+
+static int ext2_vnode_stat(struct vnode *node, struct stat *st) {
+    _assert(node && st);
+    struct ext2_inode *inode = node->fs_data;
+    _assert(inode);
+    struct fs *ext2 = node->fs;
+    _assert(ext2);
+    struct ext2_data *data = ext2->fs_private;
+    _assert(data);
+
+    _assert(inode->uid == node->uid);
+    _assert(inode->gid == node->gid);
+    _assert((inode->mode & 0xFFF) == node->mode);
+
+    st->st_mode = inode->mode;
+    st->st_uid = inode->uid;
+    st->st_gid = inode->gid;
+
+    st->st_size = inode->size_lower;
+    _assert(!inode->size_upper);
+    st->st_blksize = data->block_size;
+    st->st_blocks = (st->st_size + data->block_size - 1) / data->block_size;
+
+    st->st_dev = 0;
+    st->st_rdev = 0;
+
+    st->st_mtime = inode->mtime;
+    st->st_atime = inode->atime;
+    st->st_ctime = inode->ctime;
+
+    st->st_nlink = inode->hard_links;
+
+    return 0;
 }
 
 ////
