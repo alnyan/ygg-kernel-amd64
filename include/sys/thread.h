@@ -40,7 +40,8 @@ struct thread_times {
     uint64_t last_schedule_time;
     // Total amount of time spent in this task
     uint64_t time_spent;
-    // TODO: somehow count idle time, idk
+    uint64_t last_io_wait;
+    uint64_t time_io;
 };
 
 struct thread {

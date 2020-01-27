@@ -1,5 +1,4 @@
 #pragma once
-#include "sys/amd64/hw/pci/pci.h"
 #include "sys/types.h"
 
 #define IRQ_LEG_KEYBOARD        1
@@ -18,6 +17,7 @@ struct irq_handler {
 
 int irq_add_handler(uint8_t gsi, irq_handler_func_t handler, void *ctx);
 int irq_add_leg_handler(uint8_t leg_irq, irq_handler_func_t handler, void *ctx);
+int irq_add_msi_handler(irq_handler_func_t handler, void *ctx, uint8_t *vector);
 //int irq_add_pci_handler(pci_addr_t addr, uint8_t pin, irq_handler_func_t handler, void *ctx);
 
 int irq_has_handler(uint8_t gsi);

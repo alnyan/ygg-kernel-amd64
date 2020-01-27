@@ -67,6 +67,25 @@ uint32_t pci_config_read_dword(struct pci_device *dev, uint16_t off) {
     return pcie_config_read_dword(dev, off);
 }
 
+void pci_add_irq(struct pci_device *dev, irq_handler_func_t handler, void *ctx) {
+    if (dev->msi) {
+        uint8_t vector;
+
+        if (irq_add_msi_handler(handler, ctx, &vector) != 0) {
+            panic("Failed to add MSI handler\n");
+        }
+
+        if (dev->msi->message_control & PCI_CAP_MSI_64) {
+            dev->msi->msi64.message_address = 0xFEE00000;
+            dev->msi->msi64.message_data = vector;
+        } else {
+            dev->msi->msi32.message_address = 0xFEE00000;
+            dev->msi->msi32.message_data = vector;
+        }
+        dev->msi->message_control |= PCI_CAP_MSI_EN;
+    }
+}
+
 void pci_add_class_driver(uint32_t full_class, pci_driver_func_t func) {
     if (g_pci_driver_count == PCI_MAX_DRIVERS) {
         panic("Too many PCI drivers loaded\n");

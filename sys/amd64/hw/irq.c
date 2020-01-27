@@ -14,7 +14,12 @@
 #define IRQ_MAX             32      // Maximum assignable IRQ vectors
 #define IRQ_MAX_HANDLERS    4       // Maximum handlers per IRQ vector (sharing)
 
+#define MSI_BASE_VECTOR     0x80
+#define MSI_MAX             4       // MSI vector count
+#define MSI_MAX_HANDLERS    16      // Maximum handlers per MSI vector
+
 static struct irq_handler handlers[IRQ_MAX * IRQ_MAX_HANDLERS] = {0};
+static struct irq_handler msi_handlers[MSI_MAX_HANDLERS] = {0};
 static uint64_t vector_bitmap[4] = {0};
 static int ioapic_available = 0;
 
@@ -136,7 +141,33 @@ int irq_has_handler(uint8_t gsi) {
     return !!handler_list[0].func;
 }
 
-extern void amd64_msi_handler();
+extern void amd64_irq_msi0();
+
+int irq_add_msi_handler(irq_handler_func_t handler, void *ctx, uint8_t *vector) {
+    for (size_t i = 0; i < MSI_MAX_HANDLERS; ++i) {
+        if (!msi_handlers[i].func) {
+            msi_handlers[i].func = handler;
+            msi_handlers[i].ctx = ctx;
+
+            *vector = 0x80;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+void amd64_msi_handle(uint64_t vector) {
+    for (size_t i = 0; i < MSI_MAX_HANDLERS; ++i) {
+        if (!msi_handlers[i].func) {
+            break;
+        }
+
+        if (msi_handlers[i].func(msi_handlers[i].ctx) == IRQ_HANDLED) {
+            return;
+        }
+    }
+    kwarn("Unhandled MSI on vector %u\n", vector);
+}
 
 void irq_init(int cpu) {
     // Special entry
@@ -158,31 +189,34 @@ void irq_init(int cpu) {
     amd64_idt_set(cpu, 46, (uintptr_t) amd64_irq14, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(cpu, 47, (uintptr_t) amd64_irq15, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 
-    // Message signaled interrupt support
-    // Message address register format:
-    //  0 ..  1         Unused
-    //  2               Destination mode
-    //  3               Redirection hint
-    //  4 .. 11         Reserved
-    // 12 .. 19         Destination APIC ID
-    // 31 .. 20         0xFEE
-    //
-    // DM RH            Behavior
-    //  0  0            Destination ID field specifies target CPU
-    //  1  0            Destination ID must point to a valid cpu
-    //  0  1            Only matching CPU receives interrupt (without redirection)
-    //  1  1            Redirection is limited to only the Destination ID's logical group
-    //
-    // Message data register format:
-    //  0 ..  7         Interrupt vector (0x80)
-    //  8 .. 10         Delivery mode
-    // 11 .. 13         Reserved
-    // 14               Trigger level (don't care, all are edge-trigggered)
-    // 15               Level/Edge trigger
-    // 16 .. 63         Reserved
-    amd64_idt_set(cpu, 0x80, (uintptr_t) amd64_msi_handler, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    // No load balancing for MSIs yet
+    if (cpu == 0) {
+        // Message signaled interrupt support
+        // Message address register format:
+        //  0 ..  1         Unused
+        //  2               Destination mode
+        //  3               Redirection hint
+        //  4 .. 11         Reserved
+        // 12 .. 19         Destination APIC ID
+        // 31 .. 20         0xFEE
+        //
+        // DM RH            Behavior
+        //  0  0            Destination ID field specifies target CPU
+        //  1  0            Destination ID must point to a valid cpu
+        //  0  1            Only matching CPU receives interrupt (without redirection)
+        //  1  1            Redirection is limited to only the Destination ID's logical group
+        //
+        // Message data register format:
+        //  0 ..  7         Interrupt vector (0x80)
+        //  8 .. 10         Delivery mode
+        // 11 .. 13         Reserved
+        // 14               Trigger level (don't care, all are edge-trigggered)
+        // 15               Level/Edge trigger
+        // 16 .. 63         Reserved
+        amd64_idt_set(cpu, MSI_BASE_VECTOR + 0x00, (uintptr_t) amd64_irq_msi0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    }
 
-#if defined(AMD64_MAX_SMP)
+#if defined(AMD64_SMP)
     // Common for all CPUs
     amd64_idt_set(cpu, IPI_VECTOR_GENERIC, (uintptr_t) amd64_irq_ipi, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(cpu, IPI_VECTOR_PANIC, (uintptr_t) amd64_irq_ipi_panic, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);

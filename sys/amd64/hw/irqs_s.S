@@ -47,13 +47,16 @@ amd64_idt_load:
     lidt (%rdi)
     ret
 
-.global amd64_msi_handler
-amd64_msi_handler:
+.global amd64_irq_msi0
+amd64_irq_msi0:
     cli
-    leaq _msg1(%rip), %rsi
-    movq $1, %rdi
-    call debugs
-    hlt
 
-_msg1:
-    .string "MSI handler\n"
+    irq_push_ctx
+
+    movq $0, %rdi
+    call amd64_msi_handle
+
+    irq_eoi_lapic 0
+    irq_pop_ctx
+
+    iretq

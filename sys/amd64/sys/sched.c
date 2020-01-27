@@ -133,6 +133,8 @@ int sched_signal_group(int pgid, int signum) {
     }
 }
 
+// TODO: refactor this to remove PID allocation logic and only queue/unqueue threads using
+// these functions
 void sched_add_to(int cpu, struct thread *t) {
     t->next = NULL;
 

@@ -1,4 +1,4 @@
-#if defined(AMD64_MAX_SMP)
+#if defined(AMD64_SMP)
 #include "sys/amd64/smp/ipi.h"
 #include "sys/amd64/smp/smp.h"
 #include "sys/amd64/cpu.h"
@@ -19,7 +19,7 @@ void panicf(const char *fmt, ...) {
 
     kfatal("--- Panic ---\n");
 
-#if defined(AMD64_MAX_SMP)
+#if defined(AMD64_SMP)
     // Send PANIC IPIs to all other CPUs
     size_t cpu = get_cpu()->processor_id;
     kfatal("cpu%u initiates panic sequence\n", cpu);
