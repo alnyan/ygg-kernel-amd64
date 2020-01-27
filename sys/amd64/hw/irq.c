@@ -136,8 +136,12 @@ int irq_has_handler(uint8_t gsi) {
     return !!handler_list[0].func;
 }
 
+extern void amd64_msi_handler();
+
 void irq_init(int cpu) {
+    // Special entry
     amd64_idt_set(cpu, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+
     amd64_idt_set(cpu, 33, (uintptr_t) amd64_irq1, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(cpu, 34, (uintptr_t) amd64_irq2, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(cpu, 35, (uintptr_t) amd64_irq3, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
@@ -153,6 +157,30 @@ void irq_init(int cpu) {
     amd64_idt_set(cpu, 45, (uintptr_t) amd64_irq13, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(cpu, 46, (uintptr_t) amd64_irq14, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(cpu, 47, (uintptr_t) amd64_irq15, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+
+    // Message signaled interrupt support
+    // Message address register format:
+    //  0 ..  1         Unused
+    //  2               Destination mode
+    //  3               Redirection hint
+    //  4 .. 11         Reserved
+    // 12 .. 19         Destination APIC ID
+    // 31 .. 20         0xFEE
+    //
+    // DM RH            Behavior
+    //  0  0            Destination ID field specifies target CPU
+    //  1  0            Destination ID must point to a valid cpu
+    //  0  1            Only matching CPU receives interrupt (without redirection)
+    //  1  1            Redirection is limited to only the Destination ID's logical group
+    //
+    // Message data register format:
+    //  0 ..  7         Interrupt vector (0x80)
+    //  8 .. 10         Delivery mode
+    // 11 .. 13         Reserved
+    // 14               Trigger level (don't care, all are edge-trigggered)
+    // 15               Level/Edge trigger
+    // 16 .. 63         Reserved
+    amd64_idt_set(cpu, 0x80, (uintptr_t) amd64_msi_handler, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 
 #if defined(AMD64_MAX_SMP)
     // Common for all CPUs

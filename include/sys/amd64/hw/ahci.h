@@ -1,7 +1,7 @@
 #pragma once
-#include "sys/amd64/hw/pci/pci.h"
 
 struct ahci_registers;
+struct pci_device;
 
 struct ahci_fis_reg_h2d {
     uint8_t type;
@@ -26,7 +26,7 @@ struct ahci_fis_reg_h2d {
 };
 
 struct ahci_controller {
-//    pci_addr_t addr;
+    struct pci_device *pci_dev;
     uintptr_t abar_phys;
     struct ahci_registers *regs;
 };

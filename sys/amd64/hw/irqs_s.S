@@ -46,3 +46,14 @@ _msg0:
 amd64_idt_load:
     lidt (%rdi)
     ret
+
+.global amd64_msi_handler
+amd64_msi_handler:
+    cli
+    leaq _msg1(%rip), %rsi
+    movq $1, %rdi
+    call debugs
+    hlt
+
+_msg1:
+    .string "MSI handler\n"
