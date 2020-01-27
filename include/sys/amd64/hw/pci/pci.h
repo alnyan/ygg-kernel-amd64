@@ -27,6 +27,8 @@ void pci_add_root_bus(uint8_t n);
 uint32_t pci_config_read_dword(struct pci_device *dev, uint16_t off);
 void pci_add_irq(struct pci_device *dev, irq_handler_func_t handler, void *ctx);
 
+void pci_print_addr(struct pci_device *dev);
+
 void pci_add_class_driver(uint32_t full_class, pci_driver_func_t func);
 
 // pcidb.c

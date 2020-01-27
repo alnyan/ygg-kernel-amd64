@@ -102,6 +102,10 @@ void pci_add_root_bus(uint8_t n) {
     kwarn("%s: %02x\n", __func__, n);
 }
 
+void pci_print_addr(struct pci_device *dev) {
+    kdebug("%02x:%02x:%02x\n", dev->bus, dev->dev, dev->func);
+}
+
 static void pci_pick_driver(uint32_t device_id, uint32_t class_id, pci_driver_func_t *class_driver, pci_driver_func_t *dev_driver) {
     pci_driver_func_t rclass = NULL, rdev = NULL;
     for (size_t i = 0; i < g_pci_driver_count; ++i) {
@@ -191,6 +195,8 @@ static int pcie_device_setup(struct pci_device *dev) {
         driver_class(dev);
         return 0;
     }
+
+    kwarn("No driver found for %02x:%02x:%02x: class %06x\n", dev->bus, dev->dev, dev->func, class >> 8);
 
     return -1;
 }
