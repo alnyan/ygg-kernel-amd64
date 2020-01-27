@@ -3,6 +3,17 @@
 .section .text
 .global amd64_irq0
 .global amd64_irq2_counting
+.global amd64_irq0_dummy
+
+amd64_irq0_dummy:
+    cli
+    pushq %rax
+    irq_eoi_lapic 0
+    popq %rax
+    iretq
+
+_addr: .quad 0xFFFFFF00000B8000
+_msg0: .string "CPU stopped!\n"
 
 amd64_irq0:
     cli

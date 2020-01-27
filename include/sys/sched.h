@@ -1,6 +1,8 @@
 #pragma once
 #include "sys/thread.h"
 
+extern int sched_ready;
+
 // Terminate all tasks
 void sched_reboot(unsigned int cmd);
 

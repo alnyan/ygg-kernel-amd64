@@ -133,21 +133,21 @@ int irq_has_handler(uint8_t gsi) {
     return !!handler_list[0].func;
 }
 
-void irq_init(void) {
-    amd64_idt_set(32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(33, (uintptr_t) amd64_irq1, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(34, (uintptr_t) amd64_irq2, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(35, (uintptr_t) amd64_irq3, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(36, (uintptr_t) amd64_irq4, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(37, (uintptr_t) amd64_irq5, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(38, (uintptr_t) amd64_irq6, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(39, (uintptr_t) amd64_irq7, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(40, (uintptr_t) amd64_irq8, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(41, (uintptr_t) amd64_irq9, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(42, (uintptr_t) amd64_irq10, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(43, (uintptr_t) amd64_irq11, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(44, (uintptr_t) amd64_irq12, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(45, (uintptr_t) amd64_irq13, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(46, (uintptr_t) amd64_irq14, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    amd64_idt_set(47, (uintptr_t) amd64_irq15, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+void irq_init(int cpu) {
+    amd64_idt_set(cpu, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 33, (uintptr_t) amd64_irq1, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 34, (uintptr_t) amd64_irq2, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 35, (uintptr_t) amd64_irq3, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 36, (uintptr_t) amd64_irq4, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 37, (uintptr_t) amd64_irq5, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 38, (uintptr_t) amd64_irq6, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 39, (uintptr_t) amd64_irq7, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 40, (uintptr_t) amd64_irq8, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 41, (uintptr_t) amd64_irq9, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 42, (uintptr_t) amd64_irq10, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 43, (uintptr_t) amd64_irq11, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 44, (uintptr_t) amd64_irq12, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 45, (uintptr_t) amd64_irq13, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 46, (uintptr_t) amd64_irq14, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 47, (uintptr_t) amd64_irq15, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 }

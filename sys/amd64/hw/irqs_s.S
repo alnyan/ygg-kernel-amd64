@@ -41,3 +41,8 @@ amd64_kstack_canary_invalid:
 _msg0:
    .string "Stack fuckup detected: halting\n"
 #endif
+
+.global amd64_idt_load
+amd64_idt_load:
+    lidt (%rdi)
+    ret

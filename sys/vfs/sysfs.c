@@ -124,6 +124,11 @@ int sysfs_config_getter(void *ctx, char *buf, size_t lim) {
     return 0;
 }
 
+int sysfs_config_int64_getter(void *ctx, char *buf, size_t lim) {
+    debug_ds(*(int64_t *) ctx, buf, 1, 1);
+    return 0;
+}
+
 int sysfs_add_config_endpoint(const char *name, size_t bufsz, void *ctx, cfg_read_func_t read, cfg_write_func_t write) {
     struct sysfs_config_endpoint *endp = kmalloc(sizeof(struct sysfs_config_endpoint));
     _assert(endp);

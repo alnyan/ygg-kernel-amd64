@@ -2,7 +2,9 @@
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/mm/pool.h"
 #include "sys/amd64/cpu.h"
+#include "sys/fs/sysfs.h"
 #include "sys/signum.h"
+#include "sys/string.h"
 #include "sys/assert.h"
 #include "sys/reboot.h"
 #include "sys/panic.h"
@@ -23,6 +25,7 @@ static struct thread *sched_queue_tails[AMD64_MAX_SMP] = { 0 };
 static size_t sched_queue_sizes[AMD64_MAX_SMP] = { 0 };
 static size_t sched_ncpus = 1;
 static spin_t sched_lock = 0;
+int sched_ready = 0;
 
 // Non-zero means we're terminating all the stuff and performing an action
 // once we're done
@@ -168,6 +171,52 @@ void sched_add(struct thread *t) {
     sched_add_to(min_i, t);
 }
 
+static int sched_cpu_queue_getter(void *ctx, char *buf, size_t lim) {
+    // TODO: FUCKING SNPRINTF
+    for (size_t i = 0; i < sched_ncpus; ++i) {
+        *buf++ = 'c';
+        *buf++ = 'p';
+        *buf++ = 'u';
+        *buf++ = '0' + i;
+        *buf++ = ':';
+        *buf++ = ' ';
+
+        for (struct thread *thr = sched_queue_heads[i]; thr; thr = thr->next) {
+            if (thr->flags & THREAD_KERNEL) {
+                *buf++ = '[';
+            }
+
+            if (thr->name[0]) {
+                strcat(buf, thr->name);
+                buf += strlen(buf);
+            } else {
+                *buf++ = '-';
+            }
+
+            if (thr->flags & THREAD_KERNEL) {
+                *buf++ = ']';
+            }
+
+            *buf++ = ' ';
+            *buf++ = '(';
+
+            debug_ds(thr->pid, buf, 1, 1);
+            buf += strlen(buf);
+
+            *buf++ = ')';
+
+            if (thr->next) {
+                *buf++ = ',';
+                *buf++ = ' ';
+            }
+        }
+
+        *buf++ = '\n';
+    }
+    *buf = 0;
+    return 0;
+}
+
 void sched_init(void) {
     for (size_t i = 0; i < sched_ncpus; ++i) {
         thread_init(
@@ -197,6 +246,11 @@ void sched_init(void) {
             NULL);
 
     sched_add_to(0, &t_init);
+
+    sysfs_add_config_endpoint("sched.cpu_count", 16, &sched_ncpus, sysfs_config_int64_getter, NULL);
+    sysfs_add_config_endpoint("sched.cpu_queue", 1024, NULL, sched_cpu_queue_getter, NULL);
+
+    sched_ready = 1;
 }
 
 static void thread_unchild(struct thread *thr) {
@@ -350,7 +404,10 @@ static void debug_thread_tree(struct thread *thr, size_t depth) {
     debugc(DEBUG_DEFAULT, '\n');
 }
 
-static void debug_stats(void) {
+static void debug_stats(uint64_t delta) {
+    static uint64_t last_idle_times[AMD64_MAX_SMP] = {0};
+    static uint64_t last_used_times[AMD64_MAX_SMP] = {0};
+
     struct heap_stat st;
     struct amd64_phys_stat phys_st;
     struct amd64_pool_stat pool_st;
@@ -374,6 +431,44 @@ static void debug_stats(void) {
             }
         }
         debugs(DEBUG_DEFAULT, " ]\n");
+    }
+
+    // Calculate idle/proc time
+    uint64_t idle_times[AMD64_MAX_SMP] = {0};
+    uint64_t used_times[AMD64_MAX_SMP] = {0};
+    for (size_t i = 0; i < sched_ncpus; ++i) {
+        for (struct thread *it = sched_queue_heads[i]; it; it = it->next) {
+            used_times[i] += it->times.time_spent;
+        }
+        idle_times[i] += t_idle[i].times.time_spent;
+    }
+
+    uint64_t total_idle_delta = 0;
+    uint64_t total_used_delta = 0;
+    _assert(delta);
+    for (size_t i = 0; i < sched_ncpus; ++i) {
+        total_idle_delta += idle_times[i] - last_idle_times[i];
+        total_used_delta += used_times[i] - last_used_times[i];
+    }
+
+    uint64_t total_idle_percent = total_idle_delta * 100 / delta;
+    uint64_t total_used_percent = total_used_delta * 100 / delta;
+    kdebug("cpu: load %u%%, idle %u%%\n", total_used_percent, total_idle_percent);
+
+    for (size_t i = 0; i < sched_ncpus; ++i) {
+        uint64_t idle_delta = idle_times[i] - last_idle_times[i];
+        uint64_t used_delta = used_times[i] - last_used_times[i];
+
+        uint64_t idle_percent = idle_delta * 100 / delta;
+        uint64_t used_percent = used_delta * 100 / delta;
+
+        // XXX: Of course, kernel cannot tell any difference between a task
+        //      spinning in a while (...) asm ("sti; hlt") ... loop and
+        //      a really running task, so these numbers are totally inaccurate.
+        kdebug("cpu%u: load %u%%, idle %u%%\n", i, used_percent, idle_percent);
+
+        last_idle_times[i] = idle_times[i];
+        last_used_times[i] = used_times[i];
     }
 
     heap_stat(heap_global, &st);
@@ -412,11 +507,16 @@ int sched(void) {
 
 #if defined(DEBUG_COUNTERS)
     // Print various stuff every second
-    if (!cpu && system_time - debug_last_tick >= 1000000000) {
-        debug_stats();
+    uint64_t delta = system_time - debug_last_tick;
+    if (!cpu && delta >= 1000000000) {
+        debug_stats(delta);
         debug_last_tick = system_time;
     }
 #endif
+
+    if (from && from->times.last_schedule_time) {
+        from->times.time_spent += system_time - from->times.last_schedule_time;
+    }
 
     if (from == &t_idle[cpu]) {
         from = NULL;
@@ -440,6 +540,7 @@ int sched(void) {
     // Empty scheduler queue
     if (!to) {
         to = &t_idle[cpu];
+        to->times.last_schedule_time = system_time;
         get_cpu()->thread = to;
         return 0;
     }
@@ -470,6 +571,7 @@ int sched(void) {
         amd64_thread_sigenter(to, signum);
     }
 
+    to->times.last_schedule_time = system_time;
     get_cpu()->thread = to;
 
     return 0;

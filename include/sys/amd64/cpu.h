@@ -15,11 +15,11 @@ struct cpu {
     amd64_tss_t *tss;           // 0x18
     uint64_t syscall_rsp;       // 0x20
 
+    uint64_t processor_id;      // 0x28
+
     // No need to define offsets for these: ther're not accessed
     // from assembly
     uint64_t flags;
-
-    uint64_t processor_id;
     uint64_t apic_id;
 };
 

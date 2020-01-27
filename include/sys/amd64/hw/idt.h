@@ -18,8 +18,8 @@ struct amd64_idtr {
     uintptr_t offset;
 } __attribute__((packed));
 
-extern const struct amd64_idtr amd64_idtr;
+extern struct amd64_idtr amd64_idtr[AMD64_MAX_SMP];
 
-void amd64_idt_set(int idx, uintptr_t base, uint16_t selector, uint8_t flags);
+void amd64_idt_set(int cpu, int idx, uintptr_t base, uint16_t selector, uint8_t flags);
 
-void amd64_idt_init(void);
+void amd64_idt_init(int cpu);

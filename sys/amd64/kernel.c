@@ -49,7 +49,7 @@ void kernel_main(struct amd64_loader_data *data) {
                           multiboot_info->mmap_length);
 
     amd64_gdt_init();
-    amd64_idt_init();
+    amd64_idt_init(0);
     amd64_mm_init(data);
     // XXX: HEAP IS ONLY AVAILABLE AT THIS POINT
     // Register devices after heap is ready

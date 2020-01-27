@@ -7,7 +7,7 @@ bits 16
 ;   Parameters passed to us from BSP:
 ;   0x7FC0      Kernel PML4 physical address
 ;   0x7FC8      GDTR physical address
-;   0x7FD0      IDTR
+;   0x7FD0      ----
 ;   0x7FD8      Kernel AP core entrypoint
 ;   0x7FE0      Kernel AP stack
 ; --------------------------------------------
@@ -85,10 +85,6 @@ ap_startup_long:
     mov es, rax
     mov fs, rax
     mov gs, rax
-
-    ; Load IDT
-    mov rax, qword [0x7FD0]
-    lidt [rax]
 
     ; Load stack
     mov rsp, qword [0x7FE0]

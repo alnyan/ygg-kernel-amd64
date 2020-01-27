@@ -285,6 +285,9 @@ void debugfv(int level, const char *fmt, va_list args) {
                         value.v_string = va_arg(args, const char *);
                         debugsp(level, value.v_string ? value.v_string : "(null)", padc, padn);
                         break;
+                    case '%':
+                        debugc(level, '%');
+                        break;
                     default:
                         debugc(level, '%');
                         debugc(level, c);

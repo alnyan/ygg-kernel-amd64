@@ -35,6 +35,14 @@ struct image_info {
     uintptr_t brk;
 };
 
+struct thread_times {
+    // Last time scheduler selected this task
+    uint64_t last_schedule_time;
+    // Total amount of time spent in this task
+    uint64_t time_spent;
+    // TODO: somehow count idle time, idk
+};
+
 struct thread {
     __plat_thread data;
 
@@ -60,6 +68,9 @@ struct thread {
     uintptr_t sigstack;
 
     mm_space_t space;
+
+    // Timing info
+    struct thread_times times;
 
     // TODO: maybe __sched_thread
     int cpu;

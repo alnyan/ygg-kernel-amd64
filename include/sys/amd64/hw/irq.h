@@ -23,4 +23,4 @@ int irq_add_pci_handler(pci_addr_t addr, uint8_t pin, irq_handler_func_t handler
 int irq_has_handler(uint8_t gsi);
 
 void irq_enable_ioapic_mode(void);
-void irq_init(void);
+void irq_init(int cpu);

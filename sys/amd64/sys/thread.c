@@ -119,6 +119,8 @@ int thread_init(
     _assert(space);
 
     t->name[0] = 0;
+    t->times.time_spent = 0;
+    t->times.last_schedule_time = 0;
 
     // 1. Allocate all the required structures
     t->data.data_flags = 0;
