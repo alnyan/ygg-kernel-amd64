@@ -5,6 +5,7 @@
 #include "sys/fs/node.h"
 #include "sys/string.h"
 #include "sys/assert.h"
+#include "sys/fcntl.h"
 #include "sys/fs/fs.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
@@ -13,7 +14,10 @@
 
 static int ext2_vnode_find(struct vnode *at, const char *name, struct vnode **res);
 static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count);
+static int ext2_vnode_open(struct ofile *fd, int opt);
 static int ext2_vnode_opendir(struct ofile *fd);
+static int ext2_vnode_chmod(struct vnode *vn, mode_t new_mode);
+static int ext2_vnode_chown(struct vnode *node, uid_t new_uid, gid_t new_gid);
 static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent);
 static int ext2_vnode_stat(struct vnode *at, struct stat *st);
 
@@ -26,7 +30,10 @@ struct vnode_operations g_ext2_vnode_ops = {
     .readdir = ext2_vnode_readdir,
 
     .stat = ext2_vnode_stat,
+    .chmod = ext2_vnode_chmod,
+    .chown = ext2_vnode_chown,
 
+    .open = ext2_vnode_open,
     .read = ext2_vnode_read,
 };
 
@@ -86,6 +93,22 @@ static int ext2_vnode_find(struct vnode *at, const char *name, struct vnode **re
     }
 
     return -ENOENT;
+}
+
+static int ext2_vnode_open(struct ofile *fd, int opt) {
+    if ((opt & O_APPEND) && (opt & O_ACCMODE) == O_RDONLY) {
+        // Impossible, I guess
+        return -EINVAL;
+    }
+    if ((opt & O_ACCMODE) != O_RDONLY) {
+        // Not implemented
+        return -EROFS;
+    }
+    _assert(!(opt & O_DIRECTORY));
+
+    fd->pos = 0;
+
+    return 0;
 }
 
 static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count) {
@@ -209,6 +232,45 @@ static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent) {
     return ent->d_reclen;
 }
 
+static int ext2_vnode_chmod(struct vnode *node, mode_t new_mode) {
+    _assert(node);
+    struct ext2_inode *inode = node->fs_data;
+    _assert(inode);
+    struct fs *ext2 = node->fs;
+    _assert(ext2);
+
+    // Only rewrite inode if something really changed
+    if ((inode->mode & 0xFFF) != (new_mode & 0xFFF)) {
+        // chmod() only updates file mode, don't touch file type
+        inode->mode &= ~0xFFF;
+        inode->mode |= new_mode & 0xFFF;
+        node->mode = new_mode & 0xFFF;
+
+        return ext2_write_inode(ext2, inode, node->ino);
+    }
+
+    return 0;
+}
+
+static int ext2_vnode_chown(struct vnode *node, uid_t new_uid, gid_t new_gid) {
+    _assert(node);
+    struct ext2_inode *inode = node->fs_data;
+    _assert(inode);
+    struct fs *ext2 = node->fs;
+    _assert(ext2);
+
+    if (new_uid != inode->uid || new_gid != inode->gid) {
+        inode->uid = new_uid;
+        inode->gid = new_gid;
+        node->uid = new_uid;
+        node->gid = new_gid;
+
+        return ext2_write_inode(ext2, inode, node->ino);
+    }
+
+    return 0;
+}
+
 static int ext2_vnode_stat(struct vnode *node, struct stat *st) {
     _assert(node && st);
     struct ext2_inode *inode = node->fs_data;
@@ -262,7 +324,7 @@ void ext2_inode_to_vnode(struct vnode *vnode, struct ext2_inode *inode, uint32_t
         vnode->type = VN_REG;
         break;
     default:
-        panic("Unsupported inode type: %04x\n", inode->mode);
+        panic("Unsupported inode type: %04x\n", inode->mode & 0xF000);
     }
 }
 
