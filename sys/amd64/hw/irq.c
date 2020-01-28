@@ -141,8 +141,6 @@ int irq_has_handler(uint8_t gsi) {
     return !!handler_list[0].func;
 }
 
-extern void amd64_irq_msi0();
-
 int irq_add_msi_handler(irq_handler_func_t handler, void *ctx, uint8_t *vector) {
     for (size_t i = 0; i < MSI_MAX_HANDLERS; ++i) {
         if (!msi_handlers[i].func) {
@@ -171,7 +169,7 @@ void amd64_msi_handle(uint64_t vector) {
 
 void irq_init(int cpu) {
     // Special entry
-    amd64_idt_set(cpu, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    amd64_idt_set(cpu, 32, (uintptr_t) amd64_irq0_early, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 
     amd64_idt_set(cpu, 33, (uintptr_t) amd64_irq1, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     amd64_idt_set(cpu, 34, (uintptr_t) amd64_irq2, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);

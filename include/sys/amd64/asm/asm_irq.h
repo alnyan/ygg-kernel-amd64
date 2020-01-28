@@ -117,6 +117,7 @@ amd64_irq\n:
 .endm
 #else
 // Externs for C code
+extern void amd64_irq0_early();
 extern void amd64_irq0();
 extern void amd64_irq1();
 extern void amd64_irq2();
@@ -138,4 +139,6 @@ extern void amd64_irq15();
 extern void amd64_irq_ipi();
 extern void amd64_irq_ipi_panic();
 #endif
+
+extern void amd64_irq_msi0();
 #endif

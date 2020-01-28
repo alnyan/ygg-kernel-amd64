@@ -1,6 +1,8 @@
 #include "sys/debug.h"
 #include "sys/amd64/loader/multiboot.h"
+#include "sys/amd64/asm/asm_irq.h"
 #include "sys/amd64/hw/gdt.h"
+#include "sys/amd64/cpu.h"
 #include "sys/amd64/hw/vesa.h"
 #include "sys/amd64/syscall.h"
 #include "sys/amd64/hw/idt.h"
@@ -57,7 +59,6 @@ void kernel_main(struct amd64_loader_data *data) {
     pseudo_init();
     ps2_register_device();
 
-
     amd64_acpi_init();
 #if defined(VESA_ENABLE)
     amd64_vesa_init(multiboot_info);
@@ -99,6 +100,9 @@ void kernel_main(struct amd64_loader_data *data) {
     sysfs_populate();
 
     amd64_syscall_init();
+
+    // Ready to enter multitasking, disable early timer handler
+    amd64_idt_set(get_cpu()->processor_id, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 
     while (1) {
         asm ("sti; hlt");

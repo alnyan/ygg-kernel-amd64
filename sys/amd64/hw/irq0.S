@@ -3,9 +3,9 @@
 .section .text
 .global amd64_irq0
 .global amd64_irq2_counting
-.global amd64_irq0_dummy
+.global amd64_irq0_early
 
-amd64_irq0_dummy:
+amd64_irq0_early:
     cli
     pushq %rax
     irq_eoi_lapic 0

@@ -59,11 +59,6 @@ static void amd64_ap_code_entry(void) {
     // Setup IDT for this AP
     amd64_idt_init(cpu->processor_id);
 
-    // Setup temporary timer IRQ redirection for the AP so we don't enter threading
-    // too early (when scheduler hasn't at least prepared idle tasks)
-    extern void amd64_irq0_dummy(void);
-    amd64_idt_set(cpu->processor_id, 32, (uintptr_t) amd64_irq0_dummy, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-
     // Enable LAPIC.SVR.SoftwareEnable bit
     // And set spurious interrupt mapping to 0xFF
     LAPIC(LAPIC_REG_SVR) |= (1 << 8) | (0xFF);
@@ -82,6 +77,7 @@ static void amd64_ap_code_entry(void) {
         asm volatile ("sti; hlt; cli");
     } while (!sched_ready);
 
+    // Set a real irq0 to perform context switches
     amd64_idt_set(cpu->processor_id, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 
     while (1) {
