@@ -52,54 +52,65 @@ void thread_restore_context(struct thread *thr) {
 int thread_platctx_init(struct thread *t, uintptr_t entry, void *arg) {
     _assert(t->data.stack0_base != MM_NADDR);
 
-    struct cpu_context *ctx = (struct cpu_context *) t->data.rsp0;
+    //struct cpu_context *ctx = (struct cpu_context *) t->data.rsp0;
+    uint64_t *stack = (uint64_t *) t->data.rsp0;
 
-    ctx->rip = entry;
-    ctx->rflags = 0x248;
+    *--stack = entry;
+    *--stack = 0;
+    *--stack = 0;
+    *--stack = 0;
+    *--stack = 0;
+    *--stack = 0;
+    *--stack = 0;
 
-    if (t->flags & THREAD_KERNEL) {
-        ctx->rsp = t->data.stack0_base + t->data.stack0_size;
-        ctx->cs = 0x08;
-        ctx->ss = 0x10;
+    t->data.rsp0 = (uintptr_t) stack;
 
-        ctx->ds = 0x10;
-        ctx->es = 0x10;
-        ctx->fs = 0;
-    } else {
-        _assert(t->data.stack3_base != MM_NADDR);
+    //ctx->rip = entry;
+    //ctx->rflags = 0x248;
 
-        ctx->rsp = t->data.stack3_base + t->data.stack3_size;
-        ctx->cs = 0x23;
-        ctx->ss = 0x1B;
+    //if (t->flags & THREAD_KERNEL) {
+    //    ctx->rsp = t->data.stack0_base + t->data.stack0_size;
+    //    ctx->cs = 0x08;
+    //    ctx->ss = 0x10;
 
-        ctx->ds = 0x1B;
-        ctx->es = 0x1B;
-        ctx->fs = 0;
-    }
+    //    ctx->ds = 0x10;
+    //    ctx->es = 0x10;
+    //    ctx->fs = 0;
+    //} else {
+    //    _assert(t->data.stack3_base != MM_NADDR);
 
-    ctx->rax = 0;
-    ctx->rcx = 0;
-    ctx->rdx = 0;
-    ctx->rdx = 0;
-    ctx->rbp = 0;
-    ctx->rsi = 0;
-    ctx->rdi = (uintptr_t) arg;
+    //    ctx->rsp = t->data.stack3_base + t->data.stack3_size;
+    //    ctx->cs = 0x23;
+    //    ctx->ss = 0x1B;
 
-    ctx->r8 = 0;
-    ctx->r9 = 0;
-    ctx->r10 = 0;
-    ctx->r11 = 0;
-    ctx->r12 = 0;
-    ctx->r13 = 0;
-    ctx->r14 = 0;
-    ctx->r15 = 0;
+    //    ctx->ds = 0x1B;
+    //    ctx->es = 0x1B;
+    //    ctx->fs = 0;
+    //}
 
-    ctx->__canary = AMD64_STACK_CTX_CANARY;
+    //ctx->rax = 0;
+    //ctx->rcx = 0;
+    //ctx->rdx = 0;
+    //ctx->rdx = 0;
+    //ctx->rbp = 0;
+    //ctx->rsi = 0;
+    //ctx->rdi = (uintptr_t) arg;
 
-    ctx->cr3 = ({
-        _assert((uintptr_t) t->space >= 0xFFFFFF0000000000);
-        (uintptr_t) t->space - 0xFFFFFF0000000000;
-    });
+    //ctx->r8 = 0;
+    //ctx->r9 = 0;
+    //ctx->r10 = 0;
+    //ctx->r11 = 0;
+    //ctx->r12 = 0;
+    //ctx->r13 = 0;
+    //ctx->r14 = 0;
+    //ctx->r15 = 0;
+
+    //ctx->__canary = AMD64_STACK_CTX_CANARY;
+
+    //ctx->cr3 = ({
+    //    _assert((uintptr_t) t->space >= 0xFFFFFF0000000000);
+    //    (uintptr_t) t->space - 0xFFFFFF0000000000;
+    //});
 
     return 0;
 }
@@ -163,7 +174,7 @@ int thread_init(
         t->data.stack0s_size = THREAD_KSTACK_SIZE;
     }
 
-    t->data.rsp0 = t->data.stack0_base + t->data.stack0_size - sizeof(struct cpu_context);
+    t->data.rsp0 = t->data.stack0_base + t->data.stack0_size;// - sizeof(struct cpu_context);
 
     t->space = space;
 
@@ -364,8 +375,8 @@ int sys_execve(const char *filename, const char *const argv[], const char *const
 
         kdebug("%u exited with code -1: elf load failed\n", thr->pid);
         thr->exit_code = -1;
-        thr->flags |= THREAD_STOPPED;
-        amd64_syscall_yield_stopped();
+        //thr->flags |= THREAD_STOPPED;
+        //amd64_syscall_yield_stopped();
 
         panic("This code shouldn't run\n");
     }
@@ -460,8 +471,8 @@ int sys_fork(void) {
     thr_dst->sid = thr_src->sid;
     thr_dst->pgid = thr_src->pgid;
 
-    sched_add(thr_dst);
-    _assert(thr_dst->pid);
+    //sched_add(thr_dst);
+    //_assert(thr_dst->pid);
 
     ctx_src->rax = thr_dst->pid;
 

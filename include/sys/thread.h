@@ -3,21 +3,21 @@
 #include "sys/fs/vfs.h"
 
 #define THREAD_KERNEL       (1 << 31)
-#define THREAD_SIGRET       (1 << 29)
+//#define THREAD_SIGRET       (1 << 29)
 #define THREAD_CTX_SAVED    (1 << 28)
-
-// Terminal ^D for this task
-#define THREAD_EOF          (1 << 7)
-#define THREAD_INTERRUPTED  (1 << 6)
-// Thread is stopped, wait()ed by its parent and ready for reaping
-#define THREAD_DONE_WAITING (1 << 5)
-// Well, this is actually the opposite - not a child waiting to be
-// wait()ed by a parent (as I have no wait() yet), but rather a
-// parent awaiting child process tree termination.
-// XXX: RENAME THIS TO SOMETHING IN LATER COMMITS
-#define THREAD_ZOMBIE       (1 << 4)
-#define THREAD_WAITING      (1 << 3)
-#define THREAD_STOPPED      (1 << 2)
+//
+//// Terminal ^D for this task
+//#define THREAD_EOF          (1 << 7)
+//#define THREAD_INTERRUPTED  (1 << 6)
+//// Thread is stopped, wait()ed by its parent and ready for reaping
+//#define THREAD_DONE_WAITING (1 << 5)
+//// Well, this is actually the opposite - not a child waiting to be
+//// wait()ed by a parent (as I have no wait() yet), but rather a
+//// parent awaiting child process tree termination.
+//// XXX: RENAME THIS TO SOMETHING IN LATER COMMITS
+//#define THREAD_ZOMBIE       (1 << 4)
+//#define THREAD_WAITING      (1 << 3)
+//#define THREAD_STOPPED      (1 << 2)
 
 // Thread init flags:
 // Initialize platform context

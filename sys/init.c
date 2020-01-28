@@ -122,7 +122,7 @@ static int user_init_start(const char *init_filename) {
     user_init->ioctx.gid = 0;
     user_init->ioctx.cwd_vnode = NULL;
 
-    sched_add(user_init);
+    //sched_add(user_init);
 
     return 0;
 }
@@ -138,6 +138,11 @@ static void usbd_func(void *arg) {
 #endif
 
 void init_func(void *arg) {
+    while (1) {
+
+    }
+    return;
+
     // Start kernel threads for stuff handling
 #if defined(USB_ENABLE)
     thread_init(
@@ -152,7 +157,7 @@ void init_func(void *arg) {
             THREAD_INIT_CTX,
             NULL);
 
-    sched_add(&t_usbd);
+    //sched_add(&t_usbd);
 #endif
 
     const char *root_dev_name = (const char *) kernel_config[CFG_ROOT];
@@ -224,8 +229,8 @@ void init_func(void *arg) {
     outb(0x20, 0x20);
     outb(0xA0, 0x20);
 
-    struct thread *this = get_cpu()->thread;
-    this->exit_code = 0;
-    this->flags |= THREAD_STOPPED;
-    amd64_syscall_yield_stopped();
+    //struct thread *this = get_cpu()->thread;
+    //this->exit_code = 0;
+    //this->flags |= THREAD_STOPPED;
+    //amd64_syscall_yield_stopped();
 }

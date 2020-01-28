@@ -86,8 +86,6 @@ amd64_syscall_entry:
     movq %rax, %rdi
     call sys_unknown
 2:
-    //movq %rax, %r9
-    //call amd64_syscall
 
     // Disable interrupts
     cli
@@ -112,78 +110,80 @@ amd64_syscall_entry:
     sysretq
 
 _amd64_syscall_fork:
-    // R11 = rflags3
-    // RSP = rsp3
-    // RCX = rip3
-    // Still on user stack
-    movq %rsp, get_cpu(0x20)
-    movq get_cpu(0x08), %rsp
-    movq (%rsp), %rsp
-
-    // Now on kernel stack
-    pushq $0x1B     // User SS
-    movq get_cpu(0x20), %rsi
-    pushq %rsi      // User RSP
-    pushq %r11      // User FLAGS
-    pushq $0x23     // User CS
-    pushq %rcx      // User RIP
-    // Now our kstack looks like we've just entered via an interrupt
-
-    irq_push_ctx
-
-    movq %rsp, %rbp
-
-    // Store the context we've just pushed
-    movq get_cpu(0x08), %rdi
-    test %rdi, %rdi
-    jz 1f
-    movq %rsp, (%rdi)
-1:
-    call sys_fork
-
-    // Well, we won't actually need this
-    // TODO: add irq_drop_ctx
-    irq_pop_ctx
-
-    swapgs
-    iretq
+    jmp .
+//    // R11 = rflags3
+//    // RSP = rsp3
+//    // RCX = rip3
+//    // Still on user stack
+//    movq %rsp, get_cpu(0x20)
+//    movq get_cpu(0x08), %rsp
+//    movq (%rsp), %rsp
+//
+//    // Now on kernel stack
+//    pushq $0x1B     // User SS
+//    movq get_cpu(0x20), %rsi
+//    pushq %rsi      // User RSP
+//    pushq %r11      // User FLAGS
+//    pushq $0x23     // User CS
+//    pushq %rcx      // User RIP
+//    // Now our kstack looks like we've just entered via an interrupt
+//
+//    irq_push_ctx
+//
+//    movq %rsp, %rbp
+//
+//    // Store the context we've just pushed
+//    movq get_cpu(0x08), %rdi
+//    test %rdi, %rdi
+//    jz 1f
+//    movq %rsp, (%rdi)
+//1:
+//    call sys_fork
+//
+//    // Well, we won't actually need this
+//    // TODO: add irq_drop_ctx
+//    irq_pop_ctx
+//
+//    swapgs
+//    iretq
 
 
 // Schedule control to a new task instead of stopped one
 amd64_syscall_yield_stopped:
-    cli
-    // No stack frame - the kernel stack is going to be discarded anyways
-    movq get_cpu(0x08), %rbx
-
-    call sched
-    test %rax, %rax
-    jz 1f
-
-    // sched() failed
-    leaq _yield_failed(%rip), %rdi
-    xorq %rax, %rax
-    call panicf
-
-1:
-    // Remove old thread from queues
-    movq %rbx, %rdi
-    call sched_remove
-
-    // Load a new context
-    // rsi = thread structure pointer
-    movq get_cpu(0x08), %rsi
-    movq 0(%rsi), %rsp
-
-    // Write TSS entry
-    movq get_cpu(0x18), %rdi
-    movq %rsp, %rax
-    addq $(25 * 8), %rax
-    movq %rax, 4(%rdi)
-1:
-    // Assume we're now on TASK2's stack
-    irq_pop_ctx
-
-    iretq
+    jmp .
+//    cli
+//    // No stack frame - the kernel stack is going to be discarded anyways
+//    movq get_cpu(0x08), %rbx
+//
+//    call sched
+//    test %rax, %rax
+//    jz 1f
+//
+//    // sched() failed
+//    leaq _yield_failed(%rip), %rdi
+//    xorq %rax, %rax
+//    call panicf
+//
+//1:
+//    // Remove old thread from queues
+//    movq %rbx, %rdi
+//    call sched_remove
+//
+//    // Load a new context
+//    // rsi = thread structure pointer
+//    movq get_cpu(0x08), %rsi
+//    movq 0(%rsi), %rsp
+//
+//    // Write TSS entry
+//    movq get_cpu(0x18), %rdi
+//    movq %rsp, %rax
+//    addq $(25 * 8), %rax
+//    movq %rax, 4(%rdi)
+//1:
+//    // Assume we're now on TASK2's stack
+//    irq_pop_ctx
+//
+//    iretq
 
 _yield_failed:
     .string "sched() returned -1 on amd64_syscall_yield\n"

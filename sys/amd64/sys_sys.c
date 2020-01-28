@@ -3,8 +3,9 @@
 #include "sys/amd64/cpu.h"
 #include "sys/reboot.h"
 #include "sys/string.h"
-#include "sys/debug.h"
 #include "sys/assert.h"
+#include "sys/thread.h"
+#include "sys/debug.h"
 #include "sys/errno.h"
 #include "sys/sched.h"
 
@@ -88,7 +89,7 @@ int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg) {
     case YGG_REBOOT_RESTART:
     case YGG_REBOOT_POWER_OFF:
     case YGG_REBOOT_HALT:
-        sched_reboot(cmd);
+        //sched_reboot(cmd);
         return 0;
     default:
         return -EINVAL;

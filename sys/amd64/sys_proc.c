@@ -14,8 +14,8 @@ void sys_exit(int status) {
     _assert(thr);
     kdebug("%u exited with code %d\n", thr->pid, status);
     thr->exit_code = status;
-    thr->flags |= THREAD_STOPPED;
-    amd64_syscall_yield_stopped();
+    //thr->flags |= THREAD_STOPPED;
+    //amd64_syscall_yield_stopped();
 }
 
 int sys_kill(int pid, int signum) {
@@ -23,7 +23,7 @@ int sys_kill(int pid, int signum) {
     struct thread *cur_thread = get_cpu()->thread;
 
     // Find destination thread
-    struct thread *dst_thread = sched_find(pid);
+    struct thread *dst_thread = NULL;// = sched_find(pid);
 
     if (!dst_thread) {
         return -ESRCH;
@@ -54,7 +54,7 @@ void sys_sigret(void) {
     struct thread *thr = get_cpu()->thread;
     _assert(thr);
 
-    thr->flags |= THREAD_SIGRET;
+    //thr->flags |= THREAD_SIGRET;
 
     asm volatile ("sti; hlt; cli");
 }
@@ -78,11 +78,11 @@ int sys_waitpid(int pid, int *status) {
     }
 
     while (1) {
-        if (waited->flags & THREAD_STOPPED) {
-            kdebug("%d is done waiting for %d\n", thr->pid, waited->pid);
-            wait_good = 1;
-            break;
-        }
+        //if (waited->flags & THREAD_STOPPED) {
+        //    kdebug("%d is done waiting for %d\n", thr->pid, waited->pid);
+        //    wait_good = 1;
+        //    break;
+        //}
         asm volatile ("sti; hlt; cli");
     }
 
@@ -90,9 +90,9 @@ int sys_waitpid(int pid, int *status) {
         if (status) {
             *status = waited->exit_code;
         }
-        waited->flags |= THREAD_DONE_WAITING;
+        //waited->flags |= THREAD_DONE_WAITING;
 
-        thread_terminate(waited);
+        //thread_terminate(waited);
     }
 
     return 0;
@@ -147,7 +147,8 @@ pid_t sys_getpgid(pid_t pid) {
         thr = get_cpu()->thread;
         _assert(thr);
     } else {
-        thr = sched_find(pid);
+        thr = NULL;
+        //thr = sched_find(pid);
     }
 
     if (!thr) {

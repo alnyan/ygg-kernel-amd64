@@ -17,57 +17,94 @@ _msg0: .string "CPU stopped!\n"
 
 amd64_irq0:
     cli
-    // Stack:
-    // ss
-    // rsp
-    // rflags
-    // cs
-    // rip
     swapgs_if_needed
 
-    // Interrupt entry:
-    // rsp should be one of the following:
-    //  The one specified in the TSS.RSP0
-    //  When interrupting kernel code - Task's kernel RSP
-    irq_push_ctx
+    // Only push registers which have to be saved by caller
+    pushq %rax
 
-    // Let's adhere to the amd64 ABI
-    movq %rsp, %rbp
-
-    // Store old ctx
-    movq get_cpu(0x08), %rdi
-    test %rdi, %rdi
-    jz 1f
-    movq %rsp, (%rdi)
-    // Store task FPU and rest
-    call thread_save_context
-1:
-
-    call sched
-    // Non-zero return code means no sched happened
-    test %rax, %rax
-    jnz 1f
-
-    // rsi = thread structure pointer
-    movq get_cpu(0x08), %rsi
-    movq 0(%rsi), %rsp
-
-    // Write TSS entry
-    movq get_cpu(0x18), %rdi
-    movq %rsp, %rax
-    addq $(25 * 8), %rax
-    movq %rax, 4(%rdi)
-1:
-    movq %rsi, %rdi
-    call thread_restore_context
-    // Assume we're now on TASK2's stack
     // EOI
     irq_eoi_lapic 0
 
-    irq_pop_ctx
+    pushq %rcx
+    pushq %rdx
+    pushq %rsi
+    pushq %rdi
+    pushq %r8
+    pushq %r9
+    pushq %r10
+    pushq %r11
+    pushq %rbp
+
+    movq %rsp, %rbp
+    // Do something, this will still preserve callee-saved
+    // registers so no need to push them
+    call sched
+
+    // Pop caller-saved registers
+    popq %rbp
+    popq %r11
+    popq %r10
+    popq %r9
+    popq %r8
+    popq %rdi
+    popq %rsi
+    popq %rdx
+    popq %rcx
+    popq %rax
 
     swapgs_if_needed
     iretq
+//    // Stack:
+//    // ss
+//    // rsp
+//    // rflags
+//    // cs
+//    // rip
+//    swapgs_if_needed
+//
+//    // Interrupt entry:
+//    // rsp should be one of the following:
+//    //  The one specified in the TSS.RSP0
+//    //  When interrupting kernel code - Task's kernel RSP
+//    irq_push_ctx
+//
+//    // Let's adhere to the amd64 ABI
+//    movq %rsp, %rbp
+//
+//    // Store old ctx
+//    movq get_cpu(0x08), %rdi
+//    test %rdi, %rdi
+//    jz 1f
+//    movq %rsp, (%rdi)
+//    // Store task FPU and rest
+//    call thread_save_context
+//1:
+//
+//    call sched
+//    // Non-zero return code means no sched happened
+//    test %rax, %rax
+//    jnz 1f
+//
+//    // rsi = thread structure pointer
+//    movq get_cpu(0x08), %rsi
+//    movq 0(%rsi), %rsp
+//
+//    // Write TSS entry
+//    movq get_cpu(0x18), %rdi
+//    movq %rsp, %rax
+//    addq $(25 * 8), %rax
+//    movq %rax, 4(%rdi)
+//1:
+//    movq %rsi, %rdi
+//    call thread_restore_context
+//    // Assume we're now on TASK2's stack
+//    // EOI
+//    irq_eoi_lapic 0
+//
+//    irq_pop_ctx
+//
+//    swapgs_if_needed
+//    iretq
 
 amd64_irq2_counting:
     cli

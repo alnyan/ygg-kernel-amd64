@@ -1,560 +1,730 @@
-#include "sys/amd64/syscall.h"
-#include "sys/amd64/mm/phys.h"
-#include "sys/amd64/mm/pool.h"
+//#include "sys/amd64/syscall.h"
+//#include "sys/amd64/mm/phys.h"
+//#include "sys/amd64/mm/pool.h"
+//#include "sys/fs/sysfs.h"
+//#include "sys/snprintf.h"
+//#include "sys/signum.h"
 #include "sys/amd64/cpu.h"
-#include "sys/fs/sysfs.h"
-#include "sys/snprintf.h"
-#include "sys/signum.h"
+#include "sys/thread.h"
 #include "sys/string.h"
 #include "sys/assert.h"
-#include "sys/reboot.h"
+//#include "sys/reboot.h"
 #include "sys/panic.h"
-#include "sys/errno.h"
-#include "sys/sched.h"
 #include "sys/debug.h"
-#include "sys/time.h"
-#include "sys/spin.h"
-#include "sys/init.h"
 #include "sys/heap.h"
 #include "sys/mm.h"
+//#include "sys/errno.h"
+//#include "sys/sched.h"
+//#include "sys/time.h"
+//#include "sys/spin.h"
+//#include "sys/init.h"
+//#include "sys/mm.h"
 
-void sched_add_to(int cpu, struct thread *t);
-void sched_add(struct thread *t);
+#define thread_self         (get_cpu()->thread)
+extern void sched_yield(void);
+extern void sched_enter_internal(struct thread *thr, uintptr_t entry_func);
+extern void sched_switch_context(struct thread *thr);
 
-static struct thread *sched_queue_heads[AMD64_MAX_SMP] = { 0 };
-static struct thread *sched_queue_tails[AMD64_MAX_SMP] = { 0 };
-static size_t sched_queue_sizes[AMD64_MAX_SMP] = { 0 };
-static size_t sched_ncpus = 1;
-static spin_t sched_lock = 0;
+// Scheduler queue
+static struct thread *sched_queue_head = NULL;
+// Don't know if such queue is really needed, might be useful while dumping long-term sleeping
+// task list
+static struct thread *sched_waiting_head = NULL;
+
+static struct thread sched_idle;
+//extern void sched_idle_func(void *);
+static char sched_idle_stack[1024];
+
+int sched(void);
 int sched_ready = 0;
 
-// Non-zero means we're terminating all the stuff and performing an action
-// once we're done
-static unsigned int system_state = 0;
+void sched_set_cpu_count(int ncpus) {}
 
-#define IDLE_STACK  4096
-#define INIT_STACK  32768
+void sched_queue(struct thread *thr) {
+    _assert(thr);
+    if (sched_queue_head) {
+        struct thread *sched_queue_tail = sched_queue_head->prev;
 
-// Testing
-static char t_stack0[IDLE_STACK * AMD64_MAX_SMP] = {0};
-static char t_stack1[INIT_STACK] = {0};
-static struct thread t_idle[AMD64_MAX_SMP] = {0};
-static struct thread t_init = {0};
-static struct thread *t_user_init = NULL;
+        thr->prev = sched_queue_tail;
+        thr->next = sched_queue_head;
+        sched_queue_tail->next = thr;
+        sched_queue_head->prev = thr;
+    } else {
+        thr->next = thr;
+        thr->prev = thr;
+        sched_queue_head = thr;
+    }
+}
 
-void idle_func(uintptr_t id) {
-    kdebug("Entering [idle] for cpu%d\n", id);
+void sched_unqueue(struct thread *thr) {
+    _assert(thr);
+
+    struct thread *prev = thr->prev;
+    struct thread *next = thr->next;
+    _assert(prev != thr && next != thr);
+
+    next->prev = prev;
+    prev->next = next;
+
+    if (thr == sched_queue_head) {
+        sched_queue_head = next;
+    }
+
+    thr->prev = NULL;
+    thr->next = NULL;
+
+    if (thr == thread_self) {
+        // Immediately yield
+        sched_switch_context(sched_queue_head);
+    }
+}
+
+static void thread_wait_bound(void *arg) {
+    kinfo("Entered wait-bound thread\n");
+
     while (1) {
-        asm volatile ("sti; hlt");
+        // TODO: sleep here
+        kinfo("Something!\n");
+        sched_waiting_head = thread_self;
+        sched_unqueue(thread_self);
     }
 }
 
-static pid_t sched_alloc_pid(int is_kernel) {
-    // The first pid allocation will be 1 (init process)
-    static uint32_t last_user_pid = 1;
-    static uint32_t last_kernel_pid = 1;
-    return is_kernel ? -(last_kernel_pid++) : last_user_pid++;
-}
-
-#if defined(AMD64_SMP)
-void sched_set_cpu_count(size_t count) {
-    sched_ncpus = count;
-}
-#endif
-
-struct thread *sched_find(int pid) {
-    if (pid <= 0) {
-        return NULL;
+static void sched_idle_func(void) {
+    kinfo("Idle\n");
+    while (1) {
+        asm ("hlt");
     }
+}
 
-    // TODO: this only finds processes which are queued. Implement a global process list
-    //       to fix this
-    // Search through queues
-    for (size_t cpu = 0; cpu < sched_ncpus; ++cpu) {
-        for (struct thread *t = sched_queue_heads[cpu]; t; t = t->next) {
-            if ((int) t->pid == pid) {
-                return t;
-            }
+static void thread_cpu_bound(void *arg) {
+    int i = 0;
+    while (1) {
+        ++i;
+
+        if (i % 100000000 == 0) {
+            kinfo("Tick %p\n", arg);
         }
     }
-
-    return NULL;
-}
-
-int sched_close_stdin_group(int pgid) {
-    int res = 0;
-
-    for (size_t cpu = 0; cpu < sched_ncpus; ++cpu) {
-        for (struct thread *t = sched_queue_heads[cpu]; t; t = t->next) {
-            if ((int) t->pgid == pgid) {
-                ++res;
-
-                // Correct behavior - flush TTY line instead and make read return zero
-                t->flags |= THREAD_INTERRUPTED;
-                if (t->fds[0]) {
-                    vfs_close(&t->ioctx, t->fds[0]);
-                    _assert(t->fds[0]->refcount >= 0);
-
-                    if (!t->fds[0]->refcount) {
-                        kfree(t->fds[0]);
-                    }
-                    t->fds[0] = NULL;
-                }
-            }
-        }
-    }
-
-    if (!res) {
-        return -ESRCH;
-    } else {
-        return res;
-    }
-}
-
-int sched_signal_group(int pgid, int signum) {
-    int res = 0;
-
-    for (size_t cpu = 0; cpu < sched_ncpus; ++cpu) {
-        for (struct thread *t = sched_queue_heads[cpu]; t; t = t->next) {
-            if ((int) t->pgid == pgid) {
-                ++res;
-
-                // Correct behavior - interrupt and restart read
-                t->flags |= THREAD_INTERRUPTED;
-                thread_signal(t, signum);
-            }
-        }
-    }
-
-    if (!res) {
-        return -ESRCH;
-    } else {
-        return res;
-    }
-}
-
-// TODO: refactor this to remove PID allocation logic and only queue/unqueue threads using
-// these functions
-void sched_add_to(int cpu, struct thread *t) {
-    t->next = NULL;
-
-    spin_lock(&sched_lock);
-    if (sched_queue_tails[cpu] != NULL) {
-        sched_queue_tails[cpu]->next = t;
-    } else {
-        sched_queue_heads[cpu] = t;
-    }
-    t->prev = sched_queue_tails[cpu];
-    t->cpu = cpu;
-
-    t->pid = sched_alloc_pid(t->flags & THREAD_KERNEL);
-    if (!(t->flags & THREAD_KERNEL)) {
-        if (t->pid == 1) {
-            t->pgid = 1;
-            t_user_init = t;
-        }
-    }
-
-    sched_queue_tails[cpu] = t;
-    ++sched_queue_sizes[cpu];
-    spin_release(&sched_lock);
-}
-
-void sched_add(struct thread *t) {
-    int min_i = -1;
-    size_t min = 0xFFFFFFFF;
-    spin_lock(&sched_lock);
-    for (size_t i = 0; i < sched_ncpus; ++i) {
-        if (sched_queue_sizes[i] < min) {
-            min = sched_queue_sizes[i];
-            min_i = i;
-        }
-    }
-    spin_release(&sched_lock);
-    sched_add_to(min_i, t);
-}
-
-static int sched_cpu_queue_getter(void *ctx, char *buf, size_t lim) {
-    for (size_t i = 0; i < sched_ncpus; ++i) {
-        sysfs_buf_printf(buf, lim, "cpu%u: ", i);
-        for (struct thread *thr = sched_queue_heads[i]; thr; thr = thr->next) {
-            if (thr->flags & THREAD_KERNEL) {
-                sysfs_buf_puts(buf, lim, "[");
-            }
-            if (thr->name[0]) {
-                sysfs_buf_puts(buf, lim, thr->name);
-            } else {
-                sysfs_buf_puts(buf, lim, "---");
-            }
-            if (thr->flags & THREAD_KERNEL) {
-                sysfs_buf_puts(buf, lim, "]");
-            }
-            sysfs_buf_printf(buf, lim, " (%d)", (int) thr->pid);
-            if (thr->next) {
-                sysfs_buf_puts(buf, lim, ", ");
-            }
-        }
-        sysfs_buf_puts(buf, lim, "\n");
-    }
-    return 0;
 }
 
 void sched_init(void) {
-    for (size_t i = 0; i < sched_ncpus; ++i) {
-        thread_init(
-                &t_idle[i],
-                mm_kernel,
-                (uintptr_t) idle_func,
-                (uintptr_t) &t_stack0[i * IDLE_STACK],
-                IDLE_STACK,
-                0,
-                0,
-                THREAD_KERNEL,
-                THREAD_INIT_CTX,
-                (void *) i);
-    }
-
-    // Also start [init] on cpu0
-    thread_init(
-            &t_init,
+    thread_init(&sched_idle,
             mm_kernel,
-            (uintptr_t) init_func,
-            (uintptr_t) &t_stack1[INIT_STACK],
-            INIT_STACK,
-            0,
-            0,
-            THREAD_KERNEL,
-            THREAD_INIT_CTX,
-            NULL);
+            (uintptr_t) sched_idle_func,
+            (uintptr_t) sched_idle_stack,
+            sizeof(sched_idle_stack),
+            0, 0,
+            THREAD_KERNEL, THREAD_INIT_CTX, NULL);
 
-    sched_add_to(0, &t_init);
+    struct thread *t0 = kmalloc(sizeof(struct thread));
+    thread_init(t0, mm_kernel, (uintptr_t) thread_cpu_bound, 0, 0, 0, 0, THREAD_KERNEL, THREAD_INIT_CTX, (void *) 1);
+    t0->pid = 1;
 
-    sysfs_add_config_endpoint("sched.cpu_count", SYSFS_MODE_DEFAULT, 16, &sched_ncpus, sysfs_config_int64_getter, NULL);
-    sysfs_add_config_endpoint("sched.cpu_queue", SYSFS_MODE_DEFAULT, 1024, NULL, sched_cpu_queue_getter, NULL);
+    struct thread *t1 = kmalloc(sizeof(struct thread));
+    thread_init(t1, mm_kernel, (uintptr_t) thread_wait_bound, 0, 0, 0, 0, THREAD_KERNEL, THREAD_INIT_CTX, (void *) 2);
+    t1->pid = 2;
 
-    sched_ready = 1;
+    struct thread *t2 = kmalloc(sizeof(struct thread));
+    thread_init(t2, mm_kernel, (uintptr_t) thread_cpu_bound, 0, 0, 0, 0, THREAD_KERNEL, THREAD_INIT_CTX, (void *) 3);
+    t2->pid = 3;
+
+    sched_idle.pid = 0;
+
+    sched_queue(t0);
+    sched_queue(t1);
+    sched_queue(t2);
 }
 
-static void thread_unchild(struct thread *thr) {
-    struct thread *par = thr->parent;
-    if (par) {
-        kdebug("Unchilding %d from %d\n", thr->pid, par->pid);
-        struct thread *p = NULL;
-        struct thread *c = par->child;
-        int found = 0;
-
-        while (c) {
-            if (c == thr) {
-                found = 1;
-                if (p) {
-                    p->next_child = thr->next_child;
-                } else {
-                    par->child = thr->next_child;
-                }
-                break;
-            }
-
-            p = c;
-            c = c->next_child;
-        }
-
-        _assert(found);
-        if ((par->flags & THREAD_ZOMBIE) && !par->child) {
-            thread_unchild(par);
-
-            // Zombie is finally ready to die
-            kdebug("Thread cleanup: zombie %d\n", par->pid);
-            thread_cleanup(par);
-        }
-    }
+void sched_enter(void) {
+    sched_enter_internal(sched_queue_head, 0);
 }
-
-// Called after parent is done waiting
-void thread_terminate(struct thread *thr) {
-    _assert(thr->flags & THREAD_STOPPED);
-    _assert(thr->pid == 1 || (thr->flags & THREAD_DONE_WAITING));
-
-    if (!thr->child) {
-        // Remove from parent's "child" list
-        thread_unchild(thr);
-
-        kdebug("Thread cleanup: %d\n", thr->pid);
-        thread_cleanup(thr);
-    } else {
-        // TODO: add to some kind of "zombie" queue
-        //       mark children as "zombie-children" to notify parent task
-        kdebug("Couldn't terminate thread %d: has children\n", thr->pid);
-        thr->flags |= THREAD_ZOMBIE;
-    }
-}
-
-void sched_remove_from(int cpu, struct thread *thr) {
-    struct thread *prev = thr->prev;
-    struct thread *next = thr->next;
-    kdebug("cpu%d: removing thread %d\n", cpu, thr->pid);
-
-    if (prev) {
-        prev->next = next;
-    } else {
-        sched_queue_heads[cpu] = next;
-    }
-
-    if (next) {
-        next->prev = prev;
-    } else {
-        sched_queue_tails[cpu] = prev;
-    }
-
-    --sched_queue_sizes[cpu];
-
-    thr->next = NULL;
-    thr->prev = NULL;
-
-    // TODO: child process sends SIGCHLD to its parent (ignored by default)
-    if (thr->pid == 1) {
-        thread_terminate(thr);
-    }
-}
-
-void sched_remove(struct thread *thr) {
-    kdebug("Remove %p\n", thr);
-    int should_panic = (thr->pid == 1) && !system_state;
-    if (thr->pid == 1) {
-        t_user_init = NULL;
-    }
-    sched_remove_from(thr->cpu, thr);
-
-    if (should_panic) {
-        panic("PID 1 got killed\n");
-    }
-}
-
-void sched_reboot(unsigned int cmd) {
-    if (system_state) {
-        panic("sched_reboot requested when system_state is already non-zero\n");
-    }
-    _assert(t_user_init);
-
-    system_state = cmd;
-    // Send SIGTERM to init
-    t_user_init->sigq |= 1 << (SIGTERM - 1);
-}
-
-#if defined(DEBUG_COUNTERS)
-static uint64_t debug_last_tick = 0;
-
-static void debug_print_thread_name(int level, struct thread *thr) {
-    if (thr->flags & THREAD_KERNEL) {
-        if (thr->name[0]) {
-            debugf(level, "[%s] (%u)", thr->name, -thr->pid);
-        } else {
-            debugf(level, "K%u", -thr->pid);
-        }
-    } else {
-        if (thr->name[0]) {
-            debugf(level, "%s (%u)", thr->name, thr->pid);
-        } else {
-            debugf(level, "%u", thr->pid);
-        }
-    }
-}
-
-static void debug_thread_tree(struct thread *thr, size_t depth) {
-    for (size_t i = 0; i < depth; ++i) {
-        debugs(DEBUG_DEFAULT, "  ");
-    }
-
-    debug_print_thread_name(DEBUG_DEFAULT, thr);
-
-    if (thr->flags & THREAD_ZOMBIE) {
-        debugc(DEBUG_DEFAULT, 'z');
-    }
-    if (thr->flags & THREAD_STOPPED) {
-        debugc(DEBUG_DEFAULT, 's');
-    }
-
-    if (thr->child) {
-        debugs(DEBUG_DEFAULT, " {\n");
-        for (struct thread *ch = thr->child; ch; ch = ch->next_child) {
-            debug_thread_tree(ch, depth + 1);
-        }
-        for (size_t i = 0; i < depth; ++i) {
-            debugs(DEBUG_DEFAULT, "  ");
-        }
-        debugc(DEBUG_DEFAULT, '}');
-    }
-    debugc(DEBUG_DEFAULT, '\n');
-}
-
-static void debug_stats(uint64_t delta) {
-    static uint64_t last_idle_times[AMD64_MAX_SMP] = {0};
-    static uint64_t last_used_times[AMD64_MAX_SMP] = {0};
-
-    struct heap_stat st;
-    struct amd64_phys_stat phys_st;
-    struct amd64_pool_stat pool_st;
-
-    kdebug("--- STATS ---\n");
-    kdebug("syscalls/s: %lu\n", syscall_count);
-
-    if (t_user_init) {
-        kdebug("init [1] tree:\n");
-        debug_thread_tree(t_user_init, 0);
-    }
-
-    kdebug("CPU queues:\n");
-    for (size_t i = 0; i < sched_ncpus; ++i) {
-        debugf(DEBUG_DEFAULT, "  cpu%d [ ", i);
-        for (struct thread *it = sched_queue_heads[i]; it; it = it->next) {
-            debug_print_thread_name(DEBUG_DEFAULT, it);
-
-            if (it->next) {
-                debugs(DEBUG_DEFAULT, ", ");
-            }
-        }
-        debugs(DEBUG_DEFAULT, " ]\n");
-    }
-
-    // Calculate idle/proc time
-    uint64_t idle_times[AMD64_MAX_SMP] = {0};
-    uint64_t used_times[AMD64_MAX_SMP] = {0};
-    for (size_t i = 0; i < sched_ncpus; ++i) {
-        for (struct thread *it = sched_queue_heads[i]; it; it = it->next) {
-            used_times[i] += it->times.time_spent;
-        }
-        idle_times[i] += t_idle[i].times.time_spent;
-    }
-
-    uint64_t total_idle_delta = 0;
-    uint64_t total_used_delta = 0;
-    _assert(delta);
-    for (size_t i = 0; i < sched_ncpus; ++i) {
-        total_idle_delta += idle_times[i] - last_idle_times[i];
-        total_used_delta += used_times[i] - last_used_times[i];
-    }
-
-    uint64_t total_idle_percent = total_idle_delta * 100 / delta;
-    uint64_t total_used_percent = total_used_delta * 100 / delta;
-    kdebug("cpu: load %u%%, idle %u%%\n", total_used_percent, total_idle_percent);
-
-    for (size_t i = 0; i < sched_ncpus; ++i) {
-        uint64_t idle_delta = idle_times[i] - last_idle_times[i];
-        uint64_t used_delta = used_times[i] - last_used_times[i];
-
-        uint64_t idle_percent = idle_delta * 100 / delta;
-        uint64_t used_percent = used_delta * 100 / delta;
-
-        // XXX: Of course, kernel cannot tell any difference between a task
-        //      spinning in a while (...) asm ("sti; hlt") ... loop and
-        //      a really running task, so these numbers are totally inaccurate.
-        kdebug("cpu%u: load %u%%, idle %u%%\n", i, used_percent, idle_percent);
-
-        last_idle_times[i] = idle_times[i];
-        last_used_times[i] = used_times[i];
-    }
-
-    heap_stat(heap_global, &st);
-    kdebug("Heap stat:\n");
-    kdebug("Allocated blocks: %u\n", st.alloc_count);
-    kdebug("Used %S, free %S, total %S\n", st.alloc_size, st.free_size, st.total_size);
-
-    amd64_phys_stat(&phys_st);
-    kdebug("Physical memory:\n");
-    kdebug("Used %S (%u), free %S (%u), ceiling %p\n",
-            phys_st.pages_used * 0x1000,
-            phys_st.pages_used,
-            phys_st.pages_free * 0x1000,
-            phys_st.pages_free,
-            phys_st.limit);
-
-    amd64_mm_pool_stat(&pool_st);
-    kdebug("Paging pool:\n");
-    kdebug("Used %S (%u), free %S (%u)\n",
-            pool_st.pages_used * 0x1000,
-            pool_st.pages_used,
-            pool_st.pages_free * 0x1000,
-            pool_st.pages_free);
-
-    kdebug("--- ----- ---\n");
-
-    syscall_count = 0;
-}
-#endif
 
 int sched(void) {
-    struct thread *from = get_cpu()->thread;
+    struct thread *from = thread_self;
     struct thread *to;
-    int cpu = get_cpu()->processor_id;
-    uintptr_t flags;
 
-#if defined(DEBUG_COUNTERS)
-    // Print various stuff every second
-    uint64_t delta = system_time - debug_last_tick;
-    if (!cpu && delta >= 1000000000) {
-        debug_stats(delta);
-        debug_last_tick = system_time;
-    }
-#endif
+    static uint64_t last_tick_time = 0;
+    uint64_t delta = system_time - last_tick_time;
 
-    if (from && from->times.last_schedule_time) {
-        from->times.time_spent += system_time - from->times.last_schedule_time;
-    }
-
-    if (from == &t_idle[cpu]) {
-        from = NULL;
-    }
-
-    if (system_state && !t_user_init) {
-        // All user tasks are terminated
-        system_power_cmd(system_state);
-    }
-
-    if (from && from->next) {
-        to = from->next;
-    } else {
-        to = sched_queue_heads[cpu];
-    }
-
-    if (to && to->flags & THREAD_STOPPED) {
-        to = NULL;
-    }
-
-    // Empty scheduler queue
-    if (!to) {
-        to = &t_idle[cpu];
-        to->times.last_schedule_time = system_time;
-        get_cpu()->thread = to;
-        return 0;
-    }
-
-    if (to->flags & THREAD_SIGRET) {
-        to->flags &= ~THREAD_SIGRET;
-        amd64_thread_sigret(to);
-    }
-
-    if (to->sigq) {
-        // Should we enter signal handler?
-        int signum = 0;
-        if (to->sigq & (1 << 8)) {
-            // SIGKILL
-            kdebug("sigq = %x\n", to->sigq);
-            panic("TODO: properly handle SIGKILL\n");
+    if (delta >= 1000000000ULL) {
+        if (last_tick_time && sched_waiting_head) {
+            kinfo("Requeuing waiting thread\n");
+            sched_queue(sched_waiting_head);
+            sched_waiting_head = NULL;
         }
-
-        for (size_t i = 0; i < 32; ++i) {
-            if (to->sigq & (1 << i)) {
-                signum = i + 1;
-                to->sigq &= ~(1 << i);
-                break;
-            }
-        }
-        _assert(signum);
-
-        amd64_thread_sigenter(to, signum);
+        last_tick_time = system_time;
     }
 
-    to->times.last_schedule_time = system_time;
-    get_cpu()->thread = to;
+    to = from->next;
+    kinfo("sched %u -> %u\n", from->pid, to->pid);
+
+    //if (from && from->next) {
+    //    to = from->next;
+    //} else if (sched_queue_head) {
+    //    to = sched_queue_head;
+    //} else {
+    //    to = &sched_idle;
+    //}
+
+    sched_switch_context(to);
+
+    //struct thread *from = get_cpu()->thread;
+    //struct thread *to;
+
+    //if (from && from->next) {
+    //    // QUEUE -> QUEUE
+    //    to = from->next;
+    //} else if (sched_queue_head) {
+    //    // IDLE -> QUEUE
+    //    to = sched_queue_head;
+    //} else {
+    //    // QUEUE -> IDLE
+    //    to = &sched_idle;
+    //}
+
+    //get_cpu()->thread = to;
 
     return 0;
 }
+
+//void sched_add_to(int cpu, struct thread *t);
+//void sched_add(struct thread *t);
+//
+//static struct thread *sched_queue_heads[AMD64_MAX_SMP] = { 0 };
+//static struct thread *sched_queue_tails[AMD64_MAX_SMP] = { 0 };
+//static size_t sched_queue_sizes[AMD64_MAX_SMP] = { 0 };
+//static size_t sched_ncpus = 1;
+//static spin_t sched_lock = 0;
+//int sched_ready = 0;
+//
+//// Non-zero means we're terminating all the stuff and performing an action
+//// once we're done
+//static unsigned int system_state = 0;
+//
+//#define IDLE_STACK  4096
+//#define INIT_STACK  32768
+//
+//// Testing
+//static char t_stack0[IDLE_STACK * AMD64_MAX_SMP] = {0};
+//static char t_stack1[INIT_STACK] = {0};
+//static struct thread t_idle[AMD64_MAX_SMP] = {0};
+//static struct thread t_init = {0};
+//static struct thread *t_user_init = NULL;
+//
+//void idle_func(uintptr_t id) {
+//    kdebug("Entering [idle] for cpu%d\n", id);
+//    while (1) {
+//        asm volatile ("sti; hlt");
+//    }
+//}
+//
+//static pid_t sched_alloc_pid(int is_kernel) {
+//    // The first pid allocation will be 1 (init process)
+//    static uint32_t last_user_pid = 1;
+//    static uint32_t last_kernel_pid = 1;
+//    return is_kernel ? -(last_kernel_pid++) : last_user_pid++;
+//}
+//
+//#if defined(AMD64_SMP)
+//void sched_set_cpu_count(size_t count) {
+//    sched_ncpus = count;
+//}
+//#endif
+//
+//struct thread *sched_find(int pid) {
+//    if (pid <= 0) {
+//        return NULL;
+//    }
+//
+//    // TODO: this only finds processes which are queued. Implement a global process list
+//    //       to fix this
+//    // Search through queues
+//    for (size_t cpu = 0; cpu < sched_ncpus; ++cpu) {
+//        for (struct thread *t = sched_queue_heads[cpu]; t; t = t->next) {
+//            if ((int) t->pid == pid) {
+//                return t;
+//            }
+//        }
+//    }
+//
+//    return NULL;
+//}
+//
+//int sched_close_stdin_group(int pgid) {
+//    int res = 0;
+//
+//    for (size_t cpu = 0; cpu < sched_ncpus; ++cpu) {
+//        for (struct thread *t = sched_queue_heads[cpu]; t; t = t->next) {
+//            if ((int) t->pgid == pgid) {
+//                ++res;
+//
+//                // Correct behavior - flush TTY line instead and make read return zero
+//                t->flags |= THREAD_INTERRUPTED;
+//                if (t->fds[0]) {
+//                    vfs_close(&t->ioctx, t->fds[0]);
+//                    _assert(t->fds[0]->refcount >= 0);
+//
+//                    if (!t->fds[0]->refcount) {
+//                        kfree(t->fds[0]);
+//                    }
+//                    t->fds[0] = NULL;
+//                }
+//            }
+//        }
+//    }
+//
+//    if (!res) {
+//        return -ESRCH;
+//    } else {
+//        return res;
+//    }
+//}
+//
+//int sched_signal_group(int pgid, int signum) {
+//    int res = 0;
+//
+//    for (size_t cpu = 0; cpu < sched_ncpus; ++cpu) {
+//        for (struct thread *t = sched_queue_heads[cpu]; t; t = t->next) {
+//            if ((int) t->pgid == pgid) {
+//                ++res;
+//
+//                // Correct behavior - interrupt and restart read
+//                t->flags |= THREAD_INTERRUPTED;
+//                thread_signal(t, signum);
+//            }
+//        }
+//    }
+//
+//    if (!res) {
+//        return -ESRCH;
+//    } else {
+//        return res;
+//    }
+//}
+//
+//// TODO: refactor this to remove PID allocation logic and only queue/unqueue threads using
+//// these functions
+//void sched_add_to(int cpu, struct thread *t) {
+//    t->next = NULL;
+//
+//    spin_lock(&sched_lock);
+//    if (sched_queue_tails[cpu] != NULL) {
+//        sched_queue_tails[cpu]->next = t;
+//    } else {
+//        sched_queue_heads[cpu] = t;
+//    }
+//    t->prev = sched_queue_tails[cpu];
+//    t->cpu = cpu;
+//
+//    t->pid = sched_alloc_pid(t->flags & THREAD_KERNEL);
+//    if (!(t->flags & THREAD_KERNEL)) {
+//        if (t->pid == 1) {
+//            t->pgid = 1;
+//            t_user_init = t;
+//        }
+//    }
+//
+//    sched_queue_tails[cpu] = t;
+//    ++sched_queue_sizes[cpu];
+//    spin_release(&sched_lock);
+//}
+//
+//void sched_add(struct thread *t) {
+//    int min_i = -1;
+//    size_t min = 0xFFFFFFFF;
+//    spin_lock(&sched_lock);
+//    for (size_t i = 0; i < sched_ncpus; ++i) {
+//        if (sched_queue_sizes[i] < min) {
+//            min = sched_queue_sizes[i];
+//            min_i = i;
+//        }
+//    }
+//    spin_release(&sched_lock);
+//    sched_add_to(min_i, t);
+//}
+//
+//static int sched_cpu_queue_getter(void *ctx, char *buf, size_t lim) {
+//    for (size_t i = 0; i < sched_ncpus; ++i) {
+//        sysfs_buf_printf(buf, lim, "cpu%u: ", i);
+//        for (struct thread *thr = sched_queue_heads[i]; thr; thr = thr->next) {
+//            if (thr->flags & THREAD_KERNEL) {
+//                sysfs_buf_puts(buf, lim, "[");
+//            }
+//            if (thr->name[0]) {
+//                sysfs_buf_puts(buf, lim, thr->name);
+//            } else {
+//                sysfs_buf_puts(buf, lim, "---");
+//            }
+//            if (thr->flags & THREAD_KERNEL) {
+//                sysfs_buf_puts(buf, lim, "]");
+//            }
+//            sysfs_buf_printf(buf, lim, " (%d)", (int) thr->pid);
+//            if (thr->next) {
+//                sysfs_buf_puts(buf, lim, ", ");
+//            }
+//        }
+//        sysfs_buf_puts(buf, lim, "\n");
+//    }
+//    return 0;
+//}
+//
+//void sched_init(void) {
+//    for (size_t i = 0; i < sched_ncpus; ++i) {
+//        thread_init(
+//                &t_idle[i],
+//                mm_kernel,
+//                (uintptr_t) idle_func,
+//                (uintptr_t) &t_stack0[i * IDLE_STACK],
+//                IDLE_STACK,
+//                0,
+//                0,
+//                THREAD_KERNEL,
+//                THREAD_INIT_CTX,
+//                (void *) i);
+//    }
+//
+//    // Also start [init] on cpu0
+//    thread_init(
+//            &t_init,
+//            mm_kernel,
+//            (uintptr_t) init_func,
+//            (uintptr_t) &t_stack1[INIT_STACK],
+//            INIT_STACK,
+//            0,
+//            0,
+//            THREAD_KERNEL,
+//            THREAD_INIT_CTX,
+//            NULL);
+//
+//    sched_add_to(0, &t_init);
+//
+//    sysfs_add_config_endpoint("sched.cpu_count", SYSFS_MODE_DEFAULT, 16, &sched_ncpus, sysfs_config_int64_getter, NULL);
+//    sysfs_add_config_endpoint("sched.cpu_queue", SYSFS_MODE_DEFAULT, 1024, NULL, sched_cpu_queue_getter, NULL);
+//
+//    sched_ready = 1;
+//}
+//
+//static void thread_unchild(struct thread *thr) {
+//    struct thread *par = thr->parent;
+//    if (par) {
+//        kdebug("Unchilding %d from %d\n", thr->pid, par->pid);
+//        struct thread *p = NULL;
+//        struct thread *c = par->child;
+//        int found = 0;
+//
+//        while (c) {
+//            if (c == thr) {
+//                found = 1;
+//                if (p) {
+//                    p->next_child = thr->next_child;
+//                } else {
+//                    par->child = thr->next_child;
+//                }
+//                break;
+//            }
+//
+//            p = c;
+//            c = c->next_child;
+//        }
+//
+//        _assert(found);
+//        if ((par->flags & THREAD_ZOMBIE) && !par->child) {
+//            thread_unchild(par);
+//
+//            // Zombie is finally ready to die
+//            kdebug("Thread cleanup: zombie %d\n", par->pid);
+//            thread_cleanup(par);
+//        }
+//    }
+//}
+//
+//// Called after parent is done waiting
+//void thread_terminate(struct thread *thr) {
+//    _assert(thr->flags & THREAD_STOPPED);
+//    _assert(thr->pid == 1 || (thr->flags & THREAD_DONE_WAITING));
+//
+//    if (!thr->child) {
+//        // Remove from parent's "child" list
+//        thread_unchild(thr);
+//
+//        kdebug("Thread cleanup: %d\n", thr->pid);
+//        thread_cleanup(thr);
+//    } else {
+//        // TODO: add to some kind of "zombie" queue
+//        //       mark children as "zombie-children" to notify parent task
+//        kdebug("Couldn't terminate thread %d: has children\n", thr->pid);
+//        thr->flags |= THREAD_ZOMBIE;
+//    }
+//}
+//
+//void sched_remove_from(int cpu, struct thread *thr) {
+//    struct thread *prev = thr->prev;
+//    struct thread *next = thr->next;
+//    kdebug("cpu%d: removing thread %d\n", cpu, thr->pid);
+//
+//    if (prev) {
+//        prev->next = next;
+//    } else {
+//        sched_queue_heads[cpu] = next;
+//    }
+//
+//    if (next) {
+//        next->prev = prev;
+//    } else {
+//        sched_queue_tails[cpu] = prev;
+//    }
+//
+//    --sched_queue_sizes[cpu];
+//
+//    thr->next = NULL;
+//    thr->prev = NULL;
+//
+//    // TODO: child process sends SIGCHLD to its parent (ignored by default)
+//    if (thr->pid == 1) {
+//        thread_terminate(thr);
+//    }
+//}
+//
+//void sched_remove(struct thread *thr) {
+//    kdebug("Remove %p\n", thr);
+//    int should_panic = (thr->pid == 1) && !system_state;
+//    if (thr->pid == 1) {
+//        t_user_init = NULL;
+//    }
+//    sched_remove_from(thr->cpu, thr);
+//
+//    if (should_panic) {
+//        panic("PID 1 got killed\n");
+//    }
+//}
+//
+//void sched_reboot(unsigned int cmd) {
+//    if (system_state) {
+//        panic("sched_reboot requested when system_state is already non-zero\n");
+//    }
+//    _assert(t_user_init);
+//
+//    system_state = cmd;
+//    // Send SIGTERM to init
+//    t_user_init->sigq |= 1 << (SIGTERM - 1);
+//}
+//
+//#if defined(DEBUG_COUNTERS)
+//static uint64_t debug_last_tick = 0;
+//
+//static void debug_print_thread_name(int level, struct thread *thr) {
+//    if (thr->flags & THREAD_KERNEL) {
+//        if (thr->name[0]) {
+//            debugf(level, "[%s] (%u)", thr->name, -thr->pid);
+//        } else {
+//            debugf(level, "K%u", -thr->pid);
+//        }
+//    } else {
+//        if (thr->name[0]) {
+//            debugf(level, "%s (%u)", thr->name, thr->pid);
+//        } else {
+//            debugf(level, "%u", thr->pid);
+//        }
+//    }
+//}
+//
+//static void debug_thread_tree(struct thread *thr, size_t depth) {
+//    for (size_t i = 0; i < depth; ++i) {
+//        debugs(DEBUG_DEFAULT, "  ");
+//    }
+//
+//    debug_print_thread_name(DEBUG_DEFAULT, thr);
+//
+//    if (thr->flags & THREAD_ZOMBIE) {
+//        debugc(DEBUG_DEFAULT, 'z');
+//    }
+//    if (thr->flags & THREAD_STOPPED) {
+//        debugc(DEBUG_DEFAULT, 's');
+//    }
+//
+//    if (thr->child) {
+//        debugs(DEBUG_DEFAULT, " {\n");
+//        for (struct thread *ch = thr->child; ch; ch = ch->next_child) {
+//            debug_thread_tree(ch, depth + 1);
+//        }
+//        for (size_t i = 0; i < depth; ++i) {
+//            debugs(DEBUG_DEFAULT, "  ");
+//        }
+//        debugc(DEBUG_DEFAULT, '}');
+//    }
+//    debugc(DEBUG_DEFAULT, '\n');
+//}
+//
+//static void debug_stats(uint64_t delta) {
+//    static uint64_t last_idle_times[AMD64_MAX_SMP] = {0};
+//    static uint64_t last_used_times[AMD64_MAX_SMP] = {0};
+//
+//    struct heap_stat st;
+//    struct amd64_phys_stat phys_st;
+//    struct amd64_pool_stat pool_st;
+//
+//    kdebug("--- STATS ---\n");
+//    kdebug("syscalls/s: %lu\n", syscall_count);
+//
+//    if (t_user_init) {
+//        kdebug("init [1] tree:\n");
+//        debug_thread_tree(t_user_init, 0);
+//    }
+//
+//    kdebug("CPU queues:\n");
+//    for (size_t i = 0; i < sched_ncpus; ++i) {
+//        debugf(DEBUG_DEFAULT, "  cpu%d [ ", i);
+//        for (struct thread *it = sched_queue_heads[i]; it; it = it->next) {
+//            debug_print_thread_name(DEBUG_DEFAULT, it);
+//
+//            if (it->next) {
+//                debugs(DEBUG_DEFAULT, ", ");
+//            }
+//        }
+//        debugs(DEBUG_DEFAULT, " ]\n");
+//    }
+//
+//    // Calculate idle/proc time
+//    uint64_t idle_times[AMD64_MAX_SMP] = {0};
+//    uint64_t used_times[AMD64_MAX_SMP] = {0};
+//    for (size_t i = 0; i < sched_ncpus; ++i) {
+//        for (struct thread *it = sched_queue_heads[i]; it; it = it->next) {
+//            used_times[i] += it->times.time_spent;
+//        }
+//        idle_times[i] += t_idle[i].times.time_spent;
+//    }
+//
+//    uint64_t total_idle_delta = 0;
+//    uint64_t total_used_delta = 0;
+//    _assert(delta);
+//    for (size_t i = 0; i < sched_ncpus; ++i) {
+//        total_idle_delta += idle_times[i] - last_idle_times[i];
+//        total_used_delta += used_times[i] - last_used_times[i];
+//    }
+//
+//    uint64_t total_idle_percent = total_idle_delta * 100 / delta;
+//    uint64_t total_used_percent = total_used_delta * 100 / delta;
+//    kdebug("cpu: load %u%%, idle %u%%\n", total_used_percent, total_idle_percent);
+//
+//    for (size_t i = 0; i < sched_ncpus; ++i) {
+//        uint64_t idle_delta = idle_times[i] - last_idle_times[i];
+//        uint64_t used_delta = used_times[i] - last_used_times[i];
+//
+//        uint64_t idle_percent = idle_delta * 100 / delta;
+//        uint64_t used_percent = used_delta * 100 / delta;
+//
+//        // XXX: Of course, kernel cannot tell any difference between a task
+//        //      spinning in a while (...) asm ("sti; hlt") ... loop and
+//        //      a really running task, so these numbers are totally inaccurate.
+//        kdebug("cpu%u: load %u%%, idle %u%%\n", i, used_percent, idle_percent);
+//
+//        last_idle_times[i] = idle_times[i];
+//        last_used_times[i] = used_times[i];
+//    }
+//
+//    heap_stat(heap_global, &st);
+//    kdebug("Heap stat:\n");
+//    kdebug("Allocated blocks: %u\n", st.alloc_count);
+//    kdebug("Used %S, free %S, total %S\n", st.alloc_size, st.free_size, st.total_size);
+//
+//    amd64_phys_stat(&phys_st);
+//    kdebug("Physical memory:\n");
+//    kdebug("Used %S (%u), free %S (%u), ceiling %p\n",
+//            phys_st.pages_used * 0x1000,
+//            phys_st.pages_used,
+//            phys_st.pages_free * 0x1000,
+//            phys_st.pages_free,
+//            phys_st.limit);
+//
+//    amd64_mm_pool_stat(&pool_st);
+//    kdebug("Paging pool:\n");
+//    kdebug("Used %S (%u), free %S (%u)\n",
+//            pool_st.pages_used * 0x1000,
+//            pool_st.pages_used,
+//            pool_st.pages_free * 0x1000,
+//            pool_st.pages_free);
+//
+//    kdebug("--- ----- ---\n");
+//
+//    syscall_count = 0;
+//}
+//#endif
+//
+//int sched(void) {
+//    struct thread *from = get_cpu()->thread;
+//    struct thread *to;
+//    int cpu = get_cpu()->processor_id;
+//    uintptr_t flags;
+//
+//#if defined(DEBUG_COUNTERS)
+//    // Print various stuff every second
+//    uint64_t delta = system_time - debug_last_tick;
+//    if (!cpu && delta >= 1000000000) {
+//        debug_stats(delta);
+//        debug_last_tick = system_time;
+//    }
+//#endif
+//
+//    if (from && from->times.last_schedule_time) {
+//        from->times.time_spent += system_time - from->times.last_schedule_time;
+//    }
+//
+//    if (from == &t_idle[cpu]) {
+//        from = NULL;
+//    }
+//
+//    if (system_state && !t_user_init) {
+//        // All user tasks are terminated
+//        system_power_cmd(system_state);
+//    }
+//
+//    if (from && from->next) {
+//        to = from->next;
+//    } else {
+//        to = sched_queue_heads[cpu];
+//    }
+//
+//    if (to && to->flags & THREAD_STOPPED) {
+//        to = NULL;
+//    }
+//
+//    // Empty scheduler queue
+//    if (!to) {
+//        to = &t_idle[cpu];
+//        to->times.last_schedule_time = system_time;
+//        get_cpu()->thread = to;
+//        return 0;
+//    }
+//
+//    if (to->flags & THREAD_SIGRET) {
+//        to->flags &= ~THREAD_SIGRET;
+//        amd64_thread_sigret(to);
+//    }
+//
+//    if (to->sigq) {
+//        // Should we enter signal handler?
+//        int signum = 0;
+//        if (to->sigq & (1 << 8)) {
+//            // SIGKILL
+//            kdebug("sigq = %x\n", to->sigq);
+//            panic("TODO: properly handle SIGKILL\n");
+//        }
+//
+//        for (size_t i = 0; i < 32; ++i) {
+//            if (to->sigq & (1 << i)) {
+//                signum = i + 1;
+//                to->sigq &= ~(1 << i);
+//                break;
+//            }
+//        }
+//        _assert(signum);
+//
+//        amd64_thread_sigenter(to, signum);
+//    }
+//
+//    to->times.last_schedule_time = system_time;
+//    get_cpu()->thread = to;
+//
+//    return 0;
+//}

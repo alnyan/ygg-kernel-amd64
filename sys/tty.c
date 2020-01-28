@@ -74,7 +74,7 @@ void tty_control_write(struct chrdev *tty, char c) {
         break;
     case 'c':
         ring_signal(&tty->buffer, RING_SIGNAL_BRK);
-        sched_signal_group(data->fg_pgid, SIGINT);
+        //sched_signal_group(data->fg_pgid, SIGINT);
         break;
     default:
         panic("Unhandled control to TTY: ^%c\n", c);

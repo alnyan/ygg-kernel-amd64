@@ -32,9 +32,9 @@
 
 static multiboot_info_t *multiboot_info;
 
-static void amd64_make_random_seed(void) {
-    random_init(15267 + system_time);
-}
+//static void amd64_make_random_seed(void) {
+//    random_init(15267 + system_time);
+//}
 
 void kernel_main(struct amd64_loader_data *data) {
     data = (struct amd64_loader_data *) MM_VIRTUALIZE(data);
@@ -69,42 +69,41 @@ void kernel_main(struct amd64_loader_data *data) {
     kinfo("yggdrasil " KERNEL_VERSION_STR "\n");
 
     amd64_apic_init();
-    rtc_init();
-    // Setup system time
-    struct tm t;
-    rtc_read(&t);
-    system_boot_time = mktime(&t);
-    kinfo("Boot time: %04u-%02u-%02u %02u:%02u:%02u\n",
-        t.tm_year, t.tm_mon, t.tm_mday,
-        t.tm_hour, t.tm_min, t.tm_sec);
+    //rtc_init();
+    //// Setup system time
+    //struct tm t;
+    //rtc_read(&t);
+    //system_boot_time = mktime(&t);
+    //kinfo("Boot time: %04u-%02u-%02u %02u:%02u:%02u\n",
+    //    t.tm_year, t.tm_mon, t.tm_mday,
+    //    t.tm_hour, t.tm_min, t.tm_sec);
 
-    pci_init();
+    //pci_init();
 
-    vfs_init();
-    tty_init();
-    if (data->initrd_ptr) {
-        // Create ram0 block device
-        ramblk_init(MM_VIRTUALIZE(data->initrd_ptr), data->initrd_len);
-        tarfs_init();
-    }
+    //vfs_init();
+    //tty_init();
+    //if (data->initrd_ptr) {
+    //    // Create ram0 block device
+    //    ramblk_init(MM_VIRTUALIZE(data->initrd_ptr), data->initrd_len);
+    //    tarfs_init();
+    //}
 
     // Initial random seed
-    amd64_make_random_seed();
+    //amd64_make_random_seed();
 
-    amd64_fpu_init();
+    //amd64_fpu_init();
 
 #if defined(AMD64_SMP)
-    amd64_smp_init();
+    //amd64_smp_init();
 #endif
     sched_init();
-    sysfs_populate();
+    //sysfs_populate();
 
-    amd64_syscall_init();
+    //amd64_syscall_init();
 
     // Ready to enter multitasking, disable early timer handler
     amd64_idt_set(get_cpu()->processor_id, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 
-    while (1) {
-        asm ("sti; hlt");
-    }
+    sched_enter();
+    panic("This code should not run\n");
 }
