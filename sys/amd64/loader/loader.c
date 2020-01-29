@@ -45,9 +45,28 @@ static uint64_t elf_load(uintptr_t src) {
     Elf64_Shdr *shdrs = (Elf64_Shdr *) (src + (uintptr_t) ehdr->e_shoff);
     const char *shstrtabd = (const char *) (src + (uintptr_t) shdrs[ehdr->e_shstrndx].sh_offset);
 
+    loader_data.strtab_ptr = 0;
+    loader_data.strtab_size = 0;
+    loader_data.symtab_ptr = 0;
+    loader_data.symtab_size = 0;
+
     for (size_t i = 0; i < (size_t) ehdr->e_shnum; ++i) {
         Elf64_Shdr *shdr = &shdrs[i];
         const char *name = &shstrtabd[shdr->sh_name];
+
+        if (shdr->sh_type == SHT_SYMTAB && !strcmp(name, ".symtab")) {
+            loader_data.symtab_ptr = (uint32_t) shdr->sh_offset + src;
+            loader_data.symtab_size = (uint32_t) shdr->sh_size;
+        }
+
+        if (shdr->sh_type == SHT_STRTAB && !strcmp(name, ".strtab")) {
+            puts("Strtab section: ");
+            puts(name);
+            putc('\n');
+
+            loader_data.strtab_ptr = (uint32_t) shdr->sh_offset + src;
+            loader_data.strtab_size = (uint32_t) shdr->sh_size;
+        }
 
         if (shdr->sh_flags & SHF_ALLOC) {
             if (!strcmp(name, ".note.gnu.property")) {

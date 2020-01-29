@@ -35,6 +35,11 @@ void kernel_main(struct amd64_loader_data *data) {
     data = (struct amd64_loader_data *) MM_VIRTUALIZE(data);
     multiboot_info = (multiboot_info_t *) MM_VIRTUALIZE(data->multiboot_info_ptr);
 
+    if (data->symtab_ptr) {
+        kinfo("Kernel symbol table at %p\n", MM_VIRTUALIZE(data->symtab_ptr));
+        debug_symbol_table_set(MM_VIRTUALIZE(data->symtab_ptr), MM_VIRTUALIZE(data->strtab_ptr), data->symtab_size, data->strtab_size);
+    }
+
     // Parse kernel command line
     kernel_set_cmdline(data->cmdline);
 
@@ -55,11 +60,6 @@ void kernel_main(struct amd64_loader_data *data) {
     kinfo("yggdrasil " KERNEL_VERSION_STR "\n");
 
     amd64_apic_init();
-
-//#pragma GCC diagnostic ignored "-Wdiv-by-zero"
-//    uint32_t *addr = (uint32_t *) 0x110000000;
-//    *addr = 1;
-//#pragma GCC diagnostic pop
 
     while (1) {
         asm volatile ("sti; hlt");

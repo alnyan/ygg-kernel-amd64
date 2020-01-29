@@ -1,6 +1,7 @@
 .section .text
 // Args:
 // %rdi - Address of loader's information struct
+.type _start, %function
 .global _start
 _start:
     cli
@@ -11,12 +12,15 @@ _start:
     call _init
     movq %rbx, %rdi
 
+    xorq %rbp, %rbp
+    pushq %rbp
     call kernel_main
 
 1:
     cli
     hlt
     jmp 1b
+.size _start, . - _start
 
 // Entrypoint for AP bootstrap code
 .global kernel_stacks_top

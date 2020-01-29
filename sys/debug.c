@@ -4,12 +4,85 @@
 #include "sys/attr.h"
 #include "sys/spin.h"
 #include "sys/config.h"
+#include "sys/elf.h"
 #include <stdint.h>
 
 #if defined(ARCH_AMD64)
 #include "sys/amd64/hw/con.h"
 #include "sys/amd64/hw/rs232.h"
 #endif
+
+////
+
+static uintptr_t g_symtab_ptr = 0;
+static uintptr_t g_strtab_ptr = 0;
+static size_t g_symtab_size = 0;
+static size_t g_strtab_size = 0;
+
+void debug_symbol_table_set(uintptr_t s0, uintptr_t s1, size_t z0, size_t z1) {
+    g_symtab_ptr = s0;
+    g_symtab_size = z0;
+    g_strtab_ptr = s1;
+    g_strtab_size = z1;
+}
+
+int debug_symbol_find(uintptr_t addr, const char **name, uintptr_t *base) {
+    if (g_symtab_ptr && g_strtab_ptr) {
+        size_t offset = 0;
+        Elf64_Sym *sym;
+
+        while (offset < g_symtab_size) {
+            sym = (Elf64_Sym *) (g_symtab_ptr + offset);
+
+            if (ELF_ST_TYPE(sym->st_info) == STT_FUNC) {
+                if (sym->st_value <= addr && sym->st_value + sym->st_size >= addr) {
+                    *base = sym->st_value;
+                    if (sym->st_name < g_strtab_size) {
+                        *name = (const char *) (g_strtab_ptr + sym->st_name);
+                    } else {
+                        *name = "<invalid>";
+                    }
+                    return 0;
+                }
+            }
+
+            offset += sizeof(Elf64_Sym);
+        }
+    }
+
+    return -1;
+}
+
+void debug_backtrace(uintptr_t rbp, int depth, int limit) {
+    // Typical layout:
+    // rbp + 08 == rip
+    // rbp + 00 == rbp_1
+
+    if (!limit) {
+        return;
+    }
+
+    uintptr_t rip =      ((uintptr_t *) rbp)[1];
+    uintptr_t rbp_next = ((uintptr_t *) rbp)[0];
+
+    uintptr_t base;
+    const char *name;
+
+    if (debug_symbol_find(rip, &name, &base) == 0) {
+        kfatal("%d: %p <%s + %04x>\n", depth, rip, name, rip - base);
+    } else {
+        kfatal("%d: %p (unknown)\n", depth, rip);
+    }
+
+    if (rbp_next == 0) {
+        kfatal("-- End of frame chain\n");
+        return;
+    }
+
+    debug_backtrace(rbp_next, depth + 1, limit - 1);
+}
+
+////
 
 static const char *s_debug_xs_set0 = "0123456789abcdef";
 static const char *s_debug_xs_set1 = "0123456789ABCDEF";

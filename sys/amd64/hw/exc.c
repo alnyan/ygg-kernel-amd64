@@ -2,6 +2,13 @@
 #include "sys/debug.h"
 #include "sys/panic.h"
 
+#define X86_EXCEPTION_PF        14
+
+#define X86_PF_EXEC             (1 << 5)
+#define X86_PF_USER             (1 << 2)
+#define X86_PF_WRITE            (1 << 1)
+#define X86_PF_PRESENT          (1 << 0)
+
 #define X86_FLAGS_CF            (1 << 0)
 #define X86_FLAGS_PF            (1 << 2)
 #define X86_FLAGS_AF            (1 << 4)
@@ -55,6 +62,38 @@ void amd64_exception(struct amd64_exception_frame *frame) {
             (frame->rflags & X86_FLAGS_OF) ? 'O' : '-',
             (frame->rflags & X86_FLAGS_IF) ? 'I' : '-',
             (frame->rflags & X86_FLAGS_TF) ? 'T' : '-');
+
+    if (frame->exc_no == X86_EXCEPTION_PF) {
+        uintptr_t cr2;
+        asm volatile ("movq %%cr2, %0":"=r"(cr2));
+
+        kfatal("Page fault info:\n");
+        kfatal("Fault address: %p\n", cr2);
+
+        if (frame->exc_code & X86_PF_EXEC) {
+            kfatal(" - Instruction fetch\n");
+        } else {
+            if (frame->exc_code & X86_PF_WRITE) {
+                kfatal(" - Write operation\n");
+            } else {
+                kfatal(" - Read operation\n");
+            }
+        }
+        if (frame->exc_code & X86_PF_PRESENT) {
+            kfatal(" - Refers to non-present page\n");
+        }
+        if (frame->exc_code & X86_PF_USER) {
+            kfatal(" - Userspace\n");
+        }
+    }
+
+    uintptr_t sym_base;
+    const char *sym_name;
+    if (debug_symbol_find(frame->rip, &sym_name, &sym_base) == 0) {
+        kfatal("   Backtrace:\n");
+        kfatal("0: %p <%s + %04x>\n", frame->rip, sym_name, frame->rip - sym_base);
+        debug_backtrace(frame->rbp, 1, 10);
+    }
 
     panic("Exception without resolution\n");
 }
