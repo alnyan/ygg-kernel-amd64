@@ -42,9 +42,13 @@ amd64_exc_generic:
 
     // amd64_exception(frame)
     movq %rsp, %rdi
-    // 16 (pushed context) + 2 (code/number) + 5 (interrupt context)
-    addq $184, %rdi
     call amd64_exception
+
+    movq $AMD64_STACK_CTX_CANARY, %rax
+    test %rax, (%rsp)
+    jz 1f
+1:
+    addq $8, %rsp
 
     popq %r15
     popq %r14
@@ -63,6 +67,8 @@ amd64_exc_generic:
     popq %rdx
     popq %rcx
     popq %rax
+
+    addq $16, %rsp
 
     iretq
 

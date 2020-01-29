@@ -56,6 +56,11 @@ void kernel_main(struct amd64_loader_data *data) {
 
     amd64_apic_init();
 
+//#pragma GCC diagnostic ignored "-Wdiv-by-zero"
+//    uint32_t *addr = (uint32_t *) 0x110000000;
+//    *addr = 1;
+//#pragma GCC diagnostic pop
+
     while (1) {
         asm volatile ("sti; hlt");
     }
