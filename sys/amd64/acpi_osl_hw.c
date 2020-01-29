@@ -1,7 +1,6 @@
 #include "acpi.h"
 #include "sys/panic.h"
 #include "sys/amd64/hw/io.h"
-#include "sys/amd64/hw/pci/pci.h"
 #include "sys/assert.h"
 #include "sys/debug.h"
 

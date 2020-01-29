@@ -32,58 +32,9 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/string.o \
 	  $(O)/sys/panic.o \
 	  $(O)/sys/errno.o \
-	  $(O)/sys/vfs/fs_class.o \
-	  $(O)/sys/chr.o \
-	  $(O)/sys/blk.o \
-	  $(O)/sys/dev.o \
-	  $(O)/sys/vfs/node.o \
-	  $(O)/sys/vfs/vfs.o \
-	  $(O)/sys/ring.o \
-	  $(O)/sys/net/eth.o \
-	  $(O)/sys/net/arp.o \
-	  $(O)/sys/net/in.o \
-	  $(O)/sys/net/netdev.o \
-	  $(O)/sys/vfs/pseudo.o \
-	  $(O)/sys/vfs/tar.o \
-	  $(O)/sys/blk/ram.o \
-	  $(O)/sys/blk/part_gpt.o \
- 	  $(O)/sys/tty.o \
-	  $(O)/sys/reboot.o \
-	  $(O)/sys/random.o \
-	  $(O)/sys/init.o \
-	  $(O)/sys/vfs/vfs_ops.o \
-	  $(O)/sys/vfs/vfs_access.o \
-	  $(O)/sys/time.o \
-	  $(O)/sys/ctype.o \
-	  $(O)/sys/line.o \
 	  $(O)/sys/config.o \
-	  $(O)/sys/input.o \
-	  $(O)/sys/vfs/sysfs.o \
-	  $(O)/sys/vfs/ext2/ext2.o \
-	  $(O)/sys/vfs/ext2/block.o \
-	  $(O)/sys/vfs/ext2/node.o \
-	  $(O)/sys/snprintf.o
-
-USB_ENABLE?=1
-ifeq ($(USB_ENABLE),1)
-CFLAGS+=-DUSB_ENABLE
-OBJS+=$(O)/sys/usb/device.o \
-	  $(O)/sys/usb/driver.o \
-	  $(O)/sys/usb/usbkbd.o \
-	  $(O)/sys/usb/usb.o
-endif
-
-ifeq ($(VESA_ENABLE),1)
-OBJS+=$(O)/sys/psf.o \
-	  $(O)/sys/font/default8x16.o \
-	  $(O)/sys/font/logo.o
-endif
-
-DIRS+=$(O)/sys/vfs/ext2 \
-	  $(O)/sys/net \
-	  $(O)/sys/blk \
-	  $(O)/sys/usb \
-	  $(O)/sys/vfs/ext2
+	  $(O)/sys/ctype.o \
+	  $(O)/sys/time.o
 
 ifeq ($(DEBUG_COUNTERS),1)
 CFLAGS+=-DDEBUG_COUNTERS

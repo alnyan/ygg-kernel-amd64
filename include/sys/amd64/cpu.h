@@ -2,7 +2,6 @@
 #include "sys/amd64/asm/asm_irq.h"
 #include "sys/amd64/hw/gdt.h"
 #include "sys/types.h"
-#include "sys/thread.h"
 
 #define FXSAVE_REGION       512
 
@@ -10,12 +9,11 @@ struct cpu {
     // TODO: somehow export offsets to asm
     struct cpu *self;           // 0x00
 
-    struct thread *thread;      // 0x08
-    uint64_t ticks;             // 0x10
-    amd64_tss_t *tss;           // 0x18
-    uint64_t syscall_rsp;       // 0x20
+    uint64_t ticks;
+    amd64_tss_t *tss;
+    uint64_t syscall_rsp;
 
-    uint64_t processor_id;      // 0x28
+    uint64_t processor_id;
 
     // No need to define offsets for these: ther're not accessed
     // from assembly

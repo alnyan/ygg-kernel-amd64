@@ -5,8 +5,6 @@
 #include "sys/debug.h"
 #include "sys/mm.h"
 
-#include "sys/amd64/sys_file.h"
-
 #define HEAP_MAGIC 0x1BAD83A0
 
 typedef struct heap_block {

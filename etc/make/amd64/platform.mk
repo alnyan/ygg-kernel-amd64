@@ -19,7 +19,6 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/hw/exc_s.o \
 	  $(O)/sys/amd64/hw/exc.o \
 	  $(O)/sys/amd64/hw/irq0.o \
-	  $(O)/sys/amd64/hw/con.o \
 	  $(O)/sys/amd64/hw/timer.o \
 	  $(O)/sys/amd64/hw/ioapic.o \
 	  $(O)/sys/amd64/hw/irqs_s.o \
@@ -30,8 +29,6 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/mm/phys.o \
 	  $(O)/sys/amd64/mm/vmalloc.o \
 	  $(O)/sys/amd64/mm/pool.o \
-	  $(O)/sys/amd64/hw/pci/pci.o \
-	  $(O)/sys/amd64/hw/pci/pcidb.o \
 	  $(O)/sys/amd64/hw/ps2.o \
 	  $(O)/sys/amd64/hw/irq.o \
 	  $(ACPICA_OBJS) \
@@ -44,7 +41,6 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/acpi_osl_hw.o \
 	  $(O)/sys/amd64/hw/rtc.o \
 	  $(O)/sys/amd64/fpu.o \
-	  $(O)/sys/amd64/hw/pci/ahci.o \
 	  $(O)/sys/amd64/cpuid.o
 
 kernel_LINKER=sys/amd64/link.ld
@@ -90,7 +86,4 @@ DIRS+=$(O)/sys/amd64/image/boot/grub \
 	  $(O)/sys/amd64/hw \
 	  $(O)/sys/amd64/sys \
 	  $(O)/sys/amd64/mm \
-	  $(O)/sys/amd64/hw/pci \
-	  $(O)/sys/amd64/hw/ide \
-	  $(O)/sys/font \
 	  $(ACPICA_OBJD)
