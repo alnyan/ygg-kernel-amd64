@@ -46,4 +46,4 @@ uintptr_t amd64_map_umap(mm_space_t space, uintptr_t vaddr, uint32_t size);
  *              * AMD64_MAP_USER
  * @return 0 on success, -1 otherwise
  */
-int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint32_t flags);
+int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t flags);

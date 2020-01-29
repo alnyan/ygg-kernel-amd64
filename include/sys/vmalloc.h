@@ -5,8 +5,8 @@
 #pragma once
 #include "sys/mm.h"
 
-#define VM_ALLOC_USER   (1 << 0)
-#define VM_ALLOC_WRITE  (1 << 1)
+#define VM_ALLOC_WRITE      (MM_PAGE_WRITE)
+#define VM_ALLOC_USER       (MM_PAGE_USER)
 
 /**
  * @brief Find a free contiguous memory range inside a given one

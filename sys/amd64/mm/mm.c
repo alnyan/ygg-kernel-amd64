@@ -30,16 +30,23 @@ void amd64_mm_init(struct amd64_loader_data *data) {
     memset((void *) (0x200000 - 2 * 0x1000), 0, 0x1000 * 2);
 
     // 0x0000000000000000 -> 0 Mapping for AP bootstrapping
-    pml4[0] = ((uintptr_t) pdpt) | 1 | 2 | 4;
+    // pml4[0] = ((uintptr_t) pdpt) | 1 | 2 | 4;
     // 0xFFFFFF0000000000 -> 0 (512GiB) mapping
-    pml4[AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 39] = ((uintptr_t) pdpt) | 1 | 2 | 4;
+    pml4[AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 39] = ((uintptr_t) pdpt) |
+                                                     MM_PAGE_PRESENT |
+                                                     MM_PAGE_GLOBAL |
+                                                     MM_PAGE_WRITE;
     for (uint64_t i = 0; i < 4; ++i) {
         kdebug("Mapping %p -> %p\n", KERNEL_VIRT_BASE | (i << 30), i << 30);
-        pdpt[((AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 30) + i) & 0x1FF] = (i << 30) | 1 | 2 | 4 | (1 << 7);
+        pdpt[((AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 30) + i) & 0x1FF] = (i << 30) |
+                                                                         MM_PAGE_WRITE |
+                                                                         MM_PAGE_GLOBAL |
+                                                                         MM_PAGE_PRESENT |
+                                                                         MM_PAGE_HUGE;
     }
 
     // Load the new table
-    asm volatile ("mov %0, %%cr3"::"a"(pml4):"memory");
+    asm volatile ("movq %0, %%cr3"::"a"(pml4):"memory");
 
     // Create a pool located right after kernel image
     amd64_mm_pool_init((uintptr_t) &_kernel_end, MM_POOL_SIZE);
