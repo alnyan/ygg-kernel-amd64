@@ -51,12 +51,8 @@ amd64_idt_load:
 amd64_irq_msi0:
     cli
 
-    irq_push_ctx
-
-    movq $0, %rdi
-    call amd64_msi_handle
-
+    pushq %rax
     irq_eoi_lapic 0
-    irq_pop_ctx
+    popq %rax
 
     iretq

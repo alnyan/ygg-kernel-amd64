@@ -17,6 +17,9 @@ _msg0: .string "CPU stopped!\n"
 
 amd64_irq0:
     cli
+    pushq %rax
+    irq_eoi_lapic 0
+    popq %rax
     iretq
 
 amd64_irq2_counting:

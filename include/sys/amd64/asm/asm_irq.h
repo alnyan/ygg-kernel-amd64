@@ -8,105 +8,14 @@
 .extern local_apic
 .extern irq_handle
 
-// TODO: make this use less memory
 .macro irq_entry, n
 .global amd64_irq\n
 amd64_irq\n:
     cli
-
-    irq_push_ctx
-
-    movq $\n, %rdi
-    call irq_handle
-
+    pushq %rax
     irq_eoi_lapic 0
-    irq_pop_ctx
-
+    popq %rax
     iretq
-.endm
-
-.macro irq_trace, n
-#if defined(AMD64_TRACE_IRQ)
-    // Assuming we're entering from safe context
-    movq $\n, %rdi
-    call amd64_irq_trace
-#else
-#endif
-.endm
-
-.macro irq_push_ctx
-    pushq %rax
-    pushq %rcx
-    pushq %rdx
-    pushq %rbx
-
-    // Don't push rsp - it's ignored
-    pushq %rbp
-    pushq %rsi
-    pushq %rdi
-
-    pushq %r8
-    pushq %r9
-    pushq %r10
-    pushq %r11
-    pushq %r12
-    pushq %r13
-    pushq %r14
-    pushq %r15
-
-    movq %cr3, %rax
-    pushq %rax
-
-    movq %ds, %rax
-    pushq %rax
-    movq %es, %rax
-    pushq %rax
-    movq %fs, %rax
-    pushq %rax
-
-#if defined(AMD64_STACK_CTX_CANARY)
-    movq $AMD64_STACK_CTX_CANARY, %rax
-    pushq %rax
-#endif
-.endm
-
-.macro irq_pop_ctx
-#if defined(AMD64_STACK_CTX_CANARY)
-    movq $AMD64_STACK_CTX_CANARY, %rax
-    cmpq (%rsp), %rax
-    jne amd64_kstack_canary_invalid
-    popq %rax
-#endif
-
-    // XXX: should they be popped this way?
-    popq %rax
-    //movq %rax, %fs
-
-    popq %rax
-    movq %rax, %es
-    popq %rax
-    movq %rax, %ds
-
-    popq %rax
-    movq %rax, %cr3
-
-    popq %r15
-    popq %r14
-    popq %r13
-    popq %r12
-    popq %r11
-    popq %r10
-    popq %r9
-    popq %r8
-
-    popq %rdi
-    popq %rsi
-    popq %rbp
-
-    popq %rbx
-    popq %rdx
-    popq %rcx
-    popq %rax
 .endm
 
 .macro irq_eoi_lapic, n

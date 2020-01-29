@@ -17,6 +17,7 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/hw/apic.o \
 	  $(O)/sys/amd64/hw/idt.o \
 	  $(O)/sys/amd64/hw/exc_s.o \
+	  $(O)/sys/amd64/hw/exc.o \
 	  $(O)/sys/amd64/hw/irq0.o \
 	  $(O)/sys/amd64/hw/con.o \
 	  $(O)/sys/amd64/hw/timer.o \
@@ -42,7 +43,6 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/acpi_osl_irq.o \
 	  $(O)/sys/amd64/acpi_osl_hw.o \
 	  $(O)/sys/amd64/hw/rtc.o \
-	  $(O)/sys/amd64/hw/pfault_s.o \
 	  $(O)/sys/amd64/fpu.o \
 	  $(O)/sys/amd64/hw/pci/ahci.o
 

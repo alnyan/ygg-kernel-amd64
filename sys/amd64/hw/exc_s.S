@@ -1,4 +1,6 @@
 // vi: ft=asm :
+#include "sys/amd64/asm/asm_irq.h"
+
 .macro amd64_isr_nerr, n
 amd64_exc_isr_\n:
     cli
@@ -16,17 +18,53 @@ amd64_exc_isr_\n:
 
 .section .text
 amd64_exc_generic:
-    // TODO: exception handling
-    leaq _amd64_exc_str(%rip), %rsi
-    movq (%rsp), %rdx
-    xorq %rdi, %rdi
-    call debugf
-1:
-    cli
-    hlt
-    jmp 1b
-_amd64_exc_str:
-    .string "Error: unhandled exception: %d\n"
+    // Push full CPU context for dump
+    pushq %rax
+    pushq %rcx
+    pushq %rdx
+    pushq %rbx
+    // RSP already pushed
+    pushq %rbp
+    pushq %rsi
+    pushq %rdi
+
+    pushq %r8
+    pushq %r9
+    pushq %r10
+    pushq %r11
+    pushq %r12
+    pushq %r13
+    pushq %r14
+    pushq %r15
+
+    movq $AMD64_STACK_CTX_CANARY, %rax
+    pushq %rax
+
+    // amd64_exception(frame)
+    movq %rsp, %rdi
+    // 16 (pushed context) + 2 (code/number) + 5 (interrupt context)
+    addq $184, %rdi
+    call amd64_exception
+
+    popq %r15
+    popq %r14
+    popq %r13
+    popq %r12
+    popq %r11
+    popq %r10
+    popq %r9
+    popq %r8
+
+    popq %rdi
+    popq %rsi
+    popq %rbp
+
+    popq %rbx
+    popq %rdx
+    popq %rcx
+    popq %rax
+
+    iretq
 
 amd64_isr_nerr 0
 amd64_isr_nerr 1
@@ -42,7 +80,7 @@ amd64_isr_yerr 10
 amd64_isr_yerr 11
 amd64_isr_yerr 12
 amd64_isr_yerr 13
-#amd64_isr_yerr 14
+amd64_isr_yerr 14
 amd64_isr_nerr 15
 amd64_isr_nerr 16
 amd64_isr_yerr 17
