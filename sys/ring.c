@@ -1,4 +1,3 @@
-#include "sys/thread.h"
 #include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/ring.h"

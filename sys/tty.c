@@ -5,7 +5,6 @@
 #include "sys/line.h"
 #include "sys/errno.h"
 #include "sys/debug.h"
-#include "sys/sched.h"
 #include "sys/signum.h"
 #include "sys/panic.h"
 #include "sys/string.h"

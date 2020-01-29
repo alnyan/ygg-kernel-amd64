@@ -24,15 +24,11 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/hw/irqs_s.o \
 	  $(O)/sys/amd64/sys/spin_s.o \
 	  $(O)/sys/amd64/cpu.o \
-	  $(O)/sys/amd64/sys/sched.o \
 	  $(O)/sys/amd64/mm/heap.o \
 	  $(O)/sys/amd64/mm/map.o \
 	  $(O)/sys/amd64/mm/phys.o \
 	  $(O)/sys/amd64/mm/vmalloc.o \
 	  $(O)/sys/amd64/mm/pool.o \
-	  $(O)/sys/amd64/syscall_s.o \
-	  $(O)/sys/amd64/syscall.o \
-	  $(O)/sys/amd64/sys/thread.o \
 	  $(O)/sys/amd64/hw/pci/pci.o \
 	  $(O)/sys/amd64/hw/pci/pcidb.o \
 	  $(O)/sys/amd64/hw/ps2.o \
@@ -45,17 +41,10 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/acpi_osl_table.o \
 	  $(O)/sys/amd64/acpi_osl_irq.o \
 	  $(O)/sys/amd64/acpi_osl_hw.o \
-	  $(O)/sys/amd64/sys/binfmt_elf.o \
 	  $(O)/sys/amd64/hw/rtc.o \
 	  $(O)/sys/amd64/hw/pfault_s.o \
-	  $(O)/sys/amd64/hw/pfault.o \
-	  $(O)/sys/amd64/sys_file.o \
-	  $(O)/sys/amd64/sys_proc.o \
-	  $(O)/sys/amd64/sys_sys.o \
-	  $(O)/sys/amd64/sys_mem.o \
 	  $(O)/sys/amd64/fpu.o \
-	  $(O)/sys/amd64/hw/pci/ahci.o \
-	  $(O)/sys/amd64/sys/idle_s.o
+	  $(O)/sys/amd64/hw/pci/ahci.o
 
 kernel_LINKER=sys/amd64/link.ld
 kernel_LDFLAGS=-nostdlib \

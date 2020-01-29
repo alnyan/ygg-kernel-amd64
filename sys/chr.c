@@ -1,7 +1,6 @@
 #include "sys/amd64/cpu.h"
 #include "sys/assert.h"
 #include "sys/string.h"
-#include "sys/sched.h"
 #include "sys/errno.h"
 #include "sys/chr.h"
 

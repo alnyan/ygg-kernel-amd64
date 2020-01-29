@@ -5,7 +5,6 @@
 #include "sys/fs/node.h"
 #include "sys/assert.h"
 #include "sys/string.h"
-#include "sys/thread.h"
 #include "sys/fs/fs.h"
 #include "sys/debug.h"
 #include "sys/fcntl.h"
@@ -185,28 +184,6 @@ int sysfs_add_config_endpoint(const char *name, mode_t mode, size_t bufsz, void 
     return 0;
 }
 
-// TODO: move this to an appropriate place
-#define PROC_PROP_PID           1
-#define PROC_PROP_NAME          2
-
-static int proc_property_getter(void *ctx, char *buf, size_t lim) {
-    uint64_t prop = (uint64_t) ctx;
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
-
-    switch (prop) {
-    case PROC_PROP_PID:
-        sysfs_buf_printf(buf, lim, "%d\n", (int) thr->pid);
-        break;
-    case PROC_PROP_NAME:
-        sysfs_buf_puts(buf, lim, thr->name);
-        sysfs_buf_puts(buf, lim, "\n");
-        break;
-    }
-
-    return 0;
-}
-
 static int system_uptime_getter(void *ctx, char *buf, size_t lim) {
     char *p = buf;
     uint64_t t = system_time / 1000000000ULL;
@@ -228,9 +205,6 @@ void sysfs_populate(void) {
     sysfs_add_config_endpoint("version", SYSFS_MODE_DEFAULT, sizeof(KERNEL_VERSION_STR) + 1, KERNEL_VERSION_STR, sysfs_config_getter, NULL);
 
     sysfs_add_config_endpoint("uptime", SYSFS_MODE_DEFAULT, 32, NULL, system_uptime_getter, NULL);
-
-    sysfs_add_config_endpoint("self.pid", SYSFS_MODE_DEFAULT, 16, (void *) PROC_PROP_PID, proc_property_getter, NULL);
-    sysfs_add_config_endpoint("self.name", SYSFS_MODE_DEFAULT, 128, (void *) PROC_PROP_NAME, proc_property_getter, NULL);
 }
 
 static void __init sysfs_class_init(void) {

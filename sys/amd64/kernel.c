@@ -27,7 +27,6 @@
 #include "sys/fs/vfs.h"
 #include "sys/blk/ram.h"
 #include "sys/fs/tar.h"
-#include "sys/sched.h"
 #include "sys/tty.h"
 
 static multiboot_info_t *multiboot_info;
@@ -96,14 +95,12 @@ void kernel_main(struct amd64_loader_data *data) {
 #if defined(AMD64_SMP)
     //amd64_smp_init();
 #endif
-    sched_init();
+    //sched_init();
     //sysfs_populate();
 
     //amd64_syscall_init();
 
+    while (1);
     // Ready to enter multitasking, disable early timer handler
-    amd64_idt_set(get_cpu()->processor_id, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-
-    sched_enter();
-    panic("This code should not run\n");
+    //amd64_idt_set(get_cpu()->processor_id, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
 }
