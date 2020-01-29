@@ -28,17 +28,12 @@ struct ap_param_block {
 extern char kernel_stacks_top[];
 // TODO: use mutual exclusion for this
 size_t smp_ncpus = 1;
-static inline void wrmsr(uint32_t addr, uint64_t v) {
-    uint32_t low = (v & 0xFFFFFFFF), high = v >> 32;
-    asm volatile ("wrmsr"::"c"(addr),"a"(low),"d"(high));
-}
-
 static inline void set_cpu(uintptr_t base) {
     // Write kernelGSbase again
-    wrmsr(0xC0000102, base);
+    wrmsr(MSR_IA32_KERNEL_GS_BASE, base);
     asm volatile ("swapgs");
     // Write kernelGSbase again
-    wrmsr(0xC0000102, base);
+    wrmsr(MSR_IA32_KERNEL_GS_BASE, base);
 }
 
 static void amd64_ap_code_entry(void) {

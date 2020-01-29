@@ -1,9 +1,5 @@
 #pragma once
 
-#define IA32_APIC_BASE_MSR          0x1B
-#define IA32_APIC_BASE_MSR_BSP      0x100
-#define IA32_APIC_BASE_MSR_ENABLE   0x800
-
 #define LAPIC_REG_ID           0x20
 #define LAPIC_REG_TPR          0x80
 #define LAPIC_REG_EOI          0xB0

@@ -45,7 +45,7 @@
 #define MM_PAGE_DIRTY                       (1 << 6)
 #define MM_PAGE_HUGE                        (1 << 7)
 #define MM_PAGE_GLOBAL                      (1 << 8)
-#define MM_PAGE_NOEXEC                      (1 << 63)
+#define MM_PAGE_NOEXEC                      (1ULL << 63)
 
 /// Page map level 4
 typedef uint64_t *mm_pml4_t;

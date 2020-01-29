@@ -1,3 +1,4 @@
+#include "sys/amd64/cpuid.h"
 #include "sys/debug.h"
 #include "sys/amd64/loader/multiboot.h"
 #include "sys/amd64/asm/asm_irq.h"
@@ -32,6 +33,7 @@
 static multiboot_info_t *multiboot_info;
 
 void kernel_main(struct amd64_loader_data *data) {
+    cpuid_init();
     data = (struct amd64_loader_data *) MM_VIRTUALIZE(data);
     multiboot_info = (multiboot_info_t *) MM_VIRTUALIZE(data->multiboot_info_ptr);
 

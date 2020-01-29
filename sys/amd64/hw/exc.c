@@ -4,7 +4,8 @@
 
 #define X86_EXCEPTION_PF        14
 
-#define X86_PF_EXEC             (1 << 5)
+#define X86_PF_EXEC             (1 << 4)
+#define X86_PF_RESVD            (1 << 3)
 #define X86_PF_USER             (1 << 2)
 #define X86_PF_WRITE            (1 << 1)
 #define X86_PF_PRESENT          (1 << 0)
@@ -70,6 +71,9 @@ void amd64_exception(struct amd64_exception_frame *frame) {
         kfatal("Page fault info:\n");
         kfatal("Fault address: %p\n", cr2);
 
+        if (frame->exc_code & X86_PF_RESVD) {
+            kfatal(" - Page structure has reserved bit set\n");
+        }
         if (frame->exc_code & X86_PF_EXEC) {
             kfatal(" - Instruction fetch\n");
         } else {
@@ -79,7 +83,7 @@ void amd64_exception(struct amd64_exception_frame *frame) {
                 kfatal(" - Read operation\n");
             }
         }
-        if (frame->exc_code & X86_PF_PRESENT) {
+        if (!(frame->exc_code & X86_PF_PRESENT)) {
             kfatal(" - Refers to non-present page\n");
         }
         if (frame->exc_code & X86_PF_USER) {

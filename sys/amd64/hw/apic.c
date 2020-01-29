@@ -11,14 +11,6 @@
 
 /////
 
-static uint64_t rdmsr(uint32_t addr) {
-    uint64_t v;
-    asm volatile ("rdmsr":"=A"(v):"c"(addr));
-    return v;
-}
-
-/////
-
 struct acpi_apic_field_type {
     uint8_t type;
     uint8_t length;
@@ -61,13 +53,13 @@ uintptr_t local_apic;
 /////
 
 static uintptr_t amd64_apic_base(void) {
-    uint64_t addr = rdmsr(IA32_APIC_BASE_MSR);
+    uint64_t addr = rdmsr(MSR_IA32_APIC_BASE);
     return addr & 0xFFFFFF000;
 }
 
 static int amd64_apic_status(void) {
-    uintptr_t v = rdmsr(IA32_APIC_BASE_MSR);
-    return v & IA32_APIC_BASE_MSR_ENABLE;
+    uintptr_t v = rdmsr(MSR_IA32_APIC_BASE);
+    return v & IA32_APIC_BASE_ENABLE;
 }
 
 static void amd64_pic8259_disable(void) {

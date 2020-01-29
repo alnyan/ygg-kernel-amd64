@@ -51,3 +51,23 @@ extern struct cpu __amd64_cpu;
 #endif
 
 void cpu_print_context(int level, struct cpu_context *ctx);
+
+#define MSR_IA32_APIC_BASE          0x1B
+#define IA32_APIC_BASE_BSP          0x100
+#define IA32_APIC_BASE_ENABLE       0x800
+
+#define MSR_IA32_EFER               0xC0000080
+#define IA32_EFER_NXE               (1 << 11)
+
+#define MSR_IA32_KERNEL_GS_BASE     0xC0000102
+
+static inline uint64_t rdmsr(uint32_t addr) {
+    uint64_t v;
+    asm volatile ("rdmsr":"=A"(v):"c"(addr));
+    return v;
+}
+
+static inline void wrmsr(uint32_t addr, uint64_t v) {
+    uint32_t low = (v & 0xFFFFFFFF), high = v >> 32;
+    asm volatile ("wrmsr"::"c"(addr),"a"(low),"d"(high));
+}

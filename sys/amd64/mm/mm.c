@@ -1,3 +1,5 @@
+#include "sys/amd64/cpuid.h"
+#include "sys/amd64/cpu.h"
 #include "sys/vmalloc.h"
 #include "sys/assert.h"
 #include "sys/debug.h"
@@ -16,6 +18,17 @@ extern int _kernel_end;
 
 void amd64_mm_init(struct amd64_loader_data *data) {
     kdebug("Memory manager init\n");
+
+    {
+        // TODO: make NX optional via config
+        if (!(cpuid_ext_features_edx & CPUID_EXT_EDX_FEATURE_NX)) {
+            panic("NX is not supported\n");
+        }
+
+        uint64_t efer = rdmsr(MSR_IA32_EFER);
+        efer |= IA32_EFER_NXE;
+        wrmsr(MSR_IA32_EFER, efer);
+    }
 
     // Physical memory at this point:
     //  0x000000 - 0x400000 - Used by kernel and info passed from the loader
