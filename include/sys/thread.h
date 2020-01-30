@@ -1,10 +1,12 @@
 #pragma once
 #include "sys/amd64/asm/asm_thread.h"
+#include "sys/mm.h"
 
 struct thread {
     // Platform data
     struct thread_data data;
 
+    mm_space_t space;
     pid_t pid;
 
     struct thread *prev, *next;

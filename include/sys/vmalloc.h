@@ -34,7 +34,7 @@ uintptr_t vmfind(const mm_space_t pd, uintptr_t from, uintptr_t to, size_t npage
  * @return Virtual address of the resulting range on success,
  *         MM_NADDR otherwise
  */
-uintptr_t vmalloc(mm_space_t pd, uintptr_t from, uintptr_t to, size_t npages, int flags);
+uintptr_t vmalloc(mm_space_t pd, uintptr_t from, uintptr_t to, size_t npages, uint64_t flags);
 
 /**
  * @brief Deallocate a virtual memory range and physical pages

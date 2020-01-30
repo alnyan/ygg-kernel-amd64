@@ -1,6 +1,7 @@
 #include "sys/types.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
+#include "sys/mm.h"
 
 #define X86_EXCEPTION_PF        14
 
@@ -65,10 +66,15 @@ void amd64_exception(struct amd64_exception_frame *frame) {
             (frame->rflags & X86_FLAGS_TF) ? 'T' : '-');
 
     if (frame->exc_no == X86_EXCEPTION_PF) {
-        uintptr_t cr2;
+        uintptr_t cr2, cr3;
         asm volatile ("movq %%cr2, %0":"=r"(cr2));
+        asm volatile ("movq %%cr3, %0":"=r"(cr3));
 
         kfatal("Page fault info:\n");
+        kfatal("%%cr3 = %p\n", cr3);
+        if (MM_VIRTUALIZE(cr3) == (uintptr_t) mm_kernel) {
+            kfatal("(Kernel)\n");
+        }
         kfatal("Fault address: %p\n", cr2);
 
         if (frame->exc_code & X86_PF_RESVD) {

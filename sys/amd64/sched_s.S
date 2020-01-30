@@ -23,6 +23,8 @@ context_exec_enter:
     // %rdx - stack
     // %rcx - entry
     movq THREAD_RSP0(%rsi), %rsp
+    movq THREAD_CR3(%rsi), %rax
+    movq %rax, %cr3
 
     pushq $0x1B
     pushq %rdx

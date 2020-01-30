@@ -178,9 +178,10 @@ int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint6
     assert(!(pt[pti] & MM_PAGE_PRESENT), "Entry already present for %p\n", virt_addr);
 
 #if defined(KERNEL_TEST_MODE)
-    kdebug("map %p -> %p %cr%c\n", virt_addr, phys,
+    kdebug("map %p -> %p %cr%c%c%c\n", virt_addr, phys,
             (flags & MM_PAGE_USER) ? 'u' : '-',
             (flags & MM_PAGE_WRITE) ? 'w' : '-',
+            (flags & MM_PAGE_NOEXEC) ? '-' : 'x',
             (flags & MM_PAGE_GLOBAL) ? 'G' : '-');
 #endif
 

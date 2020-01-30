@@ -1,5 +1,6 @@
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/mm/pool.h"
+#include "sys/binfmt_elf.h"
 #include "sys/amd64/cpu.h"
 #include "sys/vmalloc.h"
 #include "sys/assert.h"
@@ -51,6 +52,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
         mm_space_t space = amd64_mm_pool_alloc();
         mm_space_clone(space, mm_kernel, MM_CLONE_FLG_KERNEL);
         thr->data.cr3 = MM_PHYS(space);
+        thr->space = space;
 
         uintptr_t ustack_base = vmalloc(space, 0x1000000, 0xF0000000, 4, MM_PAGE_WRITE | MM_PAGE_USER);
         thr->data.rsp3_base = ustack_base;
@@ -64,6 +66,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
         }
     } else {
         thr->data.cr3 = MM_PHYS(mm_kernel);
+        thr->space = mm_kernel;
     }
 
     // Initial thread context
@@ -163,7 +166,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst->data.rsp0_top = dst->data.rsp0_base + dst->data.rsp0_size;
 
     mm_space_t space = amd64_mm_pool_alloc();
-    mm_space_fork(space, (mm_space_t) MM_VIRTUALIZE(src->data.cr3), MM_CLONE_FLG_KERNEL | MM_CLONE_FLG_USER);
+    mm_space_fork(space, src->space, MM_CLONE_FLG_KERNEL | MM_CLONE_FLG_USER);
 
     dst->data.rsp3_base = src->data.rsp3_base;
     dst->data.rsp3_size = src->data.rsp3_size;
@@ -175,6 +178,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     }
 
     dst->data.cr3 = MM_PHYS(space);
+    dst->space = space;
 
     uint64_t *stack = (uint64_t *) (dst->data.rsp0_base + dst->data.rsp0_size);
 
@@ -236,6 +240,39 @@ int sys_fork(struct sys_fork_frame *frame) {
     sched_queue(dst);
 
     return dst->pid;
+}
+
+int sys_execve(const char *path, const char **argp, const char **envp) {
+    struct thread *thr = thread_self;
+
+    if (thr->space == mm_kernel) {
+        // Have to allocate a new PID for kernel -> userspace transition
+        thr->pid = thread_alloc_pid(1);
+
+        thr->space = amd64_mm_pool_alloc();
+        _assert(thr->space);
+        thr->data.cr3 = MM_PHYS(thr->space);
+
+        mm_space_clone(thr->space, mm_kernel, MM_CLONE_FLG_KERNEL);
+    } else {
+        mm_space_release(thr->space);
+    }
+
+    uintptr_t entry;
+    if (elf_load(thr, path, &entry) != 0) {
+        panic("Feck\n");
+    }
+
+    thr->data.rsp0 = thr->data.rsp0_top;
+
+    // Allocate a new user stack
+    uintptr_t ustack = vmalloc(thr->space, 0x100000, 0xF0000000, 4, MM_PAGE_USER | MM_PAGE_WRITE | MM_PAGE_NOEXEC);
+    thr->data.rsp3_base = ustack;
+    thr->data.rsp3_size = 4 * MM_PAGE_SIZE;
+
+    context_exec_enter(NULL, thr, ustack + 4 * MM_PAGE_SIZE, entry);
+
+    panic("This code shouldn't run\n");
 }
 
 __attribute__((noreturn)) void sys_exit(int status) {

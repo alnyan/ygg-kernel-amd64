@@ -20,7 +20,7 @@
 
 #define MM_PTE_INDEX_MASK                   0x1FF
 #define MM_PTE_COUNT                        512
-#define MM_PTE_FLAGS_MASK                   0xFFF
+#define MM_PTE_FLAGS_MASK                   (0xFFF | MM_PAGE_NOEXEC)
 #define MM_PTE_MASK                         (~0xFFF)
 
 #define MM_PAGE_MASK                        (~0xFFF)
@@ -36,15 +36,15 @@
 #define MM_PDPTI_SHIFT                      30
 #define MM_PML4I_SHIFT                      39
 
-#define MM_PAGE_PRESENT                     (1 << 0)
-#define MM_PAGE_WRITE                       (1 << 1)
-#define MM_PAGE_USER                        (1 << 2)
-#define MM_PAGE_WT                          (1 << 3)
-#define MM_PAGE_NOCACHE                     (1 << 4)
-#define MM_PAGE_ACCESSED                    (1 << 5)
-#define MM_PAGE_DIRTY                       (1 << 6)
-#define MM_PAGE_HUGE                        (1 << 7)
-#define MM_PAGE_GLOBAL                      (1 << 8)
+#define MM_PAGE_PRESENT                     (1ULL << 0)
+#define MM_PAGE_WRITE                       (1ULL << 1)
+#define MM_PAGE_USER                        (1ULL << 2)
+#define MM_PAGE_WT                          (1ULL << 3)
+#define MM_PAGE_NOCACHE                     (1ULL << 4)
+#define MM_PAGE_ACCESSED                    (1ULL << 5)
+#define MM_PAGE_DIRTY                       (1ULL << 6)
+#define MM_PAGE_HUGE                        (1ULL << 7)
+#define MM_PAGE_GLOBAL                      (1ULL << 8)
 #define MM_PAGE_NOEXEC                      (1ULL << 63)
 
 /// Page map level 4

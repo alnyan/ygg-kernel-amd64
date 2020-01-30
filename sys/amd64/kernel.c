@@ -57,6 +57,10 @@ void kernel_main(struct amd64_loader_data *data) {
     syscall_init();
 
     sched_init();
+    if (data->initrd_ptr) {
+        extern void sched_user_init(uintptr_t base);
+        sched_user_init(MM_VIRTUALIZE(data->initrd_ptr));
+    }
     sched_enter();
 
     panic("This code should not run\n");

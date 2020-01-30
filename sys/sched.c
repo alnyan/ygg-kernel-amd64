@@ -83,6 +83,25 @@ void yield(void) {
     context_switch_to(to, from);
 }
 
+static struct thread user_init;
+
+static void user_init_func(void *arg) {
+    kdebug("Starting user init\n");
+
+    extern int sys_execve(const char *path, const char **argp, const char **envp);
+    sys_execve(arg, NULL, NULL);
+
+    while (1) {
+        asm volatile ("hlt");
+    }
+}
+
+void sched_user_init(uintptr_t base) {
+    thread_init(&user_init, (uintptr_t) user_init_func, (void *) base, 0);
+    user_init.pid = thread_alloc_pid(0);
+    sched_queue(&user_init);
+}
+
 void sched_init(void) {
     thread_init(&thread_idle, (uintptr_t) idle, 0, 0);
     thread_idle.pid = -1;
