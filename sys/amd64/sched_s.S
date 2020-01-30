@@ -1,4 +1,6 @@
 #include "sys/amd64/asm/asm_cpu.h"
+#include "sys/amd64/asm/asm_thread.h"
+
 .section .text
 .global context_enter
 context_enter:
@@ -20,7 +22,7 @@ context_exec_enter:
     // %rsi - thread
     // %rdx - stack
     // %rcx - entry
-    movq (%rsi), %rsp
+    movq THREAD_RSP0(%rsi), %rsp
 
     pushq $0x1B
     pushq %rdx
@@ -68,7 +70,7 @@ context_switch_first:
     // TODO: switch cr3 here
 
     // Load new %rsp
-    movq (%rdi), %rsp
+    movq THREAD_RSP0(%rdi), %rsp
 
     popq %rbx
     popq %rbp
@@ -79,14 +81,14 @@ context_switch_first:
 
     // Load TSS.RSP0 for user -> kernel transition
     // %rax = top of task's stack
-    movq 0x10(%rdi), %rax
+    movq THREAD_RSP0_TOP(%rdi), %rax
     // %rcx = &tss
     movq get_cpu(0x10), %rcx
     // &tss->rsp0 = %rax
     movq %rax, 4(%rcx)
 
     // Load new %cr3 if changed
-    movq 0x18(%rdi), %rax
+    movq THREAD_CR3(%rdi), %rax
     movq %cr3, %rcx
     test %rcx, %rax
     jz 1f

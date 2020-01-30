@@ -1,3 +1,4 @@
+#include "sys/amd64/asm/asm_thread.h"
 .section .bss
 tmp0:
     .quad 0
@@ -12,7 +13,7 @@ syscall_entry:
     // Switch to kernel stack
     movq %rsp, tmp0(%rip)
     movq thread_current(%rip), %rsp
-    movq 0(%rsp), %rsp
+    movq THREAD_RSP0(%rsp), %rsp
 
     cmpq $123, %rax
     jz _syscall_fork

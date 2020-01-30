@@ -6,11 +6,12 @@
 #define MSR_IA32_SFMASK             0xC0000084
 
 extern void syscall_entry(void);
-extern int sys_exec(void *(*)(void *), void *arg);
+
+extern __attribute__((noreturn)) void sys_exit(int status);
 
 void *syscall_table[256] = {
     NULL,
-    [124] = sys_exec,
+    [60] = sys_exit,
 };
 
 void syscall_undefined(uint64_t rax) {
