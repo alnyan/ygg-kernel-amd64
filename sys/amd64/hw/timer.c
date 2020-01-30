@@ -1,14 +1,16 @@
-#include "sys/amd64/hw/timer.h"
 #include "sys/amd64/hw/ioapic.h"
-#include "sys/amd64/hw/idt.h"
+#include "sys/amd64/hw/timer.h"
 #include "sys/amd64/hw/apic.h"
 #include "sys/amd64/hw/irq.h"
+#include "sys/amd64/hw/idt.h"
 #include "sys/amd64/hw/io.h"
-#include "sys/spin.h"
-#include "sys/time.h"
-#include "sys/debug.h"
 #include "sys/amd64/cpu.h"
 #include "sys/assert.h"
+#include "sys/thread.h"
+#include "sys/sched.h"
+#include "sys/debug.h"
+#include "sys/spin.h"
+#include "sys/time.h"
 
 #define TIMER_PIT                   1
 
@@ -19,6 +21,13 @@
 #define PIT_CMD                     0x43
 
 uint64_t int_timer_ticks = 0;
+static struct thread *sleep_head = NULL;
+
+void timer_add_sleep(struct thread *thr) {
+    thr->wait_prev = NULL;
+    thr->wait_next = sleep_head;
+    sleep_head = thr;
+}
 
 static uint32_t timer_tick(void *arg) {
     switch ((uint64_t) arg) {
@@ -27,6 +36,29 @@ static uint32_t timer_tick(void *arg) {
         system_time += 1000000;
         break;
     }
+
+    // Wake up sleepers
+    struct thread *thr = sleep_head, *prev = NULL;
+    while (thr) {
+        struct thread *next = thr->wait_next;
+        if (thr->sleep_deadline <= system_time) {
+            thr->wait_next = NULL;
+            if (prev) {
+                prev->wait_next = next;
+            } else {
+                sleep_head = next;
+            }
+
+            sched_queue(thr);
+
+            thr = next;
+            continue;
+        }
+
+        prev = thr;
+        thr = next;
+    }
+
     return IRQ_UNHANDLED;
 }
 

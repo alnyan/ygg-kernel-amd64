@@ -21,7 +21,7 @@
 #define MM_PTE_INDEX_MASK                   0x1FF
 #define MM_PTE_COUNT                        512
 #define MM_PTE_FLAGS_MASK                   (0xFFF | MM_PAGE_NOEXEC)
-#define MM_PTE_MASK                         (~0xFFF)
+#define MM_PTE_MASK                         (~MM_PTE_FLAGS_MASK)
 
 #define MM_PAGE_MASK                        (~0xFFF)
 

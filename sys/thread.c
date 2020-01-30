@@ -1,3 +1,4 @@
+#include "sys/amd64/hw/timer.h"
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/mm/pool.h"
 #include "sys/binfmt_elf.h"
@@ -7,6 +8,7 @@
 #include "sys/thread.h"
 #include "sys/sched.h"
 #include "sys/debug.h"
+#include "sys/heap.h"
 #include "sys/mm.h"
 
 struct sys_fork_frame {
@@ -152,10 +154,8 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
 }
 
 int sys_fork(struct sys_fork_frame *frame) {
-    static int nfork = 0;
-    static struct thread forkt[3] = {0};
-
-    struct thread *dst = &forkt[nfork++];
+    struct thread *dst = kmalloc(sizeof(struct thread));
+    _assert(dst);
     struct thread *src = thread_self;
 
     uintptr_t stack_pages = amd64_phys_alloc_page();
@@ -171,16 +171,10 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst->data.rsp3_base = src->data.rsp3_base;
     dst->data.rsp3_size = src->data.rsp3_size;
 
-    space[AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 39] |= MM_PAGE_USER;
-    uint64_t *pdpt = (uint64_t *) MM_VIRTUALIZE(space[AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 39] & ~0xFFF);
-    for (uint64_t i = 0; i < 4; ++i) {
-        pdpt[((AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 30) + i) & 0x1FF] |= MM_PAGE_USER;
-    }
-
     dst->data.cr3 = MM_PHYS(space);
     dst->space = space;
 
-    uint64_t *stack = (uint64_t *) (dst->data.rsp0_base + dst->data.rsp0_size);
+    uint64_t *stack = (uint64_t *) dst->data.rsp0_top;
 
     // Initial thread context
     // Entry context
@@ -281,4 +275,10 @@ __attribute__((noreturn)) void sys_exit(int status) {
 
     sched_unqueue(thr);
     panic("This code shouldn't run\n");
+}
+
+void thread_sleep(struct thread *thr, uint64_t deadline) {
+    thr->sleep_deadline = deadline;
+    timer_add_sleep(thr);
+    sched_unqueue(thr);
 }

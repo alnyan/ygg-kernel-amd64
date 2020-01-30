@@ -12,7 +12,7 @@ syscall_entry:
     movq get_cpu(CPU_THREAD), %rsp
     movq THREAD_RSP0(%rsp), %rsp
 
-    cmpq $123, %rax
+    cmpq $57, %rax
     jz _syscall_fork
 
     pushq %rcx

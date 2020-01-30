@@ -277,15 +277,15 @@ int mm_space_fork(mm_space_t dst_pml4, const mm_space_t src_pml4, uint32_t flags
                             continue;
                         }
 
-                        uintptr_t src_page_phys = src_pt[pti] & MM_PAGE_MASK;
+                        uintptr_t src_page_phys = src_pt[pti] & MM_PTE_MASK;
                         uintptr_t dst_page_phys = amd64_phys_alloc_page();
                         _assert(dst_page_phys != MM_NADDR);
 
                         // SLOOOOOW UUUSEE COOOOW
+                        kdebug("Cloning %p <- %p\n", dst_page_phys, src_page_phys);
                         memcpy((void *) MM_VIRTUALIZE(dst_page_phys),
                                (const void *) MM_VIRTUALIZE(src_page_phys),
                                MM_PAGE_SIZE);
-                        kdebug("Cloning %p <- %p\n", dst_page_phys, src_page_phys);
 
                         dst_pt[pti] = dst_page_phys | (src_pt[pti] & MM_PTE_FLAGS_MASK);
                     }
