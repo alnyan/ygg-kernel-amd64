@@ -1,4 +1,5 @@
 #include "sys/amd64/cpu.h"
+#include "sys/syscall.h"
 #include "sys/debug.h"
 
 #define MSR_IA32_STAR               0xC0000081
@@ -7,11 +8,16 @@
 
 extern void syscall_entry(void);
 
-extern __attribute__((noreturn)) void sys_exit(int status);
+void sys_debug_trace(const char *msg) {
+    kdebug("Trace message: %s\n", msg);
+}
 
 void *syscall_table[256] = {
     NULL,
-    [60] = sys_exit,
+
+    [SYSCALL_NR_EXIT] = sys_exit,
+
+    [SYSCALL_NR_DEBUG_TRACE] = sys_debug_trace,
 };
 
 void syscall_undefined(uint64_t rax) {
