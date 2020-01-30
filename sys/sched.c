@@ -11,6 +11,8 @@
 
 // Enter a newly-created task
 extern void context_enter(struct thread *thr);
+// Enter a task from exec
+extern void context_exec_enter(void *arg, struct thread *thr, uintptr_t stack3, uintptr_t entry);
 // Stores current task context, loads new one's
 extern void context_switch_to(struct thread *thr, struct thread *from);
 // No current task, only load the first task to begin execution
@@ -218,6 +220,17 @@ struct sys_fork_frame {
     uint64_t rip;
 };
 
+int sys_exec(void *(*func)(void *), void *arg) {
+    _assert(func);
+    struct thread *thr = thread_current;
+    thr->data.rsp0 = thr->data.rsp0_top;
+
+    uintptr_t rsp3 = thr->data.rsp3_base + thr->data.rsp3_size;
+    context_exec_enter(arg, thr, rsp3, (uintptr_t) func);
+
+    panic("No\n");
+}
+
 int sys_fork(struct sys_fork_frame *frame) {
     static int nfork = 0;
     static struct thread forkt[3] = {0};
@@ -234,6 +247,9 @@ int sys_fork(struct sys_fork_frame *frame) {
 
     mm_space_t space = amd64_mm_pool_alloc();
     mm_space_fork(space, (mm_space_t) MM_VIRTUALIZE(src->data.cr3), MM_CLONE_FLG_KERNEL | MM_CLONE_FLG_USER);
+
+    dst->data.rsp3_base = src->data.rsp3_base;
+    dst->data.rsp3_size = src->data.rsp3_size;
 
     space[AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 39] |= MM_PAGE_USER;
     uint64_t *pdpt = (uint64_t *) MM_VIRTUALIZE(space[AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 39] & ~0xFFF);
@@ -317,28 +333,42 @@ int sys_fork(struct sys_fork_frame *frame) {
     return dst->pid;
 }
 
+static void *u1(void *arg) {
+    uint16_t *ptr = (uint16_t *) MM_VIRTUALIZE(arg);
+
+    *ptr = 0;
+    while (1) {
+        *ptr ^= '1' | 0xC00;
+        for (size_t i = 0; i < 1000000; ++i);
+    }
+
+    return 0;
+}
+
 static void *u0(void *arg) {
     int r;
     asm volatile ("syscall":"=a"(r):"a"(123));
 
     if (r == 0) {
-        arg = (void *) ((uint64_t) arg + 5);
-        uint16_t *ptr = (uint16_t *) MM_VIRTUALIZE(0xB8000 + (uint64_t) arg * 2);
-        *ptr = 0;
-        while (1) {
-            for (size_t i = 0; i < 10000000; ++i);
-
-            *ptr ^= 'A' | 0x1200;
-        }
+        (void) u1;
+        asm volatile ("leaq u1(%rip), %rdi; movq $0xB8040, %rsi; movq $124, %rax; syscall");
     }
-    uint16_t *ptr = (uint16_t *) MM_VIRTUALIZE(0xB8000 + (uint64_t) arg * 2);
+
+    asm volatile ("syscall":"=a"(r):"a"(123));
+
+    if (r == 0) {
+        (void) u1;
+        asm volatile ("leaq u1(%rip), %rdi; movq $0xB8050, %rsi; movq $124, %rax; syscall");
+    }
+
+    uint16_t *ptr = (uint16_t *) MM_VIRTUALIZE(0xB8030);
+
     *ptr = 0;
-
     while (1) {
-        for (size_t i = 0; i < 10000000; ++i);
-
-        *ptr ^= 'A' | 0x1200;
+        *ptr ^= '0' | 0xD00;
+        for (size_t i = 0; i < 1000000; ++i);
     }
+
     return 0;
 }
 
@@ -362,31 +392,25 @@ static struct thread t_n[3] = {0};
 static struct thread t_u[3] = {0};
 
 void sched_init(void) {
+    init_thread(&thread_idle, idle, 0, 0);
+    thread_idle.pid = -1;
+
     init_thread(&t_n[0], t0, (void *) 0, 0);
     init_thread(&t_n[1], t0, (void *) 1, 0);
     init_thread(&t_n[2], t0, (void *) 2, 0);
-    init_thread(&t_u[0], u0, (void *) 5, 1);
-    init_thread(&t_u[1], u0, (void *) 6, 1);
-    init_thread(&t_u[2], u0, (void *) 7, 1);
-    init_thread(&thread_idle, idle, 0, 0);
-
-    thread_idle.pid = -1;
 
     t_n[0].pid = 1;
     t_n[1].pid = 2;
     t_n[2].pid = 3;
 
+    init_thread(&t_u[0], u0, (void *) 0, 1);
     t_u[0].pid = 10;
-    t_u[1].pid = 11;
-    t_u[2].pid = 12;
 
     sched_queue(&t_n[0]);
     sched_queue(&t_n[1]);
     sched_queue(&t_n[2]);
 
     sched_queue(&t_u[0]);
-    sched_queue(&t_u[1]);
-    sched_queue(&t_u[2]);
 }
 
 void sched_enter(void) {

@@ -6,11 +6,11 @@
 #define MSR_IA32_SFMASK             0xC0000084
 
 extern void syscall_entry(void);
-extern void sys_fork(void);
+extern int sys_exec(void *(*)(void *), void *arg);
 
 void *syscall_table[256] = {
     NULL,
-    [123] = sys_fork,
+    [124] = sys_exec,
 };
 
 void syscall_undefined(uint64_t rax) {

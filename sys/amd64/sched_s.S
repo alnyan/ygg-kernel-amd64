@@ -1,10 +1,6 @@
 #include "sys/amd64/asm/asm_cpu.h"
 .section .text
 .global context_enter
-.global context_enter_forked
-context_enter_forked:
-    nop
-    nop
 context_enter:
     popq %rax
     popq %rdi
@@ -15,6 +11,42 @@ context_enter:
     popq %r9
     popq %r10
     popq %r11
+
+    iretq
+
+.global context_exec_enter
+context_exec_enter:
+    // %rdi - arg
+    // %rsi - thread
+    // %rdx - stack
+    // %rcx - entry
+    movq (%rsi), %rsp
+
+    pushq $0x1B
+    pushq %rdx
+
+    pushq $0x200
+
+    pushq $0x23
+    pushq %rcx
+
+    // Zero registers before entry
+    xorq %rax, %rax
+    xorq %rcx, %rcx
+    xorq %rdx, %rdx
+    xorq %rbx, %rbx
+
+    xorq %rsi, %rsi
+    xorq %rbp, %rbp
+
+    xorq %r8, %r8
+    xorq %r9, %r9
+    xorq %r10, %r10
+    xorq %r11, %r11
+    xorq %r12, %r12
+    xorq %r13, %r13
+    xorq %r14, %r14
+    xorq %r15, %r15
 
     iretq
 
