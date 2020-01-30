@@ -1,102 +1,195 @@
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/mm/map.h"
 #include "sys/binfmt_elf.h"
-#include "sys/string.h"
+#include "sys/fs/fcntl.h"
+#include "sys/fs/vfs.h"
+#include "sys/assert.h"
 #include "sys/thread.h"
+#include "sys/string.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
 #include "sys/errno.h"
+#include "sys/heap.h"
 #include "sys/elf.h"
 
 #define ELF_ADDR_MIN 0x400000
 
-int elf_load(struct thread *thr, const void *from, uintptr_t *entry) {
-    //struct amd64_thread *thr_plat = &thr->data;
-    Elf64_Ehdr *ehdr = (Elf64_Ehdr *) from;
-    // Check magic
-    if (strncmp((const char *) ehdr->e_ident, "\x7F""ELF", 4) != 0) {
-        kerror("elf: magic mismatch\n");
-        return -EINVAL;
-    }
+// uintptr_t amd64_map_get(const mm_space_t space, uintptr_t vaddr, uint64_t *flags);
+// int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint32_t flags);
 
-    if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
-        kerror("elf: object was not intended for 64-bit\n");
-        return -EINVAL;
-    }
+static int elf_map_section(mm_space_t space, uintptr_t vma_dst, size_t size) {
+    uintptr_t page_aligned = vma_dst & ~0xFFF;
+    uintptr_t page_offset = vma_dst & 0xFFF;
+    size_t npages = (size + page_offset + 4095) / 4096;
+    uintptr_t page_phys;
 
-    Elf64_Shdr *shdrs = (Elf64_Shdr *) (ehdr->e_shoff + (uintptr_t) from);
-    const char *shstrtabd = (const char *) (shdrs[ehdr->e_shstrndx].sh_offset + (uintptr_t) from);
+    kdebug("Section needs %d pages\n", npages);
 
-    // Load the sections
-    for (size_t i = 0; i < ehdr->e_shnum; ++i) {
-        Elf64_Shdr *shdr = &shdrs[i];
-        const char *name = &shstrtabd[shdr->sh_name];
-
-        if (shdr->sh_flags & SHF_ALLOC) {
-            if (!strncmp(name, ".note", 5)) {
-                // Fuck you, gcc
-                continue;
-            }
-            if (!strncmp(name, ".gnu", 4)) {
-                // Fuck you, gcc
-                continue;
-            }
-
-            kdebug("Loading %s\n", name);
-
-            // If the section is below what is allowed
-            if (shdr->sh_addr < ELF_ADDR_MIN) {
-                kerror("elf: section address is below allowed\n");
-                return -EINVAL;
-            }
-
-            // Allocate memory for the section
-            size_t sec_pages = (shdr->sh_size + 0xFFF) / 0x1000;
-            kdebug("%s needs %u pages\n", name, sec_pages);
-            if (sec_pages > 1) {
-                panic("elf: I was too lazy to implement this yet\n");
-            }
-
-            uintptr_t page_virt = shdr->sh_addr & ~0xFFF;
-            uintptr_t page_offset = shdr->sh_addr & 0xFFF;
-
-            kdebug("%s base page is VMA %p\n", name, page_virt);
-
-            uintptr_t page_phys;
-
-            if ((page_phys = amd64_map_get(thr->space, page_virt, NULL)) == MM_NADDR) {
-                kdebug("Allocating physical page\n");
-                page_phys = amd64_phys_alloc_page();
-
-                if (page_phys == MM_NADDR) {
-                    panic("elf: out of memory\n");
-                }
-
-                if (amd64_map_single(thr->space, page_virt, page_phys, (1 << 1) | (1 << 2)) != 0) {
-                    panic("elf: map failed\n");
-                }
-            } else {
-                kdebug("Not mapping\n");
-            }
-
-            if (shdr->sh_type == SHT_PROGBITS) {
-                kdebug("elf: memcpy %p <- %p %S\n", MM_VIRTUALIZE(page_phys) + page_offset,
-                                               (uintptr_t) from + shdr->sh_offset,
-                                               shdr->sh_size);
-                memcpy((void *) (MM_VIRTUALIZE(page_phys) + page_offset),
-                       (const void *) ((uintptr_t) from + shdr->sh_offset),
-                       shdr->sh_size);
-            } else if (shdr->sh_type == SHT_NOBITS) {
-                kdebug("elf: memset 0 %p %S\n", MM_VIRTUALIZE(page_phys) + page_offset,
-                                           shdr->sh_size);
-                memset((void *) (MM_VIRTUALIZE(page_phys) + page_offset),
-                       0, shdr->sh_size);
-            }
+    for (size_t i = 0; i < npages; ++i) {
+        if ((page_phys = amd64_map_get(space, page_aligned + (i << 12), NULL)) == MM_NADDR) {
+            // Allocation needed
+            assert((page_phys = amd64_phys_alloc_page()) != MM_NADDR,
+                    "Failed to allocate memory\n");
+            assert(amd64_map_single(space, page_aligned + (i << 12), page_phys, (1 << 1) | (1 << 2)) == 0,
+                    "Failed to map memory\n");
+        } else {
+            kdebug("%p = %p (already)\n", page_aligned + (i << 12), page_phys);
         }
     }
-
-    *entry = ehdr->e_entry;
 
     return 0;
 }
 
+static int elf_read(struct vfs_ioctx *ctx, struct ofile *fd, off_t pos, void *dst, size_t count) {
+    off_t res;
+    ssize_t bread;
+
+    if ((res = vfs_lseek(ctx, fd, pos, SEEK_SET)) != pos) {
+        return res;
+    }
+
+    if ((bread = vfs_read(ctx, fd, dst, count)) != (ssize_t) count) {
+        return bread;
+    }
+
+    return 0;
+}
+
+static int elf_load_bytes(mm_space_t space, struct vfs_ioctx *ctx, struct ofile *fd, uintptr_t vma_dst, off_t load_src, size_t size) {
+    uintptr_t page_aligned = vma_dst & ~0xFFF;
+    uintptr_t page_offset = vma_dst & 0xFFF;
+    size_t npages = (size + page_offset + 4095) / 4096;
+    uintptr_t page_phys;
+    size_t rem = size;
+    size_t off = 0;
+    char buf[4096];
+    int res;
+
+    kdebug("memcpy %p <- %p, %S\n", vma_dst, load_src, size);
+    for (size_t i = 0; i < npages; ++i) {
+        assert((page_phys = amd64_map_get(space, page_aligned + (i << 12), NULL)), "What?");
+        size_t nbytes = MIN(rem, 4096 - page_offset);
+
+        if ((res = elf_read(ctx, fd, load_src + off, buf, nbytes)) != 0) {
+            return res;
+        }
+
+        kdebug("Copy %u bytes in page %p + %04x (%u) <- %p\n", nbytes, page_phys, page_offset, i, load_src + off);
+        memcpy((void *) MM_VIRTUALIZE(page_phys + page_offset), buf, nbytes);
+        rem -= nbytes;
+        off += nbytes;
+        page_offset = 0;
+    }
+
+    return 0;
+}
+
+static int elf_bzero(mm_space_t space, uintptr_t vma_dst, size_t size) {
+    uintptr_t page_aligned = vma_dst & ~0xFFF;
+    uintptr_t page_offset = vma_dst & 0xFFF;
+    size_t npages = (size + page_offset + 4095) / 4096;
+    uintptr_t page_phys;
+    size_t rem = size;
+
+    kdebug("bzero %p, %S\n", vma_dst, size);
+    for (size_t i = 0; i < npages; ++i) {
+        assert((page_phys = amd64_map_get(space, page_aligned + (i << 12), NULL)), "What?");
+        size_t nbytes = MIN(rem, 4096 - page_offset);
+        kdebug("Zero %u bytes in page %p + %04x (%u)\n", nbytes, page_phys, page_offset, i);
+        memset((void *) MM_VIRTUALIZE(page_phys + page_offset), 0, nbytes);
+        rem -= nbytes;
+        page_offset = 0;
+    }
+
+    return 0;
+}
+
+int elf_load(struct thread *thr, struct vfs_ioctx *ctx, struct ofile *fd, uintptr_t *entry) {
+    int res;
+    ssize_t bread;
+    Elf64_Ehdr ehdr;
+    Elf64_Shdr *shdrs;
+
+    if ((res = elf_read(ctx, fd, 0, &ehdr, sizeof(Elf64_Ehdr))) != 0) {
+        kerror("elf: failed to read file header\n");
+        return res;
+    }
+
+    // Check magic
+    if (strncmp((const char *) ehdr.e_ident, "\x7F""ELF", 4) != 0) {
+        kerror("elf: magic mismatch\n");
+        return -EINVAL;
+    }
+
+    if (ehdr.e_ident[EI_CLASS] != ELFCLASS64) {
+        kerror("elf: object was not intended for 64-bit\n");
+        return -EINVAL;
+    }
+
+    shdrs = kmalloc(ehdr.e_shentsize * ehdr.e_shnum);
+    _assert(shdrs);
+
+    // Read all section headers
+    if ((res = elf_read(ctx, fd, ehdr.e_shoff, shdrs, ehdr.e_shentsize * ehdr.e_shnum)) != 0) {
+        kerror("elf: failed to read section headers\n");
+        goto end;
+    }
+
+    //const char *shstrtabd = (const char *) (shdrs[ehdr->e_shstrndx].sh_offset + (uintptr_t) from);
+
+    // Load the sections
+    for (size_t i = 0; i < ehdr.e_shnum; ++i) {
+        Elf64_Shdr *shdr = &shdrs[i];
+        //const char *name = &shstrtabd[shdr->sh_name];
+
+        if (shdr->sh_flags & SHF_ALLOC) {
+            //if (!strncmp(name, ".note", 5)) {
+            //    // Fuck you, gcc
+            //    continue;
+            //}
+            //if (!strncmp(name, ".gnu", 4)) {
+            //    // Fuck you, gcc
+            //    continue;
+            //}
+
+            //kdebug("Loading %s\n", name);
+
+            // If the section is below what is allowed
+            if (shdr->sh_addr < ELF_ADDR_MIN) {
+                kerror("elf: section address is below allowed\n");
+                res = -EINVAL;
+                goto end;
+            }
+
+            // Map the pages of this section
+            _assert(elf_map_section(thr->space, shdr->sh_addr, shdr->sh_size) == 0);
+
+            switch (shdr->sh_type) {
+            case SHT_PROGBITS:
+                _assert(elf_load_bytes(thr->space,
+                                       ctx,
+                                       fd,
+                                       shdr->sh_addr,
+                                       shdr->sh_offset,
+                                       shdr->sh_size) == 0);
+                break;
+            case SHT_NOBITS:
+                _assert(elf_bzero(thr->space,
+                                  shdr->sh_addr,
+                                  shdr->sh_size) == 0);
+                break;
+            }
+
+            uintptr_t section_end = shdr->sh_addr + shdr->sh_size;
+        }
+    }
+
+    *entry = ehdr.e_entry;
+    res = 0;
+
+end:
+    // Free all the stuff we've allocated
+    kfree(shdrs);
+
+    return res;
+}

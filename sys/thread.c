@@ -3,10 +3,14 @@
 #include "sys/amd64/mm/pool.h"
 #include "sys/binfmt_elf.h"
 #include "sys/amd64/cpu.h"
+#include "sys/fs/ofile.h"
+#include "sys/fs/fcntl.h"
 #include "sys/vmalloc.h"
+#include "sys/fs/vfs.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
 #include "sys/sched.h"
+#include "sys/errno.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
 #include "sys/mm.h"
@@ -238,6 +242,15 @@ int sys_fork(struct sys_fork_frame *frame) {
 
 int sys_execve(const char *path, const char **argp, const char **envp) {
     struct thread *thr = thread_self;
+    struct vfs_ioctx ioctx = {0};
+    struct ofile fd;
+    uintptr_t entry;
+    int res;
+
+    if ((res = vfs_open(&ioctx, &fd, path, O_RDONLY, 0)) != 0) {
+        kerror("%s: %s\n", path, kstrerror(res));
+        return res;
+    }
 
     if (thr->space == mm_kernel) {
         // Have to allocate a new PID for kernel -> userspace transition
@@ -252,10 +265,11 @@ int sys_execve(const char *path, const char **argp, const char **envp) {
         mm_space_release(thr->space);
     }
 
-    uintptr_t entry;
-    if (elf_load(thr, path, &entry) != 0) {
+    if (elf_load(thr, &ioctx, &fd, &entry) != 0) {
         panic("Feck\n");
     }
+
+    vfs_close(&ioctx, &fd);
 
     thr->data.rsp0 = thr->data.rsp0_top;
 

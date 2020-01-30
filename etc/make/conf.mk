@@ -36,7 +36,26 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/ctype.o \
 	  $(O)/sys/sched.o \
 	  $(O)/sys/thread.o \
+	  $(O)/sys/dev/input.o \
+	  $(O)/sys/dev/ring.o \
+	  $(O)/sys/dev/tty.o \
+	  $(O)/sys/dev/ram.o \
+	  $(O)/sys/dev/chr.o \
+	  $(O)/sys/dev/blk.o \
+	  $(O)/sys/dev/dev.o \
+	  $(O)/sys/dev/line.o \
+	  $(O)/sys/fs/vfs.o \
+	  $(O)/sys/fs/vfs_ops.o \
+	  $(O)/sys/fs/vfs_access.o \
+	  $(O)/sys/fs/fs_class.o \
+	  $(O)/sys/fs/node.o \
+	  $(O)/sys/fs/pseudo.o \
+	  $(O)/sys/fs/tar.o \
+	  $(O)/sys/fs/sysfs.o \
 	  $(O)/sys/time.o
+
+DIRS+=$(O)/sys/fs \
+	  $(O)/sys/dev
 
 ifeq ($(DEBUG_COUNTERS),1)
 CFLAGS+=-DDEBUG_COUNTERS
