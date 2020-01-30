@@ -12,9 +12,6 @@ amd64_irq0_early:
     popq %rax
     iretq
 
-_addr: .quad 0xFFFFFF00000B8000
-_msg0: .string "CPU stopped!\n"
-
 amd64_irq0:
     cli
 
@@ -50,6 +47,3 @@ amd64_irq2_counting:
     irq_eoi_lapic 0
     pop %rax
     iretq
-
-_fmt0:
-    .string "RSP = %p\n"

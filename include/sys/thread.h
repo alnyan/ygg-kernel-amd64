@@ -11,5 +11,6 @@ struct thread {
     } data;
 
     int pid;
-    struct thread *next;
+
+    struct thread *prev, *next;
 };

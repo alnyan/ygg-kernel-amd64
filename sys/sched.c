@@ -3,6 +3,7 @@
 #include "sys/amd64/hw/idt.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
+#include "sys/debug.h"
 #include "sys/mm.h"
 
 // Enter a newly-created task
@@ -14,12 +15,58 @@ extern void context_switch_first(struct thread *thr);
 
 void yield(void);
 
+//// Thread queueing
+
+static struct thread *queue_head = NULL;
+static struct thread *thread_current = NULL;
+static struct thread thread_idle = {0};
+
+void sched_queue(struct thread *thr) {
+    if (queue_head) {
+        struct thread *queue_tail = queue_head->prev;
+
+        queue_tail->next = thr;
+        thr->prev = queue_tail;
+        queue_head->prev = thr;
+        thr->next = queue_head;
+    } else {
+        thr->next = thr;
+        thr->prev = thr;
+
+        queue_head = thr;
+    }
+}
+
+void sched_unqueue(struct thread *thr) {
+    struct thread *prev = thr->prev;
+    struct thread *next = thr->next;
+
+    if (next == thr) {
+        queue_head = NULL;
+        thread_current = &thread_idle;
+        context_switch_to(&thread_idle, thr);
+        return;
+    }
+
+    if (thr == queue_head) {
+        queue_head = next;
+    }
+
+    next->prev = prev;
+    prev->next = next;
+
+    thr->prev = NULL;
+    thr->next = NULL;
+
+    if (thr == thread_current) {
+        thread_current = next;
+        context_switch_to(next, thr);
+    }
+}
+
 ////
 
-static struct thread sched_threads[3] = {0};
-static int cntr = 0;
-
-static void init_thread(struct thread *thr, void *(*entry)(void *)) {
+static void init_thread(struct thread *thr, void *(*entry)(void *), void *arg) {
     uintptr_t stack_pages = amd64_phys_alloc_page();
     _assert(stack_pages != MM_NADDR);
 
@@ -59,7 +106,7 @@ static void init_thread(struct thread *thr, void *(*entry)(void *)) {
     // rsi
     *--stack = 0;
     // rdi
-    *--stack = 0x12345678;
+    *--stack = (uintptr_t) arg;
     // rax
     *--stack = 0;
 
@@ -96,77 +143,67 @@ static void init_thread(struct thread *thr, void *(*entry)(void *)) {
     thr->data.rsp0 = (uintptr_t) stack;
 }
 
+static void *idle(void *arg) {
+    while (1) {
+        asm volatile ("hlt");
+    }
+    return 0;
+}
+
 static void *t0(void *arg) {
-    size_t count = 0;
-    int v = 0;
+    size_t cntr = 0;
     while (1) {
-        if ((count % 100000) == 0) {
-            if (v) {
-                *(uint16_t *) MM_VIRTUALIZE(0xB8000) = 'A' | 0x700;
-            } else {
-                *(uint16_t *) MM_VIRTUALIZE(0xB8000) = 0;
-            }
-            v = !v;
+        for (size_t i = 0; i < 10000000; ++i);
+
+        *((uint16_t *) MM_VIRTUALIZE(0xB8000 + (uint64_t) arg * 2)) ^= 'A';
+        ++cntr;
+
+        if (cntr == 50 * (((uint64_t) arg) +1)) {
+            kdebug("[%d] Død\n", arg);
+            sched_unqueue(thread_current);
         }
-
-        ++count;
-    }
-    return 0;
-}
-
-static void *t1(void *arg) {
-    size_t count = 0;
-    int v = 0;
-    while (1) {
-        if ((count % 100000) == 0) {
-            if (v) {
-                *(uint16_t *) MM_VIRTUALIZE(0xB8002) = 'B' | 0x700;
-            } else {
-                *(uint16_t *) MM_VIRTUALIZE(0xB8002) = 0;
-            }
-            v = !v;
-        }
-
-        ++count;
-    }
-    return 0;
-}
-
-static void *t2(void *arg) {
-    size_t count = 0;
-    int v = 0;
-    while (1) {
-        if ((count % 100000) == 0) {
-            if (v) {
-                *(uint16_t *) MM_VIRTUALIZE(0xB8004) = 'C' | 0x700;
-            } else {
-                *(uint16_t *) MM_VIRTUALIZE(0xB8004) = 0;
-            }
-            v = !v;
-        }
-
-        ++count;
     }
     return 0;
 }
 
 void yield(void) {
-    struct thread *from = &sched_threads[cntr];
+    struct thread *from = thread_current;
+    struct thread *to;
 
-    cntr = (cntr + 1) % 3;
+    if (from && from->next) {
+        to = from->next;
+    } else if (queue_head) {
+        to = queue_head;
+    } else {
+        to = &thread_idle;
+    }
 
-    struct thread *next = &sched_threads[cntr];
-    context_switch_to(next, from);
+    thread_current = to;
+    context_switch_to(to, from);
 }
 
+static struct thread t_n[3] = {0};
+
 void sched_init(void) {
-    init_thread(&sched_threads[0], t0);
-    init_thread(&sched_threads[1], t1);
-    init_thread(&sched_threads[2], t2);
+    init_thread(&t_n[0], t0, (void *) 0);
+    init_thread(&t_n[1], t0, (void *) 1);
+    init_thread(&t_n[2], t0, (void *) 2);
+    init_thread(&thread_idle, idle, NULL);
+
+    thread_idle.pid = -1;
+
+    t_n[0].pid = 1;
+    t_n[1].pid = 2;
+    t_n[2].pid = 3;
+
+    sched_queue(&t_n[0]);
+    sched_queue(&t_n[1]);
+    sched_queue(&t_n[2]);
 }
 
 void sched_enter(void) {
     extern void amd64_irq0(void);
     amd64_idt_set(0, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    context_switch_first(&sched_threads[0]);
+    thread_current = queue_head;
+    context_switch_first(thread_current);
 }

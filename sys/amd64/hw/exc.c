@@ -97,6 +97,8 @@ void amd64_exception(struct amd64_exception_frame *frame) {
         kfatal("   Backtrace:\n");
         kfatal("0: %p <%s + %04x>\n", frame->rip, sym_name, frame->rip - sym_base);
         debug_backtrace(frame->rbp, 1, 10);
+    } else {
+        kfatal("%rip is in unknown location\n");
     }
 
     panic("Exception without resolution\n");
