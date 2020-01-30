@@ -9,9 +9,8 @@ struct cpu {
     // TODO: somehow export offsets to asm
     struct cpu *self;           // 0x00
 
-    uint64_t ticks;
-    amd64_tss_t *tss;
-    uint64_t syscall_rsp;
+    uint64_t ticks;             // 0x08
+    amd64_tss_t *tss;           // 0x10
 
     uint64_t processor_id;
 

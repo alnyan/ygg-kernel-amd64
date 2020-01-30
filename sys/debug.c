@@ -61,6 +61,11 @@ void debug_backtrace(uintptr_t rbp, int depth, int limit) {
         return;
     }
 
+    if ((rbp & 0xFFFFFF0000000000) != 0xFFFFFF0000000000) {
+        kfatal("-- %rbp is not from kernel space\n");
+        return;
+    }
+
     uintptr_t rip =      ((uintptr_t *) rbp)[1];
     uintptr_t rbp_next = ((uintptr_t *) rbp)[0];
 

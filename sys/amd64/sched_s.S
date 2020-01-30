@@ -1,3 +1,4 @@
+#include "sys/amd64/asm/asm_cpu.h"
 .section .text
 .global context_enter
 context_enter:
@@ -39,6 +40,23 @@ context_switch_first:
     popq %r13
     popq %r14
     popq %r15
+
+    // Load TSS.RSP0 for user -> kernel transition
+    // %rax = top of task's stack
+    movq 0x10(%rdi), %rax
+    // %rcx = &tss
+    movq get_cpu(0x10), %rcx
+    // &tss->rsp0 = %rax
+    movq %rax, 4(%rcx)
+
+    // Load new %cr3 if changed
+    movq 0x18(%rdi), %rax
+    movq %cr3, %rcx
+    test %rcx, %rax
+    jz 1f
+    // Only load if cr3 != thr->cr3
+    movq %rax, %cr3
+1:
 
     ret
 .size context_switch_to, . - context_switch_to
