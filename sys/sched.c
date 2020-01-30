@@ -13,7 +13,6 @@ void yield(void);
 
 static struct thread *queue_head = NULL;
 static struct thread thread_idle = {0};
-struct thread *thread_current = NULL;
 
 static void *idle(void *arg) {
     while (1) {
@@ -41,12 +40,13 @@ void sched_queue(struct thread *thr) {
 }
 
 void sched_unqueue(struct thread *thr) {
+    struct cpu *cpu = get_cpu();
     struct thread *prev = thr->prev;
     struct thread *next = thr->next;
 
     if (next == thr) {
         queue_head = NULL;
-        thread_current = &thread_idle;
+        get_cpu()->thread = &thread_idle;
         context_switch_to(&thread_idle, thr);
         return;
     }
@@ -61,14 +61,14 @@ void sched_unqueue(struct thread *thr) {
     thr->prev = NULL;
     thr->next = NULL;
 
-    if (thr == thread_current) {
-        thread_current = next;
+    if (thr == cpu->thread) {
+        cpu->thread = next;
         context_switch_to(next, thr);
     }
 }
 
 void yield(void) {
-    struct thread *from = thread_current;
+    struct thread *from = get_cpu()->thread;
     struct thread *to;
 
     if (from && from->next) {
@@ -79,7 +79,7 @@ void yield(void) {
         to = &thread_idle;
     }
 
-    thread_current = to;
+    get_cpu()->thread = to;
     context_switch_to(to, from);
 }
 
@@ -91,11 +91,12 @@ void sched_init(void) {
 void sched_enter(void) {
     extern void amd64_irq0(void);
     amd64_idt_set(0, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
-    if (queue_head) {
-        thread_current = queue_head;
-        context_switch_first(thread_current);
-    } else {
-        thread_current = &thread_idle;
-        context_switch_first(&thread_idle);
+
+    struct thread *first_task = queue_head;
+    if (!first_task) {
+        first_task = &thread_idle;
     }
+
+    get_cpu()->thread = first_task;
+    context_switch_first(first_task);
 }

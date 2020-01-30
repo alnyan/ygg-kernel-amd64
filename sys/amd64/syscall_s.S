@@ -1,8 +1,5 @@
 #include "sys/amd64/asm/asm_thread.h"
-.section .bss
-tmp0:
-    .quad 0
-
+#include "sys/amd64/asm/asm_cpu.h"
 .section .text
 .global syscall_entry
 syscall_entry:
@@ -11,8 +8,8 @@ syscall_entry:
     // %r11 - user rflags
 
     // Switch to kernel stack
-    movq %rsp, tmp0(%rip)
-    movq thread_current(%rip), %rsp
+    movq %rsp, get_cpu(CPU_SYSCALL_RSP)
+    movq get_cpu(CPU_THREAD), %rsp
     movq THREAD_RSP0(%rsp), %rsp
 
     cmpq $123, %rax
@@ -20,7 +17,7 @@ syscall_entry:
 
     pushq %rcx
     pushq %r11
-    movq tmp0(%rip), %rcx
+    movq get_cpu(CPU_SYSCALL_RSP), %rcx
     pushq %rcx
 
     cmpq $256, %rax
@@ -49,7 +46,7 @@ syscall_entry:
 _syscall_fork:
     pushq %rcx
     pushq %r11
-    movq tmp0(%rip), %rcx
+    movq get_cpu(CPU_SYSCALL_RSP), %rcx
     pushq %rcx
 
     pushq %r15

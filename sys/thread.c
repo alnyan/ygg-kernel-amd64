@@ -1,13 +1,12 @@
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/mm/pool.h"
+#include "sys/amd64/cpu.h"
 #include "sys/vmalloc.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
 #include "sys/sched.h"
 #include "sys/debug.h"
 #include "sys/mm.h"
-
-extern struct thread *thread_current;
 
 struct sys_fork_frame {
     uint64_t rdi, rsi, rdx, rcx;
@@ -154,7 +153,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     static struct thread forkt[3] = {0};
 
     struct thread *dst = &forkt[nfork++];
-    struct thread *src = thread_current;
+    struct thread *src = thread_self;
 
     uintptr_t stack_pages = amd64_phys_alloc_page();
     _assert(stack_pages != MM_NADDR);
@@ -240,7 +239,7 @@ int sys_fork(struct sys_fork_frame *frame) {
 }
 
 __attribute__((noreturn)) void sys_exit(int status) {
-    struct thread *thr = thread_current;
+    struct thread *thr = thread_self;
     kdebug("Thread %d exited with status %d\n", thr->pid, status);
 
     sched_unqueue(thr);

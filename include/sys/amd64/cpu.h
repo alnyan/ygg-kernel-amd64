@@ -5,33 +5,8 @@
 
 #define FXSAVE_REGION       512
 
-struct cpu {
-    // TODO: somehow export offsets to asm
-    struct cpu *self;           // 0x00
-
-    uint64_t ticks;             // 0x08
-    amd64_tss_t *tss;           // 0x10
-
-    uint64_t processor_id;
-
-    // No need to define offsets for these: ther're not accessed
-    // from assembly
-    uint64_t flags;
-    uint64_t apic_id;
-};
-
-struct cpu_context {
-#if defined(AMD64_STACK_CTX_CANARY)
-    uintptr_t __canary;
-#endif
-    uintptr_t fs, es, ds;
-    uintptr_t cr3;
-    uintptr_t r15, r14, r13, r12;
-    uintptr_t r11, r10, r9, r8;
-    uintptr_t rdi, rsi, rbp;
-    uintptr_t rbx, rdx, rcx, rax;
-    uintptr_t rip, cs, rflags, rsp, ss;
-};
+#include "sys/amd64/asm/asm_cpu.h"
+#define thread_self         get_cpu()->thread
 
 #if defined(AMD64_SMP)
 extern struct cpu cpus[AMD64_MAX_SMP];
@@ -46,8 +21,6 @@ extern struct cpu __amd64_cpu;
 
 #define get_cpu()   ((struct cpu *) &__amd64_cpu)
 #endif
-
-void cpu_print_context(int level, struct cpu_context *ctx);
 
 #define MSR_IA32_APIC_BASE          0x1B
 #define IA32_APIC_BASE_BSP          0x100

@@ -83,9 +83,9 @@ context_switch_first:
     // %rax = top of task's stack
     movq THREAD_RSP0_TOP(%rdi), %rax
     // %rcx = &tss
-    movq get_cpu(0x10), %rcx
+    movq get_cpu(CPU_TSS), %rcx
     // &tss->rsp0 = %rax
-    movq %rax, 4(%rcx)
+    movq %rax, TSS_RSP0(%rcx)
 
     // Load new %cr3 if changed
     movq THREAD_CR3(%rdi), %rax

@@ -20,4 +20,30 @@
 1:
 .endm
 
+#define CPU_SELF                0x00
+#define CPU_THREAD              0x08
+#define CPU_TSS                 0x10
+#define CPU_SYSCALL_RSP         0x18
+
+#define TSS_RSP0                0x04
+
+#else
+#include "sys/types.h"
+
+struct cpu {
+    // TODO: somehow export offsets to asm
+    struct cpu *self;           // 0x00
+
+    struct thread *thread;      // 0x08
+    amd64_tss_t *tss;           // 0x10
+    uint64_t syscall_rsp;       // 0x18
+    uint64_t ticks;
+
+    uint64_t processor_id;
+
+    // No need to define offsets for these: ther're not accessed
+    // from assembly
+    uint64_t flags;
+    uint64_t apic_id;
+};
 #endif
