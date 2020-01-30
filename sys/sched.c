@@ -1,4 +1,6 @@
 #include "sys/amd64/mm/phys.h"
+#include "sys/amd64/hw/irq.h"
+#include "sys/amd64/hw/idt.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
 #include "sys/mm.h"
@@ -164,5 +166,7 @@ void sched_init(void) {
 }
 
 void sched_enter(void) {
+    extern void amd64_irq0(void);
+    amd64_idt_set(0, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
     context_switch_first(&sched_threads[0]);
 }
