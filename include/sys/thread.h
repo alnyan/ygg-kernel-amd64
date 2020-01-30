@@ -8,6 +8,7 @@ struct thread {
 
         uintptr_t rsp0_top;         // 0x10
         uintptr_t cr3;              // 0x18
+        uintptr_t syscall_rip;      // 0x20
 
         uintptr_t rsp0_base;
         size_t    rsp0_size;

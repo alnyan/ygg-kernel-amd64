@@ -2,6 +2,7 @@
 #include "sys/amd64/asm/asm_irq.h"
 #include "sys/amd64/hw/rs232.h"
 #include "sys/amd64/smp/smp.h"
+#include "sys/amd64/syscall.h"
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/hw/acpi.h"
 #include "sys/amd64/hw/apic.h"
@@ -52,6 +53,8 @@ void kernel_main(struct amd64_loader_data *data) {
     kinfo("yggdrasil " KERNEL_VERSION_STR "\n");
 
     amd64_apic_init();
+
+    syscall_init();
 
     sched_init();
     sched_enter();

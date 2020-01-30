@@ -1,6 +1,10 @@
 #include "sys/amd64/asm/asm_cpu.h"
 .section .text
 .global context_enter
+.global context_enter_forked
+context_enter_forked:
+    nop
+    nop
 context_enter:
     popq %rax
     popq %rdi
