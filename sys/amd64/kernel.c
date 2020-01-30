@@ -1,24 +1,25 @@
-#include "sys/amd64/cpuid.h"
-#include "sys/debug.h"
 #include "sys/amd64/loader/multiboot.h"
 #include "sys/amd64/asm/asm_irq.h"
-#include "sys/amd64/hw/gdt.h"
-#include "sys/amd64/cpu.h"
-#include "sys/amd64/hw/idt.h"
-#include "sys/amd64/mm/mm.h"
+#include "sys/amd64/hw/rs232.h"
 #include "sys/amd64/smp/smp.h"
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/hw/acpi.h"
 #include "sys/amd64/hw/apic.h"
-#include "sys/amd64/hw/rs232.h"
+#include "sys/amd64/hw/gdt.h"
+#include "sys/amd64/hw/idt.h"
 #include "sys/amd64/hw/ps2.h"
 #include "sys/amd64/hw/rtc.h"
+#include "sys/amd64/cpuid.h"
+#include "sys/amd64/mm/mm.h"
+#include "sys/amd64/cpu.h"
 #include "sys/amd64/fpu.h"
 #include "sys/config.h"
 #include "sys/string.h"
-#include "sys/time.h"
-#include "sys/panic.h"
 #include "sys/assert.h"
+#include "sys/panic.h"
+#include "sys/debug.h"
+#include "sys/sched.h"
+#include "sys/time.h"
 
 static multiboot_info_t *multiboot_info;
 
@@ -52,7 +53,8 @@ void kernel_main(struct amd64_loader_data *data) {
 
     amd64_apic_init();
 
-    while (1) {
-        asm volatile ("sti; hlt");
-    }
+    sched_init();
+    sched_enter();
+
+    panic("This code should not run\n");
 }

@@ -34,6 +34,7 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/errno.o \
 	  $(O)/sys/config.o \
 	  $(O)/sys/ctype.o \
+	  $(O)/sys/sched.o \
 	  $(O)/sys/time.o
 
 ifeq ($(DEBUG_COUNTERS),1)
