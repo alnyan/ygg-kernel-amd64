@@ -100,3 +100,60 @@ context_switch_first:
 
     ret
 .size context_switch_to, . - context_switch_to
+
+
+
+
+
+
+
+.global context_sigreturn
+context_sigreturn:
+    movq tmp0(%rip), %rsp
+
+    popq %rbx
+    popq %rbp
+    popq %r12
+    popq %r13
+    popq %r14
+    popq %r15
+
+    ret
+
+
+.global context_sigenter
+context_sigenter:
+    // %rdi - entry
+    // %rsi - stack
+    pushq %r15
+    pushq %r14
+    pushq %r13
+    pushq %r12
+    pushq %rbp
+    pushq %rbx
+
+    // Use alternate TSS.RSP0 so syscall frame does not get overwritten
+    movq get_cpu(CPU_THREAD), %rbx
+    movq %rsp, tmp0(%rip)
+    movq %rsp, THREAD_RSP0(%rbx)
+    movq %rsp, THREAD_RSP0_TOP(%rbx)
+    movq THREAD_RSP0_TOP(%rbx), %rbx
+    movq get_cpu(CPU_TSS), %r12
+    movq %rbx, TSS_RSP0(%r12)
+
+    pushq $0x1B
+    pushq %rsi
+
+    pushq $0x200
+
+    pushq $0x23
+    pushq %rdi
+
+    iretq
+
+.section .bss
+tmp0:
+    .quad 0
+//    0xffffff000528df90
+// r15 = 0, r14 = 0, r13 = 0, r12 = 0,
+// rbp = 0xffffff000528dfd8, rbx = 0x0

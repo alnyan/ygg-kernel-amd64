@@ -28,6 +28,9 @@ struct thread {
     uint64_t sleep_deadline;
     struct thread *wait_prev, *wait_next;
 
+    // Signal
+    uintptr_t signal_entry;
+
     // State
     pid_t pid;
     enum thread_state state;

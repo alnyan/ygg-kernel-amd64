@@ -25,6 +25,10 @@ void *syscall_table[256] = {
     [SYSCALL_NR_READ] = sys_read,
     [SYSCALL_NR_WRITE] = sys_write,
 
+    [SYSCALL_NRX_SUICIDE] = sys_suicide,
+    [SYSCALL_NRX_SIGENTRY] = sys_sigentry,
+    [SYSCALL_NR_SIGRETURN] = sys_sigreturn,
+
     [SYSCALL_NR_EXIT] = sys_exit,
 
     [SYSCALL_NR_DEBUG_SLEEP] = sys_debug_sleep,

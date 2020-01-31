@@ -344,3 +344,32 @@ void thread_sleep(struct thread *thr, uint64_t deadline) {
     timer_add_sleep(thr);
     sched_unqueue(thr, THREAD_WAITING);
 }
+
+extern void context_sigenter(uintptr_t entry, uintptr_t stack);
+extern void context_sigreturn(void);
+static char fuck[4096];
+
+void sys_sigreturn(void) {
+    context_sigreturn();
+}
+
+void sys_suicide(void) {
+    struct thread *thr = thread_self;
+    _assert(thr);
+    kinfo("Enter\n");
+    uintptr_t old_rsp0_top = thr->data.rsp0_top;
+    thr->data.rsp0_top = (uintptr_t) &fuck[4096];
+
+    context_sigenter(thr->signal_entry, 0x100500);
+
+    thr->data.rsp0_top = old_rsp0_top;
+
+    kinfo("Leave\n");
+}
+
+void sys_sigentry(uintptr_t entry) {
+    struct thread *thr = thread_self;
+    _assert(thr);
+
+    thr->signal_entry = entry;
+}
