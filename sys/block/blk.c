@@ -1,11 +1,11 @@
 //#include "sys/blk/part_gpt.h"
-#include "sys/dev/blk.h"
+#include "sys/user/errno.h"
+#include "sys/block/blk.h"
 #include "sys/assert.h"
 #include "sys/fs/vfs.h"
 #include "sys/string.h"
 #include "sys/fs/fs.h"
 #include "sys/debug.h"
-#include "sys/errno.h"
 #include "sys/heap.h"
 
 struct blk_part {

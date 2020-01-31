@@ -1,8 +1,8 @@
 #include "sys/amd64/cpu.h"
-#include "sys/dev/ring.h"
-#include "sys/dev/line.h"
-#include "sys/dev/chr.h"
-#include "sys/dev/tty.h"
+#include "sys/char/ring.h"
+#include "sys/char/line.h"
+#include "sys/char/chr.h"
+#include "sys/char/tty.h"
 #include "sys/assert.h"
 #include "sys/debug.h"
 

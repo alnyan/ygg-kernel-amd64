@@ -8,7 +8,15 @@ ACPICA_OBJS=$(ACPICA_SRCS:%.c=$(O)/%.o)
 ACPICA_SRCD=$(shell find sys/amd64/acpica -type d)
 ACPICA_OBJD=$(ACPICA_SRCD:%=$(O)/%)
 
-OBJS+=$(O)/sys/amd64/hw/rs232.o \
+OBJS+=$(ACPICA_OBJS) \
+	  $(O)/sys/amd64/acpi_osl_mem.o \
+	  $(O)/sys/amd64/acpi_osl_printf.o \
+	  $(O)/sys/amd64/acpi_osl_thread.o \
+	  $(O)/sys/amd64/acpi_osl_init.o \
+	  $(O)/sys/amd64/acpi_osl_table.o \
+	  $(O)/sys/amd64/acpi_osl_irq.o \
+	  $(O)/sys/amd64/acpi_osl_hw.o \
+	  $(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/kernel.o \
 	  $(O)/sys/amd64/hw/gdt.o \
 	  $(O)/sys/amd64/hw/gdt_s.o \
@@ -31,14 +39,6 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/mm/pool.o \
 	  $(O)/sys/amd64/hw/ps2.o \
 	  $(O)/sys/amd64/hw/irq.o \
-	  $(ACPICA_OBJS) \
-	  $(O)/sys/amd64/acpi_osl_mem.o \
-	  $(O)/sys/amd64/acpi_osl_printf.o \
-	  $(O)/sys/amd64/acpi_osl_thread.o \
-	  $(O)/sys/amd64/acpi_osl_init.o \
-	  $(O)/sys/amd64/acpi_osl_table.o \
-	  $(O)/sys/amd64/acpi_osl_irq.o \
-	  $(O)/sys/amd64/acpi_osl_hw.o \
 	  $(O)/sys/amd64/hw/rtc.o \
 	  $(O)/sys/amd64/fpu.o \
 	  $(O)/sys/amd64/cpuid.o \
@@ -46,9 +46,7 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/syscall_s.o \
 	  $(O)/sys/amd64/syscall.o \
 	  $(O)/sys/amd64/binfmt_elf.o \
-	  $(O)/sys/amd64/hw/con.o \
-	  $(O)/sys/amd64/hw/pci/pci.o \
-	  $(O)/sys/amd64/hw/pci/ahci.o
+	  $(O)/sys/amd64/hw/con.o
 
 kernel_LINKER=sys/amd64/link.ld
 kernel_LDFLAGS=-nostdlib \

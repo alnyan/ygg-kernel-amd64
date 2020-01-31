@@ -1,4 +1,5 @@
 #pragma once
+#include "sys/types.h"
 
 struct ahci_registers;
 struct pci_device;

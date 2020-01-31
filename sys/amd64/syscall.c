@@ -1,11 +1,12 @@
+#include "sys/user/syscall.h"
+#include "sys/user/errno.h"
+#include "sys/user/time.h"
 #include "sys/amd64/cpu.h"
-#include "sys/syscall.h"
 #include "sys/thread.h"
 #include "sys/debug.h"
-#include "sys/errno.h"
-#include "sys/time.h"
 
 #include "sys/sys_file.h"
+#include "sys/sys_proc.h"
 
 #define MSR_IA32_STAR               0xC0000081
 #define MSR_IA32_LSTAR              0xC0000082

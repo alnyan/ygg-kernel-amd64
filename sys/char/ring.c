@@ -1,4 +1,4 @@
-#include "sys/dev/ring.h"
+#include "sys/char/ring.h"
 #include "sys/thread.h"
 #include "sys/assert.h"
 #include "sys/sched.h"

@@ -1,96 +1,28 @@
-#include "sys/amd64/loader/multiboot.h"
-#include "sys/amd64/asm/asm_irq.h"
-#include "sys/amd64/hw/pci/pci.h"
 #include "sys/amd64/hw/rs232.h"
-#include "sys/amd64/smp/smp.h"
-#include "sys/amd64/syscall.h"
-#include "sys/amd64/mm/phys.h"
-#include "sys/amd64/hw/acpi.h"
+#include "sys/driver/pci/pci.h"
 #include "sys/amd64/hw/apic.h"
+#include "sys/amd64/hw/acpi.h"
+#include "sys/amd64/mm/phys.h"
+#include "sys/amd64/syscall.h"
 #include "sys/amd64/hw/gdt.h"
-#include "sys/amd64/hw/idt.h"
-#include "sys/amd64/hw/ps2.h"
-#include "sys/amd64/hw/rtc.h"
 #include "sys/amd64/hw/con.h"
+#include "sys/amd64/hw/idt.h"
+#include "sys/amd64/hw/rtc.h"
+#include "sys/amd64/hw/ps2.h"
 #include "sys/amd64/cpuid.h"
 #include "sys/amd64/mm/mm.h"
-#include "sys/amd64/cpu.h"
-#include "sys/amd64/fpu.h"
-#include "sys/fs/ofile.h"
-#include "sys/fs/fcntl.h"
-#include "sys/fs/node.h"
-#include "sys/dev/tty.h"
-#include "sys/dev/ram.h"
-#include "sys/dev/dev.h"
-#include "sys/fs/tar.h"
-#include "sys/thread.h"
-#include "sys/fs/vfs.h"
+#include "sys/block/ram.h"
+#include "sys/char/tty.h"
 #include "sys/config.h"
-#include "sys/string.h"
-#include "sys/assert.h"
-#include "sys/errno.h"
-#include "sys/panic.h"
-#include "sys/debug.h"
+#include "sys/fs/tar.h"
+#include "sys/fs/vfs.h"
 #include "sys/sched.h"
-#include "sys/heap.h"
-#include "sys/time.h"
+#include "sys/debug.h"
+#include "sys/panic.h"
+#include "sys/init.h"
+#include "sys/mm.h"
 
 static multiboot_info_t *multiboot_info;
-struct thread user_init = {0};
-
-extern int sys_execve(const char *path, const char **argp, const char **envp);
-
-static void user_init_func(void *arg) {
-    kdebug("Starting user init\n");
-
-    struct vfs_ioctx *ioctx = &thread_self->ioctx;
-    struct vnode *root_dev, *tty_dev;
-    int res;
-    // Mount root
-    if ((res = dev_find(DEV_CLASS_BLOCK, "ram0", &root_dev)) != 0) {
-        kerror("ram0: %s\n", kstrerror(res));
-        panic("Fail\n");
-    }
-
-    if ((res = vfs_mount(ioctx, "/", root_dev->dev, "ustar", NULL)) != 0) {
-        kerror("mount: %s\n", kstrerror(res));
-        panic("Fail\n");
-    }
-
-    // Open STDOUT_FILENO and STDERR_FILENO
-    struct ofile *fd_stdout = kmalloc(sizeof(struct ofile));
-    struct ofile *fd_stdin = kmalloc(sizeof(struct ofile));
-
-    if ((res = dev_find(DEV_CLASS_CHAR, "tty0", &tty_dev)) != 0) {
-        kerror("tty0: %s\n", kstrerror(res));
-        panic("Fail\n");
-    }
-
-    if ((res = vfs_open_vnode(ioctx, fd_stdin, tty_dev, O_RDONLY)) != 0) {
-        kerror("tty0: %s\n", kstrerror(res));
-        panic("Fail\n");
-    }
-
-    if ((res = vfs_open_vnode(ioctx, fd_stdout, tty_dev, O_WRONLY)) != 0) {
-        kerror("tty0: %s\n", kstrerror(res));
-        panic("Fail\n");
-    }
-
-    thread_self->fds[0] = fd_stdin;
-    thread_self->fds[1] = fd_stdout;
-    thread_self->fds[2] = fd_stdout;
-    // Duplicate the FD
-    ++fd_stdout->refcount;
-
-    _assert(fd_stdin->refcount == 1);
-    _assert(fd_stdout->refcount == 2);
-
-    sys_execve("/test", NULL, NULL);
-
-    while (1) {
-        asm volatile ("hlt");
-    }
-}
 
 void kernel_main(struct amd64_loader_data *data) {
     cpuid_init();
@@ -147,11 +79,7 @@ void kernel_main(struct amd64_loader_data *data) {
     syscall_init();
 
     sched_init();
-
-    thread_init(&user_init, (uintptr_t) user_init_func, NULL, 0);
-    user_init.pid = thread_alloc_pid(0);
-    sched_queue(&user_init);
-
+    user_init_start();
     sched_enter();
 
     panic("This code should not run\n");

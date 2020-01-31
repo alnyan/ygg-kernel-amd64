@@ -1,9 +1,9 @@
-#include "sys/fs/fcntl.h"
-#include "sys/fs/stat.h"
+#include "sys/user/fcntl.h"
+#include "sys/user/errno.h"
+#include "sys/user/stat.h"
 #include "sys/fs/node.h"
 #include "sys/fs/vfs.h"
 #include "sys/assert.h"
-#include "sys/errno.h"
 #include "sys/debug.h"
 
 int vfs_access_check(struct vfs_ioctx *ctx, int desm, mode_t mode, uid_t uid, gid_t gid) {

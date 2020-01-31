@@ -1,9 +1,9 @@
+#include "sys/user/errno.h"
 #include "sys/amd64/cpu.h"
 #include "sys/sys_file.h"
 #include "sys/thread.h"
 #include "sys/assert.h"
 #include "sys/debug.h"
-#include "sys/errno.h"
 
 ssize_t sys_read(int fd, void *data, size_t lim) {
     struct thread *thr = thread_self;

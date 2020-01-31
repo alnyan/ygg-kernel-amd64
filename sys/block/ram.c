@@ -1,10 +1,10 @@
-#include "sys/dev/ram.h"
-#include "sys/dev/blk.h"
-#include "sys/dev/dev.h"
+#include "sys/user/errno.h"
+#include "sys/block/ram.h"
+#include "sys/block/blk.h"
 #include "sys/string.h"
 #include "sys/assert.h"
-#include "sys/errno.h"
 #include "sys/heap.h"
+#include "sys/dev.h"
 
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 

@@ -1,9 +1,9 @@
-#include "sys/dev/blk.h"
-#include "sys/dev/dev.h"
+#include "sys/user/errno.h"
+#include "sys/block/blk.h"
 #include "sys/string.h"
 #include "sys/panic.h"
-#include "sys/errno.h"
 #include "sys/attr.h"
+#include "sys/dev.h"
 
 #define DEV_ZERO        0
 #define DEV_NULL        1

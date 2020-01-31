@@ -5,12 +5,12 @@
 #include "sys/amd64/hw/idt.h"
 #include "sys/amd64/hw/io.h"
 #include "sys/amd64/cpu.h"
+#include "sys/user/time.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
 #include "sys/sched.h"
 #include "sys/debug.h"
 #include "sys/spin.h"
-#include "sys/time.h"
 
 #define TIMER_PIT                   1
 

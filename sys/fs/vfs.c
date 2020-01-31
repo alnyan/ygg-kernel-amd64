@@ -1,13 +1,13 @@
-#include "sys/fs/fcntl.h"
-#include "sys/dev/blk.h"
+#include "sys/user/fcntl.h"
+#include "sys/user/errno.h"
+#include "sys/block/blk.h"
 #include "sys/fs/node.h"
-#include "sys/fs/vfs.h"
-#include "sys/fs/fs.h"
 #include "sys/string.h"
 #include "sys/assert.h"
+#include "sys/fs/vfs.h"
+#include "sys/fs/fs.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
-#include "sys/errno.h"
 
 static int vfs_find_internal(struct vfs_ioctx *ctx, struct vnode *at, const char *path, struct vnode **child);
 

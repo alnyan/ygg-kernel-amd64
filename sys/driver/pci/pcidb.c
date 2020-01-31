@@ -1,4 +1,4 @@
-#include "sys/amd64/hw/pci/pci.h"
+#include "sys/driver/pci/pci.h"
 
 static const char *pci_class_code_strings[] = {
     "Unclassified",

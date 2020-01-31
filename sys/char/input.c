@@ -1,5 +1,5 @@
-#include "sys/dev/input.h"
-#include "sys/dev/tty.h"
+#include "sys/char/input.h"
+#include "sys/char/tty.h"
 #include "sys/debug.h"
 #include "sys/ctype.h"
 

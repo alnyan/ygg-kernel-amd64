@@ -4,8 +4,8 @@
  */
 #pragma once
 #include <stdint.h>
-#include "sys/fs/dirent.h"
-#include "sys/fs/stat.h"
+#include "sys/user/dirent.h"
+#include "sys/user/stat.h"
 #include "sys/types.h"
 
 #define NODE_MAXLEN 64

@@ -1,9 +1,9 @@
+#include "sys/user/errno.h"
 #include "sys/amd64/cpu.h"
-#include "sys/dev/chr.h"
+#include "sys/char/chr.h"
 #include "sys/assert.h"
 #include "sys/string.h"
 #include "sys/sched.h"
-#include "sys/errno.h"
 
 int chr_ioctl(struct chrdev *chr, unsigned int cmd, void *arg) {
     if (!chr) {

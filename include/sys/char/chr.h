@@ -1,6 +1,6 @@
 #pragma once
-#include "sys/dev/ring.h"
-#include "sys/termios.h"
+#include "sys/user/termios.h"
+#include "sys/char/ring.h"
 #include "sys/types.h"
 
 struct chrdev {

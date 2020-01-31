@@ -1,13 +1,13 @@
+#include "sys/user/errno.h"
+#include "sys/user/fcntl.h"
+#include "sys/block/blk.h"
+#include "sys/char/chr.h"
 #include "sys/fs/ofile.h"
-#include "sys/fs/fcntl.h"
 #include "sys/fs/node.h"
-#include "sys/dev/chr.h"
-#include "sys/dev/blk.h"
 #include "sys/fs/vfs.h"
 #include "sys/string.h"
 #include "sys/assert.h"
 #include "sys/debug.h"
-#include "sys/errno.h"
 #include "sys/heap.h"
 
 static int vfs_open_mode(int opt) {

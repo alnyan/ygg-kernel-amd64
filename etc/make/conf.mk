@@ -2,9 +2,10 @@ HEADERS=$(shell find ./include -name "*.h")
 
 KERNEL_VERSION_GIT=$(shell git describe --always --tags)
 KERNEL_VERSION_STR=$(KERNEL_VERSION_GIT)
-ifeq ($(AMD64_SMP),1)
-KERNEL_VERSION_STR+= +SMP
-endif
+# XXX: Removed until I fix SMP again
+#ifeq ($(AMD64_SMP),1)
+#KERNEL_VERSION_STR+= +SMP
+#endif
 
 CFLAGS+=-Wall \
 		-Wextra \
@@ -36,27 +37,35 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/ctype.o \
 	  $(O)/sys/sched.o \
 	  $(O)/sys/thread.o \
-	  $(O)/sys/dev/input.o \
-	  $(O)/sys/dev/ring.o \
-	  $(O)/sys/dev/tty.o \
-	  $(O)/sys/dev/ram.o \
-	  $(O)/sys/dev/chr.o \
-	  $(O)/sys/dev/blk.o \
-	  $(O)/sys/dev/dev.o \
-	  $(O)/sys/dev/line.o \
+	  $(O)/sys/char/input.o \
+	  $(O)/sys/char/ring.o \
+	  $(O)/sys/char/line.o \
+	  $(O)/sys/char/tty.o \
+	  $(O)/sys/char/chr.o \
+	  $(O)/sys/block/pseudo.o \
+	  $(O)/sys/block/ram.o \
+	  $(O)/sys/block/blk.o \
+	  $(O)/sys/dev.o \
 	  $(O)/sys/fs/vfs.o \
 	  $(O)/sys/fs/vfs_ops.o \
 	  $(O)/sys/fs/vfs_access.o \
 	  $(O)/sys/fs/fs_class.o \
 	  $(O)/sys/fs/node.o \
-	  $(O)/sys/fs/pseudo.o \
 	  $(O)/sys/fs/tar.o \
 	  $(O)/sys/fs/sysfs.o \
 	  $(O)/sys/time.o \
-	  $(O)/sys/sys_file.o
+	  $(O)/sys/sys_file.o \
+	  $(O)/sys/init.o
+
+OBJS+=$(O)/sys/driver/pci/pci.o \
+	  $(O)/sys/driver/pci/pcidb.o \
+	  $(O)/sys/driver/ata/ahci.o
 
 DIRS+=$(O)/sys/fs \
-	  $(O)/sys/dev
+	  $(O)/sys/char \
+	  $(O)/sys/block \
+	  $(O)/sys/driver/pci \
+	  $(O)/sys/driver/ata
 
 ifeq ($(DEBUG_COUNTERS),1)
 CFLAGS+=-DDEBUG_COUNTERS

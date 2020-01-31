@@ -7,7 +7,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "sys/time.h"
+#include "sys/user/time.h"
 
 #define DEBUG_DEFAULT   0
 #define DEBUG_INFO      1

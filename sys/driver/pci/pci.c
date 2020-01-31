@@ -1,5 +1,5 @@
-#include "sys/amd64/hw/pci/pci.h"
 #include "sys/amd64/hw/ioapic.h"
+#include "sys/driver/pci/pci.h"
 #include "sys/amd64/hw/acpi.h"
 #include "sys/amd64/hw/io.h"
 #include "sys/assert.h"

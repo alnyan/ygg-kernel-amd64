@@ -1,14 +1,14 @@
 #include "sys/amd64/hw/ps2.h"
 #include "sys/amd64/hw/irq.h"
 #include "sys/amd64/hw/io.h"
-#include "sys/dev/input.h"
-#include "sys/dev/line.h"
-#include "sys/dev/tty.h"
-#include "sys/dev/chr.h"
-#include "sys/dev/dev.h"
+#include "sys/char/input.h"
+#include "sys/char/line.h"
+#include "sys/char/tty.h"
+#include "sys/char/chr.h"
 #include "sys/panic.h"
 #include "sys/ctype.h"
 #include "sys/debug.h"
+#include "sys/dev.h"
 
 // Keyboard stuff
 #define PS2_KEY_LSHIFT_DOWN     0x2A
