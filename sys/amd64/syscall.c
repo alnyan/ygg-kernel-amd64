@@ -14,7 +14,7 @@
 extern void syscall_entry(void);
 
 void sys_debug_trace(const char *msg) {
-    //kinfo("Trace message: %s\n", msg);
+    kinfo("Trace message: %s\n", msg);
 }
 
 void sys_debug_sleep(uint64_t ms) {
@@ -25,7 +25,7 @@ void *syscall_table[256] = {
     [SYSCALL_NR_READ] = sys_read,
     [SYSCALL_NR_WRITE] = sys_write,
 
-    [SYSCALL_NRX_SUICIDE] = sys_suicide,
+    [SYSCALL_NR_KILL] = sys_kill,
     [SYSCALL_NRX_SIGENTRY] = sys_sigentry,
     [SYSCALL_NR_SIGRETURN] = sys_sigreturn,
 

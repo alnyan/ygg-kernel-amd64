@@ -7,8 +7,8 @@
 void sys_sigentry(uintptr_t entry);
 #define SYSCALL_NR_SIGRETURN    15
 void sys_sigreturn(void);
-#define SYSCALL_NRX_SUICIDE     253
-void sys_suicide(void);
+#define SYSCALL_NR_KILL         62
+int sys_kill(pid_t pid, int signum);
 
 #define SYSCALL_NR_FORK         57
 int sys_fork(void *ctx);

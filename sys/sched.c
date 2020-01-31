@@ -166,10 +166,6 @@ void yield(void) {
         from->state = THREAD_READY;
     }
 
-    if (to->pid == 1) {
-        kinfo("%p\n", to->data.rsp0);
-    }
-
     to->state = THREAD_RUNNING;
     get_cpu()->thread = to;
     context_switch_to(to, from);
