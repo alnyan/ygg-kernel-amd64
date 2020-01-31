@@ -1,6 +1,7 @@
 #include "sys/amd64/hw/timer.h"
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/mm/pool.h"
+#include "sys/amd64/context.h"
 #include "sys/user/fcntl.h"
 #include "sys/binfmt_elf.h"
 #include "sys/user/errno.h"
@@ -32,6 +33,7 @@ struct sys_fork_frame {
 
 ////
 
+static struct thread *threads_all_head = NULL;
 static pid_t last_kernel_pid = 0;
 static pid_t last_user_pid = 0;
 
@@ -41,6 +43,15 @@ pid_t thread_alloc_pid(int is_user) {
     } else {
         return -(++last_kernel_pid);
     }
+}
+
+static void thread_add(struct thread *thr) {
+    if (threads_all_head) {
+        threads_all_head->g_prev = thr;
+    }
+    thr->g_next = threads_all_head;
+    thr->g_prev = NULL;
+    threads_all_head = thr;
 }
 
 ////
@@ -67,6 +78,15 @@ void thread_ioctx_fork(struct thread *dst, struct thread *src) {
 }
 
 ////
+
+struct thread *thread_find(pid_t pid) {
+    for (struct thread *thr = threads_all_head; thr; thr = thr->g_next) {
+        if (thr->pid == pid) {
+            return thr;
+        }
+    }
+    return NULL;
+}
 
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     uintptr_t stack_pages = amd64_phys_alloc_page();
@@ -184,10 +204,17 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     //   - step one
 
     thr->data.rsp0 = (uintptr_t) stack;
+    thr->sigq = 0;
+
+    thread_add(thr);
 
     return 0;
 }
 
+// TODO: support kthread forking()
+//       (Although I don't really think it's very useful -
+//        threads can just be created by thread_init() and
+//        sched_queue())
 int sys_fork(struct sys_fork_frame *frame) {
     struct thread *dst = kmalloc(sizeof(struct thread));
     _assert(dst);
@@ -208,6 +235,8 @@ int sys_fork(struct sys_fork_frame *frame) {
 
     dst->data.cr3 = MM_PHYS(space);
     dst->space = space;
+
+    dst->signal_entry = src->signal_entry;
 
     thread_ioctx_fork(dst, src);
 
@@ -273,7 +302,9 @@ int sys_fork(struct sys_fork_frame *frame) {
 
     // Allocate a new PID for userspace thread
     dst->pid = thread_alloc_pid(1);
+    dst->sigq = 0;
 
+    thread_add(dst);
     sched_queue(dst);
 
     return dst->pid;
@@ -303,6 +334,7 @@ int sys_execve(const char *path, const char **argp, const char **envp) {
         thr->first_child = NULL;
         thr->next_child = NULL;
         thr->parent = NULL;
+        thr->sigq = 0;
 
         thr->space = amd64_mm_pool_alloc();
         _assert(thr->space);
@@ -319,6 +351,7 @@ int sys_execve(const char *path, const char **argp, const char **envp) {
 
     vfs_close(&thr->ioctx, &fd);
 
+    thr->signal_entry = 0;
     thr->data.rsp0 = thr->data.rsp0_top;
 
     // Allocate a new user stack
@@ -329,6 +362,17 @@ int sys_execve(const char *path, const char **argp, const char **envp) {
     context_exec_enter(NULL, thr, ustack + 4 * MM_PAGE_SIZE, entry);
 
     panic("This code shouldn't run\n");
+}
+
+void thread_sigenter(int signum) {
+    struct thread *thr = thread_self;
+    uintptr_t old_rsp0_top = thr->data.rsp0_top;
+    // XXX: Either use a separate stack or ensure stuff doesn't get overwritten
+    uintptr_t signal_rsp3 = thr->data.rsp3_base + 0x800;
+
+    context_sigenter(thr->signal_entry, signal_rsp3, signum);
+
+    thr->data.rsp0_top = old_rsp0_top;
 }
 
 __attribute__((noreturn)) void sys_exit(int status) {
@@ -345,21 +389,40 @@ void thread_sleep(struct thread *thr, uint64_t deadline) {
     sched_unqueue(thr, THREAD_WAITING);
 }
 
-extern void context_sigenter(uintptr_t entry, uintptr_t stack);
-extern void context_sigreturn(void);
-
 void sys_sigreturn(void) {
     context_sigreturn();
 }
 
 int sys_kill(pid_t pid, int signum) {
-    struct thread *thr = thread_self;
-    _assert(thr);
-    uintptr_t old_rsp0_top = thr->data.rsp0_top;
+    struct thread *thr;
 
-    context_sigenter(thr->signal_entry, 0x100500);
+    if (pid > 0) {
+        thr = thread_find(pid);
+    } else if (pid == 0) {
+        thr = thread_self;
+    } else {
+        // Not implemented
+        thr = NULL;
+    }
 
-    thr->data.rsp0_top = old_rsp0_top;
+    if (!thr) {
+        return -ESRCH;
+    }
+
+    if (signum <= 0 || signum >= 64) {
+        return -EINVAL;
+    }
+
+    if (!thr) {
+        // No such process
+        return -ESRCH;
+    }
+
+    if (thr == thread_self) {
+        thread_sigenter(signum);
+    } else {
+        thr->sigq |= 1ULL << (1 - signum);
+    }
 
     return 0;
 }

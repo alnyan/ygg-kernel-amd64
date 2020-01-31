@@ -30,6 +30,7 @@ struct thread {
 
     // Signal
     uintptr_t signal_entry;
+    uint64_t sigq;
 
     // State
     pid_t pid;
@@ -38,12 +39,18 @@ struct thread {
     struct thread *first_child;
     struct thread *next_child;
 
+    // Global thread list (for stuff like finding by PID)
+    struct thread *g_prev, *g_next;
+
     // Scheduler
     struct thread *prev, *next;
 };
 
 pid_t thread_alloc_pid(int is_user);
-
-void thread_sleep(struct thread *thr, uint64_t deadline);
 void thread_ioctx_fork(struct thread *dst, struct thread *src);
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user);
+
+struct thread *thread_find(pid_t pid);
+
+void thread_sleep(struct thread *thr, uint64_t deadline);
+void thread_sigenter(int signum);

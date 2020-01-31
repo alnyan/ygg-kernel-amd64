@@ -1,3 +1,4 @@
+#include "sys/amd64/context.h"
 #include "sys/amd64/hw/irq.h"
 #include "sys/amd64/hw/idt.h"
 #include "sys/amd64/cpu.h"
@@ -168,7 +169,29 @@ void yield(void) {
 
     to->state = THREAD_RUNNING;
     get_cpu()->thread = to;
+
     context_switch_to(to, from);
+
+    // Check if instead of switching to a proper thread context we
+    // have to use signal handling
+    if (to->sigq) {
+        // Pick one signal to handle at a time
+        int signum = 0;
+        for (int i = 0; i < 64; ++i) {
+            if (to->sigq & (1ULL << i)) {
+                to->sigq &= ~(1ULL << i);
+                signum = i + 1;
+                break;
+            }
+        }
+        _assert(signum);
+        thread_sigenter(signum);
+
+        // Theoretically, a rogue thread could steal all the CPU time by sending itself signals
+        // in normal context, as after returning from thread_sigenter() this code will return
+        // to a normal execution
+        // XXX: Maybe makes sense to just yield() here
+    }
 }
 
 void sched_init(void) {

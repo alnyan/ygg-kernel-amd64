@@ -115,11 +115,11 @@ context_sigreturn:
 
     ret
 
-
 .global context_sigenter
 context_sigenter:
     // %rdi - entry
     // %rsi - stack
+    // %rdx - argument
     pushq %r15
     pushq %r14
     pushq %r13
@@ -128,14 +128,18 @@ context_sigenter:
     pushq %rbx
 
     // Use alternate TSS.RSP0 so syscall frame does not get overwritten
+    // Current stack pointer becomes a new "top" of the stack, essentially
+    // making it impossible for those scenarios to happen:
+    // 1. userspace -> kernel ISR transition via TSS starts rewriting syscall/old ISR context
+    // 2. syscalls issued from signal context overwriting normal context
     movq get_cpu(CPU_THREAD), %rbx
     movq %rsp, THREAD_RSP0_SIGENTER(%rbx)
     movq %rsp, THREAD_RSP0(%rbx)
     movq %rsp, THREAD_RSP0_TOP(%rbx)
-    movq THREAD_RSP0_TOP(%rbx), %rbx
     movq get_cpu(CPU_TSS), %r12
-    movq %rbx, TSS_RSP0(%r12)
+    movq %rsp, TSS_RSP0(%r12)
 
+    // iretq frame
     pushq $0x1B
     pushq %rsi
 
@@ -143,5 +147,8 @@ context_sigenter:
 
     pushq $0x23
     pushq %rdi
+
+    // Move argument
+    movq %rdx, %rdi
 
     iretq
