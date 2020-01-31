@@ -32,7 +32,7 @@
 #include "sys/time.h"
 
 static multiboot_info_t *multiboot_info;
-static struct thread user_init;
+struct thread user_init = {0};
 
 extern int sys_execve(const char *path, const char **argp, const char **envp);
 

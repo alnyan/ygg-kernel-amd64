@@ -39,10 +39,13 @@ void sched_queue(struct thread *thr) {
     }
 }
 
-void sched_unqueue(struct thread *thr) {
+void sched_unqueue(struct thread *thr, enum thread_state new_state) {
     struct cpu *cpu = get_cpu();
     struct thread *prev = thr->prev;
     struct thread *next = thr->next;
+
+    _assert((new_state == THREAD_WAITING) || (new_state == THREAD_STOPPED));
+    thr->state = new_state;
 
     if (next == thr) {
         queue_head = NULL;
@@ -67,6 +70,74 @@ void sched_unqueue(struct thread *thr) {
     }
 }
 
+static void sched_debug_tree(int level, struct thread *thr, int depth) {
+    for (int i = 0; i < depth; ++i) {
+        debugs(level, "  ");
+    }
+
+    debugf(level, "%d ", thr->pid);
+
+    switch (thr->state) {
+    case THREAD_RUNNING:
+        debugs(level, "RUN ");
+        break;
+    case THREAD_READY:
+        debugs(level, "RDY ");
+        break;
+    case THREAD_WAITING:
+        debugs(level, "IDLE");
+        break;
+    case THREAD_STOPPED:
+        debugs(level, "STOP");
+        break;
+    default:
+        debugs(level, "UNKN");
+        break;
+    }
+
+    if (thr->first_child) {
+        debugs(level, " {\n");
+
+        for (struct thread *child = thr->first_child; child; child = child->next_child) {
+            sched_debug_tree(level, child, depth + 1);
+        }
+
+        for (int i = 0; i < depth; ++i) {
+            debugs(level, "  ");
+        }
+        debugs(level, "}\n");
+    } else {
+        debugc(level, '\n');
+    }
+}
+
+void sched_debug_cycle(uint64_t delta_ms) {
+    struct thread *thr = queue_head;
+    extern struct thread user_init;
+
+    debugs(DEBUG_DEFAULT, "Process tree:\n");
+    sched_debug_tree(DEBUG_DEFAULT, &user_init, 0);
+
+    if (thr) {
+        debugs(DEBUG_DEFAULT, "cpu: ");
+        struct thread *queue_tail = thr->prev;
+        while (1) {
+            debugf(DEBUG_DEFAULT, "%d%c", thr->pid,
+                    ((thr->state == THREAD_RUNNING) ? 'R' : (thr->state == THREAD_READY ? '-' : '?')));
+
+            if (thr == queue_tail) {
+                break;
+            } else {
+                debugs(DEBUG_DEFAULT, ", ");
+            }
+            thr = thr->next;
+        }
+        debugc(DEBUG_DEFAULT, '\n');
+    } else {
+        kdebug("--- IDLE\n");
+    }
+}
+
 void yield(void) {
     struct thread *from = get_cpu()->thread;
     struct thread *to;
@@ -79,6 +150,11 @@ void yield(void) {
         to = &thread_idle;
     }
 
+    if (from) {
+        from->state = THREAD_READY;
+    }
+
+    to->state = THREAD_RUNNING;
     get_cpu()->thread = to;
     context_switch_to(to, from);
 }
@@ -97,6 +173,7 @@ void sched_enter(void) {
         first_task = &thread_idle;
     }
 
+    first_task->state = THREAD_RUNNING;
     get_cpu()->thread = first_task;
     context_switch_first(first_task);
 }

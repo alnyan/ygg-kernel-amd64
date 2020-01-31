@@ -30,11 +30,19 @@ void timer_add_sleep(struct thread *thr) {
 }
 
 static uint32_t timer_tick(void *arg) {
+    static uint64_t last_debug_cycle = 0;
+
     switch ((uint64_t) arg) {
     case TIMER_PIT:
         // Each tick is approx. 1ms, so add 1ms to system time
         system_time += 1000000;
         break;
+    }
+
+    uint64_t delta = (system_time - last_debug_cycle) / 1000000ULL;
+    if (delta >= 1000) {
+        sched_debug_cycle(delta);
+        last_debug_cycle = system_time;
     }
 
     // Wake up sleepers

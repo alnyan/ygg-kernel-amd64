@@ -11,7 +11,7 @@
 extern void syscall_entry(void);
 
 void sys_debug_trace(const char *msg) {
-    kdebug("Trace message: %s\n", msg);
+    kinfo("Trace message: %s\n", msg);
 }
 
 void sys_debug_sleep(uint64_t ms) {
@@ -28,7 +28,7 @@ void *syscall_table[256] = {
 };
 
 void syscall_undefined(uint64_t rax) {
-    kdebug("Undefined syscall: %d\n", rax);
+    kwarn("Undefined syscall: %d\n", rax);
 }
 
 void syscall_init(void) {

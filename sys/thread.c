@@ -75,6 +75,11 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
         thr->space = mm_kernel;
     }
 
+    thr->state = THREAD_READY;
+    thr->parent = NULL;
+    thr->first_child = NULL;
+    thr->next_child = NULL;
+
     // Initial thread context
     // Entry context
     if (user) {
@@ -178,6 +183,12 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst->data.cr3 = MM_PHYS(space);
     dst->space = space;
 
+    dst->state = THREAD_READY;
+    dst->parent = src;
+    dst->next_child = src->first_child;
+    src->first_child = dst;
+    dst->first_child = NULL;
+
     uint64_t *stack = (uint64_t *) dst->data.rsp0_top;
 
     // Initial thread context
@@ -256,6 +267,15 @@ int sys_execve(const char *path, const char **argp, const char **envp) {
         // Have to allocate a new PID for kernel -> userspace transition
         thr->pid = thread_alloc_pid(1);
 
+        // Have to remove parent/child relation for transition
+        _assert(!thr->first_child);
+        if (thr->parent) {
+            panic("NYI\n");
+        }
+        thr->first_child = NULL;
+        thr->next_child = NULL;
+        thr->parent = NULL;
+
         thr->space = amd64_mm_pool_alloc();
         _assert(thr->space);
         thr->data.cr3 = MM_PHYS(thr->space);
@@ -287,12 +307,12 @@ __attribute__((noreturn)) void sys_exit(int status) {
     struct thread *thr = thread_self;
     kdebug("Thread %d exited with status %d\n", thr->pid, status);
 
-    sched_unqueue(thr);
+    sched_unqueue(thr, THREAD_STOPPED);
     panic("This code shouldn't run\n");
 }
 
 void thread_sleep(struct thread *thr, uint64_t deadline) {
     thr->sleep_deadline = deadline;
     timer_add_sleep(thr);
-    sched_unqueue(thr);
+    sched_unqueue(thr, THREAD_WAITING);
 }
