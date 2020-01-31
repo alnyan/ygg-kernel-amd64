@@ -46,7 +46,9 @@ OBJS+=$(O)/sys/amd64/hw/rs232.o \
 	  $(O)/sys/amd64/syscall_s.o \
 	  $(O)/sys/amd64/syscall.o \
 	  $(O)/sys/amd64/binfmt_elf.o \
-	  $(O)/sys/amd64/hw/con.o
+	  $(O)/sys/amd64/hw/con.o \
+	  $(O)/sys/amd64/hw/pci/pci.o \
+	  $(O)/sys/amd64/hw/pci/ahci.o
 
 kernel_LINKER=sys/amd64/link.ld
 kernel_LDFLAGS=-nostdlib \
@@ -88,6 +90,7 @@ kernel_OBJS=$(O)/sys/amd64/crti.o \
 			$(O)/sys/amd64/crtn.o
 
 DIRS+=$(O)/sys/amd64/image/boot/grub \
+	  $(O)/sys/amd64/hw/pci \
 	  $(O)/sys/amd64/hw \
 	  $(O)/sys/amd64/sys \
 	  $(O)/sys/amd64/mm \

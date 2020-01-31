@@ -1,5 +1,6 @@
 #include "sys/amd64/loader/multiboot.h"
 #include "sys/amd64/asm/asm_irq.h"
+#include "sys/amd64/hw/pci/pci.h"
 #include "sys/amd64/hw/rs232.h"
 #include "sys/amd64/smp/smp.h"
 #include "sys/amd64/syscall.h"
@@ -124,6 +125,16 @@ void kernel_main(struct amd64_loader_data *data) {
     kinfo("yggdrasil " KERNEL_VERSION_STR "\n");
 
     amd64_apic_init();
+    rtc_init();
+    // Setup system time
+    struct tm t;
+    rtc_read(&t);
+    system_boot_time = mktime(&t);
+    kinfo("Boot time: %04u-%02u-%02u %02u:%02u:%02u\n",
+        t.tm_year, t.tm_mon, t.tm_mday,
+        t.tm_hour, t.tm_min, t.tm_sec);
+
+    pci_init();
 
     vfs_init();
     tty_init();
