@@ -1,6 +1,7 @@
 #include "sys/dev/ring.h"
 #include "sys/thread.h"
 #include "sys/assert.h"
+#include "sys/sched.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
 
@@ -61,8 +62,14 @@ int ring_getc(struct thread *ctx, struct ring *ring, char *c, int err) {
             }
 
             if (!ring_readable(ring)) {
-                panic("Feck\n");
-                //asm volatile ("sti; hlt; cli");
+                asm volatile ("cli");
+                _assert(ctx);
+
+                ctx->wait_prev = NULL;
+                ctx->wait_next = ctx;
+                ring->reader_head = ctx;
+
+                sched_unqueue(ctx, THREAD_WAITING_IO);
             } else {
                 break;
             }
@@ -77,12 +84,25 @@ int ring_getc(struct thread *ctx, struct ring *ring, char *c, int err) {
 int ring_putc(struct thread *ctx, struct ring *ring, char c, int wait) {
     if (wait) {
         while (!ring_writable(ring)) {
-            asm volatile ("sti; hlt; cli");
+            panic("Not implemented\n");
         }
     }
 
     ring->base[ring->wr] = c;
     ring_advance_write(ring);
+
+    // Notify a single reader a character is available
+    if (ring->reader_head) {
+        struct thread *thr = ring->reader_head;
+        ring->reader_head = NULL; //thr->wait_next;
+
+        sched_queue(thr);
+
+        _assert(thr);
+        _assert(thr->next);
+        _assert(thr->prev);
+    }
+
     return 0;
 }
 
@@ -104,6 +124,8 @@ int ring_init(struct ring *r, size_t cap) {
     r->rd = 0;
     r->wr = 0;
     r->flags = 0;
+    r->reader_head = NULL;
+
     if (!(r->base = kmalloc(cap))) {
         return -1;
     }

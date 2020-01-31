@@ -8,6 +8,7 @@
 #include "sys/vmalloc.h"
 #include "sys/fs/vfs.h"
 #include "sys/assert.h"
+#include "sys/string.h"
 #include "sys/thread.h"
 #include "sys/sched.h"
 #include "sys/errno.h"
@@ -39,6 +40,29 @@ pid_t thread_alloc_pid(int is_user) {
         return ++last_user_pid;
     } else {
         return -(++last_kernel_pid);
+    }
+}
+
+////
+
+static void thread_ioctx_empty(struct thread *thr) {
+    memset(&thr->ioctx, 0, sizeof(struct vfs_ioctx));
+    memset(thr->fds, 0, sizeof(thr->fds));
+}
+
+void thread_ioctx_fork(struct thread *dst, struct thread *src) {
+    thread_ioctx_empty(dst);
+
+    // TODO: increase refcount (when cwd has one)
+    dst->ioctx.cwd_vnode = src->ioctx.cwd_vnode;
+    dst->ioctx.gid = src->ioctx.gid;
+    dst->ioctx.uid = src->ioctx.uid;
+
+    for (int i = 0; i < THREAD_MAX_FDS; ++i) {
+        if (src->fds[i]) {
+            dst->fds[i] = src->fds[i];
+            ++dst->fds[i]->refcount;
+        }
     }
 }
 
@@ -79,6 +103,8 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     thr->parent = NULL;
     thr->first_child = NULL;
     thr->next_child = NULL;
+
+    thread_ioctx_empty(thr);
 
     // Initial thread context
     // Entry context
@@ -183,6 +209,8 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst->data.cr3 = MM_PHYS(space);
     dst->space = space;
 
+    thread_ioctx_fork(dst, src);
+
     dst->state = THREAD_READY;
     dst->parent = src;
     dst->next_child = src->first_child;
@@ -253,12 +281,12 @@ int sys_fork(struct sys_fork_frame *frame) {
 
 int sys_execve(const char *path, const char **argp, const char **envp) {
     struct thread *thr = thread_self;
-    struct vfs_ioctx ioctx = {0};
+    _assert(thr);
     struct ofile fd;
     uintptr_t entry;
     int res;
 
-    if ((res = vfs_open(&ioctx, &fd, path, O_RDONLY, 0)) != 0) {
+    if ((res = vfs_open(&thr->ioctx, &fd, path, O_RDONLY, 0)) != 0) {
         kerror("%s: %s\n", path, kstrerror(res));
         return res;
     }
@@ -285,11 +313,11 @@ int sys_execve(const char *path, const char **argp, const char **envp) {
         mm_space_release(thr->space);
     }
 
-    if (elf_load(thr, &ioctx, &fd, &entry) != 0) {
+    if (elf_load(thr, &thr->ioctx, &fd, &entry) != 0) {
         panic("Feck\n");
     }
 
-    vfs_close(&ioctx, &fd);
+    vfs_close(&thr->ioctx, &fd);
 
     thr->data.rsp0 = thr->data.rsp0_top;
 

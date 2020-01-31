@@ -2,7 +2,10 @@
 #include "sys/syscall.h"
 #include "sys/thread.h"
 #include "sys/debug.h"
+#include "sys/errno.h"
 #include "sys/time.h"
+
+#include "sys/sys_file.h"
 
 #define MSR_IA32_STAR               0xC0000081
 #define MSR_IA32_LSTAR              0xC0000082
@@ -19,7 +22,8 @@ void sys_debug_sleep(uint64_t ms) {
 }
 
 void *syscall_table[256] = {
-    NULL,
+    [SYSCALL_NR_READ] = sys_read,
+    [SYSCALL_NR_WRITE] = sys_write,
 
     [SYSCALL_NR_EXIT] = sys_exit,
 
@@ -27,8 +31,9 @@ void *syscall_table[256] = {
     [SYSCALL_NR_DEBUG_TRACE] = sys_debug_trace,
 };
 
-void syscall_undefined(uint64_t rax) {
+int syscall_undefined(uint64_t rax) {
     kwarn("Undefined syscall: %d\n", rax);
+    return -ENOSYS;
 }
 
 void syscall_init(void) {

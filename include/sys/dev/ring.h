@@ -14,6 +14,8 @@ struct ring {
     size_t cap;
     char *base;
     int flags;
+
+    struct thread *reader_head;
 };
 
 int ring_readable(struct ring *b);

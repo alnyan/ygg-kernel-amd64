@@ -24,6 +24,10 @@ static void *idle(void *arg) {
 ////
 
 void sched_queue(struct thread *thr) {
+    asm volatile ("cli");
+    _assert(thr);
+    thr->state = THREAD_READY;
+
     if (queue_head) {
         struct thread *queue_tail = queue_head->prev;
 
@@ -40,11 +44,14 @@ void sched_queue(struct thread *thr) {
 }
 
 void sched_unqueue(struct thread *thr, enum thread_state new_state) {
+    asm volatile ("cli");
     struct cpu *cpu = get_cpu();
     struct thread *prev = thr->prev;
     struct thread *next = thr->next;
 
-    _assert((new_state == THREAD_WAITING) || (new_state == THREAD_STOPPED));
+    _assert((new_state == THREAD_WAITING) ||
+            (new_state == THREAD_STOPPED) ||
+            (new_state == THREAD_WAITING_IO));
     thr->state = new_state;
 
     if (next == thr) {
@@ -57,6 +64,8 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
     if (thr == queue_head) {
         queue_head = next;
     }
+
+    _assert(thr && next && prev);
 
     next->prev = prev;
     prev->next = next;
@@ -86,6 +95,9 @@ static void sched_debug_tree(int level, struct thread *thr, int depth) {
         break;
     case THREAD_WAITING:
         debugs(level, "IDLE");
+        break;
+    case THREAD_WAITING_IO:
+        debugs(level, "I/O ");
         break;
     case THREAD_STOPPED:
         debugs(level, "STOP");

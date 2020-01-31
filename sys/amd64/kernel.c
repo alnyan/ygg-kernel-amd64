@@ -15,6 +15,8 @@
 #include "sys/amd64/mm/mm.h"
 #include "sys/amd64/cpu.h"
 #include "sys/amd64/fpu.h"
+#include "sys/fs/ofile.h"
+#include "sys/fs/fcntl.h"
 #include "sys/fs/node.h"
 #include "sys/dev/tty.h"
 #include "sys/dev/ram.h"
@@ -29,6 +31,7 @@
 #include "sys/panic.h"
 #include "sys/debug.h"
 #include "sys/sched.h"
+#include "sys/heap.h"
 #include "sys/time.h"
 
 static multiboot_info_t *multiboot_info;
@@ -39,8 +42,8 @@ extern int sys_execve(const char *path, const char **argp, const char **envp);
 static void user_init_func(void *arg) {
     kdebug("Starting user init\n");
 
-    struct vfs_ioctx ioctx = {0};
-    struct vnode *root_dev;
+    struct vfs_ioctx *ioctx = &thread_self->ioctx;
+    struct vnode *root_dev, *tty_dev;
     int res;
     // Mount root
     if ((res = dev_find(DEV_CLASS_BLOCK, "ram0", &root_dev)) != 0) {
@@ -48,10 +51,38 @@ static void user_init_func(void *arg) {
         panic("Fail\n");
     }
 
-    if ((res = vfs_mount(&ioctx, "/", root_dev->dev, "ustar", NULL)) != 0) {
+    if ((res = vfs_mount(ioctx, "/", root_dev->dev, "ustar", NULL)) != 0) {
         kerror("mount: %s\n", kstrerror(res));
         panic("Fail\n");
     }
+
+    // Open STDOUT_FILENO and STDERR_FILENO
+    struct ofile *fd_stdout = kmalloc(sizeof(struct ofile));
+    struct ofile *fd_stdin = kmalloc(sizeof(struct ofile));
+
+    if ((res = dev_find(DEV_CLASS_CHAR, "tty0", &tty_dev)) != 0) {
+        kerror("tty0: %s\n", kstrerror(res));
+        panic("Fail\n");
+    }
+
+    if ((res = vfs_open_vnode(ioctx, fd_stdin, tty_dev, O_RDONLY)) != 0) {
+        kerror("tty0: %s\n", kstrerror(res));
+        panic("Fail\n");
+    }
+
+    if ((res = vfs_open_vnode(ioctx, fd_stdout, tty_dev, O_WRONLY)) != 0) {
+        kerror("tty0: %s\n", kstrerror(res));
+        panic("Fail\n");
+    }
+
+    thread_self->fds[0] = fd_stdin;
+    thread_self->fds[1] = fd_stdout;
+    thread_self->fds[2] = fd_stdout;
+    // Duplicate the FD
+    ++fd_stdout->refcount;
+
+    _assert(fd_stdin->refcount == 1);
+    _assert(fd_stdout->refcount == 2);
 
     sys_execve("/test", NULL, NULL);
 
@@ -76,6 +107,7 @@ void kernel_main(struct amd64_loader_data *data) {
     // Reinitialize RS232 properly
     amd64_con_init();
     rs232_init(RS232_COM1);
+    ps2_init();
 
     amd64_phys_memory_map((multiboot_memory_map_t *) MM_VIRTUALIZE(multiboot_info->mmap_addr),
                           multiboot_info->mmap_length);
@@ -83,6 +115,8 @@ void kernel_main(struct amd64_loader_data *data) {
     amd64_gdt_init();
     amd64_idt_init(0);
     amd64_mm_init(data);
+
+    ps2_register_device();
 
     amd64_acpi_init();
 

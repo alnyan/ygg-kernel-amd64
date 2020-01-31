@@ -52,7 +52,8 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/fs/pseudo.o \
 	  $(O)/sys/fs/tar.o \
 	  $(O)/sys/fs/sysfs.o \
-	  $(O)/sys/time.o
+	  $(O)/sys/time.o \
+	  $(O)/sys/sys_file.o
 
 DIRS+=$(O)/sys/fs \
 	  $(O)/sys/dev
