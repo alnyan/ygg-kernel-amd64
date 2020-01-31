@@ -433,3 +433,9 @@ void sys_sigentry(uintptr_t entry) {
 
     thr->signal_entry = entry;
 }
+
+pid_t sys_getpid(void) {
+    struct thread *thr = thread_self;
+    _assert(thr);
+    return thr->pid;
+}

@@ -5,21 +5,18 @@ if [ -z "$INSTALL_HDR" ]; then
     exit 1;
 fi
 
-KERNEL_HEADERS="include/sys/fcntl.h \
-                include/sys/reboot.h \
-                include/sys/stat.h \
-                include/sys/syscall.h \
-                include/sys/fs/dirent.h \
-                include/sys/types.h \
-                include/sys/time.h \
-                include/sys/errno.h \
-                include/sys/signum.h \
-                include/sys/utsname.h \
-                include/sys/select.h \
-                include/sys/termios.h \
-                include/sys/ioctl.h \
-                include/sys/mman.h \
-                include/sys/fbdev.h"
+KERNEL_HEADERS="include/sys/user/fcntl.h \
+                include/sys/user/errno.h \
+                include/sys/user/time.h \
+                include/sys/user/dirent.h \
+                include/sys/user/ioctl.h \
+                include/sys/user/stat.h \
+                include/sys/user/statvfs.h \
+                include/sys/user/syscall.h \
+                include/sys/user/termios.h \
+                include/sys/user/types.h \
+                include/sys/user/signum.h \
+                include/sys/user/reboot.h"
 
 for src_file in $KERNEL_HEADERS; do
     dst_file=$INSTALL_HDR$(echo $src_file | sed -e 's/^include//g')

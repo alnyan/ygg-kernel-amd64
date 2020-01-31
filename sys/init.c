@@ -58,7 +58,7 @@ static void user_init_func(void *arg) {
     _assert(fd_stdin->refcount == 1);
     _assert(fd_stdout->refcount == 2);
 
-    sys_execve("/test", NULL, NULL);
+    sys_execve("/init", NULL, NULL);
 
     while (1) {
         asm volatile ("hlt");

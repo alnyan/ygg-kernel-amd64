@@ -14,14 +14,6 @@
 
 extern void syscall_entry(void);
 
-void sys_debug_trace(const char *msg) {
-    kinfo("Trace message: %s\n", msg);
-}
-
-void sys_debug_sleep(uint64_t ms) {
-    thread_sleep(thread_self, system_time + ms * 1000000ULL);
-}
-
 void *syscall_table[256] = {
     [SYSCALL_NR_READ] = sys_read,
     [SYSCALL_NR_WRITE] = sys_write,
@@ -31,9 +23,6 @@ void *syscall_table[256] = {
     [SYSCALL_NR_SIGRETURN] = sys_sigreturn,
 
     [SYSCALL_NR_EXIT] = sys_exit,
-
-    [SYSCALL_NR_DEBUG_SLEEP] = sys_debug_sleep,
-    [SYSCALL_NR_DEBUG_TRACE] = sys_debug_trace,
 };
 
 int syscall_undefined(uint64_t rax) {
