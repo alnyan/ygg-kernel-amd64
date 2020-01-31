@@ -15,7 +15,6 @@ syscall_entry:
     cmpq $57, %rax
     jz _syscall_fork
 
-    pushq %rsp
     pushq %rcx
     pushq %r11
     movq get_cpu(CPU_SYSCALL_RSP), %rcx
@@ -39,11 +38,9 @@ syscall_entry:
     popq %rdi
     popq %r11
     popq %rcx
-    popq %rdx
 
-    //movq get_cpu(CPU_TSS), %rsi
-    //addq $64, %rdx
-    //movq %rdx, TSS_RSP0(%rsi)
+    movq get_cpu(CPU_THREAD), %rsi
+    movq %rsp, THREAD_RSP0(%rsi)
 
     movq %rdi, %rsp
 

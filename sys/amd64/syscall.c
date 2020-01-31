@@ -14,7 +14,7 @@
 extern void syscall_entry(void);
 
 void sys_debug_trace(const char *msg) {
-    kinfo("Trace message: %s\n", msg);
+    //kinfo("Trace message: %s\n", msg);
 }
 
 void sys_debug_sleep(uint64_t ms) {
