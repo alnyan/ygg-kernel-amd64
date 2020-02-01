@@ -6,6 +6,7 @@
 #include "sys/debug.h"
 
 #include "sys/sys_file.h"
+#include "sys/sys_sys.h"
 #include "sys/sys_proc.h"
 
 #define MSR_IA32_STAR               0xC0000081
@@ -15,14 +16,43 @@
 extern void syscall_entry(void);
 
 void *syscall_table[256] = {
+    // I/O
     [SYSCALL_NR_READ] = sys_read,
     [SYSCALL_NR_WRITE] = sys_write,
+    [SYSCALL_NR_OPEN] = sys_open,
+    [SYSCALL_NR_CLOSE] = sys_close,
+    [SYSCALL_NR_STAT] = sys_stat,
+    [SYSCALL_NR_LSEEK] = sys_lseek,
+    [SYSCALL_NR_IOCTL] = sys_ioctl,
+    [SYSCALL_NR_ACCESS] = sys_access,
+    [SYSCALL_NR_GETCWD] = sys_getcwd,
+    [SYSCALL_NR_CHDIR] = sys_chdir,
+    [SYSCALL_NR_MKDIR] = sys_mkdir,
+    [SYSCALL_NR_RMDIR] = sys_rmdir,
+    [SYSCALL_NR_CREAT] = sys_creat,
+    [SYSCALL_NR_UNLINK] = sys_unlink,
+    [SYSCALL_NR_CHMOD] = sys_chmod,
+    [SYSCALL_NR_CHOWN] = sys_chown,
 
+    // User control
+    [SYSCALL_NR_GETUID] = sys_getuid,
+    [SYSCALL_NR_GETGID] = sys_getgid,
+    [SYSCALL_NR_SETUID] = sys_setuid,
+    [SYSCALL_NR_SETGID] = sys_setgid,
+    // Process control
+    [SYSCALL_NR_EXECVE] = sys_execve,
+    [SYSCALL_NR_GETPID] = sys_getpid,
     [SYSCALL_NR_KILL] = sys_kill,
     [SYSCALL_NRX_SIGENTRY] = sys_sigentry,
+    [SYSCALL_NR_EXIT] = sys_exit,
     [SYSCALL_NR_SIGRETURN] = sys_sigreturn,
 
-    [SYSCALL_NR_EXIT] = sys_exit,
+    // System
+    [SYSCALL_NR_MOUNT] = sys_mount,
+    [SYSCALL_NRX_UMOUNT] = sys_umount,
+    [SYSCALL_NR_UNAME] = sys_uname,
+    [SYSCALL_NR_NANOSLEEP] = sys_nanosleep,
+    [SYSCALL_NR_GETTIMEOFDAY] = sys_gettimeofday,
 };
 
 int syscall_undefined(uint64_t rax) {

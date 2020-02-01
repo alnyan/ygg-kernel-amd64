@@ -89,11 +89,11 @@ struct thread *thread_find(pid_t pid) {
 }
 
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
-    uintptr_t stack_pages = amd64_phys_alloc_page();
+    uintptr_t stack_pages = amd64_phys_alloc_contiguous(2);
     _assert(stack_pages != MM_NADDR);
 
     thr->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
-    thr->data.rsp0_size = MM_PAGE_SIZE;
+    thr->data.rsp0_size = MM_PAGE_SIZE * 2;
     thr->data.rsp0_top = thr->data.rsp0_base + thr->data.rsp0_size;
 
     uint64_t *stack = (uint64_t *) (thr->data.rsp0_base + thr->data.rsp0_size);
@@ -220,11 +220,11 @@ int sys_fork(struct sys_fork_frame *frame) {
     _assert(dst);
     struct thread *src = thread_self;
 
-    uintptr_t stack_pages = amd64_phys_alloc_page();
+    uintptr_t stack_pages = amd64_phys_alloc_contiguous(2);
     _assert(stack_pages != MM_NADDR);
 
     dst->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
-    dst->data.rsp0_size = MM_PAGE_SIZE;
+    dst->data.rsp0_size = MM_PAGE_SIZE * 2;
     dst->data.rsp0_top = dst->data.rsp0_base + dst->data.rsp0_size;
 
     mm_space_t space = amd64_mm_pool_alloc();
@@ -439,3 +439,40 @@ pid_t sys_getpid(void) {
     _assert(thr);
     return thr->pid;
 }
+
+int sys_setuid(uid_t uid) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    if (thr->ioctx.uid != 0) {
+        return -EACCES;
+    }
+
+    thr->ioctx.uid = uid;
+    return 0;
+}
+
+int sys_setgid(gid_t gid) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    if (thr->ioctx.gid != 0 && thr->ioctx.uid != 0) {
+        return -EACCES;
+    }
+
+    thr->ioctx.gid = gid;
+    return 0;
+}
+
+uid_t sys_getuid(void) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    return thr->ioctx.uid;
+}
+
+gid_t sys_getgid(void) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    return thr->ioctx.gid;
+}
+

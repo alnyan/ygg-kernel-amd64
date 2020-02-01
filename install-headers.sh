@@ -16,6 +16,7 @@ KERNEL_HEADERS="include/sys/user/fcntl.h \
                 include/sys/user/termios.h \
                 include/sys/user/types.h \
                 include/sys/user/signum.h \
+                include/sys/user/utsname.h \
                 include/sys/user/reboot.h"
 
 for src_file in $KERNEL_HEADERS; do

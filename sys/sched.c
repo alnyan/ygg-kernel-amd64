@@ -56,8 +56,11 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
     thr->state = new_state;
 
     if (next == thr) {
+        thr->next = NULL;
+        thr->prev = NULL;
+
         queue_head = NULL;
-        get_cpu()->thread = &thread_idle;
+        cpu->thread = &thread_idle;
         context_switch_to(&thread_idle, thr);
         return;
     }
