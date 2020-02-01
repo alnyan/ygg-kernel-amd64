@@ -155,6 +155,20 @@ void sched_debug_cycle(uint64_t delta_ms) {
 }
 
 void yield(void) {
+    static uint64_t last_time = 0;
+    uint64_t delta = system_time - last_time;
+
+    if (delta >= 3000000000ULL) {
+        if (system_time) {
+            struct thread *t = thread_find(1);
+            if (t->state != THREAD_STOPPED) {
+                _assert(t);
+                thread_signal(t, 2);
+            }
+        }
+        last_time = system_time;
+    }
+
     struct thread *from = get_cpu()->thread;
     struct thread *to;
 
@@ -177,24 +191,7 @@ void yield(void) {
 
     // Check if instead of switching to a proper thread context we
     // have to use signal handling
-    if (to->sigq) {
-        // Pick one signal to handle at a time
-        int signum = 0;
-        for (int i = 0; i < 64; ++i) {
-            if (to->sigq & (1ULL << i)) {
-                to->sigq &= ~(1ULL << i);
-                signum = i + 1;
-                break;
-            }
-        }
-        _assert(signum);
-        thread_sigenter(signum);
-
-        // Theoretically, a rogue thread could steal all the CPU time by sending itself signals
-        // in normal context, as after returning from thread_sigenter() this code will return
-        // to a normal execution
-        // XXX: Maybe makes sense to just yield() here
-    }
+    thread_check_signal(from, 0);
 }
 
 void sched_init(void) {

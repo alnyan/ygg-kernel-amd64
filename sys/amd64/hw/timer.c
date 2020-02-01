@@ -29,6 +29,31 @@ void timer_add_sleep(struct thread *thr) {
     sleep_head = thr;
 }
 
+void timer_remove_sleep(struct thread *target) {
+    struct thread *thr = sleep_head, *prev = NULL;
+    while (thr) {
+        struct thread *next = thr->wait_next;
+        if (thr == target) {
+            thr->wait_next = NULL;
+            if (prev) {
+                prev->wait_next = next;
+            } else {
+                sleep_head = next;
+            }
+
+            sched_queue(thr);
+
+            thr = next;
+            return;
+        }
+
+        prev = thr;
+        thr = next;
+    }
+
+    panic("No such thread\n");
+}
+
 static uint32_t timer_tick(void *arg) {
     static uint64_t last_debug_cycle = 0;
 

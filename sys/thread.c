@@ -205,6 +205,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
 
     thr->data.rsp0 = (uintptr_t) stack;
     thr->sigq = 0;
+    thr->pid = -1;
 
     thread_add(thr);
 
@@ -383,14 +384,58 @@ __attribute__((noreturn)) void sys_exit(int status) {
     panic("This code shouldn't run\n");
 }
 
-void thread_sleep(struct thread *thr, uint64_t deadline) {
+int thread_sleep(struct thread *thr, uint64_t deadline, uint64_t *int_time) {
     thr->sleep_deadline = deadline;
     timer_add_sleep(thr);
     sched_unqueue(thr, THREAD_WAITING);
+    // Store time when interrupt occured
+    if (int_time) {
+        *int_time = system_time;
+    }
+    return thread_check_signal(thr, 0);
 }
 
 void sys_sigreturn(void) {
     context_sigreturn();
+}
+
+void thread_signal(struct thread *thr, int signum) {
+    if (thr == thread_self) {
+        thread_sigenter(signum);
+    } else {
+        thr->sigq |= 1ULL << (signum - 1);
+
+        if (thr->state == THREAD_WAITING) {
+            timer_remove_sleep(thr);
+        }
+
+        sched_queue(thr);
+    }
+}
+
+int thread_check_signal(struct thread *thr, int ret) {
+    if (thr->sigq) {
+        // Pick one signal to handle at a time
+        int signum = 0;
+        for (int i = 0; i < 64; ++i) {
+            if (thr->sigq & (1ULL << i)) {
+                thr->sigq &= ~(1ULL << i);
+                signum = i + 1;
+                break;
+            }
+        }
+        kdebug("%d: Handle signal %d\n", thr->pid, signum);
+        _assert(signum);
+        thread_sigenter(signum);
+
+        // Theoretically, a rogue thread could steal all the CPU time by sending itself signals
+        // in normal context, as after returning from thread_sigenter() this code will return
+        // to a normal execution
+        // XXX: Maybe makes sense to just yield() here
+        return -EINTR;
+    }
+
+    return ret;
 }
 
 int sys_kill(pid_t pid, int signum) {
@@ -418,11 +463,7 @@ int sys_kill(pid_t pid, int signum) {
         return -ESRCH;
     }
 
-    if (thr == thread_self) {
-        thread_sigenter(signum);
-    } else {
-        thr->sigq |= 1ULL << (1 - signum);
-    }
+    thread_signal(thr, signum);
 
     return 0;
 }

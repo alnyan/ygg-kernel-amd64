@@ -8,6 +8,7 @@
 #include "sys/assert.h"
 #include "sys/thread.h"
 #include "sys/fs/vfs.h"
+#include "sys/debug.h"
 
 int sys_mount(const char *dev_name, const char *dir_name, const char *type, unsigned long flags, void *data) {
     struct thread *thr = get_cpu()->thread;
@@ -50,11 +51,21 @@ int sys_umount(const char *dir_name) {
 int sys_nanosleep(const struct timespec *req, struct timespec *rem) {
     struct thread *thr = get_cpu()->thread;
     _assert(thr);
-    uint64_t delay = req->tv_sec * 1000000000ULL + req->tv_nsec;
-
-    thread_sleep(thr, system_time + delay);
-
-    return 0;
+    uint64_t deadline = req->tv_sec * 1000000000ULL + req->tv_nsec + system_time;
+    uint64_t int_time;
+    int ret = thread_sleep(thr, deadline, &int_time);
+    if (rem) {
+        if (ret) {
+            _assert(deadline > int_time);
+            uint64_t rem_time = deadline - int_time;
+            rem->tv_sec = rem_time / 1000000000ULL;
+            rem->tv_nsec = rem_time % 1000000000ULL;
+        } else {
+            rem->tv_sec = 0;
+            rem->tv_nsec = 0;
+        }
+    }
+    return ret;
 }
 
 int sys_gettimeofday(struct timeval *tv, struct timezone *tz) {

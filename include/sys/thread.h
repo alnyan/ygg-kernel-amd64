@@ -51,6 +51,8 @@ void thread_ioctx_fork(struct thread *dst, struct thread *src);
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user);
 
 struct thread *thread_find(pid_t pid);
-
-void thread_sleep(struct thread *thr, uint64_t deadline);
+void thread_signal(struct thread *thr, int signum);
+int thread_check_signal(struct thread *thr, int ret);
 void thread_sigenter(int signum);
+
+int thread_sleep(struct thread *thr, uint64_t deadline, uint64_t *int_time);
