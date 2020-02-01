@@ -454,6 +454,10 @@ int sys_kill(pid_t pid, int signum) {
         return -ESRCH;
     }
 
+    if (signum == 0) {
+        return 0;
+    }
+
     if (signum <= 0 || signum >= 64) {
         return -EINVAL;
     }
