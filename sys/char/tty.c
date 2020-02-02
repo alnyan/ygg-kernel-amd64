@@ -2,6 +2,7 @@
 #include "sys/amd64/hw/con.h"
 #include "sys/amd64/hw/ps2.h"
 #include "sys/user/termios.h"
+#include "sys/user/signum.h"
 #include "sys/char/input.h"
 #include "sys/user/errno.h"
 #include "sys/char/line.h"
@@ -10,6 +11,7 @@
 #include "sys/char/tty.h"
 #include "sys/char/chr.h"
 #include "sys/string.h"
+#include "sys/thread.h"
 #include "sys/assert.h"
 #include "sys/ctype.h"
 #include "sys/debug.h"
@@ -73,7 +75,7 @@ void tty_control_write(struct chrdev *tty, char c) {
         break;
     case 'c':
         ring_signal(&tty->buffer, RING_SIGNAL_BRK);
-        //sched_signal_group(data->fg_pgid, SIGINT);
+        thread_signal_pgid(data->fg_pgid, SIGINT);
         break;
     default:
         panic("Unhandled control to TTY: ^%c\n", c);

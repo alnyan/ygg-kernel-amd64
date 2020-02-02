@@ -2,6 +2,7 @@
 #include "sys/amd64/mm/phys.h"
 #include "sys/amd64/mm/pool.h"
 #include "sys/amd64/context.h"
+#include "sys/user/signum.h"
 #include "sys/user/fcntl.h"
 #include "sys/binfmt_elf.h"
 #include "sys/user/errno.h"
@@ -79,8 +80,30 @@ void thread_ioctx_fork(struct thread *dst, struct thread *src) {
 
 ////
 
+int thread_signal_pgid(pid_t pgid, int signum) {
+    int ret = 0;
+
+    for (struct thread *thr = threads_all_head; thr; thr = thr->g_next) {
+        if (thr->state != THREAD_STOPPED && thr->pgid == pgid) {
+            thread_signal(thr, signum);
+            ++ret;
+        }
+    }
+
+    return ret == 0 ? -1 : ret;
+}
+
 struct thread *thread_find(pid_t pid) {
     for (struct thread *thr = threads_all_head; thr; thr = thr->g_next) {
+        if (thr->pid == pid) {
+            return thr;
+        }
+    }
+    return NULL;
+}
+
+struct thread *thread_child(struct thread *of, pid_t pid) {
+    for (struct thread *thr = of->first_child; thr; thr = thr->next_child) {
         if (thr->pid == pid) {
             return thr;
         }
@@ -205,6 +228,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
 
     thr->data.rsp0 = (uintptr_t) stack;
     thr->sigq = 0;
+    thr->pgid = -1;
     thr->pid = -1;
 
     thread_add(thr);
@@ -303,6 +327,7 @@ int sys_fork(struct sys_fork_frame *frame) {
 
     // Allocate a new PID for userspace thread
     dst->pid = thread_alloc_pid(1);
+    dst->pgid = src->pgid;
     dst->sigq = 0;
 
     thread_add(dst);
@@ -326,6 +351,7 @@ int sys_execve(const char *path, const char **argp, const char **envp) {
     if (thr->space == mm_kernel) {
         // Have to allocate a new PID for kernel -> userspace transition
         thr->pid = thread_alloc_pid(1);
+        thr->pgid = thr->pid;
 
         // Have to remove parent/child relation for transition
         _assert(!thr->first_child);
@@ -367,6 +393,7 @@ int sys_execve(const char *path, const char **argp, const char **envp) {
 
 void thread_sigenter(int signum) {
     struct thread *thr = thread_self;
+    kdebug("%d: Handle signal %d\n", thr->pid, signum);
     uintptr_t old_rsp0_top = thr->data.rsp0_top;
     // XXX: Either use a separate stack or ensure stuff doesn't get overwritten
     uintptr_t signal_rsp3 = thr->data.rsp3_base + 0x800;
@@ -380,8 +407,40 @@ __attribute__((noreturn)) void sys_exit(int status) {
     struct thread *thr = thread_self;
     kdebug("Thread %d exited with status %d\n", thr->pid, status);
 
+    thr->exit_status = status;
+
+    if (thr->parent) {
+        thread_signal(thr->parent, SIGCHLD);
+    }
+
     sched_unqueue(thr, THREAD_STOPPED);
     panic("This code shouldn't run\n");
+}
+
+int sys_waitpid(pid_t pid, int *status) {
+    struct thread *thr = thread_self;
+    _assert(thr);
+    struct thread *chld = thread_child(thr, pid);
+
+    if (!chld) {
+        return -ECHILD;
+    }
+
+    while (1) {
+        sched_unqueue(thr, THREAD_WAITING_PID);
+        if (thread_signal_pending(thr, SIGCHLD)) {
+            thread_signal_clear(thr, SIGCHLD);
+            break;
+        }
+        // Handle any other pending signal
+        kdebug("Waken up by some other signal, continuing\n");
+        thread_check_signal(thr, 0);
+    }
+
+    if (status) {
+        *status = chld->exit_status;
+    }
+    return 0;
 }
 
 int thread_sleep(struct thread *thr, uint64_t deadline, uint64_t *int_time) {
@@ -401,9 +460,11 @@ void sys_sigreturn(void) {
 
 void thread_signal(struct thread *thr, int signum) {
     if (thr == thread_self) {
+        kdebug("Signal will be handled now\n");
         thread_sigenter(signum);
     } else {
-        thr->sigq |= 1ULL << (signum - 1);
+        kdebug("Signal will be handled later\n");
+        thread_signal_set(thr, signum);
 
         if (thr->state == THREAD_WAITING) {
             timer_remove_sleep(thr);
@@ -424,7 +485,6 @@ int thread_check_signal(struct thread *thr, int ret) {
                 break;
             }
         }
-        kdebug("%d: Handle signal %d\n", thr->pid, signum);
         _assert(signum);
         thread_sigenter(signum);
 
@@ -450,7 +510,7 @@ int sys_kill(pid_t pid, int signum) {
         thr = NULL;
     }
 
-    if (!thr) {
+    if (!thr || thr->state == THREAD_STOPPED) {
         return -ESRCH;
     }
 
@@ -483,6 +543,45 @@ pid_t sys_getpid(void) {
     struct thread *thr = thread_self;
     _assert(thr);
     return thr->pid;
+}
+
+pid_t sys_getpgid(pid_t pid) {
+    struct thread *thr;
+
+    if (pid == 0) {
+        thr = get_cpu()->thread;
+        _assert(thr);
+    } else {
+        thr = thread_find(pid);
+    }
+
+    if (!thr) {
+        return -ESRCH;
+    }
+
+    return thr->pgid;
+}
+
+int sys_setpgid(pid_t pid, pid_t pgrp) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    if (pid == 0 && pgrp == 0) {
+        thr->pgid = thr->pid;
+        return 0;
+    }
+
+    // Find child with pid pid (guess only children can be setpgid'd)
+    struct thread *chld = thread_child(thr, pid);
+    if (!chld) {
+        return -ESRCH;
+    }
+    if (chld->pgid != thr->pgid) {
+        return -EACCES;
+    }
+    chld->pgid = pgrp;
+
+    return 0;
 }
 
 int sys_setuid(uid_t uid) {

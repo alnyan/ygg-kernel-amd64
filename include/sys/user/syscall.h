@@ -36,3 +36,4 @@
 #define SYSCALL_NR_SETGID       106
 #define SYSCALL_NR_SETPGID      109
 #define SYSCALL_NR_GETPGID      121
+#define SYSCALL_NRX_WAITPID     247

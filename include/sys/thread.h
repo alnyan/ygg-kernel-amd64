@@ -12,8 +12,16 @@ enum thread_state {
     THREAD_RUNNING,
     THREAD_WAITING,
     THREAD_WAITING_IO,
+    THREAD_WAITING_PID,
     THREAD_STOPPED
 };
+
+#define thread_signal_clear(thr, signum) \
+    (thr)->sigq &= ~(1ULL << ((signum) - 1))
+#define thread_signal_set(thr, signum) \
+    (thr)->sigq |= 1ULL << ((signum) - 1);
+#define thread_signal_pending(thr, signum) \
+    ((thr)->sigq & (1ULL << ((signum) - 1)))
 
 struct thread {
     // Platform data and context
@@ -34,10 +42,12 @@ struct thread {
 
     // State
     pid_t pid;
+    pid_t pgid;
     enum thread_state state;
     struct thread *parent;
     struct thread *first_child;
     struct thread *next_child;
+    int exit_status;
 
     // Global thread list (for stuff like finding by PID)
     struct thread *g_prev, *g_next;
@@ -54,5 +64,6 @@ struct thread *thread_find(pid_t pid);
 void thread_signal(struct thread *thr, int signum);
 int thread_check_signal(struct thread *thr, int ret);
 void thread_sigenter(int signum);
+int thread_signal_pgid(pid_t pgid, int signum);
 
 int thread_sleep(struct thread *thr, uint64_t deadline, uint64_t *int_time);

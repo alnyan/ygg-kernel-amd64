@@ -52,8 +52,11 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
 
     _assert((new_state == THREAD_WAITING) ||
             (new_state == THREAD_STOPPED) ||
-            (new_state == THREAD_WAITING_IO));
+            (new_state == THREAD_WAITING_IO) ||
+            (new_state == THREAD_WAITING_PID));
     thr->state = new_state;
+
+    thread_check_signal(thr, 0);
 
     if (next == thr) {
         thr->next = NULL;
@@ -155,20 +158,6 @@ void sched_debug_cycle(uint64_t delta_ms) {
 }
 
 void yield(void) {
-    static uint64_t last_time = 0;
-    uint64_t delta = system_time - last_time;
-
-    if (delta >= 3000000000ULL) {
-        if (system_time) {
-            struct thread *t = thread_find(1);
-            if (t->state != THREAD_STOPPED) {
-                _assert(t);
-                thread_signal(t, 2);
-            }
-        }
-        last_time = system_time;
-    }
-
     struct thread *from = get_cpu()->thread;
     struct thread *to;
 
@@ -180,6 +169,10 @@ void yield(void) {
         to = &thread_idle;
     }
 
+    // Check if instead of switching to a proper thread context we
+    // have to use signal handling
+    thread_check_signal(from, 0);
+
     if (from) {
         from->state = THREAD_READY;
     }
@@ -188,10 +181,6 @@ void yield(void) {
     get_cpu()->thread = to;
 
     context_switch_to(to, from);
-
-    // Check if instead of switching to a proper thread context we
-    // have to use signal handling
-    thread_check_signal(from, 0);
 }
 
 void sched_init(void) {

@@ -46,6 +46,9 @@ void *syscall_table[256] = {
     [SYSCALL_NRX_SIGENTRY] = sys_sigentry,
     [SYSCALL_NR_EXIT] = sys_exit,
     [SYSCALL_NR_SIGRETURN] = sys_sigreturn,
+    [SYSCALL_NRX_WAITPID] = sys_waitpid,
+    [SYSCALL_NR_GETPGID] = sys_getpgid,
+    [SYSCALL_NR_SETPGID] = sys_setpgid,
 
     // System
     [SYSCALL_NR_MOUNT] = sys_mount,
