@@ -2,6 +2,7 @@
 #include "sys/amd64/hw/timer.h"
 #include "sys/amd64/hw/apic.h"
 #include "sys/amd64/hw/irq.h"
+#include "sys/amd64/hw/con.h"
 #include "sys/amd64/hw/idt.h"
 #include "sys/amd64/hw/io.h"
 #include "sys/amd64/cpu.h"
@@ -59,6 +60,18 @@ static uint32_t timer_tick(void *arg) {
 
     switch ((uint64_t) arg) {
     case TIMER_PIT:
+        #if defined(VESA_ENABLE)
+        ++int_timer_ticks;
+        if (int_timer_ticks >= 300) {
+            con_blink();
+            int_timer_ticks = 0;
+        }
+        if (!vesa_available) {
+#else
+        {
+#endif
+            amd64_con_sync_cursor();
+        }
         // Each tick is approx. 1ms, so add 1ms to system time
         system_time += 1000000;
         break;
