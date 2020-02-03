@@ -3,15 +3,15 @@
 #include "sys/amd64/hw/io.h"
 #include "sys/string.h"
 #include "sys/types.h"
-#include "sys/panic.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
+#include "sys/panic.h"
 #include "sys/mm.h"
 
 #if defined(VESA_ENABLE)
-#include "sys/font/logo.h"
-#include "sys/psf.h"
 #include "sys/amd64/hw/vesa.h"
+#include "sys/font/psf.h"
+#include "sys/font/logo.h"
 #else
 #define vesa_available 0
 #endif

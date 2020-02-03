@@ -1,5 +1,6 @@
 #include "sys/amd64/hw/ioapic.h"
 #include "sys/amd64/hw/timer.h"
+#include "sys/amd64/hw/vesa.h"
 #include "sys/amd64/hw/apic.h"
 #include "sys/amd64/hw/irq.h"
 #include "sys/amd64/hw/con.h"

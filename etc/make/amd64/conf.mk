@@ -35,6 +35,14 @@ $(O)/sys/amd64/hw/ap_code.bin: sys/amd64/hw/ap_code.nasm config
 	@printf " NASM\t%s\n" $(@:$(O)/%=%)
 	@nasm -f bin -o $@ $<
 
+$(O)/sys/font/%.o: etc/%.psfu config
+	@printf " FONT\t%s\n" $(@:$(O)/%.o=%.psfu)
+	@$(CC64) $(kernel_CFLAGS) -c \
+		-DINCBIN_FILE='"$<"' \
+		-DINCBIN_START="_psf_start" \
+		-DINCBIN_END="_psf_end" \
+		-o $@ sys/amd64/incbin.S
+
 ### Kernel loader build
 DIRS+=$(O)/sys/amd64/loader
 loader_OBJS+=$(O)/sys/amd64/loader/boot.o \

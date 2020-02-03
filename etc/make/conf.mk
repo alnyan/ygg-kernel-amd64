@@ -63,7 +63,10 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/snprintf.o \
 	  $(O)/sys/random.o \
 	  $(O)/sys/reboot.o \
-	  $(O)/sys/init.o
+	  $(O)/sys/init.o \
+	  $(O)/sys/font/logo.o \
+	  $(O)/sys/font/psf.o \
+	  $(O)/sys/font/default8x16.o
 
 OBJS+=$(O)/sys/driver/pci/pci.o \
 	  $(O)/sys/driver/pci/pcidb.o \
@@ -78,6 +81,7 @@ DIRS+=$(O)/sys/fs \
 	  $(O)/sys/fs/ext2 \
 	  $(O)/sys/char \
 	  $(O)/sys/block \
+	  $(O)/sys/font \
 	  $(O)/sys/driver/pci \
 	  $(O)/sys/driver/ata \
 	  $(O)/sys/driver/usb

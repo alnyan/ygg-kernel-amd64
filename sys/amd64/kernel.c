@@ -1,6 +1,7 @@
 #include "sys/amd64/hw/rs232.h"
 #include "sys/driver/pci/pci.h"
 #include "sys/driver/usb/usb.h"
+#include "sys/amd64/hw/vesa.h"
 #include "sys/amd64/hw/apic.h"
 #include "sys/amd64/hw/acpi.h"
 #include "sys/amd64/mm/phys.h"
@@ -45,7 +46,6 @@ void kernel_main(struct amd64_loader_data *data) {
     kernel_set_cmdline(data->cmdline);
 
     // Reinitialize RS232 properly
-    amd64_con_init();
     rs232_init(RS232_COM1);
     ps2_init();
 
@@ -59,6 +59,10 @@ void kernel_main(struct amd64_loader_data *data) {
     ps2_register_device();
 
     amd64_acpi_init();
+#if defined(VESA_ENABLE)
+    amd64_vesa_init(multiboot_info);
+#endif
+    amd64_con_init();
 
     // Print kernel version now
     kinfo("yggdrasil " KERNEL_VERSION_STR "\n");
