@@ -43,6 +43,7 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/char/tty.o \
 	  $(O)/sys/char/chr.o \
 	  $(O)/sys/block/pseudo.o \
+	  $(O)/sys/block/part_gpt.o \
 	  $(O)/sys/block/ram.o \
 	  $(O)/sys/block/blk.o \
 	  $(O)/sys/dev.o \
@@ -53,6 +54,9 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/fs/node.o \
 	  $(O)/sys/fs/tar.o \
 	  $(O)/sys/fs/sysfs.o \
+	  $(O)/sys/fs/ext2/block.o \
+	  $(O)/sys/fs/ext2/ext2.o \
+	  $(O)/sys/fs/ext2/node.o \
 	  $(O)/sys/time.o \
 	  $(O)/sys/sys_file.o \
 	  $(O)/sys/sys_sys.o \
@@ -65,6 +69,7 @@ OBJS+=$(O)/sys/driver/pci/pci.o \
 	  $(O)/sys/driver/ata/ahci.o
 
 DIRS+=$(O)/sys/fs \
+	  $(O)/sys/fs/ext2 \
 	  $(O)/sys/char \
 	  $(O)/sys/block \
 	  $(O)/sys/driver/pci \
