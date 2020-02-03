@@ -153,6 +153,8 @@ void sched_debug_cycle(uint64_t delta_ms) {
     struct amd64_phys_stat phys_st;
     struct amd64_pool_stat pool_st;
 
+    return;
+
     kdebug("--- DEBUG_CYCLE ---\n");
 
     debugs(DEBUG_DEFAULT, "Process tree:\n");

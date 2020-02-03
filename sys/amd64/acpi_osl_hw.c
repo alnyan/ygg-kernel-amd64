@@ -69,5 +69,5 @@ ACPI_STATUS AcpiOsWritePciConfiguration(ACPI_PCI_ID *PciId, UINT32 Reg, UINT64 V
 }
 
 UINT64 AcpiOsGetTimer(void) {
-    return 0;
+    return system_time;
 }

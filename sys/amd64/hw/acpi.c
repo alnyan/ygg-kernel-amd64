@@ -18,6 +18,11 @@ static uint8_t checksum(const void *ptr, size_t size) {
     return v;
 }
 
+static uint32_t acpi_power_button_handler(void *ctx) {
+    kinfo("Power button was pressed\n");
+    return 0;
+}
+
 static ACPI_STATUS acpica_init(void) {
     ACPI_STATUS ret;
     ACPI_OBJECT arg1;
@@ -65,6 +70,12 @@ static ACPI_STATUS acpica_init(void) {
     if (ACPI_FAILURE(ret = AcpiInitializeObjects(ACPI_FULL_INITIALIZATION))) {
         kerror("ACPI INIT failure %s\n", AcpiFormatException(ret));
         return ret;
+    }
+
+    if (ACPI_FAILURE(ret = AcpiInstallFixedEventHandler(ACPI_EVENT_POWER_BUTTON,
+                                                        acpi_power_button_handler,
+                                                        NULL))) {
+        kwarn("Failed to install ACPI power button handler: %s\n", AcpiFormatException(ret));
     }
 
     return AE_OK;
