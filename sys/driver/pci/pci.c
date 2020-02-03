@@ -67,6 +67,20 @@ uint32_t pci_config_read_dword(struct pci_device *dev, uint16_t off) {
     return pcie_config_read_dword(dev, off);
 }
 
+uint32_t pci_config_read_dword_legacy(uint8_t bus, uint8_t dev, uint8_t func, uint32_t off) {
+    uint32_t w0;
+    w0 = (((uint32_t) bus) << 16) |
+         (((uint32_t) dev) << 11) |
+         (((uint32_t) func) << 8) |
+         (off & ~0x3) |
+         (1 << 31);
+
+    outl(PCI_PORT_CONFIG_ADDR, w0);
+    w0 = inl(PCI_PORT_CONFIG_DATA);
+
+    return w0;
+}
+
 void pci_add_irq(struct pci_device *dev, irq_handler_func_t handler, void *ctx) {
     if (dev->msi) {
         uint8_t vector;

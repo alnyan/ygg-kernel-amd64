@@ -1,4 +1,5 @@
 #include "acpi.h"
+#include "sys/driver/pci/pci.h"
 #include "sys/panic.h"
 #include "sys/amd64/hw/io.h"
 #include "sys/assert.h"
@@ -37,30 +38,29 @@ ACPI_STATUS AcpiOsWritePort(ACPI_IO_ADDRESS Address, UINT32 Value, UINT32 Width)
 }
 
 ACPI_STATUS AcpiOsReadPciConfiguration(ACPI_PCI_ID *PciId, UINT32 Reg, UINT64 *Value, UINT32 Width) {
-    panic("Nuked PCI\n");
-    //UINT32 DWordAlignedReg = Reg & ~3;
-    //UINT32 DWord;
+    UINT32 DWordAlignedReg = Reg & ~3;
+    UINT32 DWord;
 
-    //DWord = pci_config_read_dword(PCI_MKADDR(PciId->Bus, PciId->Device, PciId->Function), Reg);
+    DWord = pci_config_read_dword_legacy(PciId->Bus, PciId->Device, PciId->Function, DWordAlignedReg);
 
-    //switch (Width) {
-    //case 8:
-    //    DWord >>= Reg - DWordAlignedReg;
-    //    *Value = DWord & 0xFF;
-    //    return AE_OK;
-    //case 16:
-    //    if (DWord != DWordAlignedReg) {
-    //        DWord >>= 16;
-    //    }
-    //    *Value = DWord & 0xFFFF;
-    //    return AE_OK;
-    //case 32:
-    //    _assert(DWordAlignedReg == Reg);
-    //    *Value = DWord;
-    //    return AE_OK;
-    //default:
-    //    panic("Unsupported PCI read width: %u\n", Width);
-    //}
+    switch (Width) {
+    case 8:
+        DWord >>= Reg - DWordAlignedReg;
+        *Value = DWord & 0xFF;
+        return AE_OK;
+    case 16:
+        if (DWord != DWordAlignedReg) {
+            DWord >>= 16;
+        }
+        *Value = DWord & 0xFFFF;
+        return AE_OK;
+    case 32:
+        _assert(DWordAlignedReg == Reg);
+        *Value = DWord;
+        return AE_OK;
+    default:
+        panic("Unsupported PCI read width: %u\n", Width);
+    }
 }
 
 ACPI_STATUS AcpiOsWritePciConfiguration(ACPI_PCI_ID *PciId, UINT32 Reg, UINT64 Value, UINT32 Width) {

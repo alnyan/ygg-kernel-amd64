@@ -24,6 +24,7 @@ typedef void (*pci_driver_func_t)(struct pci_device *dev);
 void pci_init(void);
 void pci_add_root_bus(uint8_t n);
 
+uint32_t pci_config_read_dword_legacy(uint8_t bus, uint8_t dev, uint8_t func, uint32_t off);
 uint32_t pci_config_read_dword(struct pci_device *dev, uint16_t off);
 void pci_add_irq(struct pci_device *dev, irq_handler_func_t handler, void *ctx);
 
