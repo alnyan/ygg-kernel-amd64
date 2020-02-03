@@ -9,6 +9,7 @@
 #include "sys/user/errno.h"
 #include "sys/amd64/cpu.h"
 #include "sys/fs/ofile.h"
+#include "sys/sys_proc.h"
 #include "sys/vmalloc.h"
 #include "sys/fs/vfs.h"
 #include "sys/assert.h"
@@ -337,12 +338,69 @@ int sys_fork(struct sys_fork_frame *frame) {
     return dst->pid;
 }
 
-int sys_execve(const char *path, const char **argp, const char **envp) {
+uintptr_t argp_copy(struct thread *thr, const char *const argv[], size_t *arg_count) {
+    uintptr_t dst_page_phys = amd64_phys_alloc_page();
+    if (dst_page_phys == MM_NADDR) {
+        return dst_page_phys;
+    }
+
+    char *dst_page = (char *) MM_VIRTUALIZE(dst_page_phys);
+
+    // Count the arguments
+    size_t argc = 0;
+    while (1) {
+        if (!argv[argc]) {
+            break;
+        }
+        ++argc;
+    }
+    *arg_count = argc;
+
+    // Argp page layout:
+    // ptr0 ptr1 ptr2 ... ptrN NULL str0 str1 str2 ... strN
+    size_t data_offset = (argc + 1) * sizeof(uintptr_t);
+    size_t str_offset = 0;
+
+    // Copy string data
+    for (size_t i = 0; i < argc; ++i) {
+        size_t len = strlen(argv[i]);
+
+        if (len + str_offset + data_offset >= 4096) {
+            panic("Argument list too large\n");
+        }
+
+        // Setup pointer to new offset
+        ((uintptr_t *) dst_page)[i] = str_offset + data_offset;
+
+        // Copy data to that offset
+        strcpy(&dst_page[data_offset + str_offset], argv[i]);
+        str_offset += len + 1;
+    }
+
+    // Setup last entry
+    ((uintptr_t *) dst_page)[argc] = 0;
+
+    return dst_page_phys;
+}
+
+int sys_execve(const char *path, const char **argv, const char **envp) {
     struct thread *thr = thread_self;
     _assert(thr);
     struct ofile fd;
+    struct stat st;
     uintptr_t entry;
+    size_t argc;
     int res;
+
+    if ((res = vfs_stat(&thr->ioctx, path, &st)) != 0) {
+        kerror("execve(%s): %s\n", path, kstrerror(res));
+        return res;
+    }
+
+    // Copy args
+    _assert(argv);
+    uintptr_t argp_phys = argp_copy(thr, argv, &argc);
+    _assert(argp_phys != MM_NADDR);
 
     if ((res = vfs_open(&thr->ioctx, &fd, path, O_RDONLY, 0)) != 0) {
         kerror("%s: %s\n", path, kstrerror(res));
@@ -373,11 +431,27 @@ int sys_execve(const char *path, const char **argp, const char **envp) {
         mm_space_release(thr->space);
     }
 
-    if (elf_load(thr, &thr->ioctx, &fd, &entry) != 0) {
-        panic("Feck\n");
+    if ((res = elf_load(thr, &thr->ioctx, &fd, &entry)) != 0) {
+        vfs_close(&thr->ioctx, &fd);
+
+        kerror("elf load failed: %s\n", kstrerror(res));
+        sys_exit(-1);
+
+        panic("This code shouldn't run\n");
     }
 
     vfs_close(&thr->ioctx, &fd);
+
+    // Allocate a virtual address to map argp page
+    uintptr_t argp_virt = vmfind(thr->space, 0x100000, 0xF0000000, 1);
+    _assert(argp_virt != MM_NADDR);
+    // Map it as non-writable user-accessable
+    _assert(amd64_map_single(thr->space, argp_virt, argp_phys, (1 << 2)) == 0);
+    // Fix up the pointers
+    uintptr_t *argp_fixup = (uintptr_t *) MM_VIRTUALIZE(argp_phys);
+    for (size_t i = 0; i < argc; ++i) {
+        argp_fixup[i] += argp_virt;
+    }
 
     thr->signal_entry = 0;
     thr->data.rsp0 = thr->data.rsp0_top;
@@ -387,7 +461,7 @@ int sys_execve(const char *path, const char **argp, const char **envp) {
     thr->data.rsp3_base = ustack;
     thr->data.rsp3_size = 4 * MM_PAGE_SIZE;
 
-    context_exec_enter(NULL, thr, ustack + 4 * MM_PAGE_SIZE, entry);
+    context_exec_enter((void *) argp_virt, thr, ustack + 4 * MM_PAGE_SIZE, entry);
 
     panic("This code shouldn't run\n");
 }
