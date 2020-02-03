@@ -1,6 +1,8 @@
 #include "sys/amd64/context.h"
 #include "sys/amd64/hw/irq.h"
 #include "sys/amd64/hw/idt.h"
+#include "sys/user/signum.h"
+#include "sys/user/reboot.h"
 #include "sys/amd64/cpu.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
@@ -191,6 +193,21 @@ void yield(void) {
     get_cpu()->thread = to;
 
     context_switch_to(to, from);
+}
+
+void sched_reboot(unsigned int cmd) {
+    struct thread *user_init = thread_find(1);
+    _assert(user_init);
+    _assert(user_init->state != THREAD_STOPPED);
+
+    // TODO: maybe send signal to all the programs
+    thread_signal(user_init, SIGTERM);
+
+    while (user_init->state != THREAD_STOPPED) {
+        yield();
+    }
+
+    system_power_cmd(cmd);
 }
 
 void sched_init(void) {

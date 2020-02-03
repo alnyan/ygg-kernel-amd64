@@ -23,6 +23,7 @@
 #define SYSCALL_NR_GETTIMEOFDAY 96
 #define SYSCALL_NR_MOUNT        165
 #define SYSCALL_NRX_UMOUNT      166
+#define SYSCALL_NR_REBOOT       169
 
 #define SYSCALL_NR_BRK          12
 #define SYSCALL_NRX_SIGENTRY    13

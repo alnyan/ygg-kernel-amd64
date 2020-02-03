@@ -58,6 +58,7 @@ void *syscall_table[256] = {
     [SYSCALL_NR_UNAME] = sys_uname,
     [SYSCALL_NR_NANOSLEEP] = sys_nanosleep,
     [SYSCALL_NR_GETTIMEOFDAY] = sys_gettimeofday,
+    [SYSCALL_NR_REBOOT] = sys_reboot,
 };
 
 int syscall_undefined(uint64_t rax) {

@@ -1,4 +1,5 @@
 #include "sys/user/utsname.h"
+#include "sys/user/reboot.h"
 #include "sys/user/errno.h"
 #include "sys/user/time.h"
 #include "sys/amd64/cpu.h"
@@ -8,6 +9,7 @@
 #include "sys/assert.h"
 #include "sys/thread.h"
 #include "sys/fs/vfs.h"
+#include "sys/sched.h"
 #include "sys/debug.h"
 
 int sys_mount(const char *dev_name, const char *dir_name, const char *type, unsigned long flags, void *data) {
@@ -98,4 +100,27 @@ int sys_uname(struct utsname *name) {
     strcpy(name->domainname, "localhost");
 
     return 0;
+}
+
+int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg) {
+    struct thread *thr = thread_self;
+    _assert(thr);
+
+    if (thr->ioctx.uid != 0) {
+        return -EACCES;
+    }
+
+    if (magic1 != (int) YGG_REBOOT_MAGIC1 || magic2 != (int) YGG_REBOOT_MAGIC2) {
+        return -EINVAL;
+    }
+
+    switch (cmd) {
+    case YGG_REBOOT_RESTART:
+    case YGG_REBOOT_POWER_OFF:
+    case YGG_REBOOT_HALT:
+        sched_reboot(cmd);
+        return 0;
+    default:
+        return -EINVAL;
+    }
 }
