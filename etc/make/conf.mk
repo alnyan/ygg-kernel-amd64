@@ -56,6 +56,8 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/time.o \
 	  $(O)/sys/sys_file.o \
 	  $(O)/sys/sys_sys.o \
+	  $(O)/sys/snprintf.o \
+	  $(O)/sys/random.o \
 	  $(O)/sys/init.o
 
 OBJS+=$(O)/sys/driver/pci/pci.o \

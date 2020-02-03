@@ -515,6 +515,9 @@ int sys_waitpid(pid_t pid, int *status) {
     if (status) {
         *status = chld->exit_status;
     }
+
+    // TODO: Cleanup the child here
+
     return 0;
 }
 

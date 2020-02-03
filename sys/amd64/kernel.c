@@ -12,10 +12,12 @@
 #include "sys/amd64/cpuid.h"
 #include "sys/amd64/mm/mm.h"
 #include "sys/block/ram.h"
+#include "sys/fs/sysfs.h"
 #include "sys/char/tty.h"
 #include "sys/config.h"
 #include "sys/fs/tar.h"
 #include "sys/fs/vfs.h"
+#include "sys/random.h"
 #include "sys/sched.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
@@ -23,6 +25,10 @@
 #include "sys/mm.h"
 
 static multiboot_info_t *multiboot_info;
+
+static void amd64_make_random_seed(void) {
+    random_init(15267 + system_time);
+}
 
 void kernel_main(struct amd64_loader_data *data) {
     cpuid_init();
@@ -76,9 +82,12 @@ void kernel_main(struct amd64_loader_data *data) {
         tarfs_init();
     }
 
+    amd64_make_random_seed();
+
     syscall_init();
 
     sched_init();
+    sysfs_populate();
     user_init_start();
     sched_enter();
 
