@@ -16,6 +16,9 @@ enum thread_state {
     THREAD_STOPPED
 };
 
+#define THREAD_KERNEL           (1 << 0)
+#define THREAD_EMPTY            (1 << 1)
+
 #define thread_signal_clear(thr, signum) \
     (thr)->sigq &= ~(1ULL << ((signum) - 1))
 #define thread_signal_set(thr, signum) \
@@ -44,6 +47,7 @@ struct thread {
 
     // State
     char name[256];
+    uint32_t flags;
     pid_t pid;
     pid_t pgid;
     enum thread_state state;
@@ -62,6 +66,7 @@ struct thread {
 pid_t thread_alloc_pid(int is_user);
 void thread_ioctx_fork(struct thread *dst, struct thread *src);
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user);
+void thread_cleanup(struct thread *thr);
 
 struct thread *thread_find(pid_t pid);
 void thread_signal(struct thread *thr, int signum);

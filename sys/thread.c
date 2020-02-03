@@ -113,6 +113,29 @@ struct thread *thread_child(struct thread *of, pid_t pid) {
     return NULL;
 }
 
+void thread_cleanup(struct thread *thr) {
+    _assert(thr);
+    // Leave only the system context required for hierachy tracking and error code/pid
+    thr->state = THREAD_STOPPED;
+    thr->flags |= THREAD_EMPTY;
+    kinfo("Cleaning up %d\n", thr->pid);
+    for (size_t i = 0; i < THREAD_MAX_FDS; ++i) {
+        if (thr->fds[i]) {
+            vfs_close(&thr->ioctx, thr->fds[i]);
+
+            _assert(thr->fds[i]->refcount >= 0);
+            if (thr->fds[i]->refcount == 0) {
+                kfree(thr->fds[i]);
+            }
+
+            thr->fds[i] = NULL;
+        }
+    }
+
+    // Release userspace pages
+    mm_space_release(thr->space);
+}
+
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     uintptr_t stack_pages = amd64_phys_alloc_contiguous(2);
     _assert(stack_pages != MM_NADDR);
@@ -121,6 +144,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     thr->data.rsp0_size = MM_PAGE_SIZE * 2;
     thr->data.rsp0_top = thr->data.rsp0_base + thr->data.rsp0_size;
     thr->name[0] = 0;
+    thr->flags = user ? 0 : THREAD_KERNEL;
 
     uint64_t *stack = (uint64_t *) (thr->data.rsp0_base + thr->data.rsp0_size);
 
@@ -254,6 +278,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
     dst->data.rsp0_size = MM_PAGE_SIZE * 2;
     dst->data.rsp0_top = dst->data.rsp0_base + dst->data.rsp0_size;
+    dst->flags = 0;
 
     mm_space_t space = amd64_mm_pool_alloc();
     mm_space_fork(space, src->space, MM_CLONE_FLG_KERNEL | MM_CLONE_FLG_USER);
@@ -435,6 +460,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
         thr->space = amd64_mm_pool_alloc();
         _assert(thr->space);
         thr->data.cr3 = MM_PHYS(thr->space);
+        thr->flags = 0;
 
         mm_space_clone(thr->space, mm_kernel, MM_CLONE_FLG_KERNEL);
     } else {
@@ -497,6 +523,10 @@ __attribute__((noreturn)) void sys_exit(int status) {
     if (thr->parent) {
         thread_signal(thr->parent, SIGCHLD);
     }
+
+    // Sure that no code of this thread will be running anymore -
+    // can clean up its stuff
+    thread_cleanup(thr);
 
     sched_unqueue(thr, THREAD_STOPPED);
     panic("This code shouldn't run\n");
@@ -751,7 +781,7 @@ int sys_brk(void *addr) {
         }
     }
 
-    //thr->brk = (uintptr_t) addr;
+    thr->brk = (uintptr_t) addr;
 
     return 0;
 }
