@@ -57,6 +57,24 @@ static void thread_add(struct thread *thr) {
     threads_all_head = thr;
 }
 
+static void thread_remove(struct thread *thr) {
+    struct thread *prev = thr->g_prev;
+    struct thread *next = thr->g_next;
+
+    if (prev) {
+        prev->g_next = next;
+    } else {
+        threads_all_head = next;
+    }
+
+    if (next) {
+        next->g_prev = prev;
+    }
+
+    thr->g_next = NULL;
+    thr->g_prev = NULL;
+}
+
 ////
 
 static void thread_ioctx_empty(struct thread *thr) {
@@ -113,6 +131,32 @@ struct thread *thread_child(struct thread *of, pid_t pid) {
     return NULL;
 }
 
+void thread_unchild(struct thread *thr) {
+    struct thread *par = thr->parent;
+    _assert(par);
+
+    struct thread *p = NULL;
+    struct thread *c = par->first_child;
+    int found = 0;
+
+    while (c) {
+        if (c == thr) {
+            found = 1;
+            if (p) {
+                p->next_child = thr->next_child;
+            } else {
+                par->first_child = thr->next_child;
+            }
+            break;
+        }
+
+        p = c;
+        c = c->next_child;
+    }
+
+    _assert(found);
+}
+
 void thread_cleanup(struct thread *thr) {
     _assert(thr);
     // Leave only the system context required for hierachy tracking and error code/pid
@@ -134,6 +178,30 @@ void thread_cleanup(struct thread *thr) {
 
     // Release userspace pages
     mm_space_release(thr->space);
+}
+
+void thread_free(struct thread *thr) {
+    _assert(thr->flags & THREAD_STOPPED);
+    _assert(thr->flags & THREAD_EMPTY);
+
+    // Free kstack
+    for (size_t i = 0; i < thr->data.rsp0_size / MM_PAGE_SIZE; ++i) {
+        amd64_phys_free(MM_PHYS(i * MM_PAGE_SIZE + thr->data.rsp0_base));
+    }
+
+    // Free page directory (if not mm_kernel)
+    if (thr->space != mm_kernel) {
+        // Make sure we don't shoot a leg off
+        uintptr_t cr3;
+        asm volatile ("movq %%cr3, %0":"=a"(cr3));
+        _assert(MM_VIRTUALIZE(cr3) != (uintptr_t) thr->space);
+
+        mm_space_free(thr->space);
+    }
+
+    // Free thread itself
+    memset(thr, 0, sizeof(struct thread));
+    kfree(thr);
 }
 
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
@@ -552,11 +620,16 @@ int sys_waitpid(pid_t pid, int *status) {
         thread_check_signal(thr, 0);
     }
 
+    // Make sure no platform context remains
+    _assert(chld->flags & THREAD_EMPTY);
+
     if (status) {
         *status = chld->exit_status;
     }
 
-    // TODO: Cleanup the child here
+    thread_unchild(chld);
+    thread_remove(chld);
+    thread_free(chld);
 
     return 0;
 }

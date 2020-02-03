@@ -1,4 +1,6 @@
 #include "sys/amd64/context.h"
+#include "sys/amd64/mm/pool.h"
+#include "sys/amd64/mm/phys.h"
 #include "sys/amd64/hw/irq.h"
 #include "sys/amd64/hw/idt.h"
 #include "sys/user/signum.h"
@@ -8,6 +10,7 @@
 #include "sys/thread.h"
 #include "sys/sched.h"
 #include "sys/debug.h"
+#include "sys/heap.h"
 #include "sys/mm.h"
 
 void yield(void);
@@ -146,6 +149,12 @@ void sched_debug_cycle(uint64_t delta_ms) {
     struct thread *thr = queue_head;
     extern struct thread user_init;
 
+    struct heap_stat st;
+    struct amd64_phys_stat phys_st;
+    struct amd64_pool_stat pool_st;
+
+    kdebug("--- DEBUG_CYCLE ---\n");
+
     debugs(DEBUG_DEFAULT, "Process tree:\n");
     sched_debug_tree(DEBUG_DEFAULT, &user_init, 0);
 
@@ -167,6 +176,30 @@ void sched_debug_cycle(uint64_t delta_ms) {
     } else {
         kdebug("--- IDLE\n");
     }
+
+    heap_stat(heap_global, &st);
+    kdebug("Heap stat:\n");
+    kdebug("Allocated blocks: %u\n", st.alloc_count);
+    kdebug("Used %S, free %S, total %S\n", st.alloc_size, st.free_size, st.total_size);
+
+    amd64_phys_stat(&phys_st);
+    kdebug("Physical memory:\n");
+    kdebug("Used %S (%u), free %S (%u), ceiling %p\n",
+            phys_st.pages_used * 0x1000,
+            phys_st.pages_used,
+            phys_st.pages_free * 0x1000,
+            phys_st.pages_free,
+            phys_st.limit);
+
+    amd64_mm_pool_stat(&pool_st);
+    kdebug("Paging pool:\n");
+    kdebug("Used %S (%u), free %S (%u)\n",
+            pool_st.pages_used * 0x1000,
+            pool_st.pages_used,
+            pool_st.pages_free * 0x1000,
+            pool_st.pages_free);
+
+    kdebug("--- ----------- ---\n");
 }
 
 void yield(void) {
