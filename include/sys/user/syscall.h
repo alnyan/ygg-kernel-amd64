@@ -14,6 +14,7 @@
 #define SYSCALL_NR_RMDIR        84
 #define SYSCALL_NR_CREAT        85
 #define SYSCALL_NR_UNLINK       87
+#define SYSCALL_NR_READDIR      89
 #define SYSCALL_NR_CHMOD        90
 #define SYSCALL_NR_CHOWN        92
 
@@ -23,12 +24,13 @@
 #define SYSCALL_NR_MOUNT        165
 #define SYSCALL_NRX_UMOUNT      166
 
+#define SYSCALL_NR_BRK          12
+#define SYSCALL_NRX_SIGENTRY    13
+#define SYSCALL_NR_SIGRETURN    15
 #define SYSCALL_NR_GETPID       39
 #define SYSCALL_NR_FORK         57
 #define SYSCALL_NR_EXECVE       59
 #define SYSCALL_NR_EXIT         60
-#define SYSCALL_NRX_SIGENTRY    13
-#define SYSCALL_NR_SIGRETURN    15
 #define SYSCALL_NR_KILL         62
 #define SYSCALL_NR_GETUID       102
 #define SYSCALL_NR_GETGID       104

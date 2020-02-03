@@ -16,3 +16,5 @@ int sys_setgid(gid_t gid);
 int sys_waitpid(pid_t pid, int *status);
 pid_t sys_getpgid(pid_t pid);
 int sys_setpgid(pid_t pid, pid_t pgrp);
+
+int sys_brk(void *addr);

@@ -27,6 +27,8 @@ struct thread {
     // Platform data and context
     struct thread_data data;
     mm_space_t space;
+    size_t image_end;
+    size_t brk;
 
     // I/O
     struct vfs_ioctx ioctx;

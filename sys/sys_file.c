@@ -218,3 +218,18 @@ int sys_ioctl(int fd, unsigned int cmd, void *arg) {
     return vfs_ioctl(&thr->ioctx, of, cmd, arg);
 }
 
+ssize_t sys_readdir(int fd, struct dirent *ent) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+        return -EBADF;
+    }
+
+    if (thr->fds[fd] == NULL) {
+        return -EBADF;
+    }
+
+    return vfs_readdir(&thr->ioctx, thr->fds[fd], ent);
+}
+

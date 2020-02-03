@@ -31,6 +31,7 @@ void *syscall_table[256] = {
     [SYSCALL_NR_RMDIR] = sys_rmdir,
     [SYSCALL_NR_CREAT] = sys_creat,
     [SYSCALL_NR_UNLINK] = sys_unlink,
+    [SYSCALL_NR_READDIR] = sys_readdir,
     [SYSCALL_NR_CHMOD] = sys_chmod,
     [SYSCALL_NR_CHOWN] = sys_chown,
 
@@ -40,10 +41,11 @@ void *syscall_table[256] = {
     [SYSCALL_NR_SETUID] = sys_setuid,
     [SYSCALL_NR_SETGID] = sys_setgid,
     // Process control
+    [SYSCALL_NR_BRK] = sys_brk,
+    [SYSCALL_NRX_SIGENTRY] = sys_sigentry,
     [SYSCALL_NR_EXECVE] = sys_execve,
     [SYSCALL_NR_GETPID] = sys_getpid,
     [SYSCALL_NR_KILL] = sys_kill,
-    [SYSCALL_NRX_SIGENTRY] = sys_sigentry,
     [SYSCALL_NR_EXIT] = sys_exit,
     [SYSCALL_NR_SIGRETURN] = sys_sigreturn,
     [SYSCALL_NRX_WAITPID] = sys_waitpid,

@@ -135,6 +135,8 @@ int elf_load(struct thread *thr, struct vfs_ioctx *ctx, struct ofile *fd, uintpt
         goto end;
     }
 
+    thr->image_end = 0;
+    thr->brk = 0;
     //const char *shstrtabd = (const char *) (shdrs[ehdr->e_shstrndx].sh_offset + (uintptr_t) from);
 
     // Load the sections
@@ -181,8 +183,13 @@ int elf_load(struct thread *thr, struct vfs_ioctx *ctx, struct ofile *fd, uintpt
             }
 
             uintptr_t section_end = shdr->sh_addr + shdr->sh_size;
+            if (section_end > thr->image_end) {
+                thr->image_end = section_end;
+            }
         }
     }
+
+    thr->brk = thr->image_end;
 
     *entry = ehdr.e_entry;
     res = 0;

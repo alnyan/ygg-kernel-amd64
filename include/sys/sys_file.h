@@ -6,6 +6,7 @@ ssize_t sys_write(int fd, const void *data, size_t lim);
 int sys_creat(const char *pathname, int mode);
 int sys_mkdir(const char *pathname, int mode);
 int sys_unlink(const char *pathname);
+ssize_t sys_readdir(int fd, struct dirent *ent);
 int sys_rmdir(const char *pathname);
 int sys_chdir(const char *filename);
 int sys_ioctl(int fd, unsigned int cmd, void *arg);
