@@ -67,14 +67,20 @@ OBJS+=$(O)/sys/debug.o \
 
 OBJS+=$(O)/sys/driver/pci/pci.o \
 	  $(O)/sys/driver/pci/pcidb.o \
-	  $(O)/sys/driver/ata/ahci.o
+	  $(O)/sys/driver/ata/ahci.o \
+	  $(O)/sys/driver/usb/usb_uhci.o \
+	  $(O)/sys/driver/usb/usb.o \
+	  $(O)/sys/driver/usb/driver.o \
+	  $(O)/sys/driver/usb/device.o \
+	  $(O)/sys/driver/usb/usbkbd.o
 
 DIRS+=$(O)/sys/fs \
 	  $(O)/sys/fs/ext2 \
 	  $(O)/sys/char \
 	  $(O)/sys/block \
 	  $(O)/sys/driver/pci \
-	  $(O)/sys/driver/ata
+	  $(O)/sys/driver/ata \
+	  $(O)/sys/driver/usb
 
 ifeq ($(DEBUG_COUNTERS),1)
 CFLAGS+=-DDEBUG_COUNTERS

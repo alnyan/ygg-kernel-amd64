@@ -212,7 +212,7 @@ void sched_reboot(unsigned int cmd) {
 
 void sched_init(void) {
     thread_init(&thread_idle, (uintptr_t) idle, 0, 0);
-    thread_idle.pid = -1;
+    thread_idle.pid = 0;
 }
 
 void sched_enter(void) {

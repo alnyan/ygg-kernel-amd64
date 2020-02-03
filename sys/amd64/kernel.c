@@ -1,5 +1,6 @@
 #include "sys/amd64/hw/rs232.h"
 #include "sys/driver/pci/pci.h"
+#include "sys/driver/usb/usb.h"
 #include "sys/amd64/hw/apic.h"
 #include "sys/amd64/hw/acpi.h"
 #include "sys/amd64/mm/phys.h"
@@ -88,6 +89,7 @@ void kernel_main(struct amd64_loader_data *data) {
 
     sched_init();
     sysfs_populate();
+    usb_daemon_start();
     user_init_start();
     sched_enter();
 
