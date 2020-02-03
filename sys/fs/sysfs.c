@@ -165,7 +165,7 @@ static int proc_property_getter(void *ctx, char *buf, size_t lim) {
         sysfs_buf_printf(buf, lim, "%d\n", (int) thr->pid);
         break;
     case PROC_PROP_NAME:
-        sysfs_buf_puts(buf, lim, "TODO");
+        sysfs_buf_puts(buf, lim, thr->name);
         sysfs_buf_puts(buf, lim, "\n");
         break;
     }

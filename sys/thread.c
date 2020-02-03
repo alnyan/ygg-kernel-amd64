@@ -120,6 +120,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     thr->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
     thr->data.rsp0_size = MM_PAGE_SIZE * 2;
     thr->data.rsp0_top = thr->data.rsp0_base + thr->data.rsp0_size;
+    thr->name[0] = 0;
 
     uint64_t *stack = (uint64_t *) (thr->data.rsp0_base + thr->data.rsp0_size);
 
@@ -396,6 +397,15 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
         kerror("execve(%s): %s\n", path, kstrerror(res));
         return res;
     }
+
+    const char *e = strrchr(path, '/');
+    const char *name = e + 1;
+    if (!e) {
+        name = path;
+    }
+    size_t name_len = MIN(strlen(name), sizeof(thr->name) - 1);
+    strncpy(thr->name, name, name_len);
+    thr->name[name_len] = 0;
 
     // Copy args
     _assert(argv);

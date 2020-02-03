@@ -43,6 +43,7 @@ struct thread {
     uint64_t sigq;
 
     // State
+    char name[256];
     pid_t pid;
     pid_t pgid;
     enum thread_state state;

@@ -91,7 +91,14 @@ static void sched_debug_tree(int level, struct thread *thr, int depth) {
         debugs(level, "  ");
     }
 
-    debugf(level, "%d ", thr->pid);
+    if (thr->name[0]) {
+        debugf(level, "%s (", thr->name);
+    }
+    debugf(level, "%d", thr->pid);
+    if (thr->name[0]) {
+        debugc(level, ')');
+    }
+    debugc(level, ' ');
 
     switch (thr->state) {
     case THREAD_RUNNING:
@@ -108,6 +115,9 @@ static void sched_debug_tree(int level, struct thread *thr, int depth) {
         break;
     case THREAD_STOPPED:
         debugs(level, "STOP");
+        break;
+    case THREAD_WAITING_PID:
+        debugs(level, "CHLD");
         break;
     default:
         debugs(level, "UNKN");
