@@ -1,4 +1,4 @@
-#include "sys/amd64/cpu.h"
+#include "arch/amd64/cpu.h"
 #include "sys/char/ring.h"
 #include "sys/char/line.h"
 #include "sys/char/chr.h"

@@ -1,5 +1,5 @@
 #pragma once
-#include "sys/user/termios.h"
+#include "user/termios.h"
 #include "sys/char/ring.h"
 #include "sys/types.h"
 

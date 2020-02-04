@@ -1,6 +1,8 @@
 #pragma once
-#include "sys/amd64/asm/asm_thread.h"
-#include "sys/fs/vfs.h"
+#if defined(ARCH_AMD64)
+#include "arch/amd64/asm/asm_thread.h"
+#endif
+#include "fs/vfs.h"
 #include "sys/mm.h"
 
 #define THREAD_MAX_FDS          16

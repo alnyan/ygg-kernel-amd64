@@ -1,6 +1,6 @@
-#include "sys/user/errno.h"
+#include "user/errno.h"
 #include "sys/block/blk.h"
-#include "sys/fs/node.h"
+#include "fs/node.h"
 #include "sys/string.h"
 #include "sys/assert.h"
 #include "sys/debug.h"

@@ -1,5 +1,5 @@
-#include "sys/user/errno.h"
-#include "sys/amd64/cpu.h"
+#include "user/errno.h"
+#include "arch/amd64/cpu.h"
 #include "sys/char/chr.h"
 #include "sys/assert.h"
 #include "sys/string.h"

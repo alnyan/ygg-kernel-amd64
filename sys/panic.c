@@ -1,7 +1,7 @@
 #if defined(AMD64_SMP)
-#include "sys/amd64/smp/ipi.h"
-#include "sys/amd64/smp/smp.h"
-#include "sys/amd64/cpu.h"
+#include "arch/amd64/smp/ipi.h"
+#include "arch/amd64/smp/smp.h"
+#include "arch/amd64/cpu.h"
 #endif
 #include "sys/panic.h"
 #include "sys/debug.h"

@@ -47,16 +47,6 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/block/ram.o \
 	  $(O)/sys/block/blk.o \
 	  $(O)/sys/dev.o \
-	  $(O)/sys/fs/vfs.o \
-	  $(O)/sys/fs/vfs_ops.o \
-	  $(O)/sys/fs/vfs_access.o \
-	  $(O)/sys/fs/fs_class.o \
-	  $(O)/sys/fs/node.o \
-	  $(O)/sys/fs/tar.o \
-	  $(O)/sys/fs/sysfs.o \
-	  $(O)/sys/fs/ext2/block.o \
-	  $(O)/sys/fs/ext2/ext2.o \
-	  $(O)/sys/fs/ext2/node.o \
 	  $(O)/sys/time.o \
 	  $(O)/sys/sys_file.o \
 	  $(O)/sys/sys_sys.o \
@@ -67,24 +57,35 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/font/logo.o \
 	  $(O)/sys/font/psf.o \
 	  $(O)/sys/font/default8x16.o
-
-OBJS+=$(O)/sys/driver/pci/pci.o \
-	  $(O)/sys/driver/pci/pcidb.o \
-	  $(O)/sys/driver/ata/ahci.o \
-	  $(O)/sys/driver/usb/usb_uhci.o \
-	  $(O)/sys/driver/usb/usb.o \
-	  $(O)/sys/driver/usb/driver.o \
-	  $(O)/sys/driver/usb/device.o \
-	  $(O)/sys/driver/usb/usbkbd.o
-
-DIRS+=$(O)/sys/fs \
-	  $(O)/sys/fs/ext2 \
+DIRS+=$(O)/sys \
 	  $(O)/sys/char \
 	  $(O)/sys/block \
-	  $(O)/sys/font \
-	  $(O)/sys/driver/pci \
-	  $(O)/sys/driver/ata \
-	  $(O)/sys/driver/usb
+	  $(O)/sys/font
+
+OBJS+=$(O)/fs/vfs.o \
+	  $(O)/fs/vfs_ops.o \
+	  $(O)/fs/vfs_access.o \
+	  $(O)/fs/fs_class.o \
+	  $(O)/fs/node.o \
+	  $(O)/fs/tar.o \
+	  $(O)/fs/sysfs.o \
+	  $(O)/fs/ext2/block.o \
+	  $(O)/fs/ext2/ext2.o \
+	  $(O)/fs/ext2/node.o
+DIRS+=$(O)/fs \
+	  $(O)/fs/ext2
+
+OBJS+=$(O)/drivers/pci/pci.o \
+	  $(O)/drivers/pci/pcidb.o \
+	  $(O)/drivers/ata/ahci.o \
+	  $(O)/drivers/usb/usb_uhci.o \
+	  $(O)/drivers/usb/usb.o \
+	  $(O)/drivers/usb/driver.o \
+	  $(O)/drivers/usb/device.o \
+	  $(O)/drivers/usb/usbkbd.o
+DIRS+=$(O)/drivers/pci \
+	  $(O)/drivers/ata \
+	  $(O)/drivers/usb
 
 ifeq ($(DEBUG_COUNTERS),1)
 CFLAGS+=-DDEBUG_COUNTERS

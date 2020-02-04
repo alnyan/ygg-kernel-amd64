@@ -1,5 +1,9 @@
 #pragma once
-#include "sys/amd64/loader/data.h"
+#if defined(ARCH_AMD64)
+// For KERNEL_CMDLINE_MAX
+#include "arch/amd64/loader/data.h"
+#endif
+
 #include "sys/types.h"
 
 enum {

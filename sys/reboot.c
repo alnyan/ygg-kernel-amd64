@@ -1,6 +1,6 @@
-#include "sys/amd64/acpica/acpi.h"
-#include "sys/amd64/hw/io.h"
-#include "sys/user/reboot.h"
+#include "arch/amd64/acpica/acpi.h"
+#include "arch/amd64/hw/io.h"
+#include "user/reboot.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
 

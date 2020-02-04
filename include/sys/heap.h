@@ -61,5 +61,5 @@ void heap_free(heap_t *heap, void *ptr);
 void heap_stat(heap_t *heap, struct heap_stat *st);
 
 #if defined(ARCH_AMD64)
-#include "sys/amd64/mm/heap.h"
+#include "arch/amd64/mm/heap.h"
 #endif

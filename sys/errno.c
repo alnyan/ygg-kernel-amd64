@@ -1,4 +1,4 @@
-#include "sys/user/errno.h"
+#include "user/errno.h"
 
 const char *kstrerror(int e) {
     switch (e) {

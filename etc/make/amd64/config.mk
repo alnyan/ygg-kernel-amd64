@@ -13,7 +13,7 @@ DEFINES+=-DVESA_ENABLE=1 \
 		 -DVESA_HEIGHT=$(VESA_HEIGHT) \
 		 -DVESA_DEPTH=$(VESA_DEPTH) \
 		 -DVESA_MODE=0
-OBJS+=$(O)/sys/amd64/hw/vesa.o
+OBJS+=$(O)/arch/amd64/hw/vesa.o
 endif
 
 ### From config

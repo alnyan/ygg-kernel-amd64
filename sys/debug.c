@@ -8,8 +8,8 @@
 #include <stdint.h>
 
 #if defined(ARCH_AMD64)
-#include "sys/amd64/hw/rs232.h"
-#include "sys/amd64/hw/con.h"
+#include "arch/amd64/hw/rs232.h"
+#include "arch/amd64/hw/con.h"
 #endif
 
 ////
