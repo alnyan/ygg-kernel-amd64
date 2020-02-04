@@ -8,6 +8,7 @@
 #include "arch/amd64/cpu.h"
 #include "arch/amd64/fpu.h"
 #include "sys/string.h"
+#include "sys/panic.h"
 #include "sys/sched.h"
 #include "sys/debug.h"
 
@@ -66,18 +67,15 @@ static void amd64_ap_code_entry(void) {
     // Enable LAPIC timer
     amd64_timer_init();
 
-    amd64_syscall_init();
+    syscall_init();
 
     do {
         asm volatile ("sti; hlt; cli");
     } while (!sched_ready);
 
-    // Set a real irq0 to perform context switches
-    amd64_idt_set(cpu->processor_id, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    sched_enter();
 
-    while (1) {
-        asm ("sti; hlt");
-    }
+    panic("cpu%u failed to start scheduler\n", cpu->processor_id);
 }
 
 void amd64_load_ap_code(void) {
@@ -172,6 +170,6 @@ void amd64_smp_init(void) {
         amd64_smp_ap_initialize(i);
     }
 
-    sched_set_cpu_count(smp_ncpus);
+    sched_set_ncpus(smp_ncpus);
 }
 

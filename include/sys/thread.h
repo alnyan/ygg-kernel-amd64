@@ -62,6 +62,7 @@ struct thread {
     struct thread *g_prev, *g_next;
 
     // Scheduler
+    int cpu;
     struct thread *prev, *next;
 };
 

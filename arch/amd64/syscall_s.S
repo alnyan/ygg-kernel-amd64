@@ -28,7 +28,11 @@ syscall_entry:
     jz 1f
     movq %rcx, %rax
     movq %r10, %rcx
+    // Allow interrupts during all system calls. They may then selectively
+    // enter regions where interrupts are disallowed
+    sti
     call *%rax
+    cli
     jmp 2f
 1:
     movq %rax, %rdi

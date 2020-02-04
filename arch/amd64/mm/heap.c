@@ -3,6 +3,7 @@
 #include "sys/assert.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
+#include "sys/spin.h"
 #include "sys/mm.h"
 
 #define HEAP_MAGIC 0x1BAD83A0
@@ -19,6 +20,8 @@ static struct kernel_heap {
 } amd64_global_heap;
 heap_t *heap_global = &amd64_global_heap;
 
+static spin_t heap_lock = 0;
+
 void heap_trace(int type, const char *file, const char *func, int line, void *ptr, size_t count) {
     if (type == HEAP_TRACE_ALLOC) {
         // Don't want fucktons of ACPI crap
@@ -34,6 +37,8 @@ void heap_trace(int type, const char *file, const char *func, int line, void *pt
 }
 
 void heap_stat(heap_t *heap, struct heap_stat *st) {
+    uintptr_t irq;
+    spin_lock_irqsave(&heap_lock, &irq);
     heap_block_t *begin = (heap_block_t *) MM_VIRTUALIZE(heap->phys_base);
 
     st->alloc_count = 0;
@@ -52,6 +57,7 @@ void heap_stat(heap_t *heap, struct heap_stat *st) {
             st->free_size += block->size;
         }
     }
+    spin_release_irqrestore(&heap_lock, &irq);
 }
 
 void amd64_heap_init(heap_t *heap, uintptr_t phys_base, size_t sz) {
@@ -77,7 +83,8 @@ void amd64_heap_init(heap_t *heap, uintptr_t phys_base, size_t sz) {
 
 // Heap interface implementation
 void *heap_alloc(heap_t *heap, size_t count) {
-    asm volatile ("cli");
+    uintptr_t irq;
+    spin_lock_irqsave(&heap_lock, &irq);
     heap_block_t *begin = (heap_block_t *) MM_VIRTUALIZE(heap->phys_base);
 
     // Some alignment fuck ups led me to this
@@ -96,6 +103,7 @@ void *heap_alloc(heap_t *heap, size_t count) {
 
         if (count == block->size) {
             block->magic |= 1;
+            spin_release_irqrestore(&heap_lock, &irq);
             return (void *) ((uintptr_t) block + sizeof(heap_block_t));
         } else if (block->size >= count + sizeof(heap_block_t)) {
             // Insert new block after this one
@@ -111,18 +119,21 @@ void *heap_alloc(heap_t *heap, size_t count) {
             block->next = new_block;
             block->size = count;
             block->magic |= 1;
+            spin_release_irqrestore(&heap_lock, &irq);
             return (void *) ((uintptr_t) block + sizeof(heap_block_t));
         }
     }
 
+    spin_release_irqrestore(&heap_lock, &irq);
     return NULL;
 }
 
 void heap_free(heap_t *heap, void *ptr) {
-    asm volatile ("cli");
     if (!ptr) {
         return;
     }
+    uintptr_t irq;
+    spin_lock_irqsave(&heap_lock, &irq);
 
     if (ptr == (void *) 0xffffff00042ddd70) {
     }
@@ -174,6 +185,8 @@ void heap_free(heap_t *heap, void *ptr) {
         next->magic = 0;
         block->size += sizeof(heap_block_t) + next->size;
     }
+
+    spin_release_irqrestore(&heap_lock, &irq);
 }
 
 // amd64-specific

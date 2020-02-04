@@ -11,14 +11,25 @@
 #include "sys/sched.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
+#include "sys/spin.h"
 #include "sys/mm.h"
 
 void yield(void);
 
 //// Thread queueing
 
-static struct thread *queue_head = NULL;
-static struct thread thread_idle = {0};
+static struct thread *queue_heads[AMD64_MAX_SMP] = {NULL};
+static struct thread threads_idle[AMD64_MAX_SMP] = {0};
+static size_t queue_sizes[AMD64_MAX_SMP] = {0};
+int sched_ncpus = 1;
+int sched_ready = 0;
+
+static spin_t sched_lock = 0;
+
+void sched_set_ncpus(int ncpus) {
+    kinfo("Setting ncpus to %d\n", ncpus);
+    sched_ncpus = ncpus;
+}
 
 static void *idle(void *arg) {
     while (1) {
@@ -29,29 +40,63 @@ static void *idle(void *arg) {
 
 ////
 
-void sched_queue(struct thread *thr) {
-    asm volatile ("cli");
+void sched_queue_to(struct thread *thr, int cpu_no) {
+    uintptr_t irq;
+    spin_lock_irqsave(&sched_lock, &irq);
     _assert(thr);
     thr->state = THREAD_READY;
+    thr->cpu = cpu_no;
 
-    if (queue_head) {
-        struct thread *queue_tail = queue_head->prev;
+    if (queue_heads[cpu_no]) {
+        struct thread *queue_tail = queue_heads[cpu_no]->prev;
 
         queue_tail->next = thr;
         thr->prev = queue_tail;
-        queue_head->prev = thr;
-        thr->next = queue_head;
+        queue_heads[cpu_no]->prev = thr;
+        thr->next = queue_heads[cpu_no];
     } else {
         thr->next = thr;
         thr->prev = thr;
 
-        queue_head = thr;
+        queue_heads[cpu_no] = thr;
     }
+
+    ++queue_sizes[cpu_no];
+    spin_release_irqrestore(&sched_lock, &irq);
+}
+
+void sched_queue(struct thread *thr) {
+    size_t min_queue_size = (size_t) -1;
+    int min_queue_index = 0;
+    uintptr_t irq;
+    spin_lock_irqsave(&sched_lock, &irq);
+
+    for (int i = 0; i < sched_ncpus; ++i) {
+        if (queue_sizes[i] < min_queue_size) {
+            min_queue_index = i;
+            min_queue_size = queue_sizes[i];
+        }
+    }
+    spin_release_irqrestore(&sched_lock, &irq);
+
+    sched_queue_to(thr, min_queue_index);
 }
 
 void sched_unqueue(struct thread *thr, enum thread_state new_state) {
-    asm volatile ("cli");
+    uintptr_t irq;
+    spin_lock_irqsave(&sched_lock, &irq);
+
     struct cpu *cpu = get_cpu();
+#if defined(AMD64_SMP)
+    _assert(thr->cpu >= 0);
+    if ((int) cpu->processor_id != thr->cpu) {
+        // Need to ask another CPU to unqueue the task
+        panic("TODO: implement cross-CPU unqueue\n");
+    }
+#endif
+    thr->cpu = -1;
+    int cpu_no = cpu->processor_id;
+
     struct thread *prev = thr->prev;
     struct thread *next = thr->next;
 
@@ -59,6 +104,8 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
             (new_state == THREAD_STOPPED) ||
             (new_state == THREAD_WAITING_IO) ||
             (new_state == THREAD_WAITING_PID));
+    _assert(queue_sizes[cpu_no]);
+    --queue_sizes[cpu_no];
     thr->state = new_state;
 
     thread_check_signal(thr, 0);
@@ -67,14 +114,16 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
         thr->next = NULL;
         thr->prev = NULL;
 
-        queue_head = NULL;
-        cpu->thread = &thread_idle;
-        context_switch_to(&thread_idle, thr);
+        queue_heads[cpu_no] = NULL;
+        spin_release_irqrestore(&sched_lock, &irq);
+
+        cpu->thread = &threads_idle[cpu_no];
+        context_switch_to(&threads_idle[cpu_no], thr);
         return;
     }
 
-    if (thr == queue_head) {
-        queue_head = next;
+    if (thr == queue_heads[cpu_no]) {
+        queue_heads[cpu_no] = next;
     }
 
     _assert(thr && next && prev);
@@ -85,6 +134,7 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
     thr->prev = NULL;
     thr->next = NULL;
 
+    spin_release_irqrestore(&sched_lock, &irq);
     if (thr == cpu->thread) {
         cpu->thread = next;
         context_switch_to(next, thr);
@@ -99,7 +149,7 @@ static void sched_debug_tree(int level, struct thread *thr, int depth) {
     if (thr->name[0]) {
         debugf(level, "%s (", thr->name);
     }
-    debugf(level, "%d", thr->pid);
+    debugf(level, "%d @ %d", thr->pid, thr->cpu);
     if (thr->name[0]) {
         debugc(level, ')');
     }
@@ -146,38 +196,46 @@ static void sched_debug_tree(int level, struct thread *thr, int depth) {
 }
 
 void sched_debug_cycle(uint64_t delta_ms) {
-    struct thread *thr = queue_head;
     extern struct thread user_init;
 
     struct heap_stat st;
     struct amd64_phys_stat phys_st;
     struct amd64_pool_stat pool_st;
 
-    return;
+    for (int cpu = 0; cpu < sched_ncpus; ++cpu) {
+        debugf(DEBUG_DEFAULT, "cpu%d: ", cpu);
+
+        struct thread *head = queue_heads[cpu];
+        if (head) {
+            struct thread *tail = head->prev;
+
+            do {
+                if (head->name[0]) {
+                    debugf(DEBUG_DEFAULT, "%s (", head->name);
+                }
+                debugf(DEBUG_DEFAULT, "%d", head->pid);
+                if (head->name[0]) {
+                    debugc(DEBUG_DEFAULT, ')');
+                }
+
+                if (head == tail) {
+                    break;
+                } else {
+                    debugs(DEBUG_DEFAULT, ", ");
+                }
+                head = head->next;
+            } while (1);
+
+            debugs(DEBUG_DEFAULT, "\n");
+        } else {
+            debugs(DEBUG_DEFAULT, "[idle]\n");
+        }
+    }
 
     kdebug("--- DEBUG_CYCLE ---\n");
 
     debugs(DEBUG_DEFAULT, "Process tree:\n");
     sched_debug_tree(DEBUG_DEFAULT, &user_init, 0);
-
-    if (thr) {
-        debugs(DEBUG_DEFAULT, "cpu: ");
-        struct thread *queue_tail = thr->prev;
-        while (1) {
-            debugf(DEBUG_DEFAULT, "%d%c", thr->pid,
-                    ((thr->state == THREAD_RUNNING) ? 'R' : (thr->state == THREAD_READY ? '-' : '?')));
-
-            if (thr == queue_tail) {
-                break;
-            } else {
-                debugs(DEBUG_DEFAULT, ", ");
-            }
-            thr = thr->next;
-        }
-        debugc(DEBUG_DEFAULT, '\n');
-    } else {
-        kdebug("--- IDLE\n");
-    }
 
     heap_stat(heap_global, &st);
     kdebug("Heap stat:\n");
@@ -205,15 +263,16 @@ void sched_debug_cycle(uint64_t delta_ms) {
 }
 
 void yield(void) {
-    struct thread *from = get_cpu()->thread;
+    struct cpu *cpu = get_cpu();
+    struct thread *from = cpu->thread;
     struct thread *to;
 
     if (from && from->next) {
         to = from->next;
-    } else if (queue_head) {
-        to = queue_head;
+    } else if (queue_heads[cpu->processor_id]) {
+        to = queue_heads[cpu->processor_id];
     } else {
-        to = &thread_idle;
+        to = &threads_idle[cpu->processor_id];
     }
 
     // Check if instead of switching to a proper thread context we
@@ -225,7 +284,7 @@ void yield(void) {
     }
 
     to->state = THREAD_RUNNING;
-    get_cpu()->thread = to;
+    cpu->thread = to;
 
     context_switch_to(to, from);
 }
@@ -246,20 +305,28 @@ void sched_reboot(unsigned int cmd) {
 }
 
 void sched_init(void) {
-    thread_init(&thread_idle, (uintptr_t) idle, 0, 0);
-    thread_idle.pid = 0;
+    for (int i = 0; i < sched_ncpus; ++i) {
+        thread_init(&threads_idle[i], (uintptr_t) idle, 0, 0);
+        threads_idle[i].cpu = i;
+        threads_idle[i].pid = 0;
+    }
+
+    sched_ready = 1;
 }
 
 void sched_enter(void) {
-    extern void amd64_irq0(void);
-    amd64_idt_set(0, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+    struct cpu *cpu = get_cpu();
+    kinfo("cpu%u entering sched\n", cpu->processor_id);
 
-    struct thread *first_task = queue_head;
+    extern void amd64_irq0(void);
+    amd64_idt_set(cpu->processor_id, 32, (uintptr_t) amd64_irq0, 0x08, IDT_FLG_P | IDT_FLG_R0 | IDT_FLG_INT32);
+
+    struct thread *first_task = queue_heads[cpu->processor_id];
     if (!first_task) {
-        first_task = &thread_idle;
+        first_task = &threads_idle[cpu->processor_id];
     }
 
     first_task->state = THREAD_RUNNING;
-    get_cpu()->thread = first_task;
+    cpu->thread = first_task;
     context_switch_first(first_task);
 }

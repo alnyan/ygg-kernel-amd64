@@ -19,16 +19,17 @@ extern int _kernel_end;
 void amd64_mm_init(struct amd64_loader_data *data) {
     kdebug("Memory manager init\n");
 
-    {
-        // TODO: make NX optional via config
-        if (!(cpuid_ext_features_edx & CPUID_EXT_EDX_FEATURE_NX)) {
-            panic("NX is not supported\n");
-        }
+    // TODO: restore NX and do it per-CPU
+    //{
+    //    // TODO: make NX optional via config
+    //    if (!(cpuid_ext_features_edx & CPUID_EXT_EDX_FEATURE_NX)) {
+    //        panic("NX is not supported\n");
+    //    }
 
-        uint64_t efer = rdmsr(MSR_IA32_EFER);
-        efer |= IA32_EFER_NXE;
-        wrmsr(MSR_IA32_EFER, efer);
-    }
+    //    uint64_t efer = rdmsr(MSR_IA32_EFER);
+    //    efer |= IA32_EFER_NXE;
+    //    wrmsr(MSR_IA32_EFER, efer);
+    //}
 
     // Physical memory at this point:
     //  0x000000 - 0x400000 - Used by kernel and info passed from the loader
@@ -45,6 +46,9 @@ void amd64_mm_init(struct amd64_loader_data *data) {
     // 0x0000000000000000 -> 0 Mapping for AP bootstrapping
     // pml4[0] = ((uintptr_t) pdpt) | 1 | 2 | 4;
     // 0xFFFFFF0000000000 -> 0 (512GiB) mapping
+    pml4[0]                                        = ((uintptr_t) pdpt) |
+                                                     MM_PAGE_PRESENT |
+                                                     MM_PAGE_WRITE;
     pml4[AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 39] = ((uintptr_t) pdpt) |
                                                      MM_PAGE_PRESENT |
                                                      MM_PAGE_GLOBAL |

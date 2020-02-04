@@ -3,6 +3,7 @@
 #include "drivers/usb/usb.h"
 #include "arch/amd64/hw/vesa.h"
 #include "arch/amd64/hw/apic.h"
+#include "arch/amd64/smp/smp.h"
 #include "arch/amd64/hw/acpi.h"
 #include "arch/amd64/mm/phys.h"
 #include "arch/amd64/syscall.h"
@@ -89,9 +90,12 @@ void kernel_main(struct amd64_loader_data *data) {
 
     amd64_make_random_seed();
 
+#if defined(AMD64_SMP)
+    amd64_smp_init();
+#endif
+    sched_init();
     syscall_init();
 
-    sched_init();
     sysfs_populate();
     usb_daemon_start();
     user_init_start();

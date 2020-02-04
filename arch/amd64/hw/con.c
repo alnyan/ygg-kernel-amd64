@@ -4,8 +4,9 @@
 #include "sys/string.h"
 #include "sys/types.h"
 #include "sys/debug.h"
-#include "sys/heap.h"
 #include "sys/panic.h"
+#include "sys/spin.h"
+#include "sys/heap.h"
 #include "sys/mm.h"
 
 #if defined(VESA_ENABLE)
@@ -15,6 +16,8 @@
 #else
 #define vesa_available 0
 #endif
+
+static spin_t display_lock = 0;
 
 #define ESC_ESC     1
 #define ESC_CSI     2
@@ -306,6 +309,9 @@ void amd64_con_putc(int c) {
         return;
     }
 
+    uintptr_t irq;
+    spin_lock_irqsave(&display_lock, &irq);
+
     c = (uint8_t) (c & 0xFF);
 
     switch (esc_mode) {
@@ -335,6 +341,8 @@ void amd64_con_putc(int c) {
             esc_mode = ESC_ESC;
             esc_argv[0] = 0;
             esc_argc = 0;
+
+            spin_release_irqrestore(&display_lock, &irq);
             return;
         }
         if (c >= ' ') {
@@ -358,11 +366,14 @@ void amd64_con_putc(int c) {
                 break;
             default:
                 amd64_con_putc('?');
+                spin_release_irqrestore(&display_lock, &irq);
                 return;
             }
         }
         break;
     }
+
+    spin_release_irqrestore(&display_lock, &irq);
 }
 
 int pc_con_putc(void *dev, char c) {

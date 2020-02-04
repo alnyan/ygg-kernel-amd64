@@ -181,6 +181,10 @@ void thread_cleanup(struct thread *thr) {
 }
 
 void thread_free(struct thread *thr) {
+    // Sure that no code of this thread will be running anymore -
+    // can clean up its stuff
+    thread_cleanup(thr);
+
     _assert(thr->flags & THREAD_STOPPED);
     _assert(thr->flags & THREAD_EMPTY);
 
@@ -561,7 +565,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     thr->data.rsp0 = thr->data.rsp0_top;
 
     // Allocate a new user stack
-    uintptr_t ustack = vmalloc(thr->space, 0x100000, 0xF0000000, 4, MM_PAGE_USER | MM_PAGE_WRITE | MM_PAGE_NOEXEC);
+    uintptr_t ustack = vmalloc(thr->space, 0x100000, 0xF0000000, 4, MM_PAGE_USER | MM_PAGE_WRITE /* | MM_PAGE_NOEXEC */);
     thr->data.rsp3_base = ustack;
     thr->data.rsp3_size = 4 * MM_PAGE_SIZE;
 
@@ -592,10 +596,6 @@ __attribute__((noreturn)) void sys_exit(int status) {
         thread_signal(thr->parent, SIGCHLD);
     }
 
-    // Sure that no code of this thread will be running anymore -
-    // can clean up its stuff
-    thread_cleanup(thr);
-
     sched_unqueue(thr, THREAD_STOPPED);
     panic("This code shouldn't run\n");
 }
@@ -619,9 +619,6 @@ int sys_waitpid(pid_t pid, int *status) {
         kdebug("Waken up by some other signal, continuing\n");
         thread_check_signal(thr, 0);
     }
-
-    // Make sure no platform context remains
-    _assert(chld->flags & THREAD_EMPTY);
 
     if (status) {
         *status = chld->exit_status;
@@ -650,9 +647,19 @@ void sys_sigreturn(void) {
 }
 
 void thread_signal(struct thread *thr, int signum) {
-    if (thr == thread_self) {
+    if (thr->cpu == (int) get_cpu()->processor_id) {
+        _assert(thr == thread_self);
         kdebug("Signal will be handled now\n");
         thread_sigenter(signum);
+    } else if (thr->cpu >= 0) {
+        kdebug("Signal will be handled later (other CPU)\n");
+        thread_signal_set(thr, signum);
+
+        if (thr->state == THREAD_WAITING) {
+            timer_remove_sleep(thr);
+        }
+
+        sched_queue(thr);
     } else {
         kdebug("Signal will be handled later\n");
         thread_signal_set(thr, signum);
