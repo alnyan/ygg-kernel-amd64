@@ -14,7 +14,7 @@ spin_lock_irqsave:
 
 spin_lock:
     // %rdi - spinlock
-    lock bts $1, (%rdi)
+    lock bts $0, (%rdi)
     jc 1f
     retq
 

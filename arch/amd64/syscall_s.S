@@ -3,6 +3,7 @@
 .section .text
 .global syscall_entry
 syscall_entry:
+    swapgs
     // %rcx - user rip
     // %rsp - user stack
     // %r11 - user rflags
@@ -48,6 +49,7 @@ syscall_entry:
 
     movq %rdi, %rsp
 
+    swapgs
     sysretq
 
 _syscall_fork:
@@ -98,4 +100,5 @@ _syscall_fork:
 
     movq %rdi, %rsp
 
+    swapgs
     sysretq

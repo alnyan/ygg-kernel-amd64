@@ -7,13 +7,16 @@
 
 amd64_irq0_early:
     cli
+    swapgs_if_needed
     pushq %rax
     irq_eoi_lapic 0
     popq %rax
+    swapgs_if_needed
     iretq
 
 amd64_irq0:
     cli
+    swapgs_if_needed
 
     // Push caller-saved registers so it appears as if a thread just called yield()
     pushq %r11
@@ -38,6 +41,8 @@ amd64_irq0:
     popq %r9
     popq %r10
     popq %r11
+
+    swapgs_if_needed
     iretq
 
 amd64_irq2_counting:

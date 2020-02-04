@@ -160,6 +160,7 @@ void amd64_smp_bsp_configure(void) {
     cpus[0].processor_id = 0;
     cpus[0].apic_id = 0 /* TODO: apic_id may be different from 0 for BSP */;
     cpus[0].tss = amd64_tss_get(0);
+    cpus[0].thread = NULL;
     set_cpu((uintptr_t) &cpus[0]);
 }
 

@@ -4,6 +4,7 @@
 #include "sys/debug.h"
 #include "sys/panic.h"
 #include "sys/string.h"
+#include "sys/spin.h"
 
 static struct {
     uint64_t track[512];
@@ -12,7 +13,12 @@ static struct {
     size_t size;
 } amd64_mm_pool;
 
+static spin_t pool_lock = 0;
+
 void amd64_mm_pool_stat(struct amd64_pool_stat *st) {
+    uintptr_t irq;
+    spin_lock_irqsave(&pool_lock, &irq);
+
     st->pages_free = 0;
     st->pages_used = 0;
 
@@ -25,9 +31,13 @@ void amd64_mm_pool_stat(struct amd64_pool_stat *st) {
             }
         }
     }
+
+    spin_release_irqrestore(&pool_lock, &irq);
 }
 
 uint64_t *amd64_mm_pool_alloc(void) {
+    uintptr_t irq;
+    spin_lock_irqsave(&pool_lock, &irq);
     uint64_t *r = NULL;
 
     for (size_t i = amd64_mm_pool.index_last; i < amd64_mm_pool.size >> 18; ++i) {
@@ -37,6 +47,7 @@ uint64_t *amd64_mm_pool_alloc(void) {
                 amd64_mm_pool.track[i] |= (1ULL << j);
                 amd64_mm_pool.index_last = i;
                 memset(r, 0, 4096);
+                spin_release_irqrestore(&pool_lock, &irq);
                 return r;
             }
         }
@@ -49,15 +60,19 @@ uint64_t *amd64_mm_pool_alloc(void) {
                 amd64_mm_pool.track[i] |= (1ULL << j);
                 amd64_mm_pool.index_last = i;
                 memset(r, 0, 4096);
+                spin_release_irqrestore(&pool_lock, &irq);
                 return r;
             }
         }
     }
 
+    spin_release_irqrestore(&pool_lock, &irq);
     return NULL;
 }
 
 void amd64_mm_pool_free(uint64_t *page) {
+    uintptr_t irq;
+    spin_lock_irqsave(&pool_lock, &irq);
     uintptr_t a = (uintptr_t) page;
 
     if (a < amd64_mm_pool.start || a >= (amd64_mm_pool.start + amd64_mm_pool.size)) {
@@ -72,6 +87,7 @@ void amd64_mm_pool_free(uint64_t *page) {
     assert(amd64_mm_pool.track[i] & (1ULL << j), "Double free error (pool): %p\n", page);
 
     amd64_mm_pool.track[i] &= ~(1ULL << j);
+    spin_release_irqrestore(&pool_lock, &irq);
 }
 
 void amd64_mm_pool_init(uintptr_t begin, size_t size) {

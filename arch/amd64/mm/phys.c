@@ -4,6 +4,7 @@
 #include "sys/panic.h"
 #include "sys/debug.h"
 #include "sys/string.h"
+#include "sys/spin.h"
 #include "sys/mm.h"
 
 extern int _kernel_end_phys;
@@ -24,8 +25,12 @@ extern int _kernel_end_phys;
 static uint64_t amd64_phys_memory_track[PHYS_MAX_INDEX];
 static uint64_t amd64_phys_last_index = 0;
 static uint64_t amd64_phys_ceiling = 0xFFFFFFFF;
+static spin_t alloc_spin = 0;
 
 void amd64_phys_stat(struct amd64_phys_stat *st) {
+    uintptr_t irq;
+    spin_lock_irqsave(&alloc_spin, &irq);
+
     st->pages_free = 0;
     st->pages_used = 0;
     st->limit = amd64_phys_ceiling;
@@ -47,15 +52,20 @@ void amd64_phys_stat(struct amd64_phys_stat *st) {
             }
         }
     }
+
+    spin_release_irqrestore(&alloc_spin, &irq);
 }
 
 // Allocate a single 4K page
 uintptr_t amd64_phys_alloc_page(void) {
+    uintptr_t irq;
+    spin_lock_irqsave(&alloc_spin, &irq);
     for (uint64_t i = amd64_phys_last_index; i < PHYS_MAX_INDEX; ++i) {
         for (uint64_t j = 0; j < 64; ++j) {
             if (!(amd64_phys_memory_track[i] & (1ULL << j))) {
                 amd64_phys_memory_track[i] |= (1ULL << j);
                 amd64_phys_last_index = i;
+                spin_release_irqrestore(&alloc_spin, &irq);
                 return PHYS_ALLOWED_BEGIN + ((i << 18) | (j << 12));
             }
         }
@@ -65,14 +75,20 @@ uintptr_t amd64_phys_alloc_page(void) {
             if (!(amd64_phys_memory_track[i] & (1ULL << j))) {
                 amd64_phys_memory_track[i] |= (1ULL << j);
                 amd64_phys_last_index = i;
+                spin_release_irqrestore(&alloc_spin, &irq);
                 return PHYS_ALLOWED_BEGIN + ((i << 18) | (j << 12));
             }
         }
     }
+
+    spin_release_irqrestore(&alloc_spin, &irq);
     return MM_NADDR;
 }
 
 void amd64_phys_free(uintptr_t page) {
+    uintptr_t irq;
+    spin_lock_irqsave(&alloc_spin, &irq);
+
     // Address is too low
     assert(page >= PHYS_ALLOWED_BEGIN, "The page is outside the physical range: %p\n", page);
     page -= PHYS_ALLOWED_BEGIN;
@@ -86,6 +102,7 @@ void amd64_phys_free(uintptr_t page) {
     assert(amd64_phys_memory_track[index] & bit, "Double free error (phys): %p\n", page + PHYS_ALLOWED_BEGIN);
 
     amd64_phys_memory_track[index] &= ~bit;
+    spin_release_irqrestore(&alloc_spin, &irq);
 }
 
 // XXX: very slow impl.
@@ -97,6 +114,8 @@ uintptr_t amd64_phys_alloc_contiguous(size_t count) {
         // The requested range is too large
         return MM_NADDR;
     }
+    uintptr_t irq;
+    spin_lock_irqsave(&alloc_spin, &irq);
 
     while (addr < (((uint64_t) (PHYS_MAX_INDEX - (count >> 6) - 1)) << 18)) {
         // Check if we can allocate these pages
@@ -115,6 +134,7 @@ uintptr_t amd64_phys_alloc_contiguous(size_t count) {
         }
 
         kdebug("== %p\n", addr + PHYS_ALLOWED_BEGIN);
+        spin_release_irqrestore(&alloc_spin, &irq);
         return PHYS_ALLOWED_BEGIN + addr;
 
         // Found unavailable page in the range, continue searching
@@ -122,6 +142,7 @@ no_match:
         continue;
     }
 
+    spin_release_irqrestore(&alloc_spin, &irq);
     return MM_NADDR;
 }
 

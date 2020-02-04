@@ -648,11 +648,21 @@ void sys_sigreturn(void) {
 
 void thread_signal(struct thread *thr, int signum) {
     if (thr->cpu == (int) get_cpu()->processor_id) {
-        _assert(thr == thread_self);
-        kdebug("Signal will be handled now\n");
-        thread_sigenter(signum);
+        if (thr == thread_self) {
+            kdebug("Signal will be handled now\n");
+            thread_sigenter(signum);
+        } else {
+            kdebug("Signal will be handled later\n");
+            thread_signal_set(thr, signum);
+
+            if (thr->state == THREAD_WAITING) {
+                timer_remove_sleep(thr);
+            }
+
+            sched_queue(thr);
+        }
     } else if (thr->cpu >= 0) {
-        kdebug("Signal will be handled later (other CPU)\n");
+        kdebug("Signal will be handled later (other cpu%d)\n", thr->cpu);
         thread_signal_set(thr, signum);
 
         if (thr->state == THREAD_WAITING) {

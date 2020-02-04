@@ -309,9 +309,6 @@ void amd64_con_putc(int c) {
         return;
     }
 
-    uintptr_t irq;
-    spin_lock_irqsave(&display_lock, &irq);
-
     c = (uint8_t) (c & 0xFF);
 
     switch (esc_mode) {
@@ -342,7 +339,6 @@ void amd64_con_putc(int c) {
             esc_argv[0] = 0;
             esc_argc = 0;
 
-            spin_release_irqrestore(&display_lock, &irq);
             return;
         }
         if (c >= ' ') {
@@ -366,18 +362,18 @@ void amd64_con_putc(int c) {
                 break;
             default:
                 amd64_con_putc('?');
-                spin_release_irqrestore(&display_lock, &irq);
                 return;
             }
         }
         break;
     }
-
-    spin_release_irqrestore(&display_lock, &irq);
 }
 
 int pc_con_putc(void *dev, char c) {
+    uintptr_t irq;
+    spin_lock_irqsave(&display_lock, &irq);
     amd64_con_putc(c);
+    spin_release_irqrestore(&display_lock, &irq);
     return 0;
 }
 

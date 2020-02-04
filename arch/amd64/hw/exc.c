@@ -1,3 +1,8 @@
+#if defined(AMD64_SMP)
+#include "arch/amd64/smp/ipi.h"
+#include "arch/amd64/smp/smp.h"
+#endif
+#include "arch/amd64/cpu.h"
 #include "sys/types.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
@@ -36,6 +41,17 @@ struct amd64_exception_frame {
 };
 
 void amd64_exception(struct amd64_exception_frame *frame) {
+    kfatal("Error\n");
+#if defined(AMD64_SMP)
+    // Send PANIC IPIs to all other CPUs
+    size_t cpu = get_cpu()->processor_id;
+    kfatal("cpu%u initiates panic sequence\n", cpu);
+    for (size_t i = 0; i < smp_ncpus; ++i) {
+        if (i != cpu) {
+            amd64_ipi_send(i, IPI_VECTOR_PANIC);
+        }
+    }
+#endif
     // Dump frame
     kfatal("CPU raised exception #%u\n", frame->exc_no);
 
@@ -107,5 +123,7 @@ void amd64_exception(struct amd64_exception_frame *frame) {
         kfatal("%rip is in unknown location\n");
     }
 
-    panic("Exception without resolution\n");
+    while (1) {
+        asm volatile ("cli; hlt");
+    }
 }

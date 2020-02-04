@@ -5,6 +5,7 @@
 // TODO: use base + off instead of an absolute address
 
 #if defined(__ASM__)
+#include "arch/amd64/asm/asm_cpu.h"
 .extern local_apic
 .extern irq_handle
 
@@ -12,6 +13,7 @@
 .global amd64_irq\n
 amd64_irq\n:
     cli
+    swapgs_if_needed
 
     pushq %r11
     pushq %r10
@@ -36,6 +38,8 @@ amd64_irq\n:
     popq %r9
     popq %r10
     popq %r11
+
+    swapgs_if_needed
     iretq
 .endm
 

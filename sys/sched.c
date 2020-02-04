@@ -108,13 +108,16 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
     --queue_sizes[cpu_no];
     thr->state = new_state;
 
+    spin_release_irqrestore(&sched_lock, &irq);
     thread_check_signal(thr, 0);
+    spin_lock_irqsave(&sched_lock, &irq);
 
     if (next == thr) {
         thr->next = NULL;
         thr->prev = NULL;
 
         queue_heads[cpu_no] = NULL;
+
         spin_release_irqrestore(&sched_lock, &irq);
 
         cpu->thread = &threads_idle[cpu_no];
@@ -263,6 +266,8 @@ void sched_debug_cycle(uint64_t delta_ms) {
 }
 
 void yield(void) {
+    uintptr_t irq;
+    spin_lock_irqsave(&sched_lock, &irq);
     struct cpu *cpu = get_cpu();
     struct thread *from = cpu->thread;
     struct thread *to;
@@ -274,6 +279,8 @@ void yield(void) {
     } else {
         to = &threads_idle[cpu->processor_id];
     }
+
+    spin_release_irqrestore(&sched_lock, &irq);
 
     // Check if instead of switching to a proper thread context we
     // have to use signal handling
