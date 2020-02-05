@@ -167,14 +167,14 @@ static int pci_device_setup(struct pci_device *dev) {
     irq_info = pci_config_read_dword(dev, PCI_CONFIG_IRQ);
     id = pci_config_read_dword(dev, PCI_CONFIG_ID);
 
-    kinfo("%02x:%02x:%02x:\n", dev->bus, dev->dev, dev->func);
-    kinfo(" Class %02x:%02x:%02x\n", (class >> 24), (class >> 16) & 0xFF, (class >> 8) & 0xFF);
-    kinfo(" Device %04x:%04x\n", id & 0xFFFF, (id >> 16) & 0xFFFF);
+    kdebug("%02x:%02x:%02x:\n", dev->bus, dev->dev, dev->func);
+    kdebug(" Class %02x:%02x:%02x\n", (class >> 24), (class >> 16) & 0xFF, (class >> 8) & 0xFF);
+    kdebug(" Device %04x:%04x\n", id & 0xFFFF, (id >> 16) & 0xFFFF);
 
     irq_pin = (irq_info >> 8) & 0xFF;
     if (irq_pin) {
         dev->irq_pin = irq_pin - 1;
-        kinfo(" IRQ pin INT%c#\n", dev->irq_pin + 'A');
+        kdebug(" IRQ pin INT%c#\n", dev->irq_pin + 'A');
     }
 
     if (PCI_IS_EXPRESS(dev)) {
@@ -183,15 +183,15 @@ static int pci_device_setup(struct pci_device *dev) {
 
             switch (link[0]) {
             case 0x05:
-                kinfo(" * MSI capability\n");
+                kdebug(" * MSI capability\n");
                 dev->msi = (struct pci_cap_msi *) link;
                 break;
             case 0x10:
-                kinfo(" * PCIe capability\n");
+                kdebug(" * PCIe capability\n");
                 break;
             default:
                 // Unknown capability
-                kinfo(" * Device capability: %02x\n", link[0]);
+                kdebug(" * Device capability: %02x\n", link[0]);
                 break;
             }
 
@@ -323,12 +323,12 @@ static void pcie_enumerate_segment(uintptr_t base_address, uint16_t seg, uint8_t
 void pci_init(void) {
     if (acpi_mcfg) {
         uint32_t mcfg_entry_count = (acpi_mcfg->hdr.length - sizeof(struct acpi_header) - 8) / sizeof(struct acpi_mcfg_entry);
-        kinfo("MCFG has %u entries:\n", mcfg_entry_count);
+        kdebug("MCFG has %u entries:\n", mcfg_entry_count);
         for (uint32_t i = 0; i < mcfg_entry_count; ++i) {
-            kinfo("%u:\n", i);
-            kinfo("  Base address: %p\n", acpi_mcfg->entry[i].base_address);
-            kinfo("  Segment group #%u\n", acpi_mcfg->entry[i].pci_segment_group);
-            kinfo("  PCI buses: %02x-%02x\n", acpi_mcfg->entry[i].start_pci_bus, acpi_mcfg->entry[i].end_pci_bus);
+            kdebug("%u:\n", i);
+            kdebug("  Base address: %p\n", acpi_mcfg->entry[i].base_address);
+            kdebug("  Segment group #%u\n", acpi_mcfg->entry[i].pci_segment_group);
+            kdebug("  PCI buses: %02x-%02x\n", acpi_mcfg->entry[i].start_pci_bus, acpi_mcfg->entry[i].end_pci_bus);
         }
 
         // Start enumerating buses specified in MCFG
