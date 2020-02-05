@@ -1,6 +1,8 @@
 #include "user/fcntl.h"
 #include "user/errno.h"
 #include "arch/amd64/cpu.h"
+#include "arch/amd64/mm/phys.h"
+#include "arch/amd64/mm/pool.h"
 #include "fs/sysfs.h"
 #include "sys/snprintf.h"
 #include "fs/ofile.h"
@@ -224,8 +226,33 @@ static int system_uptime_getter(void *ctx, char *buf, size_t lim) {
     return 0;
 }
 
+static int system_mem_getter(void *ctx, char *buf, size_t lim) {
+    struct amd64_phys_stat phys_st;
+    struct heap_stat heap_st;
+    struct amd64_pool_stat pool_st;
+
+    amd64_phys_stat(&phys_st);
+    amd64_mm_pool_stat(&pool_st);
+    heap_stat(heap_global, &heap_st);
+
+    sysfs_buf_printf(buf, lim, "PhysTotal:      %u kB\n", phys_st.limit / 1024);
+    sysfs_buf_printf(buf, lim, "PhysFree:       %u kB\n", phys_st.pages_free * 4);
+    sysfs_buf_printf(buf, lim, "PhysUsed:       %u kB\n", phys_st.pages_used * 4);
+
+    sysfs_buf_printf(buf, lim, "PoolTotal:      %u kB\n", MM_POOL_SIZE / 1024);
+    sysfs_buf_printf(buf, lim, "PoolFree:       %u kB\n", pool_st.pages_free * 4);
+    sysfs_buf_printf(buf, lim, "PoolUsed:       %u kB\n", pool_st.pages_used * 4);
+
+    sysfs_buf_printf(buf, lim, "HeapTotal:      %u kB\n", heap_st.total_size / 1024);
+    sysfs_buf_printf(buf, lim, "HeapFree:       %u kB\n", heap_st.free_size / 1024);
+    sysfs_buf_printf(buf, lim, "HeapUsed:       %u kB\n", (heap_st.total_size - heap_st.free_size) / 1024);
+
+    return 0;
+}
+
 void sysfs_populate(void) {
     sysfs_add_config_endpoint("version", SYSFS_MODE_DEFAULT, sizeof(KERNEL_VERSION_STR) + 1, KERNEL_VERSION_STR, sysfs_config_getter, NULL);
+    sysfs_add_config_endpoint("mem", SYSFS_MODE_DEFAULT, 256, NULL, system_mem_getter, NULL);
 
     sysfs_add_config_endpoint("uptime", SYSFS_MODE_DEFAULT, 32, NULL, system_uptime_getter, NULL);
 

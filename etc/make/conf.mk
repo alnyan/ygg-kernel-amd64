@@ -2,10 +2,9 @@ HEADERS=$(shell find ./include -name "*.h")
 
 KERNEL_VERSION_GIT=$(shell git describe --always --tags)
 KERNEL_VERSION_STR=$(KERNEL_VERSION_GIT)
-# XXX: Removed until I fix SMP again
-#ifeq ($(AMD64_SMP),1)
-#KERNEL_VERSION_STR+= +SMP
-#endif
+ifeq ($(AMD64_SMP),1)
+KERNEL_VERSION_STR+= +SMP
+endif
 
 CFLAGS+=-Wall \
 		-Wextra \
