@@ -9,6 +9,7 @@
 #include "sys/mm.h"
 
 #define PCI_MAX_DRIVERS         64
+#define PCI_IS_EXPRESS(dev)     ((dev)->pcie_segment_group != (uint16_t) -1)
 
 #define pcie_config_read_dword(dev, off) \
     (*(uint32_t *) ((dev)->pcie_config + (off)))
@@ -63,8 +64,11 @@ static size_t             g_pci_driver_count;
 #define PCI_DRIVER_DEV          2
 
 uint32_t pci_config_read_dword(struct pci_device *dev, uint16_t off) {
-    // TODO: check if device is really PCIe
-    return pcie_config_read_dword(dev, off);
+    if (PCI_IS_EXPRESS(dev)) {
+        return pcie_config_read_dword(dev, off);
+    } else {
+        return pci_config_read_dword_legacy(dev->bus, dev->dev, dev->func, off);
+    }
 }
 
 uint32_t pci_config_read_dword_legacy(uint8_t bus, uint8_t dev, uint8_t func, uint32_t off) {
@@ -153,15 +157,15 @@ static void pci_device_add(struct pci_device *dev) {
     g_pci_devices = dev;
 }
 
-static int pcie_device_setup(struct pci_device *dev) {
+static int pci_device_setup(struct pci_device *dev) {
     uint32_t class, caps_offset, irq_info;
     uint32_t id;
     uint8_t irq_pin;
 
-    class = pcie_config_read_dword(dev, PCI_CONFIG_CLASS);
-    caps_offset = pcie_config_read_dword(dev, PCI_CONFIG_CAPABILITIES) & 0xFF;
-    irq_info = pcie_config_read_dword(dev, PCI_CONFIG_IRQ);
-    id = pcie_config_read_dword(dev, PCI_CONFIG_ID);
+    class = pci_config_read_dword(dev, PCI_CONFIG_CLASS);
+    caps_offset = pci_config_read_dword(dev, PCI_CONFIG_CAPABILITIES) & 0xFF;
+    irq_info = pci_config_read_dword(dev, PCI_CONFIG_IRQ);
+    id = pci_config_read_dword(dev, PCI_CONFIG_ID);
 
     kinfo("%02x:%02x:%02x:\n", dev->bus, dev->dev, dev->func);
     kinfo(" Class %02x:%02x:%02x\n", (class >> 24), (class >> 16) & 0xFF, (class >> 8) & 0xFF);
@@ -173,24 +177,28 @@ static int pcie_device_setup(struct pci_device *dev) {
         kinfo(" IRQ pin INT%c#\n", dev->irq_pin + 'A');
     }
 
-    while (caps_offset) {
-        uint8_t *link = (uint8_t *) (dev->pcie_config + caps_offset);
+    if (PCI_IS_EXPRESS(dev)) {
+        while (caps_offset) {
+            uint8_t *link = (uint8_t *) (dev->pcie_config + caps_offset);
 
-        switch (link[0]) {
-        case 0x05:
-            kinfo(" * MSI capability\n");
-            dev->msi = (struct pci_cap_msi *) link;
-            break;
-        case 0x10:
-            kinfo(" * PCIe capability\n");
-            break;
-        default:
-            // Unknown capability
-            kinfo(" * Device capability: %02x\n", link[0]);
-            break;
+            switch (link[0]) {
+            case 0x05:
+                kinfo(" * MSI capability\n");
+                dev->msi = (struct pci_cap_msi *) link;
+                break;
+            case 0x10:
+                kinfo(" * PCIe capability\n");
+                break;
+            default:
+                // Unknown capability
+                kinfo(" * Device capability: %02x\n", link[0]);
+                break;
+            }
+
+            caps_offset = link[1];
         }
-
-        caps_offset = link[1];
+    } else if (caps_offset) {
+        kdebug("Skipping device capabilities: unsupported yet in legacy mode\n");
     }
 
     pci_driver_func_t driver_class, driver_dev;
@@ -232,8 +240,55 @@ static void pcie_enumerate_device(uintptr_t base_address, uint16_t seg, uint8_t 
         dev->msi = NULL;
         dev->irq_pin = -1;
 
-        pcie_device_setup(dev);
+        pci_device_setup(dev);
         pci_device_add(dev);
+    }
+}
+
+static void pci_enumerate_device(uint8_t bus, uint8_t dev_no) {
+    uint32_t id;
+
+    for (uint8_t func = 0; func < 8; ++func) {
+        id = pci_config_read_dword_legacy(bus, dev_no, func, PCI_CONFIG_ID);
+
+        if ((id & 0xFFFF) == 0xFFFF) {
+            continue;
+        }
+
+        struct pci_device *dev = kmalloc(sizeof(struct pci_device));
+        _assert(dev);
+
+        dev->bus = bus;
+        dev->dev = dev_no;
+        dev->func = func;
+
+        dev->pcie_segment_group = (uint16_t) -1;
+        dev->msi = NULL;
+        dev->irq_pin = -1;
+
+        pci_device_setup(dev);
+        pci_device_add(dev);
+    }
+}
+
+static void pci_enumerate_bus(uint8_t bus) {
+    for (uint8_t dev = 0; dev < 32; ++dev) {
+        uint32_t id = pci_config_read_dword_legacy(bus, 0, 0, PCI_CONFIG_ID);
+
+        if ((id & 0xFFFF) != 0xFFFF) {
+            uint32_t header = pci_config_read_dword_legacy(bus, 0, 0, 0x0C);
+            header >>= 16;
+            header &= 0x7F;
+
+            switch (header) {
+            case 0x00:
+                pci_enumerate_device(bus, dev);
+                break;
+            default:
+                kwarn("Skipping unsupported header type: %02x\n", header);
+                break;
+            }
+        }
     }
 }
 
@@ -266,24 +321,27 @@ static void pcie_enumerate_segment(uintptr_t base_address, uint16_t seg, uint8_t
 }
 
 void pci_init(void) {
-    if (!acpi_mcfg) {
-        panic("TODO: legacy PCI\n");
-    }
+    if (acpi_mcfg) {
+        uint32_t mcfg_entry_count = (acpi_mcfg->hdr.length - sizeof(struct acpi_header) - 8) / sizeof(struct acpi_mcfg_entry);
+        kinfo("MCFG has %u entries:\n", mcfg_entry_count);
+        for (uint32_t i = 0; i < mcfg_entry_count; ++i) {
+            kinfo("%u:\n", i);
+            kinfo("  Base address: %p\n", acpi_mcfg->entry[i].base_address);
+            kinfo("  Segment group #%u\n", acpi_mcfg->entry[i].pci_segment_group);
+            kinfo("  PCI buses: %02x-%02x\n", acpi_mcfg->entry[i].start_pci_bus, acpi_mcfg->entry[i].end_pci_bus);
+        }
 
-    uint32_t mcfg_entry_count = (acpi_mcfg->hdr.length - sizeof(struct acpi_header) - 8) / sizeof(struct acpi_mcfg_entry);
-    kinfo("MCFG has %u entries:\n", mcfg_entry_count);
-    for (uint32_t i = 0; i < mcfg_entry_count; ++i) {
-        kinfo("%u:\n", i);
-        kinfo("  Base address: %p\n", acpi_mcfg->entry[i].base_address);
-        kinfo("  Segment group #%u\n", acpi_mcfg->entry[i].pci_segment_group);
-        kinfo("  PCI buses: %02x-%02x\n", acpi_mcfg->entry[i].start_pci_bus, acpi_mcfg->entry[i].end_pci_bus);
-    }
-
-    // Start enumerating buses specified in MCFG
-    for (uint32_t i = 0; i < mcfg_entry_count; ++i) {
-        pcie_enumerate_segment(acpi_mcfg->entry[i].base_address,
-                               acpi_mcfg->entry[i].pci_segment_group,
-                               acpi_mcfg->entry[i].start_pci_bus,
-                               acpi_mcfg->entry[i].end_pci_bus);
+        // Start enumerating buses specified in MCFG
+        for (uint32_t i = 0; i < mcfg_entry_count; ++i) {
+            pcie_enumerate_segment(acpi_mcfg->entry[i].base_address,
+                                   acpi_mcfg->entry[i].pci_segment_group,
+                                   acpi_mcfg->entry[i].start_pci_bus,
+                                   acpi_mcfg->entry[i].end_pci_bus);
+        }
+    } else {
+        kinfo("Using legacy PCI mechanism\n");
+        for (uint8_t bus = 0; bus < 16; ++bus) {
+            pci_enumerate_bus(bus);
+        }
     }
 }
