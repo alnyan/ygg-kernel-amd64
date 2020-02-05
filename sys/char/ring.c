@@ -48,6 +48,15 @@ static void ring_advance_write(struct ring *ring) {
     }
 }
 
+static void ring_notify_reader(struct ring *ring) {
+    if (ring->reader_head) {
+        struct thread *thr = ring->reader_head;
+        ring->reader_head = NULL; //thr->wait_next;
+
+        sched_queue(thr);
+    }
+}
+
 int ring_getc(struct thread *ctx, struct ring *ring, char *c, int err) {
     if (err) {
         if (!ring_readable(ring)) {
@@ -90,18 +99,7 @@ int ring_putc(struct thread *ctx, struct ring *ring, char c, int wait) {
 
     ring->base[ring->wr] = c;
     ring_advance_write(ring);
-
-    // Notify a single reader a character is available
-    if (ring->reader_head) {
-        struct thread *thr = ring->reader_head;
-        ring->reader_head = NULL; //thr->wait_next;
-
-        sched_queue(thr);
-
-        _assert(thr);
-        _assert(thr->next);
-        _assert(thr->prev);
-    }
+    ring_notify_reader(ring);
 
     return 0;
 }
@@ -117,6 +115,7 @@ int ring_write(struct thread *ctx, struct ring *ring, const void *buf, size_t le
 
 void ring_signal(struct ring *r, int s) {
     r->flags |= s;
+    ring_notify_reader(r);
 }
 
 int ring_init(struct ring *r, size_t cap) {

@@ -162,7 +162,7 @@ void thread_cleanup(struct thread *thr) {
     // Leave only the system context required for hierachy tracking and error code/pid
     thr->state = THREAD_STOPPED;
     thr->flags |= THREAD_EMPTY;
-    kinfo("Cleaning up %d\n", thr->pid);
+    kdebug("Cleaning up %d\n", thr->pid);
     for (size_t i = 0; i < THREAD_MAX_FDS; ++i) {
         if (thr->fds[i]) {
             vfs_close(&thr->ioctx, thr->fds[i]);
