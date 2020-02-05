@@ -36,7 +36,8 @@ struct sys_fork_frame {
 
 ////
 
-static struct thread *threads_all_head = NULL;
+//static struct thread *threads_all_head = NULL;
+LIST_HEAD(threads_all_head);
 static pid_t last_kernel_pid = 0;
 static pid_t last_user_pid = 0;
 
@@ -48,32 +49,32 @@ pid_t thread_alloc_pid(int is_user) {
     }
 }
 
-static void thread_add(struct thread *thr) {
-    if (threads_all_head) {
-        threads_all_head->g_prev = thr;
-    }
-    thr->g_next = threads_all_head;
-    thr->g_prev = NULL;
-    threads_all_head = thr;
-}
-
-static void thread_remove(struct thread *thr) {
-    struct thread *prev = thr->g_prev;
-    struct thread *next = thr->g_next;
-
-    if (prev) {
-        prev->g_next = next;
-    } else {
-        threads_all_head = next;
-    }
-
-    if (next) {
-        next->g_prev = prev;
-    }
-
-    thr->g_next = NULL;
-    thr->g_prev = NULL;
-}
+//static void thread_add(struct thread *thr) {
+//    if (threads_all_head) {
+//        threads_all_head->g_prev = thr;
+//    }
+//    thr->g_next = threads_all_head;
+//    thr->g_prev = NULL;
+//    threads_all_head = thr;
+//}
+//
+//static void thread_remove(struct thread *thr) {
+//    struct thread *prev = thr->g_prev;
+//    struct thread *next = thr->g_next;
+//
+//    if (prev) {
+//        prev->g_next = next;
+//    } else {
+//        threads_all_head = next;
+//    }
+//
+//    if (next) {
+//        next->g_prev = prev;
+//    }
+//
+//    thr->g_next = NULL;
+//    thr->g_prev = NULL;
+//}
 
 ////
 
@@ -103,7 +104,10 @@ void thread_ioctx_fork(struct thread *dst, struct thread *src) {
 int thread_signal_pgid(pid_t pgid, int signum) {
     int ret = 0;
 
-    for (struct thread *thr = threads_all_head; thr; thr = thr->g_next) {
+    list_foreach(&threads_all_head, _thr) {
+        struct thread *thr = list_link_value(_thr, struct thread, g_link);
+        _assert(thr);
+
         if (thr->state != THREAD_STOPPED && thr->pgid == pgid) {
             thread_signal(thr, signum);
             ++ret;
@@ -114,11 +118,15 @@ int thread_signal_pgid(pid_t pgid, int signum) {
 }
 
 struct thread *thread_find(pid_t pid) {
-    for (struct thread *thr = threads_all_head; thr; thr = thr->g_next) {
+    list_foreach(&threads_all_head, _thr) {
+        struct thread *thr = list_link_value(_thr, struct thread, g_link);
+        _assert(thr);
+
         if (thr->pid == pid) {
             return thr;
         }
     }
+
     return NULL;
 }
 
@@ -217,6 +225,8 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     thr->data.rsp0_top = thr->data.rsp0_base + thr->data.rsp0_size;
     thr->name[0] = 0;
     thr->flags = user ? 0 : THREAD_KERNEL;
+
+    list_link_init(&thr->g_link);
 
     uint64_t *stack = (uint64_t *) (thr->data.rsp0_base + thr->data.rsp0_size);
 
@@ -330,7 +340,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     thr->pgid = -1;
     thr->pid = -1;
 
-    thread_add(thr);
+    list_append(&threads_all_head, &thr->g_link);
 
     return 0;
 }
@@ -346,6 +356,8 @@ int sys_fork(struct sys_fork_frame *frame) {
 
     uintptr_t stack_pages = amd64_phys_alloc_contiguous(2);
     _assert(stack_pages != MM_NADDR);
+
+    list_link_init(&dst->g_link);
 
     dst->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
     dst->data.rsp0_size = MM_PAGE_SIZE * 2;
@@ -430,7 +442,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst->pgid = src->pgid;
     dst->sigq = 0;
 
-    thread_add(dst);
+    list_append(&threads_all_head, &dst->g_link);
     sched_queue(dst);
 
     return dst->pid;
@@ -625,7 +637,7 @@ int sys_waitpid(pid_t pid, int *status) {
     }
 
     thread_unchild(chld);
-    thread_remove(chld);
+    list_remove(&threads_all_head, &chld->g_link);
     thread_free(chld);
 
     return 0;

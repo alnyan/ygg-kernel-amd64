@@ -233,3 +233,48 @@ ssize_t sys_readdir(int fd, struct dirent *ent) {
     return vfs_readdir(&thr->ioctx, thr->fds[fd], ent);
 }
 
+
+
+int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *tv) {
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    // Not yet implemented
+    _assert(!outp);
+    _assert(!excp);
+
+    if (!inp) {
+        return 0;
+    }
+
+    fd_set _inp;
+    memcpy(&_inp, inp, sizeof(fd_set));
+    FD_ZERO(inp);
+
+    // Check fds
+    for (int i = 0; i < n; ++i) {
+        if (FD_ISSET(i, &_inp)) {
+            struct ofile *fd = thr->fds[i];
+
+            if (!fd) {
+                return -EBADF;
+            }
+
+            _assert(fd->vnode);
+            if (fd->vnode->type != VN_CHR) {
+                kerror("Tried to select() on non-char device/file: %s\n", fd->vnode->name);
+                return -ENOSYS;
+            }
+        }
+    }
+
+    uint64_t deadline = (uint64_t) -1;
+    if (tv) {
+        deadline = tv->tv_sec * 1000000000ULL + tv->tv_usec * 1000ULL + system_time;
+    }
+    int res;
+
+    panic("NYI\n");
+
+    return 0;
+}

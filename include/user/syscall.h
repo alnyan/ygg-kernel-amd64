@@ -8,6 +8,7 @@
 #define SYSCALL_NR_LSEEK        8
 #define SYSCALL_NR_IOCTL        16
 #define SYSCALL_NR_ACCESS       21
+#define SYSCALL_NR_SELECT       23
 #define SYSCALL_NR_GETCWD       79
 #define SYSCALL_NR_CHDIR        80
 #define SYSCALL_NR_MKDIR        83

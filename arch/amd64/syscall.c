@@ -25,6 +25,7 @@ void *syscall_table[256] = {
     [SYSCALL_NR_LSEEK] = sys_lseek,
     [SYSCALL_NR_IOCTL] = sys_ioctl,
     [SYSCALL_NR_ACCESS] = sys_access,
+    [SYSCALL_NR_SELECT] = sys_select,
     [SYSCALL_NR_GETCWD] = sys_getcwd,
     [SYSCALL_NR_CHDIR] = sys_chdir,
     [SYSCALL_NR_MKDIR] = sys_mkdir,

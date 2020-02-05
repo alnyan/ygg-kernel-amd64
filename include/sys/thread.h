@@ -2,6 +2,7 @@
 #if defined(ARCH_AMD64)
 #include "arch/amd64/asm/asm_thread.h"
 #endif
+#include "sys/list.h"
 #include "fs/vfs.h"
 #include "sys/mm.h"
 
@@ -59,11 +60,11 @@ struct thread {
     int exit_status;
 
     // Global thread list (for stuff like finding by PID)
-    struct thread *g_prev, *g_next;
+    struct list_link g_link;
 
     // Scheduler
     int cpu;
-    struct thread *prev, *next;
+    struct thread *sched_prev, *sched_next;
 };
 
 pid_t thread_alloc_pid(int is_user);

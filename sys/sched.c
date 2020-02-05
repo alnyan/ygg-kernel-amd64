@@ -48,15 +48,15 @@ void sched_queue_to(struct thread *thr, int cpu_no) {
     thr->cpu = cpu_no;
 
     if (queue_heads[cpu_no]) {
-        struct thread *queue_tail = queue_heads[cpu_no]->prev;
+        struct thread *queue_tail = queue_heads[cpu_no]->sched_prev;
 
-        queue_tail->next = thr;
-        thr->prev = queue_tail;
-        queue_heads[cpu_no]->prev = thr;
-        thr->next = queue_heads[cpu_no];
+        queue_tail->sched_next = thr;
+        thr->sched_prev = queue_tail;
+        queue_heads[cpu_no]->sched_prev = thr;
+        thr->sched_next = queue_heads[cpu_no];
     } else {
-        thr->next = thr;
-        thr->prev = thr;
+        thr->sched_next = thr;
+        thr->sched_prev = thr;
 
         queue_heads[cpu_no] = thr;
     }
@@ -66,6 +66,7 @@ void sched_queue_to(struct thread *thr, int cpu_no) {
 }
 
 void sched_queue(struct thread *thr) {
+#if defined(AMD64_SMP)
     size_t min_queue_size = (size_t) -1;
     int min_queue_index = 0;
     uintptr_t irq;
@@ -78,8 +79,10 @@ void sched_queue(struct thread *thr) {
         }
     }
     spin_release_irqrestore(&sched_lock, &irq);
-
     sched_queue_to(thr, min_queue_index);
+#else
+    sched_queue_to(thr, 0);
+#endif
 }
 
 void sched_unqueue(struct thread *thr, enum thread_state new_state) {
@@ -97,8 +100,8 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
     thr->cpu = -1;
     int cpu_no = cpu->processor_id;
 
-    struct thread *prev = thr->prev;
-    struct thread *next = thr->next;
+    struct thread *sched_prev = thr->sched_prev;
+    struct thread *sched_next = thr->sched_next;
 
     _assert((new_state == THREAD_WAITING) ||
             (new_state == THREAD_STOPPED) ||
@@ -112,9 +115,9 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
     thread_check_signal(thr, 0);
     spin_lock_irqsave(&sched_lock, &irq);
 
-    if (next == thr) {
-        thr->next = NULL;
-        thr->prev = NULL;
+    if (sched_next == thr) {
+        thr->sched_next = NULL;
+        thr->sched_prev = NULL;
 
         queue_heads[cpu_no] = NULL;
 
@@ -126,21 +129,21 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
     }
 
     if (thr == queue_heads[cpu_no]) {
-        queue_heads[cpu_no] = next;
+        queue_heads[cpu_no] = sched_next;
     }
 
-    _assert(thr && next && prev);
+    _assert(thr && sched_next && sched_prev);
 
-    next->prev = prev;
-    prev->next = next;
+    sched_next->sched_prev = sched_prev;
+    sched_prev->sched_next = sched_next;
 
-    thr->prev = NULL;
-    thr->next = NULL;
+    thr->sched_prev = NULL;
+    thr->sched_next = NULL;
 
     spin_release_irqrestore(&sched_lock, &irq);
     if (thr == cpu->thread) {
-        cpu->thread = next;
-        context_switch_to(next, thr);
+        cpu->thread = sched_next;
+        context_switch_to(sched_next, thr);
     }
 }
 
@@ -210,7 +213,7 @@ void sched_debug_cycle(uint64_t delta_ms) {
 
         struct thread *head = queue_heads[cpu];
         if (head) {
-            struct thread *tail = head->prev;
+            struct thread *tail = head->sched_prev;
 
             do {
                 if (head->name[0]) {
@@ -226,7 +229,7 @@ void sched_debug_cycle(uint64_t delta_ms) {
                 } else {
                     debugs(DEBUG_DEFAULT, ", ");
                 }
-                head = head->next;
+                head = head->sched_next;
             } while (1);
 
             debugs(DEBUG_DEFAULT, "\n");
@@ -272,8 +275,8 @@ void yield(void) {
     struct thread *from = cpu->thread;
     struct thread *to;
 
-    if (from && from->next) {
-        to = from->next;
+    if (from && from->sched_next) {
+        to = from->sched_next;
     } else if (queue_heads[cpu->processor_id]) {
         to = queue_heads[cpu->processor_id];
     } else {
