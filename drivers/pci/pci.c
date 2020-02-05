@@ -167,6 +167,10 @@ static int sysfs_pci_device_read(void *ctx, char *buf, size_t lim) {
     _assert(dev);
     uint32_t id = pci_config_read_dword(dev, PCI_CONFIG_ID);
     uint32_t class = pci_config_read_dword(dev, PCI_CONFIG_CLASS);
+    uint32_t bar[6];
+    for (size_t i = 0; i < 6; ++i) {
+        bar[i] = pci_config_read_dword(dev, PCI_CONFIG_BAR(i));
+    }
 
     sysfs_buf_printf(buf, lim, "vendor      %04x\n", id & 0xFFFF);
     sysfs_buf_printf(buf, lim, "device      %04x\n", id >> 16);
@@ -174,6 +178,10 @@ static int sysfs_pci_device_read(void *ctx, char *buf, size_t lim) {
     sysfs_buf_printf(buf, lim, "class       %02x\n", class >> 24);
     sysfs_buf_printf(buf, lim, "subclass    %02x\n", (class >> 16) & 0xFF);
     sysfs_buf_printf(buf, lim, "prog if     %02x\n", (class >> 8) & 0xFF);
+
+    for (size_t i = 0; i < 6; ++i) {
+        sysfs_buf_printf(buf, lim, "bar%d        %08x\n", i, bar[i]);
+    }
 
     if (dev->driver) {
         sysfs_buf_printf(buf, lim, "driver      %s\n", dev->driver->name);
@@ -186,7 +194,7 @@ static void pci_device_add(struct pci_device *dev) {
     // For testing purposes
     char name[256];
     snprintf(name, sizeof(name), "pci.%02x.%02x.%02x", dev->bus, dev->dev, dev->func);
-    sysfs_add_config_endpoint(name, SYSFS_MODE_DEFAULT, 256, dev, sysfs_pci_device_read, NULL);
+    sysfs_add_config_endpoint(name, SYSFS_MODE_DEFAULT, 512, dev, sysfs_pci_device_read, NULL);
 
     dev->next = g_pci_devices;
     g_pci_devices = dev;
