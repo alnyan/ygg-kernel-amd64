@@ -24,6 +24,7 @@
 #define CPU_THREAD              0x08
 #define CPU_TSS                 0x10
 #define CPU_SYSCALL_RSP         0x18
+#define CPU_ID                  0x28
 
 #define TSS_RSP0                0x04
 
@@ -37,9 +38,9 @@ struct cpu {
     struct thread *thread;      // 0x08
     amd64_tss_t *tss;           // 0x10
     uint64_t syscall_rsp;       // 0x18
-    uint64_t ticks;
+    uint64_t ticks;             // 0x20
 
-    uint64_t processor_id;
+    uint64_t processor_id;      // 0x28
 
     // No need to define offsets for these: ther're not accessed
     // from assembly

@@ -1,3 +1,5 @@
+#include "arch/amd64/asm/asm_cpu.h"
+
 .section .text
 .global spin_lock
 .global spin_release
@@ -13,9 +15,12 @@ spin_lock_irqsave:
     cli
 
 spin_lock:
+    movq get_cpu(CPU_ID), %rax
+    shlq $1, %rax
     // %rdi - spinlock
-    lock bts $0, (%rdi)
+    lock btsq $0, (%rdi)
     jc 1f
+    orq %rax, (%rdi)
     retq
 
     // Failed to obtain lock immediately, wait

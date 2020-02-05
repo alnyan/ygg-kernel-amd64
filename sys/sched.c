@@ -91,7 +91,7 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
 
     struct cpu *cpu = get_cpu();
 #if defined(AMD64_SMP)
-    _assert(thr->cpu >= 0);
+    assert(thr->cpu >= 0, "Tried to unqueue non-queued thread\n");
     if ((int) cpu->processor_id != thr->cpu) {
         // Need to ask another CPU to unqueue the task
         panic("TODO: implement cross-CPU unqueue\n");

@@ -34,7 +34,6 @@ extern struct cpu cpus[AMD64_MAX_SMP];
 
 static inline struct cpu *get_cpu(void) {
     struct cpu *cpu;
-    _assert(rdmsr(MSR_IA32_KERNEL_GS_BASE));
     asm volatile ("movq %%gs:0, %0":"=r"(cpu));
     return cpu;
 }

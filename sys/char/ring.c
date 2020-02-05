@@ -78,7 +78,11 @@ int ring_getc(struct thread *ctx, struct ring *ring, char *c, int err) {
                 ctx->wait_next = ctx;
                 ring->reader_head = ctx;
 
+                _assert(ctx->cpu >= 0);
                 sched_unqueue(ctx, THREAD_WAITING_IO);
+
+                thread_check_signal(ctx, 0);
+                _assert(ctx->cpu >= 0);
             } else {
                 break;
             }

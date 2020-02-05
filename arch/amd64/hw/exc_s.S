@@ -18,6 +18,15 @@ amd64_exc_isr_\n:
 
 .section .text
 amd64_exc_generic:
+    // 0x18: cs
+    // 0x10: rip
+    // 0x08: error code
+    // 0x00: error number
+    cmpq $0x08, 0x18(%rip)
+    jnz 1f
+    swapgs
+1:
+
     // Push full CPU context for dump
     pushq %rax
     pushq %rcx
@@ -37,9 +46,6 @@ amd64_exc_generic:
     pushq %r14
     pushq %r15
 
-    pushq %fs
-    pushq %gs
-
     movq $AMD64_STACK_CTX_CANARY, %rax
     pushq %rax
 
@@ -52,9 +58,6 @@ amd64_exc_generic:
     jz 1f
 1:
     addq $8, %rsp
-
-    popq %gs
-    popq %fs
 
     popq %r15
     popq %r14
