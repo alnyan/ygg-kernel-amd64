@@ -2,11 +2,17 @@
 #include "drivers/pci/pci.h"
 #include "arch/amd64/hw/acpi.h"
 #include "arch/amd64/hw/io.h"
+#include "sys/snprintf.h"
 #include "sys/assert.h"
+#include "sys/string.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
+#include "fs/sysfs.h"
 #include "sys/heap.h"
 #include "sys/mm.h"
+
+struct pci_device;
+struct pci_driver;
 
 #define PCI_MAX_DRIVERS         64
 #define PCI_IS_EXPRESS(dev)     ((dev)->pcie_segment_group != (uint16_t) -1)
@@ -46,11 +52,14 @@ struct pci_device {
     struct pci_cap_msi *msi;
     int irq_pin;
 
+    struct pci_driver *driver;
+
     // For list
     struct pci_device *next;
 };
 
 struct pci_driver {
+    char name[64];
     pci_driver_func_t init_func;
     uint32_t type;
     uint32_t match;
@@ -104,13 +113,14 @@ void pci_add_irq(struct pci_device *dev, irq_handler_func_t handler, void *ctx) 
     }
 }
 
-void pci_add_class_driver(uint32_t full_class, pci_driver_func_t func) {
+void pci_add_class_driver(uint32_t full_class, pci_driver_func_t func, const char *name) {
     if (g_pci_driver_count == PCI_MAX_DRIVERS) {
         panic("Too many PCI drivers loaded\n");
     }
 
     struct pci_driver *driver = &g_pci_drivers[g_pci_driver_count++];
 
+    strcpy(driver->name, name);
     driver->init_func = func;
     driver->type = PCI_DRIVER_CLASS;
     driver->match = full_class & ~0xFF000000;
@@ -120,8 +130,8 @@ void pci_add_root_bus(uint8_t n) {
     kwarn("%s: %02x\n", __func__, n);
 }
 
-static void pci_pick_driver(uint32_t device_id, uint32_t class_id, pci_driver_func_t *class_driver, pci_driver_func_t *dev_driver) {
-    pci_driver_func_t rclass = NULL, rdev = NULL;
+static void pci_pick_driver(uint32_t device_id, uint32_t class_id, struct pci_driver **class_driver, struct pci_driver **dev_driver) {
+    struct pci_driver *rclass = NULL, *rdev = NULL;
     for (size_t i = 0; i < g_pci_driver_count; ++i) {
         if (rclass && rdev) {
             break;
@@ -137,12 +147,12 @@ static void pci_pick_driver(uint32_t device_id, uint32_t class_id, pci_driver_fu
             }
 
             if (match == class_id) {
-                rclass = g_pci_drivers[i].init_func;
+                rclass = &g_pci_drivers[i];
                 continue;
             }
         } else if (g_pci_drivers[i].type == PCI_DRIVER_DEV && !rdev) {
             if (device_id == g_pci_drivers[i].match) {
-                rdev = g_pci_drivers[i].init_func;
+                rdev = &g_pci_drivers[i];
                 continue;
             }
         }
@@ -152,7 +162,32 @@ static void pci_pick_driver(uint32_t device_id, uint32_t class_id, pci_driver_fu
     *dev_driver = rdev;
 }
 
+static int sysfs_pci_device_read(void *ctx, char *buf, size_t lim) {
+    struct pci_device *dev = ctx;
+    _assert(dev);
+    uint32_t id = pci_config_read_dword(dev, PCI_CONFIG_ID);
+    uint32_t class = pci_config_read_dword(dev, PCI_CONFIG_CLASS);
+
+    sysfs_buf_printf(buf, lim, "vendor      %04x\n", id & 0xFFFF);
+    sysfs_buf_printf(buf, lim, "device      %04x\n", id >> 16);
+
+    sysfs_buf_printf(buf, lim, "class       %02x\n", class >> 24);
+    sysfs_buf_printf(buf, lim, "subclass    %02x\n", (class >> 16) & 0xFF);
+    sysfs_buf_printf(buf, lim, "prog if     %02x\n", (class >> 8) & 0xFF);
+
+    if (dev->driver) {
+        sysfs_buf_printf(buf, lim, "driver      %s\n", dev->driver->name);
+    }
+
+    return 0;
+}
+
 static void pci_device_add(struct pci_device *dev) {
+    // For testing purposes
+    char name[256];
+    snprintf(name, sizeof(name), "pci.%02x.%02x.%02x", dev->bus, dev->dev, dev->func);
+    sysfs_add_config_endpoint(name, 256, dev, sysfs_pci_device_read, NULL);
+
     dev->next = g_pci_devices;
     g_pci_devices = dev;
 }
@@ -161,6 +196,8 @@ static int pci_device_setup(struct pci_device *dev) {
     uint32_t class, caps_offset, irq_info;
     uint32_t id;
     uint8_t irq_pin;
+
+    dev->driver = NULL;
 
     class = pci_config_read_dword(dev, PCI_CONFIG_CLASS);
     caps_offset = pci_config_read_dword(dev, PCI_CONFIG_CAPABILITIES) & 0xFF;
@@ -201,16 +238,18 @@ static int pci_device_setup(struct pci_device *dev) {
         kdebug("Skipping device capabilities: unsupported yet in legacy mode\n");
     }
 
-    pci_driver_func_t driver_class, driver_dev;
+    struct pci_driver *driver_class, *driver_dev;
     pci_pick_driver(id, class >> 8, &driver_class, &driver_dev);
 
     if (driver_dev) {
-        driver_dev(dev);
+        dev->driver = driver_dev;
+        driver_dev->init_func(dev);
         return 0;
     }
 
     if (driver_class) {
-        driver_class(dev);
+        dev->driver = driver_class;
+        driver_class->init_func(dev);
         return 0;
     }
 

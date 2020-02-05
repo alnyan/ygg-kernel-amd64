@@ -28,7 +28,7 @@ uint32_t pci_config_read_dword_legacy(uint8_t bus, uint8_t dev, uint8_t func, ui
 uint32_t pci_config_read_dword(struct pci_device *dev, uint16_t off);
 void pci_add_irq(struct pci_device *dev, irq_handler_func_t handler, void *ctx);
 
-void pci_add_class_driver(uint32_t full_class, pci_driver_func_t func);
+void pci_add_class_driver(uint32_t full_class, pci_driver_func_t func, const char *name);
 
 // pcidb.c
 const char *pci_class_string(uint16_t full_class);

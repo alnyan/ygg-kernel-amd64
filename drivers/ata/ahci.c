@@ -600,5 +600,5 @@ static void pci_ahci_init(struct pci_device *pci_dev) {
 }
 
 static __init void ahci_register_class(void) {
-    pci_add_class_driver(0x010601, pci_ahci_init);
+    pci_add_class_driver(0x010601, pci_ahci_init, "ahci");
 }
