@@ -40,6 +40,26 @@ struct sys_fork_frame {
 LIST_HEAD(threads_all_head);
 static pid_t last_kernel_pid = 0;
 static pid_t last_user_pid = 0;
+static uint64_t fxsave_buf[FXSAVE_REGION / 8] __attribute__((aligned(16)));
+
+void context_save_fpu(struct thread *new, struct thread *old) {
+    _assert(old);
+    if (old->data.fxsave) {
+        asm volatile ("fxsave (%0)"::"r"(fxsave_buf):"memory");
+        memcpy(old->data.fxsave, fxsave_buf, FXSAVE_REGION);
+        old->flags |= THREAD_FPU_SAVED;
+    }
+
+}
+
+void context_restore_fpu(struct thread *new, struct thread *old) {
+    _assert(new);
+    if (new->flags & THREAD_FPU_SAVED) {
+        memcpy(fxsave_buf, new->data.fxsave, FXSAVE_REGION);
+        asm volatile ("fxrstor (%0)"::"r"(fxsave_buf):"memory");
+        new->flags &= ~THREAD_FPU_SAVED;
+    }
+}
 
 pid_t thread_alloc_pid(int is_user) {
     if (is_user) {
@@ -226,6 +246,13 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     thr->name[0] = 0;
     thr->flags = user ? 0 : THREAD_KERNEL;
 
+    if (!(thr->flags & THREAD_KERNEL)) {
+        thr->data.fxsave = kmalloc(FXSAVE_REGION);
+        _assert(thr->data.fxsave);
+    } else {
+        thr->data.fxsave = NULL;
+    }
+
     list_link_init(&thr->g_link);
 
     uint64_t *stack = (uint64_t *) (thr->data.rsp0_base + thr->data.rsp0_size);
@@ -374,6 +401,16 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst->space = space;
 
     dst->signal_entry = src->signal_entry;
+
+    strcpy(dst->name, src->name);
+
+    dst->data.fxsave = kmalloc(FXSAVE_REGION);
+    _assert(dst->data.fxsave);
+    _assert(src->data.fxsave);
+
+    if (src->flags & THREAD_FPU_SAVED) {
+        memcpy(dst->data.fxsave, src->data.fxsave, FXSAVE_REGION);
+    }
 
     thread_ioctx_fork(dst, src);
 
@@ -545,6 +582,9 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
         _assert(thr->space);
         thr->data.cr3 = MM_PHYS(thr->space);
         thr->flags = 0;
+
+        thr->data.fxsave = kmalloc(FXSAVE_REGION);
+        _assert(thr->data.fxsave);
 
         mm_space_clone(thr->space, mm_kernel, MM_CLONE_FLG_KERNEL);
     } else {

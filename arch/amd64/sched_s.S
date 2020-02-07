@@ -62,6 +62,14 @@ context_exec_enter:
 context_switch_to:
     // %rdi - new thread
     // %rsi - from
+    pushq %rdi
+    pushq %rsi
+
+    call context_save_fpu
+
+    popq %rsi
+    popq %rdi
+
     pushq %r15
     pushq %r14
     pushq %r13
@@ -82,6 +90,14 @@ context_switch_first:
     popq %r13
     popq %r14
     popq %r15
+
+    pushq %rdi
+    pushq %rsi
+
+    call context_restore_fpu
+
+    popq %rsi
+    popq %rdi
 
     // Load TSS.RSP0 for user -> kernel transition
     // %rax = top of task's stack

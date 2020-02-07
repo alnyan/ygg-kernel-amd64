@@ -11,6 +11,7 @@
 #include "arch/amd64/hw/ps2.h"
 #include "arch/amd64/cpuid.h"
 #include "arch/amd64/mm/mm.h"
+#include "arch/amd64/fpu.h"
 #include "sys/block/ram.h"
 #include "sys/config.h"
 #include "sys/kernel.h"
@@ -76,6 +77,8 @@ void kernel_early_init(struct amd64_loader_data *data) {
     }
 
     amd64_make_random_seed();
+
+    amd64_fpu_init();
 
 #if defined(AMD64_SMP)
     amd64_smp_init();

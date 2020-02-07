@@ -16,5 +16,7 @@ struct thread_data {
 
     uintptr_t rsp0_base, rsp0_size;
     uintptr_t rsp3_base, rsp3_size;
+
+    void *fxsave;
 };
 #endif

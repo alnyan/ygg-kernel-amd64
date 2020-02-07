@@ -21,6 +21,7 @@ enum thread_state {
 
 #define THREAD_KERNEL           (1 << 0)
 #define THREAD_EMPTY            (1 << 1)
+#define THREAD_FPU_SAVED        (1 << 2)
 
 #define thread_signal_clear(thr, signum) \
     (thr)->sigq &= ~(1ULL << ((signum) - 1))
