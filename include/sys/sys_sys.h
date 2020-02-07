@@ -5,6 +5,7 @@ struct timespec;
 struct timeval;
 struct timezone;
 
+int sys_sync(void);
 int sys_mount(const char *dev_name, const char *dir_name, const char *type, unsigned long flags, void *data);
 int sys_umount(const char *target);
 int sys_uname(struct utsname *name);

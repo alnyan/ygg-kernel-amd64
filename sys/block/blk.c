@@ -9,12 +9,40 @@
 #include "sys/debug.h"
 #include "sys/heap.h"
 #include "sys/dev.h"
+#include "sys/mm.h"
+
+static struct block_cache *g_cache_head = NULL, *g_cache_tail = NULL;
 
 struct blk_part {
     struct blkdev *device;
     uint64_t lba_start;
     uint64_t size;
 };
+
+void blk_set_cache(struct blkdev *blk, size_t page_capacity) {
+    _assert(blk);
+    _assert(!(blk->flags & BLK_CACHE));
+
+    block_cache_init(&blk->cache, blk, MM_PAGE_SIZE, page_capacity);
+
+    if (g_cache_tail) {
+        g_cache_tail->g_next = &blk->cache;
+    } else {
+        g_cache_head = &blk->cache;
+    }
+    blk->cache.g_prev = g_cache_tail;
+    blk->cache.g_next = NULL;
+    g_cache_tail = &blk->cache;
+
+    blk->flags |= BLK_CACHE;
+}
+
+void blk_sync_all(void) {
+    kdebug("Global cache sync\n");
+    for (struct block_cache *cache = g_cache_head; cache; cache = cache->g_next) {
+        block_cache_flush(cache);
+    }
+}
 
 void *blk_mmap(struct blkdev *blk, struct ofile *of, void *hint, size_t length, int flags) {
     _assert(blk);
@@ -25,9 +53,7 @@ void *blk_mmap(struct blkdev *blk, struct ofile *of, void *hint, size_t length, 
     }
 }
 
-ssize_t blk_read(struct blkdev *blk, void *buf, size_t off, size_t lim) {
-    _assert(blk);
-
+static inline ssize_t blk_read_really(struct blkdev *blk, void *buf, size_t off, size_t lim) {
     if (blk->read) {
         return blk->read(blk, buf, off, lim);
     } else {
@@ -35,13 +61,96 @@ ssize_t blk_read(struct blkdev *blk, void *buf, size_t off, size_t lim) {
     }
 }
 
-ssize_t blk_write(struct blkdev *blk, const void *buf, size_t off, size_t lim) {
+ssize_t blk_read(struct blkdev *blk, void *buf, size_t off, size_t lim) {
     _assert(blk);
 
+    if (blk->flags & BLK_CACHE) {
+        // Use cache to fetch pages
+        uintptr_t page;
+        size_t page_size = blk->cache.page_size;
+        size_t rem = lim;
+        size_t index = off / page_size;
+        size_t bread = 0;
+        int err;
+
+        while (rem) {
+            size_t blk_off = off % page_size;
+            size_t can = MIN(page_size - blk_off, rem);
+
+            if (block_cache_get(&blk->cache, index * page_size, &page) != 0) {
+                // Fetch page from device
+                if ((err = blk_read_really(blk, (void *) MM_VIRTUALIZE(page), index * page_size, page_size)) < 0) {
+                    kerror("Read failed: %s\n", kstrerror(err));
+                    panic("TODO: deal with to-cache reads\n");
+                }
+            }
+
+            memcpy(buf, (void *) MM_VIRTUALIZE(page + blk_off), can);
+
+            rem -= can;
+            buf += can;
+            bread += can;
+            ++index;
+        }
+
+        return bread;
+    } else {
+        // Bypass the cache
+        return blk_read_really(blk, buf, off, lim);
+    }
+}
+
+static inline ssize_t blk_write_really(struct blkdev *blk, const void *buf, size_t off, size_t lim) {
     if (blk->write) {
         return blk->write(blk, buf, off, lim);
     } else {
         return -EINVAL;
+    }
+}
+
+int blk_page_sync(struct blkdev *blk, uintptr_t block_address, uintptr_t page) {
+    ssize_t res = blk_write_really(blk, (void *) MM_VIRTUALIZE(page), block_address, blk->cache.page_size);
+    if (res < 0) {
+        return res;
+    } else {
+        return ((size_t) res == blk->cache.page_size) ? 0 : -EIO;
+    }
+}
+
+ssize_t blk_write(struct blkdev *blk, const void *buf, size_t off, size_t lim) {
+    _assert(blk);
+    if (blk->flags & BLK_CACHE) {
+        uintptr_t page;
+        size_t page_size = blk->cache.page_size;
+        size_t rem = lim;
+        size_t index = off / page_size;
+        size_t bwritten = 0;
+        int err;
+
+        while (rem) {
+            size_t blk_off = off % page_size;
+            size_t can = MIN(page_size - blk_off, rem);
+
+            if (block_cache_get(&blk->cache, index * page_size, &page) != 0) {
+                // Fetch page
+                if ((err = blk_read_really(blk, (void *) MM_VIRTUALIZE(page), index * page_size, page_size)) < 0) {
+                    kerror("Read failed: %s\n", kstrerror(err));
+                    panic("TODO: deal with to-cache reads\n");
+                }
+            }
+
+            memcpy((void *) MM_VIRTUALIZE(page + blk_off), buf, can);
+            block_cache_mark_dirty(&blk->cache, index * page_size);
+
+            rem -= can;
+            buf += can;
+            bwritten += can;
+            ++index;
+        }
+
+        return bwritten;
+    } else {
+        return blk_write_really(blk, buf, off, lim);
     }
 }
 

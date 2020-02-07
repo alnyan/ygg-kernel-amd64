@@ -4,6 +4,7 @@
 #include "user/time.h"
 #include "arch/amd64/cpu.h"
 #include "sys/sys_sys.h"
+#include "sys/block/blk.h"
 #include "fs/node.h"
 #include "sys/string.h"
 #include "sys/assert.h"
@@ -123,4 +124,9 @@ int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg) {
     default:
         return -EINVAL;
     }
+}
+
+int sys_sync(void) {
+    blk_sync_all();
+    return 0;
 }

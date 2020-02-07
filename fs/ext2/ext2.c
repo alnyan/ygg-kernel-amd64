@@ -9,6 +9,7 @@
 #include "fs/fs.h"
 #include "sys/heap.h"
 #include "sys/attr.h"
+#include "sys/block/blk.h"
 
 static int ext2_init(struct fs *ext2, const char *opt);
 static struct vnode *ext2_get_root(struct fs *ext2);
@@ -32,6 +33,10 @@ static int ext2_init(struct fs *ext2, const char *opt) {
     ext2->fs_private = data;
 
     int res;
+
+    // TODO: -o sync
+    // 16MiB cache
+    blk_set_cache(ext2->blk, 4096);
 
     // Read superblock
     if ((res = ext2_read_superblock(ext2)) != 0) {

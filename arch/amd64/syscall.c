@@ -54,6 +54,7 @@ void *syscall_table[256] = {
     [SYSCALL_NR_SETPGID] = sys_setpgid,
 
     // System
+    [SYSCALL_NR_SYNC] = sys_sync,
     [SYSCALL_NR_MOUNT] = sys_mount,
     [SYSCALL_NRX_UMOUNT] = sys_umount,
     [SYSCALL_NR_UNAME] = sys_uname,

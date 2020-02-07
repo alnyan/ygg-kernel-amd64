@@ -22,6 +22,7 @@
 #define SYSCALL_NR_NANOSLEEP    35
 #define SYSCALL_NR_UNAME        63
 #define SYSCALL_NR_GETTIMEOFDAY 96
+#define SYSCALL_NR_SYNC         162
 #define SYSCALL_NR_MOUNT        165
 #define SYSCALL_NRX_UMOUNT      166
 #define SYSCALL_NR_REBOOT       169
