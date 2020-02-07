@@ -2,6 +2,7 @@
 #include "user/errno.h"
 #include "sys/block/blk.h"
 #include "fs/node.h"
+#include "sys/heap.h"
 #include "sys/string.h"
 #include "sys/assert.h"
 #include "fs/vfs.h"
@@ -361,12 +362,25 @@ int vfs_umount(struct vfs_ioctx *ctx, const char *dir_name) {
     mountpoint->type = VN_DIR;
     mountpoint->target = NULL;
 
-    // TODO: free the filesystem tree nodes and call some hook on filesystem class
+    struct fs *fs = node->fs;
+    _assert(fs);
+    struct blkdev *blk = fs->blk;
+    _assert(blk);
+    struct fs_class *cls = fs->cls;
+    _assert(cls);
+
+    if (cls->destroy) {
+        cls->destroy(fs);
+    }
+    memset(fs, 0, sizeof(struct fs));
+    blk->flags &= ~BLK_BUSY;
+
+    // TODO: destroy filesystem tree
 
     return 0;
 }
 
-int vfs_mount_internal(struct vnode *at, void *blk, struct fs_class *cls, const char *opt) {
+int vfs_mount_internal(struct vnode *at, void *blk, struct fs_class *cls, uint32_t flags, const char *opt) {
     int res;
     struct fs *fs;
     struct vnode *fs_root;
@@ -390,7 +404,7 @@ int vfs_mount_internal(struct vnode *at, void *blk, struct fs_class *cls, const 
         }
     }
 
-    if (!(fs = fs_create(cls, blk))) {
+    if (!(fs = fs_create(cls, blk, flags, opt))) {
         kwarn("Filesystem creation failed\n");
         return -EINVAL;
     }
@@ -427,7 +441,7 @@ int vfs_mount_internal(struct vnode *at, void *blk, struct fs_class *cls, const 
     return 0;
 }
 
-int vfs_mount(struct vfs_ioctx *ctx, const char *at, void *blk, const char *fs, const char *opt) {
+int vfs_mount(struct vfs_ioctx *ctx, const char *at, void *blk, const char *fs, uint32_t flags, const char *opt) {
     int res;
     struct fs_class *fs_class;
     struct vnode *mountpoint;
@@ -463,9 +477,9 @@ int vfs_mount(struct vfs_ioctx *ctx, const char *at, void *blk, const char *fs, 
             return -EINVAL;
         }
 
-        return blk_mount_auto(mountpoint, blk, opt);
+        return blk_mount_auto(mountpoint, blk, flags, opt);
     } else {
-        return vfs_mount_internal(mountpoint, blk, fs_class, opt);
+        return vfs_mount_internal(mountpoint, blk, fs_class, flags, opt);
     }
 }
 

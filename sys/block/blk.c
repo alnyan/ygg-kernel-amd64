@@ -37,6 +37,31 @@ void blk_set_cache(struct blkdev *blk, size_t page_capacity) {
     blk->flags |= BLK_CACHE;
 }
 
+void blk_cache_release(struct blkdev *blk) {
+    _assert(blk->flags & BLK_CACHE);
+    struct block_cache *cache = &blk->cache;
+    block_cache_flush(cache);
+
+    struct block_cache *prev = cache->g_prev;
+    struct block_cache *next = cache->g_next;
+
+    if (prev) {
+        prev->g_next = next;
+    } else {
+        g_cache_head = next;
+    }
+
+    if (next) {
+        next->g_prev = prev;
+    } else {
+        g_cache_tail = prev;
+    }
+
+    block_cache_release(cache);
+
+    blk->flags &= ~BLK_CACHE;
+}
+
 void blk_sync_all(void) {
     kdebug("Global cache sync\n");
     for (struct block_cache *cache = g_cache_head; cache; cache = cache->g_next) {
@@ -164,12 +189,12 @@ int blk_ioctl(struct blkdev *blk, unsigned long req, void *arg) {
     }
 }
 
-int blk_mount_auto(struct vnode *at, struct blkdev *blk, const char *opt) {
+int blk_mount_auto(struct vnode *at, struct blkdev *blk, uint32_t flags, const char *opt) {
     struct fs_class *cls;
     int res;
 
     if ((cls = fs_class_by_name("ext2")) != NULL &&
-        (res = vfs_mount_internal(at, blk, cls, opt)) == 0) {
+        (res = vfs_mount_internal(at, blk, cls, flags, opt)) == 0) {
         return 0;
     }
 

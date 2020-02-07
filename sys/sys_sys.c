@@ -41,7 +41,7 @@ int sys_mount(const char *dev_name, const char *dir_name, const char *type, unsi
         dev = NULL;
     }
 
-    return vfs_mount(&thr->ioctx, dir_name, dev, type, NULL);
+    return vfs_mount(&thr->ioctx, dir_name, dev, type, (uint32_t) flags, data);
 }
 
 int sys_umount(const char *dir_name) {

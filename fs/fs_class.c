@@ -10,7 +10,7 @@
 static struct fs_class *fses[10] = { NULL };
 static struct fs mounts[10];
 
-struct fs *fs_create(struct fs_class *cls, struct blkdev *blk) {
+struct fs *fs_create(struct fs_class *cls, struct blkdev *blk, uint32_t flags, const char *opt) {
     struct fs *fs = NULL;
     // XXX: I hate heap allocations, but why not use one?
     for (size_t i = 0; i < 10; ++i) {
@@ -26,9 +26,11 @@ struct fs *fs_create(struct fs_class *cls, struct blkdev *blk) {
         return NULL;
     }
 
+    fs->flags = flags;
+
     // Try to initialize filesystem instance at device
     if (cls->init) {
-        if (cls->init(fs, NULL) != 0) {
+        if (cls->init(fs, opt) != 0) {
             fs->cls = NULL;
             kerror("%s init failed\n", cls->name);
             return NULL;

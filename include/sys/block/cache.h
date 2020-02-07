@@ -20,6 +20,7 @@ struct block_cache {
 };
 
 void block_cache_init(struct block_cache *cache, struct blkdev *blk, size_t page_size, size_t page_capacity);
+void block_cache_release(struct block_cache *cache);
 void block_cache_flush(struct block_cache *cache);
 int block_cache_get(struct block_cache *cache, uintptr_t address, uintptr_t *page);
 void block_cache_mark_dirty(struct block_cache *cache, uintptr_t address);

@@ -25,7 +25,7 @@ static void user_init_func(void *arg) {
         panic("Fail\n");
     }
 
-    if ((res = vfs_mount(ioctx, "/", root_dev->dev, "ustar", NULL)) != 0) {
+    if ((res = vfs_mount(ioctx, "/", root_dev->dev, "ustar", 0, NULL)) != 0) {
         kerror("mount: %s\n", kstrerror(res));
         panic("Fail\n");
     }

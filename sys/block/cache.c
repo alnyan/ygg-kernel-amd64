@@ -105,6 +105,14 @@ void block_cache_init(struct block_cache *cache, struct blkdev *blk, size_t page
     lru_hash_init(&cache->index_hash, 32);
 }
 
+void block_cache_release(struct block_cache *cache) {
+    _assert(!cache->queue_head);
+    _assert(!cache->queue_tail);
+    kfree(cache->index_hash.bucket_heads);
+    kfree(cache->index_hash.bucket_tails);
+    memset(cache, 0, sizeof(struct block_cache));
+}
+
 static void block_cache_queue_push_node(struct block_cache *cache, struct lru_node *node) {
     node->next = cache->queue_head;
     if (cache->queue_head) {

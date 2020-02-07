@@ -10,8 +10,10 @@
 #include "sys/heap.h"
 #include "sys/attr.h"
 #include "sys/block/blk.h"
+#include "user/mount.h"
 
 static int ext2_init(struct fs *ext2, const char *opt);
+static void ext2_destroy(struct fs *ext2);
 static struct vnode *ext2_get_root(struct fs *ext2);
 
 ////
@@ -20,6 +22,7 @@ static struct fs_class g_ext2 = {
     .name = "ext2",
     .opt = 0,
     .init = ext2_init,
+    .destroy = ext2_destroy,
     .get_root = ext2_get_root
 };
 
@@ -34,9 +37,12 @@ static int ext2_init(struct fs *ext2, const char *opt) {
 
     int res;
 
-    // TODO: -o sync
-    // 16MiB cache
-    blk_set_cache(ext2->blk, 4096);
+    if (!(ext2->flags & MS_SYNCHRONOUS)) {
+        // 16MiB cache
+        blk_set_cache(ext2->blk, 4096);
+    } else {
+        kdebug("Not using cache\n");
+    }
 
     // Read superblock
     if ((res = ext2_read_superblock(ext2)) != 0) {
@@ -109,6 +115,20 @@ static int ext2_init(struct fs *ext2, const char *opt) {
     ext2_inode_to_vnode(data->root, data->root_inode, 2);
 
     return 0;
+}
+
+static void ext2_destroy(struct fs *ext2) {
+    struct ext2_data *data = ext2->fs_private;
+    _assert(data);
+
+    if (!(ext2->flags & MS_SYNCHRONOUS)) {
+        blk_cache_release(ext2->blk);
+    }
+
+    kfree(data->root_inode);
+    kfree(data->root);
+    kfree(data->bgdt);
+    kfree(data);
 }
 
 static struct vnode *ext2_get_root(struct fs *ext2) {

@@ -33,11 +33,11 @@ void vfs_init(void);
 int vfs_setcwd(struct vfs_ioctx *ctx, const char *rel_path);
 void vfs_vnode_path(char *path, struct vnode *node);
 
-int vfs_mount_internal(struct vnode *at, void *blk, struct fs_class *cls, const char *opt);
+int vfs_mount_internal(struct vnode *at, void *blk, struct fs_class *cls, uint32_t flags, const char *opt);
 
 int vfs_link_resolve(struct vfs_ioctx *ctx, struct vnode *lnk, struct vnode **res);
 int vfs_find(struct vfs_ioctx *ctx, struct vnode *rel, const char *path, struct vnode **node);
-int vfs_mount(struct vfs_ioctx *ctx, const char *at, void *blk, const char *fs, const char *opt);
+int vfs_mount(struct vfs_ioctx *ctx, const char *at, void *blk, const char *fs, uint32_t flags, const char *opt);
 int vfs_umount(struct vfs_ioctx *ctx, const char *dir_name);
 
 int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, int opt);

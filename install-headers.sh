@@ -12,6 +12,7 @@ KERNEL_HEADERS="include/user/fcntl.h \
                 include/user/ioctl.h \
                 include/user/stat.h \
                 include/user/statvfs.h \
+                include/user/mount.h \
                 include/user/syscall.h \
                 include/user/termios.h \
                 include/user/types.h \
