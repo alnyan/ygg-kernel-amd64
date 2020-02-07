@@ -20,7 +20,7 @@
 
 static inline uint64_t rdmsr(uint32_t addr) {
     uint64_t v;
-    asm volatile ("rdmsr":"=A"(v):"c"(addr));
+    asm volatile ("rdmsr":"=A"(v):"c"(addr):"rdx");
     return v;
 }
 

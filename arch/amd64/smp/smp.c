@@ -123,12 +123,16 @@ void amd64_smp_ap_initialize(uint8_t cpu_no) {
     LAPIC(LAPIC_REG_CMD1) = ((uint32_t) apic_id) << 24;
     LAPIC(LAPIC_REG_CMD0) = entry_vector | (5 << 8) | (1 << 14);
 
-    for (uint64_t i = 0; i < 1000000; ++i);
+    for (uint64_t i = 0; i < 1000000; ++i) {
+        asm volatile ("pause");
+    }
 
     LAPIC(LAPIC_REG_CMD1) = ((uint32_t) apic_id) << 24;
     LAPIC(LAPIC_REG_CMD0) = entry_vector | (6 << 8) | (1 << 14);
 
-    for (uint64_t i = 0; i < 10000000; ++i);
+    for (uint64_t i = 0; i < 10000000; ++i) {
+        asm volatile ("pause");
+    }
 
     if (cpus[cpu_no].flags != CPU_READY) {
         kdebug("Failed to start cpu%d\n", cpu_no);

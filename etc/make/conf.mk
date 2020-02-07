@@ -14,7 +14,7 @@ CFLAGS+=-Wall \
 		-Wno-unused-variable \
 		-Wno-language-extension-token \
 		-Wno-gnu-zero-variadic-macro-arguments \
-		-O0 \
+		-O2 \
 		-ggdb
 
 ifdef KERNEL_TEST_MODE

@@ -260,6 +260,7 @@ static int ahci_port_ata_cmd(struct ahci_port *port, uint8_t ata, uintptr_t lba,
 
     // Wait for port to be free for commands
     while ((port->tfd & (ATA_SR_BUSY | ATA_SR_DRQ)) && spin < AHCI_SPIN_WAIT_MAX) {
+        asm volatile ("pause");
         ++spin;
     }
 
@@ -272,6 +273,8 @@ static int ahci_port_ata_cmd(struct ahci_port *port, uint8_t ata, uintptr_t lba,
     port->ci |= 1 << cmd;
 
     while (1) {
+        asm volatile ("nop");
+
         if (!(port->ci & (1 << cmd))) {
             break;
         }
