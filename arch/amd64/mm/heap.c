@@ -155,9 +155,6 @@ void heap_free(heap_t *heap, void *ptr) {
     heap_block_t *begin = (heap_block_t *) MM_VIRTUALIZE(heap->phys_base);
 
     for (heap_block_t *block = begin; block; block = block->next) {
-        if (block->next == (struct heap_block *) 0xffffff00042ddd70) {
-            kdebug("%p's NEXT IS %p\n", block, block->next);
-        }
         if ((block->magic & HEAP_MAGIC) != HEAP_MAGIC) {
             panic("Heap is broken: magic %08x, %p (%lu), size could be %S\n", block->magic, block, (uintptr_t) block - (uintptr_t) begin, block->size);
         }
