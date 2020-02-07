@@ -6,6 +6,8 @@ ifeq ($(AMD64_SMP),1)
 KERNEL_VERSION_STR+= +SMP
 endif
 
+OPTIMIZE?=g
+
 CFLAGS+=-Wall \
 		-Wextra \
 		-Werror \
@@ -14,7 +16,7 @@ CFLAGS+=-Wall \
 		-Wno-unused-variable \
 		-Wno-language-extension-token \
 		-Wno-gnu-zero-variadic-macro-arguments \
-		-O2 \
+		-O$(OPTIMIZE) \
 		-ggdb
 
 ifdef KERNEL_TEST_MODE
