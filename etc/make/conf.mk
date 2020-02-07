@@ -46,6 +46,7 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/block/ram.o \
 	  $(O)/sys/block/blk.o \
 	  $(O)/sys/block/cache.o \
+	  $(O)/sys/kernel.o \
 	  $(O)/sys/dev.o \
 	  $(O)/sys/time.o \
 	  $(O)/sys/sys_file.o \

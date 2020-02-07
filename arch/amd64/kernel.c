@@ -1,12 +1,9 @@
 #include "arch/amd64/hw/rs232.h"
-#include "drivers/pci/pci.h"
-#include "drivers/usb/usb.h"
 #include "arch/amd64/hw/vesa.h"
 #include "arch/amd64/hw/apic.h"
 #include "arch/amd64/smp/smp.h"
 #include "arch/amd64/hw/acpi.h"
 #include "arch/amd64/mm/phys.h"
-#include "arch/amd64/syscall.h"
 #include "arch/amd64/hw/gdt.h"
 #include "arch/amd64/hw/con.h"
 #include "arch/amd64/hw/idt.h"
@@ -15,16 +12,11 @@
 #include "arch/amd64/cpuid.h"
 #include "arch/amd64/mm/mm.h"
 #include "sys/block/ram.h"
-#include "fs/sysfs.h"
-#include "sys/char/tty.h"
 #include "sys/config.h"
-#include "fs/tar.h"
-#include "fs/vfs.h"
+#include "sys/kernel.h"
 #include "sys/random.h"
-#include "sys/sched.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
-#include "sys/init.h"
 #include "sys/mm.h"
 
 static multiboot_info_t *multiboot_info;
@@ -33,7 +25,7 @@ static void amd64_make_random_seed(void) {
     random_init(15267 + system_time);
 }
 
-void kernel_main(struct amd64_loader_data *data) {
+void kernel_early_init(struct amd64_loader_data *data) {
     cpuid_init();
     data = (struct amd64_loader_data *) MM_VIRTUALIZE(data);
     multiboot_info = (multiboot_info_t *) MM_VIRTUALIZE(data->multiboot_info_ptr);
@@ -78,14 +70,9 @@ void kernel_main(struct amd64_loader_data *data) {
         t.tm_year, t.tm_mon, t.tm_mday,
         t.tm_hour, t.tm_min, t.tm_sec);
 
-    pci_init();
-
-    vfs_init();
-    tty_init();
     if (data->initrd_ptr) {
         // Create ram0 block device
         ramblk_init(MM_VIRTUALIZE(data->initrd_ptr), data->initrd_len);
-        tarfs_init();
     }
 
     amd64_make_random_seed();
@@ -93,13 +80,9 @@ void kernel_main(struct amd64_loader_data *data) {
 #if defined(AMD64_SMP)
     amd64_smp_init();
 #endif
-    sched_init();
-    syscall_init();
+}
 
-    sysfs_populate();
-    usb_daemon_start();
-    user_init_start();
-    sched_enter();
-
-    panic("This code should not run\n");
+void kernel_main(struct amd64_loader_data *data) {
+    kernel_early_init(data);
+    main();
 }
