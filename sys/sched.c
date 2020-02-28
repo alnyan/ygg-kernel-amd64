@@ -147,6 +147,7 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
     }
 }
 
+#if defined(DEBUG_COUNTERS)
 static void sched_debug_tree(int level, struct thread *thr, int depth) {
     for (int i = 0; i < depth; ++i) {
         debugs(level, "  ");
@@ -267,6 +268,7 @@ void sched_debug_cycle(uint64_t delta_ms) {
 
     kdebug("--- ----------- ---\n");
 }
+#endif
 
 void yield(void) {
     uintptr_t irq;

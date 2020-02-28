@@ -57,8 +57,6 @@ void timer_remove_sleep(struct thread *target) {
 }
 
 static uint32_t timer_tick(void *arg) {
-    static uint64_t last_debug_cycle = 0;
-
     switch ((uint64_t) arg) {
     case TIMER_PIT:
         #if defined(VESA_ENABLE)
@@ -78,11 +76,14 @@ static uint32_t timer_tick(void *arg) {
         break;
     }
 
+#if defined(DEBUG_COUNTERS)
+    static uint64_t last_debug_cycle = 0;
     uint64_t delta = (system_time - last_debug_cycle) / 1000000ULL;
     if (delta >= 1000) {
         sched_debug_cycle(delta);
         last_debug_cycle = system_time;
     }
+#endif
 
     // Wake up sleepers
     struct thread *thr = sleep_head, *prev = NULL;
