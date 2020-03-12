@@ -86,7 +86,8 @@ OBJS+=$(O)/drivers/pci/pci.o \
 	  $(O)/drivers/usb/usb.o \
 	  $(O)/drivers/usb/driver.o \
 	  $(O)/drivers/usb/device.o \
-	  $(O)/drivers/usb/usbkbd.o
+	  $(O)/drivers/usb/usbkbd.o \
+	  $(O)/drivers/usb/hub.o
 DIRS+=$(O)/drivers/pci \
 	  $(O)/drivers/ata \
 	  $(O)/drivers/usb

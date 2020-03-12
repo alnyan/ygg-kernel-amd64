@@ -452,6 +452,9 @@ static void uhci_poll(struct usb_controller *_hc) {
     struct uhci_qh *next;
     while (qh) {
         next = qh->next;
+        //if (qh->next == next) {
+        //    break;
+        //}
 
         if (qh->transfer) {
             uhci_process_qh(hc, qh);

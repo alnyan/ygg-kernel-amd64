@@ -1,5 +1,6 @@
 #pragma once
 #include "drivers/usb/request.h"
+#include "drivers/usb/descriptor.h"
 #include "sys/types.h"
 
 struct usb_transfer;
