@@ -1,7 +1,8 @@
 #include "arch/amd64/hw/ioapic.h"
-#include "drivers/pci/pci.h"
+#include "arch/amd64/hw/ioapic.h"
 #include "arch/amd64/hw/acpi.h"
 #include "arch/amd64/hw/io.h"
+#include "drivers/pci/pci.h"
 #include "sys/snprintf.h"
 #include "sys/assert.h"
 #include "sys/string.h"
@@ -19,6 +20,9 @@ struct pci_driver;
 
 #define pcie_config_read_dword(dev, off) \
     (*(uint32_t *) ((dev)->pcie_config + (off)))
+
+#define pcie_config_write_dword(dev, off, val) \
+    (*(uint32_t *) ((dev)->pcie_config + (off))) = (val);
 
 #define PCI_CAP_MSI_64          (1 << 7)
 #define PCI_CAP_MSI_EN          (1 << 0)
@@ -72,6 +76,26 @@ static size_t             g_pci_driver_count;
 #define PCI_DRIVER_CLASS        1
 #define PCI_DRIVER_DEV          2
 
+void pci_config_write_dword(struct pci_device *dev, uint16_t off, uint32_t val) {
+    if (PCI_IS_EXPRESS(dev)) {
+        pcie_config_write_dword(dev, off, val);
+    } else {
+        pci_config_write_dword_legacy(dev->bus, dev->dev, dev->func, off, val);
+    }
+}
+
+void pci_config_write_dword_legacy(uint8_t bus, uint8_t dev, uint8_t func, uint32_t off, uint32_t val) {
+    uint32_t w0;
+    w0 = (((uint32_t) bus) << 16) |
+         (((uint32_t) dev) << 11) |
+         (((uint32_t) func) << 8) |
+         (off & ~0x3) |
+         (1 << 31);
+
+    outl(PCI_PORT_CONFIG_ADDR, w0);
+    outl(PCI_PORT_CONFIG_DATA, val);
+}
+
 uint32_t pci_config_read_dword(struct pci_device *dev, uint16_t off) {
     if (PCI_IS_EXPRESS(dev)) {
         return pcie_config_read_dword(dev, off);
@@ -110,6 +134,13 @@ void pci_add_irq(struct pci_device *dev, irq_handler_func_t handler, void *ctx) 
             dev->msi->msi32.message_data = vector;
         }
         dev->msi->message_control |= PCI_CAP_MSI_EN;
+    } else {
+        uint32_t irq_config = pci_config_read_dword(dev, PCI_CONFIG_IRQ);
+        uint8_t irq_pin = (irq_config >> 8) & 0xFF;
+        if (irq_pin) {
+            kdebug("Uses INT%c# IRQ pin\n\n", 'A' + irq_pin - 1);
+            irq_add_pci_handler(dev, irq_pin - 1, handler, ctx);
+        }
     }
 }
 
@@ -126,8 +157,27 @@ void pci_add_class_driver(uint32_t full_class, pci_driver_func_t func, const cha
     driver->match = full_class & ~0xFF000000;
 }
 
+void pci_add_device_driver(uint32_t id, pci_driver_func_t func, const char *name) {
+    if (g_pci_driver_count == PCI_MAX_DRIVERS) {
+        panic("Too many PCI drivers loaded\n");
+    }
+
+    struct pci_driver *driver = &g_pci_drivers[g_pci_driver_count++];
+
+    strcpy(driver->name, name);
+    driver->init_func = func;
+    driver->type = PCI_DRIVER_DEV;
+    driver->match = id;
+}
+
 void pci_add_root_bus(uint8_t n) {
     kwarn("%s: %02x\n", __func__, n);
+}
+
+void pci_get_device_address(const struct pci_device *dev, uint8_t *b, uint8_t *d, uint8_t *f) {
+    *b = dev->bus;
+    *d = dev->dev;
+    *f = dev->func;
 }
 
 static void pci_pick_driver(uint32_t device_id, uint32_t class_id, struct pci_driver **class_driver, struct pci_driver **dev_driver) {
@@ -368,6 +418,8 @@ static void pcie_enumerate_segment(uintptr_t base_address, uint16_t seg, uint8_t
 }
 
 void pci_init(void) {
+    amd64_pci_init_irqs();
+
     if (acpi_mcfg) {
         uint32_t mcfg_entry_count = (acpi_mcfg->hdr.length - sizeof(struct acpi_header) - 8) / sizeof(struct acpi_mcfg_entry);
         kdebug("MCFG has %u entries:\n", mcfg_entry_count);

@@ -3,6 +3,8 @@
 //       irq.h header to provide controller-agnostic interface
 #include "sys/types.h"
 
+struct pci_device;
+
 #define IOAPIC_REG_ID               0x00
 #define IOAPIC_REG_VER              0x01
 #define IOAPIC_REG_REDIR            0x10
@@ -50,4 +52,4 @@ uint8_t amd64_ioapic_leg_gsi(uint8_t leg_irq);
 #define PCI_IRQ_INVALID             0xFFFFFFFE
 
 int amd64_pci_init_irqs(void);
-uint32_t amd64_pci_pin_irq_route(uint8_t bus, uint8_t dev, uint8_t func, uint8_t pin);
+uint32_t amd64_pci_pin_irq_route(struct pci_device *dev, uint8_t pin);
