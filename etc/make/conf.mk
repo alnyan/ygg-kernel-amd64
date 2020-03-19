@@ -92,6 +92,12 @@ DIRS+=$(O)/drivers/pci \
 	  $(O)/drivers/ata \
 	  $(O)/drivers/usb
 
+OBJS+=$(O)/drivers/net/rtl8139.o
+DIRS+=$(O)/drivers/net
+
+OBJS+=$(O)/net/net.o
+DIRS+=$(O)/net
+
 ifeq ($(DEBUG_COUNTERS),1)
 CFLAGS+=-DDEBUG_COUNTERS
 endif

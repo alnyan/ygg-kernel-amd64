@@ -6,6 +6,7 @@
 #include "sys/panic.h"
 #include "fs/sysfs.h"
 #include "sys/init.h"
+#include "net/net.h"
 #include "fs/tar.h"
 #include "fs/vfs.h"
 
@@ -22,6 +23,7 @@ void main(void) {
     sched_init();
 
     usb_daemon_start();
+    net_daemon_start();
     user_init_start();
 
     sched_enter();
