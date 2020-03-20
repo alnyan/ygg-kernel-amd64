@@ -95,7 +95,10 @@ DIRS+=$(O)/drivers/pci \
 OBJS+=$(O)/drivers/net/rtl8139.o
 DIRS+=$(O)/drivers/net
 
-OBJS+=$(O)/net/net.o
+OBJS+=$(O)/net/net.o \
+	  $(O)/net/eth.o \
+	  $(O)/net/arp.o \
+	  $(O)/net/util.o
 DIRS+=$(O)/net
 
 ifeq ($(DEBUG_COUNTERS),1)

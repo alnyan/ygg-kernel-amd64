@@ -8,14 +8,8 @@
 #include "sys/debug.h"
 #include "sys/spin.h"
 
-// Takes up a single page
-#define PACKET_DATA_MAX         (4064)
-struct packet {
-    size_t size;
-    struct packet *prev, *next;
-    void *source_if;
-    char data[PACKET_DATA_MAX];
-};
+#include "net/packet.h"
+#include "net/eth.h"
 
 static struct thread netd_thread = {0};
 static spin_t g_rxq_lock = 0;
@@ -24,9 +18,9 @@ static struct packet *g_rxq_head, *g_rxq_tail;
 static struct packet *packet_create(void);
 static void packet_free(struct packet *p);
 
-static void net_handle_packet(struct packet *p) {
-    kdebug("Packet:\n");
-    debug_dump(DEBUG_DEFAULT, p->data, p->size);
+static inline void net_handle_packet(struct packet *p) {
+    // TODO: check if interface sends packet not in ethernet format
+    eth_handle_frame(p);
 }
 
 static void net_daemon(void) {
@@ -80,6 +74,8 @@ int net_receive(/* TODO: replace with struct netdev * */ void *ctx, const void *
     }
     struct packet *p = packet_create();
 
+    // TODO: maybe information like "Physical match", "Multicast" or "Broadcast"
+    //       would be useful to store in packet
     memcpy(p->data, data, len);
     p->size = len;
     p->source_if = ctx;
