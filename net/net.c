@@ -226,17 +226,29 @@ ssize_t net_recvfrom(struct vfs_ioctx *ioctx,
     _assert(fd);
     _assert(fd->flags & OF_SOCKET);
 
-    if (fd->socket.domain != AF_INET) {
+    switch (fd->socket.domain) {
+    case AF_INET:
+        switch (fd->socket.type) {
+        case SOCK_DGRAM:
+            return udp_socket_recv(ioctx, fd, buf, len, sa, salen);
+        default:
+            return -EINVAL;
+        }
+        break;
+    case AF_PACKET:
+        switch (fd->socket.type) {
+        case SOCK_RAW:
+            return raw_socket_recv(ioctx, fd, buf, len, sa, salen);
+        default:
+            break;
+        }
+        break;
+    default:
         kwarn("Unknown socket family: %d\n", fd->socket.domain);
-        return -EINVAL;
+        break;
     }
 
-    switch (fd->socket.type) {
-    case SOCK_DGRAM:
-        return udp_socket_recv(ioctx, fd, buf, len, sa, salen);
-    default:
-        return -EINVAL;
-    }
+    return -EINVAL;
 }
 
 int net_bind(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *sa, size_t len) {

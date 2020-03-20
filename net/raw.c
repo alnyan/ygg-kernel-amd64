@@ -1,11 +1,17 @@
+#include "arch/amd64/cpu.h"
 #include "user/socket.h"
 #include "sys/assert.h"
 #include "net/packet.h"
+#include "sys/thread.h"
+#include "sys/string.h"
+#include "sys/sched.h"
+#include "sys/debug.h"
 #include "fs/ofile.h"
 #include "sys/heap.h"
 #include "net/raw.h"
 
 struct raw_socket {
+    struct thread *wait;
     struct packet_queue queue;
     struct raw_socket *prev, *next;
 };
@@ -20,6 +26,7 @@ int raw_socket_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type
     packet_queue_init(&r_sock->queue);
     r_sock->prev = NULL;
     r_sock->next = g_raw_sockets;
+    r_sock->wait = NULL;
     g_raw_sockets = r_sock;
 
     fd->flags |= OF_SOCKET;
@@ -30,8 +37,46 @@ int raw_socket_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type
     return 0;
 }
 
+ssize_t raw_socket_recv(struct vfs_ioctx *ioctx, struct ofile *fd, void *buf, size_t lim, struct sockaddr *sa, size_t *salen) {
+    struct raw_socket *sock = fd->socket.sock;
+    _assert(sock);
+    struct thread *t = thread_self;
+    _assert(t);
+    struct packet *p;
+
+    if (!sock->queue.head) {
+        sock->wait = t;
+
+        while (!sock->queue.head) {
+            sched_unqueue(t, THREAD_WAITING_NET);
+            thread_check_signal(t, 0);
+        }
+    }
+
+    // Read a single packet
+    p = packet_queue_pop(&sock->queue);
+    _assert(p);
+
+    size_t p_size = p->size;
+    if (p_size > lim) {
+        kerror("Packet buffer overflow\n");
+        return -1;
+    }
+    memcpy(buf, p->data, p_size);
+    packet_unref(p);
+
+    return p_size;
+}
+
 void raw_socket_close(struct vfs_ioctx *ioctx, struct ofile *fd) {
-    // Do nothing, I guess
+    struct raw_socket *r_sock = kmalloc(sizeof(struct raw_socket));
+    _assert(r_sock);
+
+    // Flush packet queue
+    while (r_sock->queue.head) {
+        struct packet *p = packet_queue_pop(&r_sock->queue);
+        packet_unref(p);
+    }
 }
 
 void raw_packet_handle(struct packet *p) {
@@ -39,5 +84,8 @@ void raw_packet_handle(struct packet *p) {
     for (struct raw_socket *r = g_raw_sockets; r; r = r->next) {
         packet_ref(p);
         packet_queue_push(&r->queue, p);
+        if (r->wait) {
+            sched_queue(r->wait);
+        }
     }
 }
