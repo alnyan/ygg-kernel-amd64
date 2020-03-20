@@ -431,14 +431,14 @@ static void tarfs_block_free(struct tar *hdr, uint32_t index) {
 static ssize_t tarfs_vnode_write(struct ofile *fd, const void *buf, size_t count) {
     _assert(fd);
     _assert(buf);
-    struct vnode *node = fd->vnode;
+    struct vnode *node = fd->file.vnode;
     _assert(node);
     struct tar *hdr = node->fs_data;
     _assert(hdr);
     // Update mtime on writes
     hdr->meta.mtime = time();
 
-    if (fd->pos > hdr->meta.size) {
+    if (fd->file.pos > hdr->meta.size) {
         return -1;
     }
 
@@ -446,8 +446,8 @@ static ssize_t tarfs_vnode_write(struct ofile *fd, const void *buf, size_t count
     size_t bwrite;
 
     while (count) {
-        size_t blk_off = fd->pos % 512;
-        size_t blk_ind = fd->pos / 512;
+        size_t blk_off = fd->file.pos % 512;
+        size_t blk_ind = fd->file.pos / 512;
         bwrite = MIN(512 - blk_off, count);
 
         uintptr_t block_ptr = tarfs_block_addr(hdr, blk_ind);
@@ -470,9 +470,9 @@ static ssize_t tarfs_vnode_write(struct ofile *fd, const void *buf, size_t count
         // Copy data to destination
         memcpy((void *) (block_ptr + blk_off), buf, bwrite);
 
-        fd->pos += bwrite;
-        if (fd->pos > hdr->meta.size) {
-            hdr->meta.size = fd->pos;
+        fd->file.pos += bwrite;
+        if (fd->file.pos > hdr->meta.size) {
+            hdr->meta.size = fd->file.pos;
         }
         count -= bwrite;
         write_total += bwrite;
@@ -484,23 +484,23 @@ static ssize_t tarfs_vnode_write(struct ofile *fd, const void *buf, size_t count
 static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
     _assert(fd);
     _assert(buf);
-    struct vnode *node = fd->vnode;
+    struct vnode *node = fd->file.vnode;
     _assert(node);
     struct tar *hdr = node->fs_data;
     _assert(hdr);
 
-    if (fd->pos >= hdr->meta.size) {
+    if (fd->file.pos >= hdr->meta.size) {
         return -1;
     }
 
-    size_t can_read = MIN(count, hdr->meta.size - fd->pos);
+    size_t can_read = MIN(count, hdr->meta.size - fd->file.pos);
     int res;
     size_t read_total = 0;
     uintptr_t blk_addr;
 
     while (can_read) {
-        size_t blk_off = fd->pos % 512;
-        size_t blk_ind = fd->pos / 512;
+        size_t blk_off = fd->file.pos % 512;
+        size_t blk_ind = fd->file.pos / 512;
         size_t bread = MIN(can_read, 512 - blk_off);
 
         if ((blk_addr = tarfs_block_addr(hdr, blk_ind)) == MM_NADDR) {
@@ -511,7 +511,7 @@ static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
 
         can_read -= bread;
         buf += bread;
-        fd->pos += bread;
+        fd->file.pos += bread;
         read_total += bread;
     }
 
@@ -519,13 +519,13 @@ static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
 }
 
 static int tarfs_vnode_open(struct ofile *of, int opt) {
-    of->pos = 0;
+    of->file.pos = 0;
     return 0;
 }
 
 static off_t tarfs_vnode_lseek(struct ofile *fd, off_t offset, int whence) {
     _assert(fd);
-    struct vnode *node = fd->vnode;
+    struct vnode *node = fd->file.vnode;
     _assert(node);
     struct tar *hdr = node->fs_data;
     _assert(hdr);
@@ -538,10 +538,10 @@ static off_t tarfs_vnode_lseek(struct ofile *fd, off_t offset, int whence) {
         return -EINVAL;
     }
 
-    fd->pos = offset;
-    kdebug("Seek to %p\n", fd->pos);
+    fd->file.pos = offset;
+    kdebug("Seek to %p\n", fd->file.pos);
 
-    return fd->pos;
+    return fd->file.pos;
 }
 
 static int tarfs_vnode_chmod(struct vnode *node, mode_t mode) {

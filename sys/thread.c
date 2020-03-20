@@ -114,7 +114,9 @@ void thread_ioctx_fork(struct thread *dst, struct thread *src) {
     for (int i = 0; i < THREAD_MAX_FDS; ++i) {
         if (src->fds[i]) {
             dst->fds[i] = src->fds[i];
-            ++dst->fds[i]->refcount;
+            if (!(dst->fds[i]->flags & OF_SOCKET)) {
+                ++dst->fds[i]->file.refcount;
+            }
         }
     }
 }
@@ -195,9 +197,13 @@ void thread_cleanup(struct thread *thr) {
         if (thr->fds[i]) {
             vfs_close(&thr->ioctx, thr->fds[i]);
 
-            _assert(thr->fds[i]->refcount >= 0);
-            if (thr->fds[i]->refcount == 0) {
-                kfree(thr->fds[i]);
+            if (!(thr->fds[i]->flags & OF_SOCKET)) {
+                _assert(thr->fds[i]->file.refcount >= 0);
+                if (thr->fds[i]->file.refcount == 0) {
+                    kfree(thr->fds[i]);
+                }
+            } else {
+                kerror("TODO: close socket\n");
             }
 
             thr->fds[i] = NULL;

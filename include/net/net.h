@@ -1,6 +1,18 @@
 #pragma once
 #include "sys/types.h"
 
-int net_receive(/* TODO: replace with struct netdev * */ void *ctx, const void *data, size_t len);
+struct sockaddr;
+struct vfs_ioctx;
+struct ofile;
+struct netdev;
 
-int net_daemon_start(void);
+int net_receive(struct netdev *dev, const void *data, size_t len);
+int net_socket_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type, int proto);
+ssize_t net_sendto(struct vfs_ioctx *ioctx,
+                   struct ofile *fd,
+                   const void *buf,
+                   size_t len,
+                   struct sockaddr *sa,
+                   size_t salen);
+
+void net_daemon_start(void);

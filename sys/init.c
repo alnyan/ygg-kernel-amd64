@@ -53,10 +53,10 @@ static void user_init_func(void *arg) {
     thread_self->fds[1] = fd_stdout;
     thread_self->fds[2] = fd_stdout;
     // Duplicate the FD
-    ++fd_stdout->refcount;
+    ++fd_stdout->file.refcount;
 
-    _assert(fd_stdin->refcount == 1);
-    _assert(fd_stdout->refcount == 2);
+    _assert(fd_stdin->file.refcount == 1);
+    _assert(fd_stdout->file.refcount == 2);
 
     const char *argp[] = {
         "/init", NULL

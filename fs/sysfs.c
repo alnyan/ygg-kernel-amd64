@@ -73,21 +73,21 @@ static int sysfs_vnode_open(struct ofile *fd, int opt) {
         return -1;
     }
 
-    _assert(fd->vnode);
-    struct sysfs_config_endpoint *endp = fd->vnode->fs_data;
+    _assert(fd->file.vnode);
+    struct sysfs_config_endpoint *endp = fd->file.vnode->fs_data;
     int res;
     _assert(endp);
 
-    fd->priv_data = kmalloc(endp->bufsz);
-    if (!fd->priv_data) {
+    fd->file.priv_data = kmalloc(endp->bufsz);
+    if (!fd->file.priv_data) {
         return -ENOMEM;
     }
-    ((char *) fd->priv_data)[0] = 0;
-    fd->pos = 0;
+    ((char *) fd->file.priv_data)[0] = 0;
+    fd->file.pos = 0;
 
     if (endp->read) {
-        if ((res = endp->read(endp->ctx, (char *) fd->priv_data, endp->bufsz)) != 0) {
-            kfree(fd->priv_data);
+        if ((res = endp->read(endp->ctx, (char *) fd->file.priv_data, endp->bufsz)) != 0) {
+            kfree(fd->file.priv_data);
             return res;
         }
     }
@@ -96,25 +96,25 @@ static int sysfs_vnode_open(struct ofile *fd, int opt) {
 }
 
 static void sysfs_vnode_close(struct ofile *fd) {
-    _assert(fd->priv_data);
-    kfree(fd->priv_data);
-    fd->priv_data = 0;
+    _assert(fd->file.priv_data);
+    kfree(fd->file.priv_data);
+    fd->file.priv_data = 0;
 }
 
 static ssize_t sysfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
     _assert(fd);
-    const char *data = fd->priv_data;
+    const char *data = fd->file.priv_data;
     _assert(data);
     size_t max = strlen(data) + 1;
 
-    if (fd->pos >= max) {
+    if (fd->file.pos >= max) {
         return 0;
     }
 
-    size_t r = MIN(max - fd->pos, count);
-    memcpy(buf, data + fd->pos, r);
+    size_t r = MIN(max - fd->file.pos, count);
+    memcpy(buf, data + fd->file.pos, r);
 
-    fd->pos += r;
+    fd->file.pos += r;
 
     return r;
 }

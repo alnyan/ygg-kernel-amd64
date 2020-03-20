@@ -7,6 +7,7 @@
 #include "net/icmp.h"
 #include "net/arp.h"
 #include "net/eth.h"
+#include "net/udp.h"
 #include "net/if.h"
 
 uint16_t inet_checksum(const void *data, size_t len) {
@@ -74,6 +75,9 @@ void inet_handle_frame(struct packet *p, struct eth_frame *eth, void *data, size
     switch (ip->proto) {
     case INET_P_ICMP:
         icmp_handle_frame(p, eth, ip, data, len);
+        break;
+    case INET_P_UDP:
+        udp_handle_frame(p, eth, ip, data, len);
         break;
     default:
         kwarn("%s: dropping unknown protocol %02x\n", p->dev->name, ip->proto);

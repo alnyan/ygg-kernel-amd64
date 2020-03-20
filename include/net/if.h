@@ -30,5 +30,6 @@ struct netdev {
 
 struct netdev *netdev_create(int type);
 struct netdev *netdev_by_name(const char *name);
+struct netdev *netdev_find_inaddr(uint32_t inaddr);
 
 int netctl(struct netdev *dev, uint32_t op, void *arg);

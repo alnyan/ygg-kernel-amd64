@@ -43,4 +43,6 @@
 #define SYSCALL_NR_GETPGID      121
 #define SYSCALL_NRX_WAITPID     247
 
+#define SYSCALL_NR_SOCKET       41
+#define SYSCALL_NR_SENDTO       44
 #define SYSCALL_NRX_NETCTL      248

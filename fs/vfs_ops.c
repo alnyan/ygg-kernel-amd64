@@ -59,8 +59,9 @@ static const char *vfs_path_parent(const char *input, char *dst) {
 static int vfs_opendir(struct vfs_ioctx *ctx, struct ofile *fd) {
     _assert(ctx);
     _assert(fd);
+    _assert(!(fd->flags & OF_SOCKET));
 
-    struct vnode *node = fd->vnode;
+    struct vnode *node = fd->file.vnode;
 
     _assert(node);
 
@@ -72,9 +73,9 @@ static int vfs_opendir(struct vfs_ioctx *ctx, struct ofile *fd) {
         // Filesystem doesn't have to implement opendir/readdir for these - they're all
         // in memory and can be easily iterated
         fd->flags |= OF_MEMDIR | OF_MEMDIR_DOT;
-        fd->pos = (size_t) node->first_child;
+        fd->file.pos = (size_t) node->first_child;
 
-        ++fd->refcount;
+        ++fd->file.refcount;
         ++node->open_count;
 
         return 0;
@@ -88,7 +89,7 @@ static int vfs_opendir(struct vfs_ioctx *ctx, struct ofile *fd) {
             return res;
         }
 
-        ++fd->refcount;
+        ++fd->file.refcount;
         ++node->open_count;
 
         return 0;
@@ -98,6 +99,7 @@ static int vfs_opendir(struct vfs_ioctx *ctx, struct ofile *fd) {
 int vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd, struct dirent *ent) {
     _assert(ctx);
     _assert(fd);
+    _assert(!(fd->flags & OF_SOCKET));
 
     if (!(fd->flags & OF_DIRECTORY)) {
         return -ENOTDIR;
@@ -106,7 +108,7 @@ int vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd, struct dirent *ent) {
     if (fd->flags & OF_MEMDIR) {
         // Kind of hacky but works
         if (fd->flags & OF_MEMDIR_DOT) {
-            struct vnode *node = fd->vnode;
+            struct vnode *node = fd->file.vnode;
             _assert(node);
 
             fd->flags &= ~OF_MEMDIR_DOT;
@@ -121,7 +123,7 @@ int vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd, struct dirent *ent) {
 
             return ent->d_reclen;
         } else if (fd->flags & OF_MEMDIR_DOTDOT) {
-            struct vnode *node = fd->vnode;
+            struct vnode *node = fd->file.vnode;
             _assert(node);
             if (node->parent) {
                 node = node->parent;
@@ -140,7 +142,7 @@ int vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd, struct dirent *ent) {
             return ent->d_reclen;
         }
 
-        struct vnode *item = (struct vnode *) fd->pos;
+        struct vnode *item = (struct vnode *) fd->file.pos;
         if (!item) {
             return -1;
         }
@@ -165,11 +167,11 @@ int vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd, struct dirent *ent) {
         strcpy(ent->d_name, item->name);
         ent->d_reclen = sizeof(struct dirent) + strlen(item->name);
 
-        fd->pos = (size_t) item->next_child;
+        fd->file.pos = (size_t) item->next_child;
 
         return ent->d_reclen;
     } else {
-        struct vnode *node = fd->vnode;
+        struct vnode *node = fd->file.vnode;
         _assert(node);
         _assert(node->op && node->op->readdir);
         return node->op->readdir(fd, ent);
@@ -183,6 +185,7 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
     _assert(ctx);
     _assert(fd);
     _assert(node);
+    fd->flags &= ~OF_SOCKET;
 
     if (opt & O_DIRECTORY) {
         if (node->type != VN_DIR) {
@@ -193,9 +196,9 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
             return -EACCES;
         }
 
-        fd->refcount = 0;
-        fd->pos = 0;
-        fd->vnode = node;
+        fd->file.refcount = 0;
+        fd->file.pos = 0;
+        fd->file.vnode = node;
         fd->flags = OF_DIRECTORY | OF_READABLE;
 
         if ((res = vfs_opendir(ctx, fd)) != 0) {
@@ -225,9 +228,9 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
         }
     }
 
-    fd->refcount = 0;
-    fd->pos = 0;
-    fd->vnode = node;
+    fd->file.refcount = 0;
+    fd->file.pos = 0;
+    fd->file.vnode = node;
     fd->flags = 0;
 
     switch (opt & O_ACCMODE) {
@@ -250,8 +253,8 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
         }
     }
 
-    ++fd->refcount;
-    ++fd->vnode->open_count;
+    ++fd->file.refcount;
+    ++fd->file.vnode->open_count;
 
     return 0;
 }
@@ -397,6 +400,7 @@ int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int opt,
     _assert(ctx);
     _assert(fd);
     _assert(path);
+    _assert(!(fd->flags & OF_SOCKET));
 
     if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
         if (opt & O_CREAT) {
@@ -424,15 +428,16 @@ int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int opt,
 void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd) {
     _assert(ctx);
     _assert(fd);
-    _assert(fd->vnode);
-    _assert(fd->refcount > 0);
+    _assert(!(fd->flags & OF_SOCKET));
+    _assert(fd->file.vnode);
+    _assert(fd->file.refcount > 0);
 
-    if (fd->vnode->op && fd->vnode->op->close) {
-        fd->vnode->op->close(fd);
+    if (fd->file.vnode->op && fd->file.vnode->op->close) {
+        fd->file.vnode->op->close(fd);
     }
 
-    --fd->vnode->open_count;
-    --fd->refcount;
+    --fd->file.vnode->open_count;
+    --fd->file.refcount;
 }
 
 int vfs_access(struct vfs_ioctx *ctx, const char *path, int accmode) {
@@ -478,12 +483,13 @@ ssize_t vfs_write(struct vfs_ioctx *ctx, struct ofile *fd, const void *buf, size
     ssize_t b;
 
     _assert(fd);
+    _assert(!(fd->flags & OF_SOCKET));
 
     if (!(fd->flags & OF_WRITABLE) || (fd->flags & OF_DIRECTORY)) {
         return -EINVAL;
     }
 
-    node = fd->vnode;
+    node = fd->file.vnode;
 
     _assert(ctx);
     _assert(buf);
@@ -496,7 +502,7 @@ ssize_t vfs_write(struct vfs_ioctx *ctx, struct ofile *fd, const void *buf, size
         return b;
     case VN_CHR:
         _assert(node->dev && ((struct chrdev *) node->dev)->write);
-        return chr_write(node->dev, buf, fd->pos, count);
+        return chr_write(node->dev, buf, fd->file.pos, count);
 
     case VN_DIR:
     default:
@@ -514,8 +520,9 @@ ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t coun
     }
 
     _assert(fd);
+    _assert(!(fd->flags & OF_SOCKET));
 
-    node = fd->vnode;
+    node = fd->file.vnode;
 
     _assert(ctx);
     _assert(buf);
@@ -528,12 +535,12 @@ ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t coun
         return b;
     case VN_CHR:
         _assert(node->dev && ((struct chrdev *) node->dev)->read);
-        return chr_read(node->dev, buf, fd->pos, count);
+        return chr_read(node->dev, buf, fd->file.pos, count);
     case VN_BLK:
         _assert(node->dev);
-        b = blk_read(node->dev, buf, fd->pos, count);
+        b = blk_read(node->dev, buf, fd->file.pos, count);
         if (b > 0) {
-            fd->pos += b;
+            fd->file.pos += b;
         }
         return b;
 
@@ -546,7 +553,8 @@ ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t coun
 
 off_t vfs_lseek(struct vfs_ioctx *ctx, struct ofile *fd, off_t offset, int whence) {
     _assert(fd);
-    struct vnode *node = fd->vnode;
+    _assert(!(fd->flags & OF_SOCKET));
+    struct vnode *node = fd->file.vnode;
     _assert(node);
 
     if (node->type != VN_REG) {
@@ -620,7 +628,8 @@ int vfs_chown(struct vfs_ioctx *ctx, const char *path, uid_t uid, gid_t gid) {
 int vfs_ioctl(struct vfs_ioctx *ctx, struct ofile *fd, unsigned int cmd, void *arg) {
     _assert(ctx);
     _assert(fd);
-    struct vnode *node = fd->vnode;
+    _assert(!(fd->flags & OF_SOCKET));
+    struct vnode *node = fd->file.vnode;
     _assert(node);
 
     switch (node->type) {

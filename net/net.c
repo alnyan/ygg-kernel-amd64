@@ -1,15 +1,20 @@
 #include "arch/amd64/mm/phys.h"
 #include "arch/amd64/cpu.h"
+#include "user/socket.h"
 #include "sys/thread.h"
+#include "user/errno.h"
 #include "sys/assert.h"
 #include "sys/string.h"
 #include "sys/sched.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
+#include "fs/ofile.h"
 #include "sys/spin.h"
 
 #include "net/packet.h"
 #include "net/eth.h"
+#include "net/udp.h"
+#include "net/net.h"
 #include "net/if.h"
 
 static struct thread netd_thread = {0};
@@ -52,7 +57,7 @@ static void net_daemon(void) {
 
         net_handle_packet(p);
 
-        packet_free(p);
+        packet_unref(p);
     }
 }
 
@@ -69,6 +74,18 @@ static void packet_free(struct packet *p) {
     amd64_phys_free(page);
 }
 
+void packet_ref(struct packet *p) {
+    ++p->refcount;
+}
+
+void packet_unref(struct packet *p) {
+    _assert(p->refcount);
+    --p->refcount;
+    if (!p->refcount) {
+        packet_free(p);
+    }
+}
+
 int net_receive(struct netdev *dev, const void *data, size_t len) {
     if (len > PACKET_DATA_MAX) {
         kwarn("%s: dropping large packet (%u)\n", dev->name, len);
@@ -81,6 +98,7 @@ int net_receive(struct netdev *dev, const void *data, size_t len) {
     memcpy(p->data, data, len);
     p->size = len;
     p->dev = dev;
+    packet_ref(p);
 
     spin_lock(&g_rxq_lock);
     p->next = NULL;
@@ -100,4 +118,37 @@ void net_daemon_start(void) {
     _assert(thread_init(&netd_thread, (uintptr_t) net_daemon, NULL, 0) == 0);
     netd_thread.pid = thread_alloc_pid(0);
     sched_queue(&netd_thread);
+}
+
+int net_socket_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type, int proto) {
+    _assert(fd);
+    fd->flags = OF_SOCKET;
+
+    if (dom == AF_INET) {
+        switch (type) {
+        case SOCK_DGRAM:
+            return udp_socket_open(ioctx, fd, dom, type, proto);
+        default:
+            break;
+        }
+    }
+
+    return -EINVAL;
+}
+
+ssize_t net_sendto(struct vfs_ioctx *ioctx,
+                   struct ofile *fd,
+                   const void *buf,
+                   size_t len,
+                   struct sockaddr *sa,
+                   size_t salen) {
+    _assert(fd);
+    _assert(fd->flags & OF_SOCKET);
+
+    switch (fd->socket.family) {
+    case SOCK_DGRAM:
+        return udp_socket_send(ioctx, fd, buf, len, sa, salen);
+    default:
+        return -EINVAL;
+    }
 }

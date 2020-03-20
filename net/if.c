@@ -46,6 +46,21 @@ struct netdev *netdev_by_name(const char *name) {
     return NULL;
 }
 
+// Find an interface through which this inaddr should be
+// accessible (TODO: route tables)
+struct netdev *netdev_find_inaddr(uint32_t inaddr) {
+    for (struct netdev *dev = g_netdev; dev; dev = dev->next) {
+        if (!(dev->flags & IF_F_HASIP)) {
+            continue;
+        }
+        if ((inaddr & ~0xFFFF) == (dev->inaddr & ~0xFFFF)) {
+            return dev;
+        }
+    }
+
+    return NULL;
+}
+
 int netctl(struct netdev *dev, uint32_t op, void *data) {
     _assert(dev);
 

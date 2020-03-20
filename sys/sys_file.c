@@ -21,6 +21,11 @@ ssize_t sys_read(int fd, void *data, size_t lim) {
         return -EBADF;
     }
 
+    if (of->flags & OF_SOCKET) {
+        kwarn("Invalid operation on socket\n");
+        return -EINVAL;
+    }
+
     return vfs_read(&thr->ioctx, of, data, lim);
 }
 
@@ -35,6 +40,11 @@ ssize_t sys_write(int fd, const void *data, size_t lim) {
 
     if ((of = thr->fds[fd]) == NULL) {
         return -EBADF;
+    }
+
+    if (of->flags & OF_SOCKET) {
+        kwarn("Invalid operation on socket\n");
+        return -EINVAL;
     }
 
     return vfs_write(&thr->ioctx, of, data, lim);
@@ -141,10 +151,14 @@ void sys_close(int fd) {
         return;
     }
 
-    vfs_close(&thr->ioctx, thr->fds[fd]);
-    _assert(thr->fds[fd]->refcount >= 0);
-    if (!thr->fds[fd]->refcount) {
-        kfree(thr->fds[fd]);
+    if (thr->fds[fd]->flags & OF_SOCKET) {
+        kinfo("TODO: socket close\n");
+    } else {
+        vfs_close(&thr->ioctx, thr->fds[fd]);
+        _assert(thr->fds[fd]->file.refcount >= 0);
+        if (!thr->fds[fd]->file.refcount) {
+            kfree(thr->fds[fd]);
+        }
     }
     thr->fds[fd] = NULL;
 }
@@ -199,6 +213,11 @@ off_t sys_lseek(int fd, off_t offset, int whence) {
         return -EBADF;
     }
 
+    if (ofile->flags & OF_SOCKET) {
+        kwarn("Invalid operation on socket\n");
+        return -EINVAL;
+    }
+
     return vfs_lseek(&thr->ioctx, ofile, offset, whence);
 }
 
@@ -215,6 +234,11 @@ int sys_ioctl(int fd, unsigned int cmd, void *arg) {
         return -EBADF;
     }
 
+    if (of->flags & OF_SOCKET) {
+        kwarn("Invalid operation on socket\n");
+        return -EINVAL;
+    }
+
     return vfs_ioctl(&thr->ioctx, of, cmd, arg);
 }
 
@@ -228,6 +252,11 @@ ssize_t sys_readdir(int fd, struct dirent *ent) {
 
     if (thr->fds[fd] == NULL) {
         return -EBADF;
+    }
+
+    if (thr->fds[fd]->flags & OF_SOCKET) {
+        kwarn("Invalid operation on socket\n");
+        return -EINVAL;
     }
 
     return vfs_readdir(&thr->ioctx, thr->fds[fd], ent);
@@ -256,13 +285,13 @@ int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *t
         if (FD_ISSET(i, &_inp)) {
             struct ofile *fd = thr->fds[i];
 
-            if (!fd) {
+            if (!fd || (fd->flags & OF_SOCKET)) {
                 return -EBADF;
             }
 
-            _assert(fd->vnode);
-            if (fd->vnode->type != VN_CHR) {
-                kerror("Tried to select() on non-char device/file: %s\n", fd->vnode->name);
+            _assert(fd->file.vnode);
+            if (fd->file.vnode->type != VN_CHR) {
+                kerror("Tried to select() on non-char device/file: %s\n", fd->file.vnode->name);
                 return -ENOSYS;
             }
         }
