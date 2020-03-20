@@ -45,6 +45,7 @@ int inet_send_wrapped(struct netdev *src, uint32_t inaddr, uint8_t proto, void *
     ip->checksum = 0;
     ip->tos = 0;
     ip->ttl = 64;
+    ip->id = 0;
     ip->ihl = sizeof(struct inet_frame) / 4;
     ip->version = 4;
     ip->tot_len = htons(len - sizeof(struct eth_frame));

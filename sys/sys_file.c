@@ -7,6 +7,7 @@
 #include "sys/string.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
+#include "net/net.h"
 
 ssize_t sys_read(int fd, void *data, size_t lim) {
     struct thread *thr = thread_self;
@@ -152,7 +153,8 @@ void sys_close(int fd) {
     }
 
     if (thr->fds[fd]->flags & OF_SOCKET) {
-        kinfo("TODO: socket close\n");
+        net_close(&thr->ioctx, thr->fds[fd]);
+        kfree(thr->fds[fd]);
     } else {
         vfs_close(&thr->ioctx, thr->fds[fd]);
         _assert(thr->fds[fd]->file.refcount >= 0);

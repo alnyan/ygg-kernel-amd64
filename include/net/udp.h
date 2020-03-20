@@ -21,3 +21,4 @@ ssize_t udp_socket_send(struct vfs_ioctx *ioctx, struct ofile *fd, const void *b
 ssize_t udp_socket_recv(struct vfs_ioctx *ioctx, struct ofile *fd, void *buf, size_t lim, struct sockaddr *sa, size_t *salen);
 int udp_socket_bind(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *sa, size_t len);
 int udp_setsockopt(struct vfs_ioctx *ioctx, struct ofile *fd, int optname, void *optval, size_t optlen);
+void udp_socket_close(struct vfs_ioctx *ioctx, struct ofile *fd);

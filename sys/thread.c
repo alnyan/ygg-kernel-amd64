@@ -18,6 +18,7 @@
 #include "sys/sched.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
+#include "net/net.h"
 #include "sys/mm.h"
 
 struct sys_fork_frame {
@@ -195,17 +196,16 @@ void thread_cleanup(struct thread *thr) {
     kdebug("Cleaning up %d\n", thr->pid);
     for (size_t i = 0; i < THREAD_MAX_FDS; ++i) {
         if (thr->fds[i]) {
-            vfs_close(&thr->ioctx, thr->fds[i]);
 
-            if (!(thr->fds[i]->flags & OF_SOCKET)) {
+            if (thr->fds[i]->flags & OF_SOCKET) {
+                net_close(&thr->ioctx, thr->fds[i]);
+            } else {
+                vfs_close(&thr->ioctx, thr->fds[i]);
                 _assert(thr->fds[i]->file.refcount >= 0);
                 if (thr->fds[i]->file.refcount == 0) {
                     kfree(thr->fds[i]);
                 }
-            } else {
-                kerror("TODO: close socket\n");
             }
-
             thr->fds[i] = NULL;
         }
     }

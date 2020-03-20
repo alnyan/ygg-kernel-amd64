@@ -162,7 +162,7 @@ int udp_socket_bind(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *
     if (port < UDP_BIND_START || (port - UDP_BIND_START) >= UDP_BIND_COUNT) {
         return -EINVAL;
     }
-    udp_ports[port] = sock;
+    udp_ports[port - UDP_BIND_START] = sock;
 
     sock->flags |= UDP_SOCKET_ANY;
     sock->recv_port = port;
@@ -185,6 +185,21 @@ int udp_setsockopt(struct vfs_ioctx *ioctx, struct ofile *fd, int optname, void 
     default:
         return -EINVAL;
     }
+}
+
+void udp_socket_close(struct vfs_ioctx *ioctx, struct ofile *fd) {
+    struct udp_socket *sock = fd->socket.sock;
+    _assert(sock);
+
+    sock->flags &= ~UDP_SOCKET_ANY;
+
+    if (sock->flags & UDP_SOCKET_ANY) {
+        udp_ports[sock->recv_port - UDP_BIND_START] = NULL;
+    }
+
+    kfree(sock);
+    fd->socket.sock = NULL;
+    fd->flags &= ~OF_SOCKET;
 }
 
 void udp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame *ip, void *data, size_t len) {
@@ -212,6 +227,8 @@ void udp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame
                 sock->flags &= ~UDP_SOCKET_PENDING;
                 sched_queue(sock->owner);
             }
+        } else {
+            kdebug("Packet is destined to unbound port: %u\n", dpt);
         }
     }
 }

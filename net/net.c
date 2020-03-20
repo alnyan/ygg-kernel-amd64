@@ -136,6 +136,19 @@ int net_socket_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type
     return -EINVAL;
 }
 
+void net_close(struct vfs_ioctx *ioctx, struct ofile *fd) {
+    _assert(fd);
+    _assert(fd->flags & OF_SOCKET);
+
+    switch (fd->socket.family) {
+    case SOCK_DGRAM:
+        udp_socket_close(ioctx, fd);
+        break;
+    default:
+        break;
+    }
+}
+
 ssize_t net_sendto(struct vfs_ioctx *ioctx,
                    struct ofile *fd,
                    const void *buf,
