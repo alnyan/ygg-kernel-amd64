@@ -20,7 +20,8 @@ struct ofile {
             void *priv_data;
         } file;
         struct {
-            uint16_t family;
+            int domain;
+            int type;
             void *sock;
         } socket;
     };

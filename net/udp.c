@@ -58,7 +58,8 @@ int udp_socket_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type
     struct udp_socket *sock = udp_socket_create();
     _assert(sock);
 
-    fd->socket.family = SOCK_DGRAM;
+    fd->socket.domain = AF_INET;
+    fd->socket.type = SOCK_DGRAM;
     fd->socket.sock = sock;
 
     return 0;

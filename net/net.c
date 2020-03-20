@@ -140,7 +140,12 @@ void net_close(struct vfs_ioctx *ioctx, struct ofile *fd) {
     _assert(fd);
     _assert(fd->flags & OF_SOCKET);
 
-    switch (fd->socket.family) {
+    if (fd->socket.domain != AF_INET) {
+        kwarn("Unknown socket family: %d\n", fd->socket.domain);
+        return;
+    }
+
+    switch (fd->socket.type) {
     case SOCK_DGRAM:
         udp_socket_close(ioctx, fd);
         break;
@@ -158,7 +163,12 @@ ssize_t net_sendto(struct vfs_ioctx *ioctx,
     _assert(fd);
     _assert(fd->flags & OF_SOCKET);
 
-    switch (fd->socket.family) {
+    if (fd->socket.domain != AF_INET) {
+        kwarn("Unknown socket family: %d\n", fd->socket.domain);
+        return -EINVAL;
+    }
+
+    switch (fd->socket.type) {
     case SOCK_DGRAM:
         return udp_socket_send(ioctx, fd, buf, len, sa, salen);
     default:
@@ -175,7 +185,12 @@ ssize_t net_recvfrom(struct vfs_ioctx *ioctx,
     _assert(fd);
     _assert(fd->flags & OF_SOCKET);
 
-    switch (fd->socket.family) {
+    if (fd->socket.domain != AF_INET) {
+        kwarn("Unknown socket family: %d\n", fd->socket.domain);
+        return -EINVAL;
+    }
+
+    switch (fd->socket.type) {
     case SOCK_DGRAM:
         return udp_socket_recv(ioctx, fd, buf, len, sa, salen);
     default:
@@ -186,12 +201,12 @@ ssize_t net_recvfrom(struct vfs_ioctx *ioctx,
 int net_bind(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *sa, size_t len) {
     _assert(fd);
 
-    // TODO: match socket domain (AF_INET or not)
-    _assert(sa->sa_family == AF_INET);
+    if (fd->socket.domain != AF_INET) {
+        kwarn("Unknown socket family: %d\n", fd->socket.domain);
+        return -EINVAL;
+    }
 
-    // CHANGE socket.family TO socket.type
-
-    switch (fd->socket.family) {
+    switch (fd->socket.type) {
     case SOCK_DGRAM:
         return udp_socket_bind(ioctx, fd, sa, len);
     default:
@@ -202,7 +217,12 @@ int net_bind(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *sa, siz
 int net_setsockopt(struct vfs_ioctx *ioctx, struct ofile *fd, int optname, void *optval, size_t optlen) {
     _assert(fd);
 
-    switch (fd->socket.family) {
+    if (fd->socket.domain != AF_INET) {
+        kwarn("Unknown socket family: %d\n", fd->socket.domain);
+        return -EINVAL;
+    }
+
+    switch (fd->socket.type) {
     case SOCK_DGRAM:
         return udp_setsockopt(ioctx, fd, optname, optval, optlen);
     default:
