@@ -22,3 +22,5 @@ struct arp_frame {
 
 struct packet;
 void arp_handle_frame(struct packet *packet, void *data, size_t len);
+
+const uint8_t *arp_resolve(struct netdev *dev, uint32_t inaddr);

@@ -6,6 +6,7 @@
 #include "net/eth.h"
 #include "net/if.h"
 
+#include "net/inet.h"
 #include "net/arp.h"
 
 int eth_send_wrapped(struct netdev *src, const uint8_t *hwaddr, uint16_t et, void *data, size_t len) {
@@ -32,6 +33,8 @@ void eth_handle_frame(struct packet *p) {
         arp_handle_frame(p, p->data + sizeof(struct eth_frame), p->size - sizeof(struct eth_frame));
         break;
     case ETH_T_IP:
+        inet_handle_frame(p, eth, p->data + sizeof(struct eth_frame), p->size - sizeof(struct eth_frame));
+        break;
     case ETH_T_IPv6:
         // Silently drop
         break;

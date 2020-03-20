@@ -41,6 +41,14 @@ static void arp_add_entry(struct netdev *dev, uint32_t inaddr, const uint8_t *hw
     kdebug("%s: add arp entry: " FMT_INADDR " -> %s\n", dev->name, VA_INADDR(inaddr), mac);
 }
 
+const uint8_t *arp_resolve(struct netdev *dev, uint32_t inaddr) {
+    struct arp_ent *ent = arp_find_inaddr(dev, inaddr);
+    if (!ent || !ent->resolved) {
+        return NULL;
+    }
+    return ent->hwaddr;
+}
+
 /*
 ?Do I have the hardware type in ar$hrd?
 Yes: (almost definitely)
