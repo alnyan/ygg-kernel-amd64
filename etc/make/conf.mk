@@ -95,7 +95,8 @@ DIRS+=$(O)/drivers/pci \
 OBJS+=$(O)/drivers/net/rtl8139.o
 DIRS+=$(O)/drivers/net
 
-OBJS+=$(O)/net/net.o \
+OBJS+=$(O)/sys/sys_net.o \
+	  $(O)/net/net.o \
 	  $(O)/net/eth.o \
 	  $(O)/net/arp.o \
 	  $(O)/net/if.o \

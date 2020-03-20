@@ -8,6 +8,7 @@
 #include "sys/sys_file.h"
 #include "sys/sys_sys.h"
 #include "sys/sys_proc.h"
+#include "sys/sys_net.h"
 
 #define MSR_IA32_STAR               0xC0000081
 #define MSR_IA32_LSTAR              0xC0000082
@@ -61,6 +62,9 @@ void *syscall_table[256] = {
     [SYSCALL_NR_NANOSLEEP] = sys_nanosleep,
     [SYSCALL_NR_GETTIMEOFDAY] = sys_gettimeofday,
     [SYSCALL_NR_REBOOT] = sys_reboot,
+
+    // Network
+    [SYSCALL_NRX_NETCTL] = sys_netctl,
 };
 
 int syscall_undefined(uint64_t rax) {
