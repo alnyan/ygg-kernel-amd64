@@ -56,8 +56,10 @@ static void rtl8139_reset(struct rtl8139 *rtl) {
     while (inb(rtl->iobase + REG_CR) & CR_RST);
 }
 
-static int rtl8139_netdev_send(struct netdev *net, const void *date, size_t len) {
+static int rtl8139_netdev_send(struct netdev *net, const void *data, size_t len) {
     // TODO
+    kdebug("%s: send stub:\n", net->name);
+    debug_dump(DEBUG_DEFAULT, data, len);
     return -1;
 }
 

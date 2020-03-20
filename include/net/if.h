@@ -6,6 +6,7 @@
 #define IF_T_ETH        1
 
 struct netdev;
+struct arp_ent;
 
 typedef int (*netdev_send_func_t) (struct netdev *, const void *, size_t);
 
@@ -17,7 +18,8 @@ struct netdev {
     uint32_t flags;
     int type;
 
-    // TODO: arp table here?
+    // ARP entry list
+    struct arp_ent *arp_ent_head;
 
     netdev_send_func_t send;
 

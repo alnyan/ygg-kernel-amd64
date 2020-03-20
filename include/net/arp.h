@@ -4,6 +4,9 @@
 #define ARP_H_ETH           1
 #define ARP_P_IP            0x0800
 
+#define ARP_OP_REQUEST      1
+#define ARP_OP_REPLY        2
+
 struct arp_frame {
     uint16_t htype;
     uint16_t ptype;

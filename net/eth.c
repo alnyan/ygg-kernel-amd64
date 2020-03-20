@@ -1,10 +1,23 @@
 #include "net/packet.h"
+#include "sys/assert.h"
+#include "sys/string.h"
 #include "sys/debug.h"
 #include "net/util.h"
 #include "net/eth.h"
 #include "net/if.h"
 
 #include "net/arp.h"
+
+int eth_send_wrapped(struct netdev *src, const uint8_t *hwaddr, uint16_t et, void *data, size_t len) {
+    struct eth_frame *eth = data;
+
+    memcpy(eth->dst_hwaddr, hwaddr, 6);
+    memcpy(eth->src_hwaddr, src->hwaddr, 6);
+    eth->ethertype = htons(et);
+
+    _assert(src->send);
+    return src->send(src, data, len);
+}
 
 void eth_handle_frame(struct packet *p) {
     if (p->size < sizeof(struct eth_frame)) {

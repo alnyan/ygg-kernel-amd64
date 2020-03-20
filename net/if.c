@@ -17,6 +17,7 @@ struct netdev *netdev_create(int type) {
     net->inaddr = 0;
     net->flags = 0;
     net->type = type;
+    net->arp_ent_head = NULL;
 
     switch (type) {
     case IF_T_ETH:
