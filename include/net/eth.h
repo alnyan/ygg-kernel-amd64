@@ -11,6 +11,8 @@ struct eth_frame {
     uint16_t ethertype;
 } __attribute__((packed));
 
+static const uint8_t ETH_A_BROADCAST[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
 struct netdev;
 struct packet;
 void eth_handle_frame(struct packet *p);

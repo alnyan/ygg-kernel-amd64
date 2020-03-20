@@ -29,10 +29,6 @@ int inet_send_wrapped(struct netdev *src, uint32_t inaddr, uint8_t proto, void *
     }
 
     struct inet_frame *ip = data + sizeof(struct eth_frame);
-    const uint8_t *hwaddr = arp_resolve(src, inaddr);
-    if (!hwaddr) {
-        panic("TODO: handle this\n");
-    }
 
     ip->dst_inaddr = htonl(inaddr);
     ip->src_inaddr = htonl(src->inaddr);
@@ -47,7 +43,7 @@ int inet_send_wrapped(struct netdev *src, uint32_t inaddr, uint8_t proto, void *
 
     ip->checksum = inet_checksum(ip, sizeof(struct inet_frame));
 
-    return eth_send_wrapped(src, hwaddr, ETH_T_IP, data, len);
+    return arp_send(src, inaddr, ETH_T_IP, data, len);
 }
 
 void inet_handle_frame(struct packet *p, struct eth_frame *eth, void *data, size_t len) {
