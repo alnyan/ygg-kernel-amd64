@@ -98,6 +98,7 @@ DIRS+=$(O)/drivers/net
 OBJS+=$(O)/net/net.o \
 	  $(O)/net/eth.o \
 	  $(O)/net/arp.o \
+	  $(O)/net/if.o \
 	  $(O)/net/util.o
 DIRS+=$(O)/net
 

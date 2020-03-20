@@ -10,6 +10,7 @@
 
 #include "net/packet.h"
 #include "net/eth.h"
+#include "net/if.h"
 
 static struct thread netd_thread = {0};
 static spin_t g_rxq_lock = 0;
@@ -68,9 +69,10 @@ static void packet_free(struct packet *p) {
     amd64_phys_free(page);
 }
 
-int net_receive(/* TODO: replace with struct netdev * */ void *ctx, const void *data, size_t len) {
+int net_receive(struct netdev *dev, const void *data, size_t len) {
     if (len > PACKET_DATA_MAX) {
-        kwarn("Dropping large packet (%u)\n", len);
+        kwarn("%s: dropping large packet (%u)\n", dev->name, len);
+        return -1;
     }
     struct packet *p = packet_create();
 
@@ -78,7 +80,7 @@ int net_receive(/* TODO: replace with struct netdev * */ void *ctx, const void *
     //       would be useful to store in packet
     memcpy(p->data, data, len);
     p->size = len;
-    p->source_if = ctx;
+    p->dev = dev;
 
     spin_lock(&g_rxq_lock);
     p->next = NULL;

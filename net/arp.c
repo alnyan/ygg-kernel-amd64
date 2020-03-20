@@ -1,6 +1,8 @@
+#include "net/packet.h"
 #include "sys/debug.h"
 #include "net/util.h"
 #include "net/arp.h"
+#include "net/if.h"
 
 
 /*
@@ -32,19 +34,18 @@ Yes: (almost definitely)
 
 void arp_handle_frame(struct packet *p, void *data, size_t len) {
     if (len < sizeof(struct arp_frame)) {
-        kwarn("Dropping undersized frame: %u\n", len);
+        kwarn("%s: dropping undersized frame: %u\n", p->dev->name, len);
         return;
     }
 
     struct arp_frame *arp = data;
 
     if (ntohs(arp->htype) != ARP_H_ETH) {
-        kwarn("Dropping non-ethernet packet\n");
+        kwarn("%s: dropping non-ethernet packet\n", p->dev->name);
         return;
     }
     if (ntohs(arp->ptype) != ARP_P_IP) {
-        kwarn("Dropping non-IP packet\n");
+        kwarn("%s: dropping non-IP packet\n", p->dev->name);
         return;
     }
-
 }

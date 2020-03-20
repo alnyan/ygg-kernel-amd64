@@ -6,6 +6,7 @@
 #include "sys/heap.h"
 #include "sys/attr.h"
 #include "net/net.h"
+#include "net/if.h"
 #include "sys/mm.h"
 
 #define CR_RST          (1 << 4)
@@ -38,11 +39,11 @@
 
 struct rtl8139 {
     struct pci_device *dev;
+    struct netdev *net;
 
     uintptr_t recv_buf_phys;
     uint16_t rx_pos;
 
-    uint8_t hwaddr[6];
     uint16_t iobase;
 };
 
@@ -53,6 +54,11 @@ static void rtl8139_reset(struct rtl8139 *rtl) {
     // Software reset
     outb(rtl->iobase + REG_CR,      CR_RST);
     while (inb(rtl->iobase + REG_CR) & CR_RST);
+}
+
+static int rtl8139_netdev_send(struct netdev *net, const void *date, size_t len) {
+    // TODO
+    return -1;
 }
 
 static uint32_t rtl8139_irq(void *ctx) {
@@ -70,7 +76,7 @@ static uint32_t rtl8139_irq(void *ctx) {
             uint16_t rx_len = ((uint16_t *) (rx_buf + rtl->rx_pos))[1];
             void *data = rx_buf + rtl->rx_pos + 4;
 
-            net_receive(rtl, data, rx_len);
+            net_receive(rtl->net, data, rx_len);
 
             // Stolen this from somewhere
             rtl->rx_pos = (rtl->rx_pos + rx_len + 4 + 3) & ~3;
@@ -113,13 +119,21 @@ static void rtl8139_init(struct pci_device *dev) {
 
     rtl8139_reset(rtl);
 
+    // Create a system network device
+    struct netdev *netdev = netdev_create(IF_T_ETH);
+    _assert(netdev);
+
+    rtl->net = netdev;
+    netdev->device = rtl;
+    netdev->send = rtl8139_netdev_send;
+
     // Read MAC
     for (size_t i = 0; i < 6; ++i) {
-        rtl->hwaddr[i] = inb(rtl->iobase + REG_IDR(i));
+        netdev->hwaddr[i] = inb(rtl->iobase + REG_IDR(i));
     }
     kdebug("hwaddr: %02x:%02x:%02x:%02x:%02x:%02x\n",
-            rtl->hwaddr[0], rtl->hwaddr[1], rtl->hwaddr[2],
-            rtl->hwaddr[3], rtl->hwaddr[4], rtl->hwaddr[5]);
+            netdev->hwaddr[0], netdev->hwaddr[1], netdev->hwaddr[2],
+            netdev->hwaddr[3], netdev->hwaddr[4], netdev->hwaddr[5]);
 
     // RBSTART
     outl(rtl->iobase + REG_RBSTART, rtl->recv_buf_phys);

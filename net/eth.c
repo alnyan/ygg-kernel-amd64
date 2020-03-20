@@ -2,16 +2,17 @@
 #include "sys/debug.h"
 #include "net/util.h"
 #include "net/eth.h"
+#include "net/if.h"
 
 #include "net/arp.h"
 
 void eth_handle_frame(struct packet *p) {
-    struct eth_frame *eth = (struct eth_frame *) p->data;
-
     if (p->size < sizeof(struct eth_frame)) {
-        kwarn("Dropping undersized packet: %u\n", p->size);
+        kwarn("%s: dropping undersized packet: %u\n", p->dev->name, p->size);
         return;
     }
+
+    struct eth_frame *eth = (struct eth_frame *) p->data;
 
     switch (ntohs(eth->ethertype)) {
     case ETH_T_ARP:
@@ -22,7 +23,7 @@ void eth_handle_frame(struct packet *p) {
         // Silently drop
         break;
     default:
-        kwarn("Dropping unknown packet: %04x\n", ntohs(eth->ethertype));
+        kwarn("%s: dropping unknown type: %04x\n", p->dev->name, ntohs(eth->ethertype));
         break;
     }
 }
