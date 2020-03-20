@@ -1,5 +1,6 @@
 #include "net/packet.h"
 #include "user/errno.h"
+#include "sys/string.h"
 #include "user/inet.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
@@ -86,10 +87,13 @@ void inet_handle_frame(struct packet *p, struct eth_frame *eth, void *data, size
     }
 
     size_t frame_size = ip->ihl * 4;
-
     if (len < frame_size) {
         kwarn("%s: dropping undersized frame\n", p->dev->name);
     }
+
+    // Pick smaller of provided and NIC-received length
+    // (RTL8139 pads packets with zeros for some reason)
+    len = MIN(len, ntohs(ip->tot_len));
 
     len -= frame_size;
     data += frame_size;

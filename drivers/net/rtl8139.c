@@ -104,7 +104,11 @@ static uint32_t rtl8139_irq(void *ctx) {
             uint16_t rx_len = ((uint16_t *) (rx_buf + rtl->rx_pos))[1];
             void *data = rx_buf + rtl->rx_pos + 4;
 
-            net_receive(rtl->net, data, rx_len);
+            if (rx_len < 4) {
+                kwarn("Too small packet: %u\n", rx_len);
+            } else {
+                net_receive(rtl->net, data, rx_len - 4);
+            }
 
             // Stolen this from somewhere
             rtl->rx_pos = (rtl->rx_pos + rx_len + 4 + 3) & ~3;
