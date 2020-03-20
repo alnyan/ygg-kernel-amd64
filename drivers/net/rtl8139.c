@@ -2,6 +2,7 @@
 #include "arch/amd64/hw/io.h"
 #include "drivers/pci/pci.h"
 #include "sys/assert.h"
+#include "sys/string.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
 #include "sys/attr.h"
@@ -11,13 +12,18 @@
 
 #define CR_RST          (1 << 4)
 #define CR_RE           (1 << 3)
+#define CR_TE           (1 << 2)
 #define CR_BUFE         (1 << 0)
 
 #define IMR_ROK         (1 << 0)
 #define IMR_RER         (1 << 1)
+#define IMR_TOK         (1 << 2)
+#define IMR_TER         (1 << 3)
 
 #define ISR_ROK         (1 << 0)
 #define ISR_RER         (1 << 1)
+#define ISR_TOK         (1 << 2)
+#define ISR_TER         (1 << 3)
 
 #define RCR_WRAP        (1 << 7)
 #define RCR_AR          (1 << 4)
@@ -27,6 +33,8 @@
 #define RCR_AAP         (1 << 0)            // All
 
 #define REG_IDR(i)      ((i))
+#define REG_TSD(i)      ((i) * 4 + 0x10)
+#define REG_TSAD(i)     ((i) * 4 + 0x20)
 #define REG_RBSTART     0x30
 #define REG_CAPR        0x38
 #define REG_CBR         0x3A
@@ -41,8 +49,11 @@ struct rtl8139 {
     struct pci_device *dev;
     struct netdev *net;
 
+    int free_txds;
     uintptr_t recv_buf_phys;
+    uintptr_t send_buf_pages[4];
     uint16_t rx_pos;
+    size_t tx_pos;
 
     uint16_t iobase;
 };
@@ -57,10 +68,25 @@ static void rtl8139_reset(struct rtl8139 *rtl) {
 }
 
 static int rtl8139_netdev_send(struct netdev *net, const void *data, size_t len) {
-    // TODO
-    kdebug("%s: send stub:\n", net->name);
-    debug_dump(DEBUG_DEFAULT, data, len);
-    return -1;
+    struct rtl8139 *rtl = net->device;
+    _assert(rtl);
+    _assert((len & ~0xFFF) == 0);
+
+    if (!rtl->free_txds) {
+        panic("No free TXDs\n");
+    }
+
+    uintptr_t page = rtl->send_buf_pages[rtl->tx_pos];
+    void *tx_buf = (void *) MM_VIRTUALIZE(page);
+
+    memcpy(tx_buf, data, len);
+
+    outl(rtl->iobase + REG_TSAD(rtl->tx_pos), page & 0xFFFFFFFF);
+    outl(rtl->iobase + REG_TSD(rtl->tx_pos), len & 0xFFF);
+    rtl->tx_pos = (rtl->tx_pos + 1) % 4;
+    --rtl->free_txds;
+
+    return 0;
 }
 
 static uint32_t rtl8139_irq(void *ctx) {
@@ -88,6 +114,11 @@ static uint32_t rtl8139_irq(void *ctx) {
 
         ret = IRQ_HANDLED;
         outw(rtl->iobase + REG_ISR, ISR_ROK);
+    } else if (isr & ISR_TOK) {
+        ++rtl->free_txds;
+
+        ret = IRQ_HANDLED;
+        outw(rtl->iobase + REG_ISR, ISR_TOK);
     } else {
         kinfo("???\n");
     }
@@ -108,6 +139,14 @@ static void rtl8139_init(struct pci_device *dev) {
     // Allocate 12288 bytes (3 pages)
     rtl->recv_buf_phys = amd64_phys_alloc_contiguous(3);
     _assert(rtl->recv_buf_phys != MM_NADDR);
+
+    // Allocate Tx pages
+    for (size_t i = 0; i < 4; ++i) {
+        rtl->send_buf_pages[i] = amd64_phys_alloc_page();
+        _assert(rtl->send_buf_pages[i] != MM_NADDR);
+    }
+    rtl->free_txds = 4;
+    rtl->tx_pos = 0;
 
     // Enable device bus mastering
     cmd = pci_config_read_dword(dev, PCI_CONFIG_CMD);
@@ -141,14 +180,14 @@ static void rtl8139_init(struct pci_device *dev) {
     outl(rtl->iobase + REG_RBSTART, rtl->recv_buf_phys);
 
     // Unmask IRQs
-    outw(rtl->iobase + REG_IMR, IMR_ROK | IMR_RER);
-    outw(rtl->iobase + REG_ISR, 0);
+    outw(rtl->iobase + REG_IMR, IMR_ROK | IMR_RER | IMR_TOK | IMR_TER);
 
     // Set RCR to receive all
     outl(rtl->iobase + REG_RCR, RCR_WRAP | RCR_AB | RCR_APM | RCR_AAP | RCR_AM);
 
-    // Enable receiver
-    outb(rtl->iobase + REG_CR, CR_RE);
+    // Enable receiver and trasnmitter
+    outb(rtl->iobase + REG_CR, CR_RE | CR_TE);
+    outw(rtl->iobase + REG_ISR, 0);
 
     pci_add_irq(dev, rtl8139_irq, rtl);
 }
