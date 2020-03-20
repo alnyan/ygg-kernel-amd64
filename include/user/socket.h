@@ -5,9 +5,13 @@
 #define PF_INET         2
 #define AF_INET         PF_INET
 
+#define PF_PACKET       17
+#define AF_PACKET       PF_PACKET
+
 /* Socket types */
 #define SOCK_STREAM     1
 #define SOCK_DGRAM      2
+#define SOCK_RAW        3
 
 /* sockopts */
 #define SO_BINDTODEVICE 25

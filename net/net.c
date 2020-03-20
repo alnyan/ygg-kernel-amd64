@@ -9,17 +9,19 @@
 #include "sys/panic.h"
 #include "sys/debug.h"
 #include "fs/ofile.h"
+#include "sys/heap.h"
 #include "sys/spin.h"
 
 #include "net/packet.h"
 #include "net/eth.h"
 #include "net/udp.h"
+#include "net/raw.h"
 #include "net/net.h"
 #include "net/if.h"
 
 static struct thread netd_thread = {0};
 static spin_t g_rxq_lock = 0;
-static struct packet *g_rxq_head, *g_rxq_tail;
+static struct packet_queue g_rxq;
 
 static struct packet *packet_create(void);
 static void packet_free(struct packet *p);
@@ -27,6 +29,8 @@ static void packet_free(struct packet *p);
 static inline void net_handle_packet(struct packet *p) {
     // TODO: check if interface sends packet not in ethernet format
     eth_handle_frame(p);
+    // Notify all raw sockets
+    raw_packet_handle(p);
 }
 
 static void net_daemon(void) {
@@ -34,7 +38,7 @@ static void net_daemon(void) {
     uintptr_t irq;
 
     while (1) {
-        if (!g_rxq_head) {
+        if (!g_rxq.head) {
             // qword writes are atomic (when storing new head)
             // so I guess checking if ANYTHING is present
             // before locking is a good idea to avoid unnecessary
@@ -45,20 +49,51 @@ static void net_daemon(void) {
         }
 
         spin_lock_irqsave(&g_rxq_lock, &irq);
-        _assert(g_rxq_head);
-        p = g_rxq_head;
-        g_rxq_head = g_rxq_head->next;
-        if (!g_rxq_head) {
-            g_rxq_tail = NULL;
-        } else {
-            g_rxq_head->prev = NULL;
-        }
+        p = packet_queue_pop(&g_rxq);
+        _assert(p);
         spin_release_irqrestore(&g_rxq_lock, &irq);
 
         net_handle_packet(p);
 
         packet_unref(p);
     }
+}
+
+static inline struct packet_qh *packet_qh_create(struct packet *p) {
+    struct packet_qh *qh = kmalloc(sizeof(struct packet_qh));
+    _assert(qh);
+    qh->packet = p;
+    return qh;
+}
+
+void packet_queue_push(struct packet_queue *pq, struct packet *p) {
+    struct packet_qh *qh = packet_qh_create(p);
+
+    if (pq->tail) {
+        pq->tail->next = qh;
+    } else {
+        pq->head = qh;
+    }
+    qh->prev = pq->tail;
+    qh->next = NULL;
+    pq->tail = qh;
+}
+
+struct packet *packet_queue_pop(struct packet_queue *pq) {
+    struct packet_qh *qh = pq->head;
+    _assert(qh);
+    pq->head = qh->next;
+    if (!pq->head) {
+        pq->tail = NULL;
+    }
+    struct packet *p = qh->packet;
+    kfree(qh);
+    return p;
+}
+
+void packet_queue_init(struct packet_queue *pq) {
+    pq->head = NULL;
+    pq->tail = NULL;
 }
 
 static struct packet *packet_create(void) {
@@ -101,20 +136,15 @@ int net_receive(struct netdev *dev, const void *data, size_t len) {
     packet_ref(p);
 
     spin_lock(&g_rxq_lock);
-    p->next = NULL;
-    p->prev = g_rxq_tail;
-    if (g_rxq_tail) {
-        g_rxq_tail->next = p;
-    } else {
-        g_rxq_head = p;
-    }
-    g_rxq_tail = p;
+    packet_queue_push(&g_rxq, p);
     spin_release(&g_rxq_lock);
 
     return 0;
 }
 
 void net_daemon_start(void) {
+    packet_queue_init(&g_rxq);
+
     _assert(thread_init(&netd_thread, (uintptr_t) net_daemon, NULL, 0) == 0);
     netd_thread.pid = thread_alloc_pid(0);
     sched_queue(&netd_thread);
@@ -124,15 +154,26 @@ int net_socket_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type
     _assert(fd);
     fd->flags = OF_SOCKET;
 
-    if (dom == AF_INET) {
+    switch (dom) {
+    case AF_INET:
         switch (type) {
         case SOCK_DGRAM:
             return udp_socket_open(ioctx, fd, dom, type, proto);
         default:
             break;
         }
+        break;
+    case AF_PACKET:
+        switch (type) {
+        case SOCK_RAW:
+            return raw_socket_open(ioctx, fd, dom, type, proto);
+        default:
+            break;
+        }
+        break;
+    default:
+        break;
     }
-
     return -EINVAL;
 }
 

@@ -30,7 +30,7 @@ struct udp_socket {
     uint32_t recv_inaddr;
     struct netdev *bound;       // Bound interface (all packets go to this interface if set)
     struct thread *owner;       // Thread to suspend on blocking operation
-    struct packet *pending;
+    struct packet_queue pending;
 };
 
 static uint16_t udp_eph_port = 32768;
@@ -48,8 +48,8 @@ struct udp_socket *udp_socket_create(void) {
     sock->port = 0;
     sock->recv_port = 0;
     sock->owner = NULL;
-    sock->pending = NULL;
     sock->bound = NULL;
+    packet_queue_init(&sock->pending);
 
     return sock;
 }
@@ -74,7 +74,7 @@ ssize_t udp_socket_recv(struct vfs_ioctx *ioctx, struct ofile *fd, void *buf, si
     sock->owner = t;
 
 
-    if (!sock->pending) {
+    if (!sock->pending.head) {
         sock->flags |= UDP_SOCKET_PENDING;
 
         while ((sock->flags & UDP_SOCKET_PENDING)) {
@@ -84,8 +84,8 @@ ssize_t udp_socket_recv(struct vfs_ioctx *ioctx, struct ofile *fd, void *buf, si
     }
 
     // Read a single packet
-    p = sock->pending;
-    sock->pending = p->next;
+    p = packet_queue_pop(&sock->pending);
+    _assert(p);
 
     size_t f_size = sizeof(struct eth_frame) + sizeof(struct inet_frame) + sizeof(struct udp_frame);
     const void *p_data = p->data + f_size;
@@ -221,8 +221,7 @@ void udp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame
         if (sock) {
             // Add "pending" packet for this socket
             packet_ref(p);
-            p->next = sock->pending;
-            sock->pending = p;
+            packet_queue_push(&sock->pending, p);
 
             if (sock->flags & UDP_SOCKET_PENDING) {
                 sock->flags &= ~UDP_SOCKET_PENDING;
