@@ -16,6 +16,7 @@ struct raw_socket {
     struct raw_socket *prev, *next;
 };
 
+static spin_t g_raw_lock = 0;
 static struct raw_socket *g_raw_sockets = NULL;
 
 int raw_socket_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type, int proto) {
@@ -69,8 +70,22 @@ ssize_t raw_socket_recv(struct vfs_ioctx *ioctx, struct ofile *fd, void *buf, si
 }
 
 void raw_socket_close(struct vfs_ioctx *ioctx, struct ofile *fd) {
-    struct raw_socket *r_sock = kmalloc(sizeof(struct raw_socket));
+    uintptr_t irq;
+    struct raw_socket *r_sock = fd->socket.sock;
     _assert(r_sock);
+
+    spin_lock_irqsave(&g_raw_lock, &irq);
+    struct raw_socket *prev = r_sock->prev;
+    struct raw_socket *next = r_sock->next;
+    if (prev) {
+        prev->next = next;
+    } else {
+        g_raw_sockets = next;
+    }
+    if (next) {
+        next->prev = prev;
+    }
+    spin_release_irqrestore(&g_raw_lock, &irq);
 
     // Flush packet queue
     while (r_sock->queue.head) {
@@ -81,11 +96,17 @@ void raw_socket_close(struct vfs_ioctx *ioctx, struct ofile *fd) {
 
 void raw_packet_handle(struct packet *p) {
     // Queue the packet for all the sockets
+    uintptr_t irq;
+    // TODO: too much time spent in spinlocked region?
+    spin_lock_irqsave(&g_raw_lock, &irq);
     for (struct raw_socket *r = g_raw_sockets; r; r = r->next) {
         packet_ref(p);
         packet_queue_push(&r->queue, p);
-        if (r->wait) {
-            sched_queue(r->wait);
+        struct thread *w = r->wait;
+        if (w) {
+            r->wait = NULL;
+            sched_queue(w);
         }
     }
+    spin_release_irqrestore(&g_raw_lock, &irq);
 }

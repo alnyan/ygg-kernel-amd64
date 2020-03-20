@@ -20,7 +20,6 @@
 #include "net/if.h"
 
 static struct thread netd_thread = {0};
-static spin_t g_rxq_lock = 0;
 static struct packet_queue g_rxq;
 
 static struct packet *packet_create(void);
@@ -48,11 +47,8 @@ static void net_daemon(void) {
             continue;
         }
 
-        spin_lock_irqsave(&g_rxq_lock, &irq);
         p = packet_queue_pop(&g_rxq);
         _assert(p);
-        spin_release_irqrestore(&g_rxq_lock, &irq);
-
         net_handle_packet(p);
 
         packet_unref(p);
@@ -68,30 +64,37 @@ static inline struct packet_qh *packet_qh_create(struct packet *p) {
 
 void packet_queue_push(struct packet_queue *pq, struct packet *p) {
     struct packet_qh *qh = packet_qh_create(p);
+    qh->next = NULL;
 
+    uintptr_t irq;
+    spin_lock_irqsave(&pq->lock, &irq);
     if (pq->tail) {
         pq->tail->next = qh;
     } else {
         pq->head = qh;
     }
     qh->prev = pq->tail;
-    qh->next = NULL;
     pq->tail = qh;
+    spin_release_irqrestore(&pq->lock, &irq);
 }
 
 struct packet *packet_queue_pop(struct packet_queue *pq) {
+    uintptr_t irq;
+    spin_lock_irqsave(&pq->lock, &irq);
     struct packet_qh *qh = pq->head;
     _assert(qh);
     pq->head = qh->next;
     if (!pq->head) {
         pq->tail = NULL;
     }
+    spin_release_irqrestore(&pq->lock, &irq);
     struct packet *p = qh->packet;
     kfree(qh);
     return p;
 }
 
 void packet_queue_init(struct packet_queue *pq) {
+    pq->lock = 0;
     pq->head = NULL;
     pq->tail = NULL;
 }
@@ -101,6 +104,7 @@ static struct packet *packet_create(void) {
     uintptr_t page = amd64_phys_alloc_page();
     _assert(page != MM_NADDR);
     packet = (struct packet *) MM_VIRTUALIZE(page);
+    packet->refcount = 0;
     return packet;
 }
 
@@ -135,9 +139,7 @@ int net_receive(struct netdev *dev, const void *data, size_t len) {
     p->dev = dev;
     packet_ref(p);
 
-    spin_lock(&g_rxq_lock);
     packet_queue_push(&g_rxq, p);
-    spin_release(&g_rxq_lock);
 
     return 0;
 }
@@ -181,16 +183,24 @@ void net_close(struct vfs_ioctx *ioctx, struct ofile *fd) {
     _assert(fd);
     _assert(fd->flags & OF_SOCKET);
 
-    if (fd->socket.domain != AF_INET) {
-        kwarn("Unknown socket family: %d\n", fd->socket.domain);
-        return;
-    }
-
-    switch (fd->socket.type) {
-    case SOCK_DGRAM:
-        udp_socket_close(ioctx, fd);
+    switch (fd->socket.domain) {
+    case AF_INET:
+        switch (fd->socket.type) {
+        case SOCK_DGRAM:
+            udp_socket_close(ioctx, fd);
+            break;
+        default:
+            break;
+        }
         break;
-    default:
+    case AF_PACKET:
+        switch (fd->socket.type) {
+        case SOCK_RAW:
+            raw_socket_close(ioctx, fd);
+            break;
+        default:
+            break;
+        }
         break;
     }
 }

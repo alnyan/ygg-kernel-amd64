@@ -1,5 +1,6 @@
 #pragma once
 #include "sys/types.h"
+#include "sys/spin.h"
 
 struct netdev;
 // Takes up a single page
@@ -17,6 +18,7 @@ struct packet_qh {
 };
 
 struct packet_queue {
+    spin_t lock;
     struct packet_qh *head, *tail;
 };
 
