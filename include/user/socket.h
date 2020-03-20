@@ -9,6 +9,9 @@
 #define SOCK_STREAM     1
 #define SOCK_DGRAM      2
 
+/* sockopts */
+#define SO_BINDTODEVICE 25
+
 #define SA_MAX_SIZE     64
 struct sockaddr {
     uint16_t sa_family;

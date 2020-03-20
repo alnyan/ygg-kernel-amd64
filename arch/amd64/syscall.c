@@ -66,6 +66,9 @@ void *syscall_table[256] = {
     // Network
     [SYSCALL_NR_SOCKET] = sys_socket,
     [SYSCALL_NR_SENDTO] = sys_sendto,
+    [SYSCALL_NR_RECVFROM] = sys_recvfrom,
+    [SYSCALL_NR_BIND] = sys_bind,
+    [SYSCALL_NR_SETSOCKOPT] = sys_setsockopt,
     [SYSCALL_NRX_NETCTL] = sys_netctl,
 };
 

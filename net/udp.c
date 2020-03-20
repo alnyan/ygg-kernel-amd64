@@ -20,16 +20,25 @@
 #define UDP_SOCKET_ANY      (1 << 0)
 // Accept port match (when calling recvfrom)
 #define UDP_SOCKET_APM      (1 << 1)
+// Socket is awaiting packets
+#define UDP_SOCKET_PENDING  (1 << 2)
 
 struct udp_socket {
     uint32_t flags;
     uint16_t port;              // Current
     uint16_t recv_port;         // recvfrom() port
+    uint32_t recv_inaddr;
+    struct netdev *bound;       // Bound interface (all packets go to this interface if set)
     struct thread *owner;       // Thread to suspend on blocking operation
     struct packet *pending;
 };
 
 static uint16_t udp_eph_port = 32768;
+
+// Only allowed for binding now
+#define UDP_BIND_COUNT          16
+#define UDP_BIND_START          60
+static struct udp_socket *udp_ports[UDP_BIND_COUNT] = {0};
 
 struct udp_socket *udp_socket_create(void) {
     struct udp_socket *sock = kmalloc(sizeof(struct udp_socket));
@@ -40,6 +49,7 @@ struct udp_socket *udp_socket_create(void) {
     sock->recv_port = 0;
     sock->owner = NULL;
     sock->pending = NULL;
+    sock->bound = NULL;
 
     return sock;
 }
@@ -54,17 +64,41 @@ int udp_socket_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type
     return 0;
 }
 
-ssize_t udp_socket_recv_block(struct udp_socket *sock, void *buf, size_t lim) {
+ssize_t udp_socket_recv(struct vfs_ioctx *ioctx, struct ofile *fd, void *buf, size_t lim, struct sockaddr *sa, size_t *salen) {
+    struct udp_socket *sock = fd->socket.sock;
+    _assert(sock);
     struct thread *t = thread_self;
+    struct packet *p;
     _assert(t);
     sock->owner = t;
 
-    while (!sock->pending) {
-        sched_unqueue(t, THREAD_WAITING_NET);
-        thread_check_signal(t, 0);
+
+    if (!sock->pending) {
+        sock->flags |= UDP_SOCKET_PENDING;
+
+        while ((sock->flags & UDP_SOCKET_PENDING)) {
+            sched_unqueue(t, THREAD_WAITING_NET);
+            thread_check_signal(t, 0);
+        }
     }
 
-    return -1;
+    // Read a single packet
+    p = sock->pending;
+    sock->pending = p->next;
+
+    size_t f_size = sizeof(struct eth_frame) + sizeof(struct inet_frame) + sizeof(struct udp_frame);
+    const void *p_data = p->data + f_size;
+    size_t p_size = p->size - f_size;
+
+    // TODO: track position in packet so it can be read partially
+    if (p_size > lim) {
+        panic("Not implemented: partial packet reading\n");
+    }
+
+    memcpy(buf, p_data, p_size);
+    packet_unref(p);
+
+    return p_size;
 }
 
 ssize_t udp_socket_send(struct vfs_ioctx *ioctx, struct ofile *fd, const void *buf, size_t lim, struct sockaddr *sa, size_t salen) {
@@ -97,21 +131,85 @@ ssize_t udp_socket_send(struct vfs_ioctx *ioctx, struct ofile *fd, const void *b
 
     memcpy(data, buf, lim);
 
-    struct netdev *dev = netdev_find_inaddr(ntohl(sin->sin_addr));
-    if (!dev) {
-        // TODO; ???
-        return -ENOENT;
-    }
-
-    if ((res = inet_send_wrapped(dev, ntohl(sin->sin_addr), INET_P_UDP, packet, sizeof(packet))) != 0) {
-        return res;
+    if (sock->bound) {
+        if ((res = inet_send_wrapped(sock->bound, ntohl(sin->sin_addr), INET_P_UDP, packet, sizeof(packet))) != 0) {
+            return res;
+        }
+    } else {
+        if ((res = inet_send(ntohl(sin->sin_addr), INET_P_UDP, packet, sizeof(packet))) != 0) {
+            return res;
+        }
     }
 
     return lim;
 }
 
-void udp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame *ip, void *data, size_t len) {
-    packet_ref(p);
+int udp_socket_bind(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *sa, size_t len) {
+    struct udp_socket *sock = fd->socket.sock;
+    struct sockaddr_in *sin;
+    _assert(sa);
+    _assert(sock);
+    _assert(sa->sa_family == AF_INET);
+    sin = (struct sockaddr_in *) sa;
 
-    packet_unref(p);
+    // TODO: allow binding sockets with ephemeral ports
+    _assert(!(sock->flags));
+
+    uint16_t port = ntohs(sin->sin_port);
+    if (port < UDP_BIND_START || (port - UDP_BIND_START) >= UDP_BIND_COUNT) {
+        return -EINVAL;
+    }
+    udp_ports[port] = sock;
+
+    sock->flags |= UDP_SOCKET_ANY;
+    sock->recv_port = port;
+    sock->recv_inaddr = ntohl(sin->sin_addr);
+
+    return 0;
+}
+
+int udp_setsockopt(struct vfs_ioctx *ioctx, struct ofile *fd, int optname, void *optval, size_t optlen) {
+    struct udp_socket *sock = fd->socket.sock;
+    _assert(sock);
+
+    switch (optname) {
+    case SO_BINDTODEVICE:
+        // TODO: safety?
+        if (!(sock->bound = netdev_by_name(optval))) {
+            kinfo("ENOENT\n");
+            return -ENOENT;
+        }
+        return 0;
+    default:
+        return -EINVAL;
+    }
+}
+
+void udp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame *ip, void *data, size_t len) {
+    struct udp_frame *udp;
+
+    if (len < sizeof(struct udp_frame)) {
+        return;
+    }
+
+    udp = data;
+
+    uint16_t dpt = ntohs(udp->dst_port);
+
+    if (dpt >= UDP_BIND_START && (dpt - UDP_BIND_START) < UDP_BIND_COUNT) {
+        // Check if it's a packet for one of "listening" sockets
+        struct udp_socket *sock = udp_ports[dpt - UDP_BIND_START];
+
+        if (sock) {
+            // Add "pending" packet for this socket
+            packet_ref(p);
+            p->next = sock->pending;
+            sock->pending = p;
+
+            if (sock->flags & UDP_SOCKET_PENDING) {
+                sock->flags &= ~UDP_SOCKET_PENDING;
+                sched_queue(sock->owner);
+            }
+        }
+    }
 }

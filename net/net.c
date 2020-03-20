@@ -152,3 +152,47 @@ ssize_t net_sendto(struct vfs_ioctx *ioctx,
         return -EINVAL;
     }
 }
+
+ssize_t net_recvfrom(struct vfs_ioctx *ioctx,
+                     struct ofile *fd,
+                     void *buf,
+                     size_t len,
+                     struct sockaddr *sa,
+                     size_t *salen) {
+    _assert(fd);
+    _assert(fd->flags & OF_SOCKET);
+
+    switch (fd->socket.family) {
+    case SOCK_DGRAM:
+        return udp_socket_recv(ioctx, fd, buf, len, sa, salen);
+    default:
+        return -EINVAL;
+    }
+}
+
+int net_bind(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *sa, size_t len) {
+    _assert(fd);
+
+    // TODO: match socket domain (AF_INET or not)
+    _assert(sa->sa_family == AF_INET);
+
+    // CHANGE socket.family TO socket.type
+
+    switch (fd->socket.family) {
+    case SOCK_DGRAM:
+        return udp_socket_bind(ioctx, fd, sa, len);
+    default:
+        return -EINVAL;
+    }
+}
+
+int net_setsockopt(struct vfs_ioctx *ioctx, struct ofile *fd, int optname, void *optval, size_t optlen) {
+    _assert(fd);
+
+    switch (fd->socket.family) {
+    case SOCK_DGRAM:
+        return udp_setsockopt(ioctx, fd, optname, optval, optlen);
+    default:
+        return -EINVAL;
+    }
+}

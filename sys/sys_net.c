@@ -69,3 +69,68 @@ ssize_t sys_sendto(int fd, const void *buf, size_t len, struct sockaddr *sa, siz
 
     return net_sendto(&thr->ioctx, of, buf, len, sa, salen);
 }
+
+ssize_t sys_recvfrom(int fd, void *buf, size_t len, struct sockaddr *sa, size_t *salen) {
+    struct thread *thr = thread_self;
+    struct ofile *of;
+    _assert(thr);
+
+    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+        return -EBADF;
+    }
+
+    if ((of = thr->fds[fd]) == NULL) {
+        return -EBADF;
+    }
+
+    if (!(of->flags & OF_SOCKET)) {
+        kwarn("Invalid operation on non-socket\n");
+        return -EINVAL;
+    }
+
+    return net_recvfrom(&thr->ioctx, of, buf, len, sa, salen);
+}
+
+int sys_bind(int fd, struct sockaddr *sa, size_t salen) {
+    struct thread *thr = thread_self;
+    struct ofile *of;
+    _assert(thr);
+
+    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+        return -EBADF;
+    }
+
+    if ((of = thr->fds[fd]) == NULL) {
+        return -EBADF;
+    }
+
+    if (!(of->flags & OF_SOCKET)) {
+        kwarn("Invalid operation on non-socket\n");
+        return -EINVAL;
+    }
+
+    return net_bind(&thr->ioctx, of, sa, salen);
+}
+
+int sys_setsockopt(int fd, int level, int optname, void *optval, size_t optlen) {
+    struct thread *thr = thread_self;
+    struct ofile *of;
+    _assert(thr);
+
+    // XXX: level is ignored (only 1 is used)
+
+    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+        return -EBADF;
+    }
+
+    if ((of = thr->fds[fd]) == NULL) {
+        return -EBADF;
+    }
+
+    if (!(of->flags & OF_SOCKET)) {
+        kwarn("Invalid operation on non-socket\n");
+        return -EINVAL;
+    }
+
+    return net_setsockopt(&thr->ioctx, of, optname, optval, optlen);
+}

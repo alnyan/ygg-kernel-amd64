@@ -1,5 +1,6 @@
 #include "net/packet.h"
 #include "user/errno.h"
+#include "user/inet.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
 #include "net/util.h"
@@ -23,15 +24,23 @@ uint16_t inet_checksum(const void *data, size_t len) {
 }
 
 int inet_send_wrapped(struct netdev *src, uint32_t inaddr, uint8_t proto, void *data, size_t len) {
-    if (!(src->flags & IF_F_HASIP)) {
-        kwarn("%s: has no inaddr\n", src->name);
-        return -EINVAL;
+    uint32_t src_inaddr;
+
+    if (inaddr == INADDR_BROADCAST) {
+        src_inaddr = 0;
+    } else {
+        if (!(src->flags & IF_F_HASIP)) {
+            kwarn("%s: has no inaddr\n", src->name);
+            return -EINVAL;
+        }
+
+        src_inaddr = src->inaddr;
     }
 
     struct inet_frame *ip = data + sizeof(struct eth_frame);
 
     ip->dst_inaddr = htonl(inaddr);
-    ip->src_inaddr = htonl(src->inaddr);
+    ip->src_inaddr = htonl(src_inaddr);
     ip->checksum = 0;
     ip->tos = 0;
     ip->ttl = 64;
@@ -43,7 +52,24 @@ int inet_send_wrapped(struct netdev *src, uint32_t inaddr, uint8_t proto, void *
 
     ip->checksum = inet_checksum(ip, sizeof(struct inet_frame));
 
-    return arp_send(src, inaddr, ETH_T_IP, data, len);
+    if (inaddr == INADDR_BROADCAST) {
+        // No need for ARP when broadcasting
+        return eth_send_wrapped(src, ETH_A_BROADCAST, ETH_T_IP, data, len);
+    } else {
+        return arp_send(src, inaddr, ETH_T_IP, data, len);
+    }
+}
+
+int inet_send(uint32_t inaddr, uint8_t proto, void *data, size_t len) {
+    // TODO: find out what to do when broadcasting here
+    struct netdev *dev = netdev_find_inaddr(inaddr);
+    if (!dev) {
+        // TODO; ???
+        kinfo("ENOENT\n");
+        return -ENOENT;
+    }
+
+    return inet_send_wrapped(dev, inaddr, proto, data, len);
 }
 
 void inet_handle_frame(struct packet *p, struct eth_frame *eth, void *data, size_t len) {

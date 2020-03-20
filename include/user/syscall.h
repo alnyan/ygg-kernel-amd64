@@ -45,4 +45,7 @@
 
 #define SYSCALL_NR_SOCKET       41
 #define SYSCALL_NR_SENDTO       44
+#define SYSCALL_NR_RECVFROM     45
+#define SYSCALL_NR_BIND         49
+#define SYSCALL_NR_SETSOCKOPT   54
 #define SYSCALL_NRX_NETCTL      248

@@ -14,5 +14,13 @@ ssize_t net_sendto(struct vfs_ioctx *ioctx,
                    size_t len,
                    struct sockaddr *sa,
                    size_t salen);
+ssize_t net_recvfrom(struct vfs_ioctx *ioctx,
+                     struct ofile *fd,
+                     void *buf,
+                     size_t len,
+                     struct sockaddr *sa,
+                     size_t *salen);
+int net_bind(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *sa, size_t len);
+int net_setsockopt(struct vfs_ioctx *ioctx, struct ofile *fd, int optname, void *optval, size_t optlen);
 
 void net_daemon_start(void);
