@@ -400,7 +400,6 @@ int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int opt,
     _assert(ctx);
     _assert(fd);
     _assert(path);
-    _assert(!(fd->flags & OF_SOCKET));
 
     if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
         if (opt & O_CREAT) {

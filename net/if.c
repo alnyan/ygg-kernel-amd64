@@ -65,6 +65,14 @@ int netctl(struct netdev *dev, uint32_t op, void *data) {
     _assert(dev);
 
     switch (op) {
+    case NETCTL_GET_INADDR:
+        if (!(dev->flags & IF_F_HASIP)) {
+            // No address set
+            return -ENOENT;
+        }
+        _assert(data);
+        *(uint32_t *) data = dev->inaddr;
+        return 0;
     case NETCTL_SET_INADDR:
         // Have to flush old addr first
         if (dev->flags & IF_F_HASIP) {

@@ -105,18 +105,21 @@ ssize_t udp_socket_send(struct vfs_ioctx *ioctx, struct ofile *fd, const void *b
     struct udp_socket *sock = fd->socket.sock;
     struct sockaddr_in *sin;
     int res;
+    uint16_t port;
     _assert(sock);
     _assert(sa->sa_family == AF_INET);
     sin = (struct sockaddr_in *) sa;
 
     if (sock->flags & UDP_SOCKET_ANY) {
-        panic("TODO: sendto() from a \"listening\" socket\n");
-    }
+        port = sock->recv_port;
+    } else {
+        if (!(sock->flags & UDP_SOCKET_APM)) {
+            // No port allocated yet, give socket a new one
+            sock->port = ++udp_eph_port;
+            sock->flags |= UDP_SOCKET_APM;
+        }
 
-    if (!(sock->flags & UDP_SOCKET_APM)) {
-        // No port allocated yet, give socket a new one
-        sock->port = ++udp_eph_port;
-        sock->flags |= UDP_SOCKET_APM;
+        port = sock->port;
     }
 
     // TODO: a better way of allocating these
@@ -124,7 +127,7 @@ ssize_t udp_socket_send(struct vfs_ioctx *ioctx, struct ofile *fd, const void *b
     void *data = &packet[sizeof(struct eth_frame) + sizeof(struct inet_frame) + sizeof(struct udp_frame)];
     struct udp_frame *udp = (struct udp_frame *) &packet[sizeof(struct eth_frame) + sizeof(struct inet_frame)];
 
-    udp->src_port = htons(sock->port);
+    udp->src_port = htons(port);
     udp->dst_port = sin->sin_port; // Already in network order
     udp->length = htons(sizeof(struct udp_frame) + lim);
     udp->checksum = 0;
@@ -176,7 +179,6 @@ int udp_setsockopt(struct vfs_ioctx *ioctx, struct ofile *fd, int optname, void 
     case SO_BINDTODEVICE:
         // TODO: safety?
         if (!(sock->bound = netdev_by_name(optval))) {
-            kinfo("ENOENT\n");
             return -ENOENT;
         }
         return 0;
