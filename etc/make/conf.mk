@@ -103,6 +103,7 @@ OBJS+=$(O)/sys/sys_net.o \
 	  $(O)/net/icmp.o \
 	  $(O)/net/udp.o \
 	  $(O)/net/raw.o \
+	  $(O)/net/tcp.o \
 	  $(O)/net/if.o \
 	  $(O)/net/util.o
 DIRS+=$(O)/net
