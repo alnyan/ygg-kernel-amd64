@@ -1,14 +1,7 @@
 #pragma once
 #include "sys/types.h"
 
-struct tcp_frame {
-    uint16_t src_port;
-    uint16_t dst_port;
-    uint32_t seq;
-    uint32_t ack_seq;
-    uint8_t ns:1;
-    uint8_t zero:3;
-    uint8_t doff:4;
+struct tcp_flags {
     uint8_t fin:1;
     uint8_t syn:1;
     uint8_t rst:1;
@@ -17,6 +10,17 @@ struct tcp_frame {
     uint8_t urg:1;
     uint8_t ece:1;
     uint8_t cwr:1;
+} __attribute__((packed));
+
+struct tcp_frame {
+    uint16_t src_port;
+    uint16_t dst_port;
+    uint32_t seq;
+    uint32_t ack_seq;
+    uint8_t ns:1;
+    uint8_t zero:3;
+    uint8_t doff:4;
+    struct tcp_flags flags;
     uint16_t window;
     uint16_t checksum;
     uint16_t urg_ptr;

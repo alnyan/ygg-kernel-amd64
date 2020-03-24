@@ -1,6 +1,7 @@
 #include "net/packet.h"
 #include "sys/string.h"
 #include "sys/debug.h"
+#include "sys/panic.h"
 #include "net/inet.h"
 #include "net/util.h"
 #include "sys/attr.h"
@@ -51,60 +52,39 @@ static uint16_t tcp_checksum(uint32_t daddr, uint32_t saddr, uint16_t tcp_length
 }
 
 // Reset a connection attempt given its SYN packet
-static void tcp_syn_reset(struct netdev *dev, uint32_t inaddr, struct tcp_frame *syn_frame) {
+static void tcp_packet_send(struct netdev *dev,
+                            struct tcp_socket *sock,
+                            struct tcp_flags flags,
+                            const void *data,
+                            size_t len) {
     if (!(dev->flags & IF_F_HASIP)) {
         return;
     }
 
-    char packet[sizeof(struct eth_frame) + sizeof(struct inet_frame) + sizeof(struct tcp_frame)];
-    struct tcp_frame *tcp = (struct tcp_frame *) &packet[sizeof(struct eth_frame) + sizeof(struct inet_frame)];
+    char packet[sizeof(struct eth_frame) +
+                sizeof(struct inet_frame) +
+                sizeof(struct tcp_frame) +
+                len];
+    struct tcp_frame *tcp = (struct tcp_frame *) &packet[sizeof(struct eth_frame) +
+                                                         sizeof(struct inet_frame)];
+    void *dst_data = &packet[sizeof(struct eth_frame) +
+                             sizeof(struct inet_frame) +
+                             sizeof(struct tcp_frame)];
     memset(tcp, 0, sizeof(struct tcp_frame));
+    memcpy(dst_data, data, len);
 
-    tcp->src_port = syn_frame->dst_port;
-    tcp->dst_port = syn_frame->src_port;
-    tcp->ack_seq = htonl(ntohl(syn_frame->seq) + 1);
+    tcp->src_port = htons(sock->local_port);
+    tcp->dst_port = htons(sock->remote_port);
+    tcp->seq = htonl(sock->local_seq);
+    tcp->ack_seq = htonl(sock->remote_seq);
     tcp->doff = sizeof(struct tcp_frame) / 4;
-    tcp->rst = 1;
-    tcp->ack = 1;
-    tcp->window = syn_frame->window;
+    tcp->flags = flags;
+    tcp->window = htons(64400);
 
-    uint16_t checksum = tcp_checksum(inaddr, dev->inaddr, sizeof(struct tcp_frame), tcp);
+    uint16_t checksum = tcp_checksum(sock->remote_inaddr, dev->inaddr, sizeof(struct tcp_frame), tcp);
     tcp->checksum = htons(checksum);
 
-    debug_dump(DEBUG_DEFAULT, tcp, sizeof(struct tcp_frame));
-
-    inet_send_wrapped(dev, inaddr, INET_P_TCP, packet, sizeof(packet));
-}
-
-// Establish a remote -> local connection given its SYN packet
-static void tcp_server_establish(struct netdev *dev, uint32_t inaddr, struct tcp_frame *syn, struct tcp_socket *serv) {
-    client.local_seq = 32657;
-    client.local_port = serv->local_port;
-    client.remote_seq = ntohl(syn->seq);
-    client.remote_port = ntohs(syn->src_port);
-    client.remote_inaddr = inaddr;
-    client.state = TCP_STA_SYNACK_SENT;
-    client.type = TCP_SOCK_CLIENT;
-
-    char packet[sizeof(struct eth_frame) + sizeof(struct inet_frame) + sizeof(struct tcp_frame)];
-    struct tcp_frame *tcp = (struct tcp_frame *) &packet[sizeof(struct eth_frame) + sizeof(struct inet_frame)];
-    memset(tcp, 0, sizeof(struct tcp_frame));
-
-    tcp->src_port = ntohs(client.local_port);
-    tcp->dst_port = ntohs(client.remote_port);
-    tcp->seq = htonl(client.local_seq);
-    tcp->ack_seq = htonl(++client.remote_seq);
-    tcp->doff = sizeof(struct tcp_frame) / 4;
-    tcp->ack = 1;
-    tcp->syn = 1;
-    tcp->window = syn->window;
-
-    uint16_t checksum = tcp_checksum(inaddr, dev->inaddr, sizeof(struct tcp_frame), tcp);
-    tcp->checksum = htons(checksum);
-
-    kdebug("establish " FMT_INADDR ":%u -> :%u\n", VA_INADDR(inaddr), client.remote_port, client.local_port);
-
-    inet_send_wrapped(dev, client.remote_inaddr, INET_P_TCP, packet, sizeof(packet));
+    inet_send_wrapped(dev, sock->remote_inaddr, INET_P_TCP, packet, sizeof(packet));
 }
 
 void tcp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame *ip, void *data, size_t len) {
@@ -125,40 +105,75 @@ void tcp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame
     len -= frame_size;
 
     uint16_t port = ntohs(tcp->dst_port);
-    if (tcp->syn && !tcp->ack) {
+    if (tcp->flags.syn && !tcp->flags.ack) {
         if (port == 9000) {
-            tcp_server_establish(p->dev, ntohl(ip->src_inaddr), tcp, &port9000);
+            // Establish local->remote connection
+            client.local_seq = 32657;
+            client.local_port = port9000.local_port;
+            client.remote_seq = ntohl(tcp->seq);
+            client.remote_port = ntohs(tcp->src_port);
+            client.remote_inaddr = ntohl(ip->src_inaddr);
+            client.state = TCP_STA_SYNACK_SENT;
+            client.type = TCP_SOCK_CLIENT;
+
+            // Reply with SYN+ACK
+            struct tcp_flags flags = {
+                .syn = 1,
+                .ack = 1
+            };
+            ++client.remote_seq;
+            tcp_packet_send(p->dev, &client, flags, NULL, 0);
         } else {
-            tcp_syn_reset(p->dev, ntohl(ip->src_inaddr), tcp);
+            // Reply with ACK+RST
+            //    tcp_syn_reset(p->dev, ntohl(ip->src_inaddr), tcp);
         }
-    } else if (tcp->ack && !tcp->syn && !tcp->psh) {
+    } else if (tcp->flags.ack && !tcp->flags.syn && !tcp->flags.psh) {
         uint16_t remote_port = ntohs(tcp->src_port);
         uint32_t remote_inaddr = ntohl(ip->src_inaddr);
 
         if (port == 9000 && remote_port == client.remote_port && remote_inaddr == client.remote_inaddr) {
             if (client.state == TCP_STA_SYNACK_SENT) {
                 kdebug("Remote side confirmed establishing\n");
-                client.local_seq = 1;
-                client.remote_seq = 1;
                 client.state = TCP_STA_ESTABLISHED;
+                ++client.local_seq;
             } else {
                 kwarn("Got ACK, but was not waiting for it\n");
             }
         }
-    } else if (tcp->ack && tcp->psh) {
+    } else if (tcp->flags.ack && tcp->flags.psh) {
         uint16_t remote_port = ntohs(tcp->src_port);
         uint32_t remote_inaddr = ntohl(ip->src_inaddr);
+        uint32_t segment_seq = ntohl(tcp->seq);
+        if (segment_seq < client.remote_seq) {
+            panic("TODO: handle this\n");
+        }
 
         if (port == 9000 && remote_port == client.remote_port && remote_inaddr == client.remote_inaddr) {
             if (client.state == TCP_STA_ESTABLISHED) {
                 kdebug("Got PSH+ACK on established socket\n");
-                kdebug("Length = %u\n", len);
+                uint32_t rel_seq = segment_seq - client.remote_seq;
+                kdebug("Seq %u:%u\n", rel_seq, rel_seq + len);
+                if (rel_seq != 0) {
+                    panic("TODO: out-of-order segment reception\n");
+                }
+                debug_dump(DEBUG_DEFAULT, data, len);
+
+                // Reply with ACK
+                struct tcp_flags flags = {
+                    .ack = 1
+                };
+                client.remote_seq += len;
+                tcp_packet_send(p->dev, &client, flags, NULL, 0);
             } else {
                 kwarn("Got PSH+ACK, but socket is not established\n");
             }
         }
     } else {
-        kwarn("%s: unhandled packet: syn=%d, ack=%d, psh=%d, rst=%d\n", tcp->syn, tcp->ack, tcp->psh, tcp->rst);
+        kwarn("%s: unhandled packet: syn=%d, ack=%d, psh=%d, rst=%d\n",
+              tcp->flags.syn,
+              tcp->flags.ack,
+              tcp->flags.psh,
+              tcp->flags.rst);
     }
 }
 
