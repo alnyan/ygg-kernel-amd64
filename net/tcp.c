@@ -127,30 +127,25 @@ void tcp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame
             // Reply with ACK+RST
             //    tcp_syn_reset(p->dev, ntohl(ip->src_inaddr), tcp);
         }
-    } else if (tcp->flags.ack && !tcp->flags.syn && !tcp->flags.psh) {
+    } else if (tcp->flags.ack && !tcp->flags.syn) {
         uint16_t remote_port = ntohs(tcp->src_port);
         uint32_t remote_inaddr = ntohl(ip->src_inaddr);
+        uint32_t segment_seq = ntohl(tcp->seq);
 
         if (port == 9000 && remote_port == client.remote_port && remote_inaddr == client.remote_inaddr) {
             if (client.state == TCP_STA_SYNACK_SENT) {
                 kdebug("Remote side confirmed establishing\n");
                 client.state = TCP_STA_ESTABLISHED;
                 ++client.local_seq;
-            } else {
-                kwarn("Got ACK, but was not waiting for it\n");
-            }
-        }
-    } else if (tcp->flags.ack && tcp->flags.psh) {
-        uint16_t remote_port = ntohs(tcp->src_port);
-        uint32_t remote_inaddr = ntohl(ip->src_inaddr);
-        uint32_t segment_seq = ntohl(tcp->seq);
-        if (segment_seq < client.remote_seq) {
-            panic("TODO: handle this\n");
-        }
+            } else if (client.state == TCP_STA_ESTABLISHED) {
+                if (segment_seq < client.remote_seq) {
+                    panic("TODO: handle this\n");
+                }
 
-        if (port == 9000 && remote_port == client.remote_port && remote_inaddr == client.remote_inaddr) {
-            if (client.state == TCP_STA_ESTABLISHED) {
-                kdebug("Got PSH+ACK on established socket\n");
+                kdebug("Got ACK on established socket\n");
+                if (tcp->flags.psh) {
+                    kdebug("Also PSH\n");
+                }
                 uint32_t rel_seq = segment_seq - client.remote_seq;
                 kdebug("Seq %u:%u\n", rel_seq, rel_seq + len);
                 if (rel_seq != 0) {
@@ -164,8 +159,6 @@ void tcp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame
                 };
                 client.remote_seq += len;
                 tcp_packet_send(p->dev, &client, flags, NULL, 0);
-            } else {
-                kwarn("Got PSH+ACK, but socket is not established\n");
             }
         }
     } else {
