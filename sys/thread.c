@@ -37,10 +37,10 @@ struct sys_fork_frame {
 
 ////
 
-//static struct thread *threads_all_head = NULL;
 LIST_HEAD(threads_all_head);
 static pid_t last_kernel_pid = 0;
 static pid_t last_user_pid = 0;
+// TODO: MAKE THIS PER-PROCESSOR
 static uint64_t fxsave_buf[FXSAVE_REGION / 8] __attribute__((aligned(16)));
 
 void context_save_fpu(struct thread *new, struct thread *old) {
@@ -127,10 +127,8 @@ void thread_ioctx_fork(struct thread *dst, struct thread *src) {
 int thread_signal_pgid(pid_t pgid, int signum) {
     int ret = 0;
 
-    list_foreach(&threads_all_head, _thr) {
-        struct thread *thr = list_link_value(_thr, struct thread, g_link);
-        _assert(thr);
-
+    struct thread *thr;
+    list_for_each_entry(thr, &threads_all_head, g_link) {
         if (thr->state != THREAD_STOPPED && thr->pgid == pgid) {
             thread_signal(thr, signum);
             ++ret;
@@ -141,10 +139,8 @@ int thread_signal_pgid(pid_t pgid, int signum) {
 }
 
 struct thread *thread_find(pid_t pid) {
-    list_foreach(&threads_all_head, _thr) {
-        struct thread *thr = list_link_value(_thr, struct thread, g_link);
-        _assert(thr);
-
+    struct thread *thr;
+    list_for_each_entry(thr, &threads_all_head, g_link) {
         if (thr->pid == pid) {
             return thr;
         }
@@ -259,7 +255,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
         thr->data.fxsave = NULL;
     }
 
-    list_link_init(&thr->g_link);
+    list_head_init(&thr->g_link);
 
     uint64_t *stack = (uint64_t *) (thr->data.rsp0_base + thr->data.rsp0_size);
 
@@ -373,7 +369,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     thr->pgid = -1;
     thr->pid = -1;
 
-    list_append(&threads_all_head, &thr->g_link);
+    list_add(&threads_all_head, &thr->g_link);
 
     return 0;
 }
@@ -390,7 +386,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     uintptr_t stack_pages = amd64_phys_alloc_contiguous(2);
     _assert(stack_pages != MM_NADDR);
 
-    list_link_init(&dst->g_link);
+    list_head_init(&dst->g_link);
 
     dst->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
     dst->data.rsp0_size = MM_PAGE_SIZE * 2;
@@ -485,7 +481,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst->pgid = src->pgid;
     dst->sigq = 0;
 
-    list_append(&threads_all_head, &dst->g_link);
+    list_add(&threads_all_head, &dst->g_link);
     sched_queue(dst);
 
     return dst->pid;
@@ -683,7 +679,7 @@ int sys_waitpid(pid_t pid, int *status) {
     }
 
     thread_unchild(chld);
-    list_remove(&threads_all_head, &chld->g_link);
+    list_del(&chld->g_link);
     thread_free(chld);
 
     return 0;

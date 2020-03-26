@@ -23,6 +23,7 @@ enum thread_state {
 #define THREAD_KERNEL           (1 << 0)
 #define THREAD_EMPTY            (1 << 1)
 #define THREAD_FPU_SAVED        (1 << 2)
+#define THREAD_IDLE             (1 << 3)
 
 #define thread_signal_clear(thr, signum) \
     (thr)->sigq &= ~(1ULL << ((signum) - 1))
@@ -62,7 +63,7 @@ struct thread {
     int exit_status;
 
     // Global thread list (for stuff like finding by PID)
-    struct list_link g_link;
+    struct list_head g_link;
 
     // Scheduler
     int cpu;
