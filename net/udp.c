@@ -124,9 +124,9 @@ ssize_t udp_socket_send(struct vfs_ioctx *ioctx, struct ofile *fd, const void *b
     }
 
     // TODO: a better way of allocating these
-    char packet[sizeof(struct eth_frame) + sizeof(struct inet_frame) + sizeof(struct udp_frame) + lim];
-    void *data = &packet[sizeof(struct eth_frame) + sizeof(struct inet_frame) + sizeof(struct udp_frame)];
-    struct udp_frame *udp = (struct udp_frame *) &packet[sizeof(struct eth_frame) + sizeof(struct inet_frame)];
+    struct packet *p = packet_create(PACKET_SIZE_L3INET + sizeof(struct udp_frame) + lim);
+    struct udp_frame *udp = PACKET_L4(p);
+    void *data = &udp[1];
 
     udp->src_port = htons(port);
     udp->dst_port = sin->sin_port; // Already in network order
@@ -136,11 +136,11 @@ ssize_t udp_socket_send(struct vfs_ioctx *ioctx, struct ofile *fd, const void *b
     memcpy(data, buf, lim);
 
     if (sock->bound) {
-        if ((res = inet_send_wrapped(sock->bound, ntohl(sin->sin_addr), INET_P_UDP, packet, sizeof(packet))) != 0) {
+        if ((res = inet_send_wrapped(sock->bound, ntohl(sin->sin_addr), INET_P_UDP, p)) != 0) {
             return res;
         }
     } else {
-        if ((res = inet_send(ntohl(sin->sin_addr), INET_P_UDP, packet, sizeof(packet))) != 0) {
+        if ((res = inet_send(ntohl(sin->sin_addr), INET_P_UDP, p)) != 0) {
             return res;
         }
     }

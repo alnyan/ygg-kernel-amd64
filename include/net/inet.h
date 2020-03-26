@@ -23,7 +23,7 @@ struct netdev;
 struct packet;
 struct eth_frame;
 void inet_handle_frame(struct packet *p, struct eth_frame *eth, void *data, size_t len);
-int inet_send_wrapped(struct netdev *src, uint32_t inaddr, uint8_t proto, void *data, size_t len);
-int inet_send(uint32_t inaddr, uint8_t proto, void *data, size_t len);
+int inet_send_wrapped(struct netdev *src, uint32_t inaddr, uint8_t proto, struct packet *p);
+int inet_send(uint32_t inaddr, uint8_t proto, struct packet *p);
 
 uint16_t inet_checksum(const void *data, size_t len);

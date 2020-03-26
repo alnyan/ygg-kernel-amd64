@@ -16,7 +16,7 @@ struct arp_ent {
     uint32_t inaddr;
     uint8_t hwaddr[6];
     int resolved;
-    struct arp_hold *hold;
+    struct packet_queue hold_queue;
     struct arp_ent *prev, *next;
 };
 
@@ -51,11 +51,14 @@ static struct arp_ent *arp_add_entry(struct netdev *dev, uint32_t inaddr, const 
         memcpy(ent->hwaddr, hw, 6);
         ent->resolved = 1;
     } else {
+        // Initialize packet queue in case someone wants to send
+        // a packet before the address is resolved
+        packet_queue_init(&ent->hold_queue);
+
         ent->resolved = 0;
         kdebug("%s: pending resolution: " FMT_INADDR "\n", dev->name, VA_INADDR(inaddr));
     }
 
-    ent->hold = NULL;
     ent->next = dev->arp_ent_head;
     ent->prev = NULL;
     dev->arp_ent_head = ent;
@@ -76,8 +79,8 @@ static struct arp_ent *arp_find_or_create(struct netdev *dev, uint32_t inaddr) {
 }
 
 static void arp_send_reply(struct netdev *src, struct arp_frame *req) {
-    char reply[sizeof(struct eth_frame) + sizeof(struct arp_frame)];
-    struct arp_frame *arp = (struct arp_frame *) &reply[sizeof(struct eth_frame)];
+    struct packet *p = packet_create(PACKET_SIZE_L3ARP);
+    struct arp_frame *arp = PACKET_L3(p);
 
     memcpy(arp->tha, req->sha, 6);
     memcpy(arp->sha, src->hwaddr, 6);
@@ -92,27 +95,23 @@ static void arp_send_reply(struct netdev *src, struct arp_frame *req) {
 
     arp->oper = htons(ARP_OP_REPLY);
 
-    eth_send_wrapped(src, arp->tha, ETH_T_ARP, reply, sizeof(reply));
+    eth_send_wrapped(src, arp->tha, ETH_T_ARP, p);
 }
 
-int arp_send(struct netdev *src, uint32_t inaddr, uint16_t ethertype, void *data, size_t len) {
+int arp_send(struct netdev *src, uint32_t inaddr, uint16_t ethertype, struct packet *p) {
     struct arp_ent *ent = arp_find_or_create(src, inaddr);
     _assert(ent);
 
     if (ent->resolved) {
-        return eth_send_wrapped(src, ent->hwaddr, ethertype, data, len);
+        return eth_send_wrapped(src, ent->hwaddr, ethertype, p);
     } else {
-        // TODO: better way?
-        uintptr_t page = amd64_phys_alloc_page();
-        _assert(page != MM_NADDR);
-        struct arp_hold *hold = (struct arp_hold *) MM_VIRTUALIZE(page);
+        packet_ref(p);
 
-        hold->ethertype = ethertype;
-        hold->len = len;
-        memcpy(hold->data, data, len);
+        struct eth_frame *eth = PACKET_L2(p);
+        // Store ethertype
+        eth->ethertype = ethertype;
 
-        hold->next = ent->hold;
-        ent->hold = hold;
+        packet_queue_push(&ent->hold_queue, p);
 
         return 0;
     }
@@ -120,8 +119,8 @@ int arp_send(struct netdev *src, uint32_t inaddr, uint16_t ethertype, void *data
 
 static void arp_send_request(struct netdev *dev, uint32_t inaddr) {
     _assert(dev->flags & IF_F_HASIP);
-    char packet[sizeof(struct eth_frame) + sizeof(struct arp_frame)];
-    struct arp_frame *arp = (struct arp_frame *) &packet[sizeof(struct eth_frame)];
+    struct packet *p = packet_create(PACKET_SIZE_L3ARP);
+    struct arp_frame *arp = PACKET_L3(p);
 
     memcpy(arp->sha, dev->hwaddr, 6);
     memset(arp->tha, 0, 6);
@@ -137,7 +136,7 @@ static void arp_send_request(struct netdev *dev, uint32_t inaddr) {
     arp->oper = htons(ARP_OP_REQUEST);
 
     kinfo("Send request for " FMT_INADDR "\n", VA_INADDR(inaddr));
-    eth_send_wrapped(dev, ETH_A_BROADCAST, ETH_T_ARP, packet, sizeof(packet));
+    eth_send_wrapped(dev, ETH_A_BROADCAST, ETH_T_ARP, p);
 }
 
 /*
@@ -193,13 +192,14 @@ void arp_handle_frame(struct packet *p, void *data, size_t len) {
 
         if (!ent->resolved) {
             ent->resolved = 1;
-            struct arp_hold *hold;
-            while ((hold = ent->hold)) {
-                ent->hold = hold->next;
 
-                eth_send_wrapped(dev, ent->hwaddr, hold->ethertype, hold->data, hold->len);
+            while (ent->hold_queue.head) {
+                struct packet *p = packet_queue_pop(&ent->hold_queue);
+                _assert(p);
+                struct eth_frame *eth = PACKET_L2(p);
 
-                amd64_phys_free(MM_PHYS(hold));
+                eth_send_wrapped(dev, ent->hwaddr, eth->ethertype, p);
+                packet_unref(p);
             }
         }
     }

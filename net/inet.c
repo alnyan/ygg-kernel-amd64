@@ -25,7 +25,7 @@ uint16_t inet_checksum(const void *data, size_t len) {
     return ~(sum & 0xFFFF) & 0xFFFF;
 }
 
-int inet_send_wrapped(struct netdev *src, uint32_t inaddr, uint8_t proto, void *data, size_t len) {
+int inet_send_wrapped(struct netdev *src, uint32_t inaddr, uint8_t proto, struct packet *p) {
     uint32_t src_inaddr;
 
     if (inaddr == INADDR_BROADCAST) {
@@ -39,8 +39,7 @@ int inet_send_wrapped(struct netdev *src, uint32_t inaddr, uint8_t proto, void *
         src_inaddr = src->inaddr;
     }
 
-    struct inet_frame *ip = data + sizeof(struct eth_frame);
-
+    struct inet_frame *ip = PACKET_L3(p);
     ip->dst_inaddr = htonl(inaddr);
     ip->src_inaddr = htonl(src_inaddr);
     ip->checksum = 0;
@@ -49,7 +48,7 @@ int inet_send_wrapped(struct netdev *src, uint32_t inaddr, uint8_t proto, void *
     ip->id = 0;
     ip->ihl = sizeof(struct inet_frame) / 4;
     ip->version = 4;
-    ip->tot_len = htons(len - sizeof(struct eth_frame));
+    ip->tot_len = htons(p->size - sizeof(struct eth_frame));
     ip->flags = 0;
     ip->proto = proto;
 
@@ -57,13 +56,13 @@ int inet_send_wrapped(struct netdev *src, uint32_t inaddr, uint8_t proto, void *
 
     if (inaddr == INADDR_BROADCAST) {
         // No need for ARP when broadcasting
-        return eth_send_wrapped(src, ETH_A_BROADCAST, ETH_T_IP, data, len);
+        return eth_send_wrapped(src, ETH_A_BROADCAST, ETH_T_IP, p);
     } else {
-        return arp_send(src, inaddr, ETH_T_IP, data, len);
+        return arp_send(src, inaddr, ETH_T_IP, p);
     }
 }
 
-int inet_send(uint32_t inaddr, uint8_t proto, void *data, size_t len) {
+int inet_send(uint32_t inaddr, uint8_t proto, struct packet *p) {
     // TODO: find out what to do when broadcasting here
     struct netdev *dev = netdev_find_inaddr(inaddr);
     if (!dev) {
@@ -72,7 +71,7 @@ int inet_send(uint32_t inaddr, uint8_t proto, void *data, size_t len) {
         return -ENOENT;
     }
 
-    return inet_send_wrapped(dev, inaddr, proto, data, len);
+    return inet_send_wrapped(dev, inaddr, proto, p);
 }
 
 void inet_handle_frame(struct packet *p, struct eth_frame *eth, void *data, size_t len) {

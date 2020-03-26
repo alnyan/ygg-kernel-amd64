@@ -17,4 +17,4 @@ struct netdev;
 struct packet;
 void eth_handle_frame(struct packet *p);
 
-int eth_send_wrapped(struct netdev *src, const uint8_t *dst, uint16_t et, void *data, size_t len);
+int eth_send_wrapped(struct netdev *src, const uint8_t *dst, uint16_t et, struct packet *p);

@@ -8,9 +8,8 @@
 #include "net/if.h"
 
 static void icmp_reply_echo(struct netdev *dev, uint32_t inaddr, struct icmp_frame *req, void *data, size_t len) {
-    char packet[sizeof(struct eth_frame) + sizeof(struct inet_frame) + sizeof(struct icmp_frame) + len];
-    struct icmp_frame *icmp = (struct icmp_frame *) &packet[sizeof(struct eth_frame) + sizeof(struct inet_frame)];
-
+    struct packet *p = packet_create(PACKET_SIZE_L3INET + sizeof(struct icmp_frame) + len);
+    struct icmp_frame *icmp = PACKET_L4(p);
     icmp->type = ICMP_T_ECHOREPLY;
     icmp->code = 0;
     icmp->echo.id = req->echo.id;
@@ -21,7 +20,7 @@ static void icmp_reply_echo(struct netdev *dev, uint32_t inaddr, struct icmp_fra
 
     icmp->checksum = inet_checksum(icmp, len + sizeof(struct icmp_frame));
 
-    inet_send_wrapped(dev, inaddr, INET_P_ICMP, packet, sizeof(packet));
+    inet_send_wrapped(dev, inaddr, INET_P_ICMP, p);
 }
 
 void icmp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame *ip, void *data, size_t len) {

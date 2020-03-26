@@ -7,8 +7,9 @@
 
 struct netdev;
 struct arp_ent;
+struct packet;
 
-typedef int (*netdev_send_func_t) (struct netdev *, const void *, size_t);
+typedef int (*netdev_send_func_t) (struct netdev *, struct packet *);
 
 struct netdev {
     char name[32];

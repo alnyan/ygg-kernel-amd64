@@ -3,6 +3,7 @@
 #include "drivers/pci/pci.h"
 #include "sys/assert.h"
 #include "sys/string.h"
+#include "net/packet.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
 #include "sys/attr.h"
@@ -48,6 +49,7 @@
 struct rtl8139 {
     struct pci_device *dev;
     struct netdev *net;
+    struct packet_queue tx_queue;
 
     int free_txds;
     uintptr_t recv_buf_phys;
@@ -67,24 +69,31 @@ static void rtl8139_reset(struct rtl8139 *rtl) {
     while (inb(rtl->iobase + REG_CR) & CR_RST);
 }
 
-static int rtl8139_netdev_send(struct netdev *net, const void *data, size_t len) {
-    struct rtl8139 *rtl = net->device;
-    _assert(rtl);
-    _assert((len & ~0xFFF) == 0);
-
-    if (!rtl->free_txds) {
-        panic("No free TXDs\n");
-    }
-
+static void rtl8139_send_now(struct rtl8139 *rtl, struct packet *p) {
     uintptr_t page = rtl->send_buf_pages[rtl->tx_pos];
     void *tx_buf = (void *) MM_VIRTUALIZE(page);
 
-    memcpy(tx_buf, data, len);
+    memcpy(tx_buf, p->data, p->size);
 
     outl(rtl->iobase + REG_TSAD(rtl->tx_pos), page & 0xFFFFFFFF);
-    outl(rtl->iobase + REG_TSD(rtl->tx_pos), len & 0xFFF);
+    outl(rtl->iobase + REG_TSD(rtl->tx_pos), p->size & 0xFFF);
     rtl->tx_pos = (rtl->tx_pos + 1) % 4;
     --rtl->free_txds;
+}
+
+static int rtl8139_netdev_send(struct netdev *net, struct packet *p) {
+    struct rtl8139 *rtl = net->device;
+    _assert(rtl);
+    _assert((p->size & ~0xFFF) == 0);
+
+    if (!rtl->free_txds) {
+        packet_ref(p);
+        packet_queue_push(&rtl->tx_queue, p);
+        kdebug("Sending too fast, queueing %p\n", p);
+        return 0;
+    } else {
+        rtl8139_send_now(rtl, p);
+    }
 
     return 0;
 }
@@ -120,6 +129,13 @@ static uint32_t rtl8139_irq(void *ctx) {
         outw(rtl->iobase + REG_ISR, ISR_ROK);
     } else if (isr & ISR_TOK) {
         ++rtl->free_txds;
+        if (rtl->tx_queue.head) {
+            struct packet *p = packet_queue_pop(&rtl->tx_queue);
+            kdebug("Unqueueing\n");
+            _assert(p);
+            rtl8139_send_now(rtl, p);
+            packet_unref(p);
+        }
 
         ret = IRQ_HANDLED;
         outw(rtl->iobase + REG_ISR, ISR_TOK);
@@ -137,8 +153,8 @@ static void rtl8139_init(struct pci_device *dev) {
     _assert(rtl);
 
     rtl->dev = dev;
-
     rtl->rx_pos = 0;
+    packet_queue_init(&rtl->tx_queue);
 
     // Allocate 12288 bytes (3 pages)
     rtl->recv_buf_phys = amd64_phys_alloc_contiguous(3);

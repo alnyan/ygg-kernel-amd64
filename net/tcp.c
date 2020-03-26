@@ -61,15 +61,9 @@ static void tcp_packet_send(struct netdev *dev,
         return;
     }
 
-    char packet[sizeof(struct eth_frame) +
-                sizeof(struct inet_frame) +
-                sizeof(struct tcp_frame) +
-                len];
-    struct tcp_frame *tcp = (struct tcp_frame *) &packet[sizeof(struct eth_frame) +
-                                                         sizeof(struct inet_frame)];
-    void *dst_data = &packet[sizeof(struct eth_frame) +
-                             sizeof(struct inet_frame) +
-                             sizeof(struct tcp_frame)];
+    struct packet *p = packet_create(PACKET_SIZE_L3INET + sizeof(struct tcp_frame) + len);
+    struct tcp_frame *tcp = PACKET_L4(p);
+    void *dst_data = &tcp[1];
     memset(tcp, 0, sizeof(struct tcp_frame));
     memcpy(dst_data, data, len);
 
@@ -84,7 +78,7 @@ static void tcp_packet_send(struct netdev *dev,
     uint16_t checksum = tcp_checksum(sock->remote_inaddr, dev->inaddr, sizeof(struct tcp_frame), tcp);
     tcp->checksum = htons(checksum);
 
-    inet_send_wrapped(dev, sock->remote_inaddr, INET_P_TCP, packet, sizeof(packet));
+    inet_send_wrapped(dev, sock->remote_inaddr, INET_P_TCP, p);
 }
 
 void tcp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame *ip, void *data, size_t len) {

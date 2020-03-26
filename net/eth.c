@@ -9,15 +9,15 @@
 #include "net/inet.h"
 #include "net/arp.h"
 
-int eth_send_wrapped(struct netdev *src, const uint8_t *hwaddr, uint16_t et, void *data, size_t len) {
-    struct eth_frame *eth = data;
+int eth_send_wrapped(struct netdev *src, const uint8_t *hwaddr, uint16_t et, struct packet *p) {
+    struct eth_frame *eth = PACKET_L2(p);
 
     memcpy(eth->dst_hwaddr, hwaddr, 6);
     memcpy(eth->src_hwaddr, src->hwaddr, 6);
     eth->ethertype = htons(et);
 
     _assert(src->send);
-    return src->send(src, data, len);
+    return src->send(src, p);
 }
 
 void eth_handle_frame(struct packet *p) {

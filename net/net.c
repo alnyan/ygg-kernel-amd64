@@ -22,7 +22,6 @@
 static struct thread netd_thread = {0};
 static struct packet_queue g_rxq;
 
-static struct packet *packet_create(void);
 static void packet_free(struct packet *p);
 
 static inline void net_handle_packet(struct packet *p) {
@@ -99,12 +98,13 @@ void packet_queue_init(struct packet_queue *pq) {
     pq->tail = NULL;
 }
 
-static struct packet *packet_create(void) {
+struct packet *packet_create(size_t size) {
     struct packet *packet;
     uintptr_t page = amd64_phys_alloc_page();
     _assert(page != MM_NADDR);
     packet = (struct packet *) MM_VIRTUALIZE(page);
     packet->refcount = 0;
+    packet->size = size;
     return packet;
 }
 
@@ -130,12 +130,11 @@ int net_receive(struct netdev *dev, const void *data, size_t len) {
         kwarn("%s: dropping large packet (%u)\n", dev->name, len);
         return -1;
     }
-    struct packet *p = packet_create();
+    struct packet *p = packet_create(len);
 
     // TODO: maybe information like "Physical match", "Multicast" or "Broadcast"
     //       would be useful to store in packet
     memcpy(p->data, data, len);
-    p->size = len;
     p->dev = dev;
     packet_ref(p);
 
