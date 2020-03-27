@@ -207,7 +207,7 @@ void thread_cleanup(struct thread *thr) {
     }
 
     // Release userspace pages
-    mm_space_release(thr->space);
+    mm_space_release(thr);
 }
 
 void thread_free(struct thread *thr) {
@@ -230,7 +230,7 @@ void thread_free(struct thread *thr) {
         asm volatile ("movq %%cr3, %0":"=a"(cr3));
         _assert(MM_VIRTUALIZE(cr3) != (uintptr_t) thr->space);
 
-        mm_space_free(thr->space);
+        mm_space_free(thr);
     }
 
     // Free thread itself
@@ -256,6 +256,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     }
 
     list_head_init(&thr->g_link);
+    list_head_init(&thr->shm_list);
 
     uint64_t *stack = (uint64_t *) (thr->data.rsp0_base + thr->data.rsp0_size);
 
@@ -369,7 +370,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     thr->pgid = -1;
     thr->pid = -1;
 
-    list_add(&threads_all_head, &thr->g_link);
+    list_add(&thr->g_link, &threads_all_head);
 
     return 0;
 }
@@ -387,6 +388,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     _assert(stack_pages != MM_NADDR);
 
     list_head_init(&dst->g_link);
+    list_head_init(&dst->shm_list);
 
     dst->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
     dst->data.rsp0_size = MM_PAGE_SIZE * 2;
@@ -394,13 +396,13 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst->flags = 0;
 
     mm_space_t space = amd64_mm_pool_alloc();
-    mm_space_fork(space, src->space, MM_CLONE_FLG_KERNEL | MM_CLONE_FLG_USER);
+    dst->space = space;
+    mm_space_fork(dst, src, MM_CLONE_FLG_KERNEL | MM_CLONE_FLG_USER);
 
     dst->data.rsp3_base = src->data.rsp3_base;
     dst->data.rsp3_size = src->data.rsp3_size;
 
     dst->data.cr3 = MM_PHYS(space);
-    dst->space = space;
 
     dst->signal_entry = src->signal_entry;
 
@@ -481,7 +483,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst->pgid = src->pgid;
     dst->sigq = 0;
 
-    list_add(&threads_all_head, &dst->g_link);
+    list_add(&dst->g_link, &threads_all_head);
     sched_queue(dst);
 
     return dst->pid;
@@ -590,7 +592,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
 
         mm_space_clone(thr->space, mm_kernel, MM_CLONE_FLG_KERNEL);
     } else {
-        mm_space_release(thr->space);
+        mm_space_release(thr);
     }
 
     if ((res = elf_load(thr, &thr->ioctx, &fd, &entry)) != 0) {
@@ -629,6 +631,10 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
 }
 
 void thread_sigenter(int signum) {
+    if (signum == SIGCHLD) {
+        kdebug("Skipping SIGCHLD\n");
+        return;
+    }
     struct thread *thr = thread_self;
     kdebug("%d: Handle signal %d\n", thr->pid, signum);
     uintptr_t old_rsp0_top = thr->data.rsp0_top;

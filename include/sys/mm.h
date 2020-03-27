@@ -10,6 +10,8 @@
 #include "arch/amd64/mm/mm.h"
 #endif
 
+struct thread;
+
 /// An invalid address analogous to NULL
 #define MM_NADDR                ((uintptr_t) -1)
 
@@ -48,20 +50,20 @@ int mm_space_clone(mm_space_t dst, const mm_space_t src, uint32_t flags);
  * @return 0 on success
  * @return Non-zero values in case of error
  */
-int mm_space_fork(mm_space_t dst, const mm_space_t src, uint32_t flags);
+int mm_space_fork(struct thread *dst, const struct thread *src, uint32_t flags);
 
 /**
  * @brief Release userspace pages from use by the memory space, freeing underlying data
  *  structures and physical pages.
  * @param space - Virtual memory space
  */
-void mm_space_release(mm_space_t space);
+void mm_space_release(struct thread *thr);
 
 /**
  * @brief Destroy the virtual memory space and free used resources
  * @param pd - Virtual memory space
  */
-void mm_space_free(mm_space_t pd);
+void mm_space_free(struct thread *thr);
 
 /**
  * @brief Dump debug information about the memory space

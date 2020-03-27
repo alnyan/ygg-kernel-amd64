@@ -21,6 +21,7 @@ KERNEL_HEADERS="include/user/fcntl.h \
                 include/user/netctl.h \
                 include/user/socket.h \
                 include/user/inet.h \
+                include/user/mman.h \
                 include/user/reboot.h"
 
 for src_file in $KERNEL_HEADERS; do

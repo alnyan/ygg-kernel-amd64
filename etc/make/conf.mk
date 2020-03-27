@@ -60,7 +60,7 @@ OBJS+=$(O)/sys/debug.o \
 	  $(O)/sys/font/logo.o \
 	  $(O)/sys/font/psf.o \
 	  $(O)/sys/font/default8x16.o \
-	  $(O)/sys/list.o
+	  $(O)/sys/shmem.o
 DIRS+=$(O)/sys \
 	  $(O)/sys/char \
 	  $(O)/sys/block \

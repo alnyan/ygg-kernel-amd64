@@ -39,6 +39,9 @@ struct thread {
     size_t image_end;
     size_t brk;
 
+    // Shared memory
+    struct list_head shm_list;
+
     // I/O
     struct vfs_ioctx ioctx;
     struct ofile *fds[THREAD_MAX_FDS];

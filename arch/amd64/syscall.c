@@ -9,6 +9,7 @@
 #include "sys/sys_sys.h"
 #include "sys/sys_proc.h"
 #include "sys/sys_net.h"
+#include "sys/shmem.h"
 
 #define MSR_IA32_STAR               0xC0000081
 #define MSR_IA32_LSTAR              0xC0000082
@@ -24,6 +25,8 @@ void *syscall_table[256] = {
     [SYSCALL_NR_CLOSE] = sys_close,
     [SYSCALL_NR_STAT] = sys_stat,
     [SYSCALL_NR_LSEEK] = sys_lseek,
+    [SYSCALL_NR_MMAP] = sys_mmap,
+    [SYSCALL_NR_MUNMAP] = sys_munmap,
     [SYSCALL_NR_IOCTL] = sys_ioctl,
     [SYSCALL_NR_ACCESS] = sys_access,
     [SYSCALL_NR_SELECT] = sys_select,

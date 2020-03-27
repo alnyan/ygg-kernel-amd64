@@ -20,13 +20,13 @@ struct list_head {
         (type *) ((char *) __memb - offsetof(type, member)); \
     })
 
-#define list_head_init(link) ({ \
-        (link)->prev = link; \
-        (link)->next = link; \
-    })
-
 #define list_next_entry(pos, member) \
 	list_entry((pos)->member.next, typeof(*(pos)), member)
+
+static inline void list_head_init(struct list_head *list) {
+	list->next = list;
+	list->prev = list;
+}
 
 static inline void __list_add(struct list_head *new,
                               struct list_head *prev,
@@ -39,6 +39,10 @@ static inline void __list_add(struct list_head *new,
 
 static inline void list_add(struct list_head *new, struct list_head *head) {
 	__list_add(new, head, head->next);
+}
+
+static inline void list_add_tail(struct list_head *new, struct list_head *head) {
+	__list_add(new, head->prev, head);
 }
 
 static inline void __list_del(struct list_head *prev, struct list_head *next) {

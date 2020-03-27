@@ -1,8 +1,10 @@
 #include "sys/mm.h"
 #include "sys/debug.h"
+#include "sys/shmem.h"
 #include "sys/panic.h"
 #include "sys/assert.h"
 #include "sys/string.h"
+#include "sys/thread.h"
 #include "arch/amd64/mm/map.h"
 #include "arch/amd64/mm/phys.h"
 #include "arch/amd64/mm/pool.h"
@@ -223,7 +225,10 @@ int mm_space_clone(mm_space_t dst_pml4, const mm_space_t src_pml4, uint32_t flag
     return 0;
 }
 
-int mm_space_fork(mm_space_t dst_pml4, const mm_space_t src_pml4, uint32_t flags) {
+int mm_space_fork(struct thread *dst, const struct thread *src, uint32_t flags) {
+    mm_pml4_t dst_pml4 = dst->space;
+    const mm_pml4_t src_pml4 = src->space;
+
     if (flags & MM_CLONE_FLG_USER) {
         // Copy user pages:
         // TODO: CoW
@@ -277,28 +282,42 @@ int mm_space_fork(mm_space_t dst_pml4, const mm_space_t src_pml4, uint32_t flags
                             continue;
                         }
 
-                        uintptr_t src_page_phys = src_pt[pti] & MM_PTE_MASK;
-                        uintptr_t dst_page_phys = amd64_phys_alloc_page();
-                        _assert(dst_page_phys != MM_NADDR);
+                        uintptr_t src_page_virt = (pml4i << MM_PML4I_SHIFT) |
+                                                  (pdpti << MM_PDPTI_SHIFT) |
+                                                  (pdi << MM_PDI_SHIFT) |
+                                                  (pti << MM_PTI_SHIFT);
 
-                        // SLOOOOOW UUUSEE COOOOW
-                        kdebug("Cloning %p <- %p\n", dst_page_phys, src_page_phys);
-                        memcpy((void *) MM_VIRTUALIZE(dst_page_phys),
-                               (const void *) MM_VIRTUALIZE(src_page_phys),
-                               MM_PAGE_SIZE);
+                        if (shm_region_find((struct thread *) src, src_page_virt)) {
+                            kdebug("Skipping %p: is a shared memory region\n", src_page_virt);
+                        } else {
+                            uintptr_t src_page_phys = src_pt[pti] & MM_PTE_MASK;
+                            uintptr_t dst_page_phys = amd64_phys_alloc_page();
+                            _assert(dst_page_phys != MM_NADDR);
 
-                        dst_pt[pti] = dst_page_phys | (src_pt[pti] & MM_PTE_FLAGS_MASK);
+                            // SLOOOOOW UUUSEE COOOOW
+                            kdebug("Cloning %p <- %p\n", dst_page_phys, src_page_phys);
+                            memcpy((void *) MM_VIRTUALIZE(dst_page_phys),
+                                   (const void *) MM_VIRTUALIZE(src_page_phys),
+                                   MM_PAGE_SIZE);
+
+                            dst_pt[pti] = dst_page_phys | (src_pt[pti] & MM_PTE_FLAGS_MASK);
+                        }
                     }
                 }
             }
         }
     }
 
+    kdebug("Forking shared memory:\n");
+    shm_space_fork(dst, (struct thread *) src);
+
     // Kernel pages don't need to be copied - just use mm_space_clone(, , MM_CLONE_FLG_KERNEL)
     return mm_space_clone(dst_pml4, src_pml4, MM_CLONE_FLG_KERNEL & flags);
 }
 
-void mm_space_release(mm_space_t pml4) {
+void mm_space_release(struct thread *thr) {
+    mm_space_t pml4 = thr->space;
+
     for (size_t pml4i = 0; pml4i < AMD64_PML4I_USER_END; ++pml4i) {
         if (!(pml4[pml4i] & MM_PAGE_PRESENT)) {
             continue;
@@ -325,8 +344,17 @@ void mm_space_release(mm_space_t pml4) {
                         continue;
                     }
 
-                    uintptr_t page_phys = pt[pti] & MM_PTE_MASK;
-                    amd64_phys_free(page_phys);
+                    uintptr_t page_virt = (pml4i << MM_PML4I_SHIFT) |
+                                          (pdpti << MM_PDPTI_SHIFT) |
+                                          (pdi << MM_PDI_SHIFT) |
+                                          (pti << MM_PTI_SHIFT);
+
+                    if (shm_region_find(thr, page_virt)) {
+                        kdebug("Not freeing %p: belongs to a shared region\n", page_virt);
+                    } else {
+                        uintptr_t page_phys = pt[pti] & MM_PTE_MASK;
+                        amd64_phys_free(page_phys);
+                    }
                 }
 
                 amd64_mm_pool_free(pt);
@@ -339,11 +367,14 @@ void mm_space_release(mm_space_t pml4) {
 
         pml4[pml4i] = 0;
     }
+
+    kdebug("Releasing shared memory:\n");
+    shm_region_release_all(thr, 1);
 }
 
-void mm_space_free(mm_space_t pml4) {
-    mm_space_release(pml4);
-    amd64_mm_pool_free(pml4);
+void mm_space_free(struct thread *thr) {
+    mm_space_release(thr);
+    amd64_mm_pool_free(thr->space);
 }
 
 void mm_describe(const mm_space_t pml4) {
