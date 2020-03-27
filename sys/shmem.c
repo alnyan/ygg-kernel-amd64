@@ -11,8 +11,8 @@
 #include "sys/heap.h"
 #include "sys/mm.h"
 
-static spin_t mman_lock = 0;
-static struct shm_region *mman_region = NULL;
+static spin_t g_shm_lock = 0;
+static LIST_HEAD(g_shm_region_head);
 
 struct shm_region *shm_region_create(size_t count) {
     kinfo("Allocating a SHM region of %u pages\n", count);
@@ -106,27 +106,31 @@ struct shm_region_ref *shm_region_find(struct thread *thr, uintptr_t addr) {
 
 void *sys_mmap(void *hint, size_t length, int prot, int flags, int fd, off_t off) {
     uintptr_t irq;
+    size_t page_count;
     struct shm_region *shm;
     struct thread *thr;
 
     thr = thread_self;
     _assert(thr);
 
-    spin_lock_irqsave(&mman_lock, &irq);
-    if (!mman_region) {
-        mman_region = shm_region_create(length / 0x1000);
+    if (length & MM_PAGE_OFFSET_MASK) {
+        return (void *) -EINVAL;
     }
-    _assert(mman_region);
+    page_count = length / MM_PAGE_SIZE;
 
-    shm = mman_region;
-    spin_release_irqrestore(&mman_lock, &irq);
+    shm = shm_region_create(page_count);
+    _assert(shm);
+
+    spin_lock_irqsave(&g_shm_lock, &irq);
+    list_add(&shm->link, &g_shm_region_head);
+    spin_release_irqrestore(&g_shm_lock, &irq);
 
     uintptr_t addr = shm_region_map(shm, thr);
 
     kdebug("New region mapping list:\n");
     shm_thread_describe(thr);
 
-    return addr == MM_NADDR ? MAP_FAILED : (void *) addr;
+    return addr == MM_NADDR ? (void *) -ENOMEM : (void *) addr;
 }
 
 int sys_munmap(void *_addr, size_t length) {

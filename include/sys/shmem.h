@@ -9,7 +9,10 @@ struct shm_region {
     spin_t lock;
 
     size_t ref_count;
+    // List head for tracking ownership of the region
     struct list_head owners;
+    // Link for tracking all the regions in the system
+    struct list_head link;
 
     size_t page_count;
     uintptr_t phys[0];
