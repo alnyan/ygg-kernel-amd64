@@ -1,3 +1,6 @@
 #pragma once
-
 #define MAP_FAILED   ((void *) -1)
+#define MAP_ANONYMOUS       (1 << 0)
+#define MAP_SHARED          (1 << 1)
+#define MAP_PRIVATE         (1 << 2)
+#define MAP_ACCESS_MASK     (3 << 1)

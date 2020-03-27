@@ -4,6 +4,7 @@
 #include "sys/spin.h"
 
 struct thread;
+struct blkdev;
 
 struct shm_region {
     spin_t lock;
@@ -27,9 +28,24 @@ struct shm_owner_ref {
 
 // thread -> region mapping link
 struct shm_region_ref {
-    struct shm_region *region;
+    enum {
+        // -> memory pages
+        SHM_TYPE_PHYS,
+        // -> block device mapping
+        SHM_TYPE_BLOCK,
+    } type;
     uintptr_t virt;
     struct list_head link;
+    union {
+        // Physical mapping
+        struct shm_region *region;
+        // Block device mapping
+        struct {
+            size_t page_count;
+            uintptr_t phys_base;
+            struct blkdev *blk;
+        } block;
+    } map;
 };
 
 // Setup an empty shared memory region of N pages

@@ -4,6 +4,8 @@
 #include "arch/amd64/cpu.h"
 #include "sys/vmalloc.h"
 #include "sys/thread.h"
+#include "user/video.h"
+#include "user/errno.h"
 #include "sys/assert.h"
 #include "sys/string.h"
 #include "sys/panic.h"
@@ -11,8 +13,8 @@
 #include "sys/dev.h"
 #include "sys/mm.h"
 
-//static int vesa_blk_ioctl(struct blkdev *blk, unsigned long cmd, void *arg);
-//static void *vesa_blk_mmap(struct blkdev *blk, struct ofile *fd, void *hint, size_t length, int flags);
+static int vesa_blk_ioctl(struct blkdev *blk, unsigned long cmd, void *arg);
+static void *vesa_blk_mmap(struct blkdev *blk, struct ofile *fd, void *hint, size_t length, int flags);
 
 int vesa_hold = 0;
 int vesa_available = 0;
@@ -24,9 +26,39 @@ static struct blkdev _vesa_fb0 = {
     .dev_data = NULL,
     .read = NULL,
     .write = NULL,
-    .ioctl = NULL,
-    .mmap = NULL
+    .ioctl = vesa_blk_ioctl,
+    .mmap = vesa_blk_mmap
 };
+
+static int vesa_blk_ioctl(struct blkdev *blk, unsigned long cmd, void *arg) {
+    switch (cmd) {
+    case IOC_GETVMODE:
+        _assert(arg);
+        ((struct ioc_vmode *) arg)->width = vesa_width;
+        ((struct ioc_vmode *) arg)->height = vesa_height;
+        return 0;
+    case IOC_FBCON:
+        _assert(arg);
+        vesa_hold = !*(uint32_t *) arg;
+        return 0;
+    default:
+        return -EINVAL;
+    }
+}
+
+static void *vesa_blk_mmap(struct blkdev *blk, struct ofile *fd, void *hint, size_t length, int flags) {
+    struct thread *thr = thread_self;
+    _assert(thr);
+    uintptr_t vaddr = vmfind(thr->space, 0x80000000, 0x100000000, length / MM_PAGE_SIZE);
+    _assert(vaddr != MM_NADDR);
+    uintptr_t phys = MM_PHYS(vesa_addr);
+
+    for (size_t i = 0; i < length / MM_PAGE_SIZE; ++i) {
+        amd64_map_single(thr->space, vaddr + i * MM_PAGE_SIZE, phys + i * MM_PAGE_SIZE, MM_PAGE_WRITE | MM_PAGE_USER);
+    }
+
+    return (void *) vaddr;
+}
 
 void vesa_clear(uint32_t color) {
     if (vesa_hold) {
