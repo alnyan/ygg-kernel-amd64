@@ -1,6 +1,8 @@
 #include "user/errno.h"
 #include "arch/amd64/cpu.h"
 #include "fs/ofile.h"
+#include "sys/char/ring.h"
+#include "sys/char/chr.h"
 #include "sys/sys_file.h"
 #include "sys/thread.h"
 #include "sys/assert.h"
@@ -305,7 +307,34 @@ int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *t
     }
     int res;
 
-    panic("NYI\n");
+    while (system_time < deadline) {
+        for (int i = 0; i < n; ++i) {
+            if (FD_ISSET(i, &_inp)) {
+                struct ofile *fd = thr->fds[i];
+                _assert(fd);
+                struct vnode *vn = fd->file.vnode;
+                _assert(vn && vn->type == VN_CHR);
+                struct chrdev *chr = vn->dev;
+                _assert(chr);
+
+                if (chr->type == CHRDEV_TTY && (chr->tc.c_iflag & ICANON)) {
+                    if (chr->buffer.flags & (RING_SIGNAL_RET | RING_SIGNAL_EOF | RING_SIGNAL_BRK)) {
+                        FD_SET(i, inp);
+                        return 1;
+                    }
+                } else {
+                    if (ring_readable(&chr->buffer)) {
+                        FD_SET(i, inp);
+                        return 1;
+                    }
+                }
+            }
+        }
+
+        // TODO: add something like "listen to all fds events"
+        asm volatile ("sti; hlt");
+        thread_check_signal(thr, 0);
+    }
 
     return 0;
 }
