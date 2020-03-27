@@ -99,7 +99,7 @@ ssize_t simple_line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) 
     } while (1);
 
     // TODO: properly handle interrupts
-    while (ring_readable(r)) {
+    while (rem && ring_readable(r)) {
         if (ring_getc(thr, r, wr, 1) < 0) {
             break;
         }

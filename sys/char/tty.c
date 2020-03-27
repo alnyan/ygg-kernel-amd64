@@ -100,8 +100,9 @@ void tty_data_write(struct chrdev *tty, char c) {
     case '\b':
         break;
     case '\033':
-        // TODO: ICANON
-        tty_puts(tty, "^[");
+        if ((tty->tc.c_lflag & ECHO) || (tty->tc.c_iflag & ICANON)) {
+            tty_puts(tty, "^[");
+        }
         break;
     default:
         // This ignores ICANON
