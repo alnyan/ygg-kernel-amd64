@@ -126,6 +126,7 @@ uint32_t ps2_irq_keyboard(void *ctx) {
 }
 
 uint32_t ps2_irq_mouse(void *arg) {
+    static uint8_t b_state = 0;
     uint8_t packet[4];
 
     if (!(inb(0x64) & 1)) {
@@ -145,6 +146,18 @@ uint32_t ps2_irq_mouse(void *arg) {
 
     dy = packet[2];
     dy -= (packet[0] << 3) & 0x100;
+
+    if (!!(b_state & 1) != !!(packet[0] & 1)) {
+        // Left button changed
+        ring_putc(NULL, &_ps2_mouse.buffer, 'b', 0);
+        ring_putc(NULL, &_ps2_mouse.buffer, 1, 0);
+        ring_putc(NULL, &_ps2_mouse.buffer, 0, 0);
+        ring_putc(NULL, &_ps2_mouse.buffer, !!(packet[0] & 1), 0);
+        ring_putc(NULL, &_ps2_mouse.buffer, 0, 0);
+
+        b_state &= ~1;
+        b_state |= packet[0] & 1;
+    }
 
     if (dx || dy) {
         // Write "delta" event
