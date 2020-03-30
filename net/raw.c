@@ -5,6 +5,7 @@
 #include "sys/thread.h"
 #include "sys/string.h"
 #include "net/socket.h"
+#include "user/errno.h"
 #include "net/class.h"
 #include "sys/sched.h"
 #include "sys/debug.h"
@@ -98,60 +99,61 @@ static ssize_t raw_socket_recvfrom(struct socket *s,
                                    size_t lim,
                                    struct sockaddr *sa,
                                    size_t *salen) {
-    struct raw_socket *sock = s->data;
-    _assert(sock);
-    struct thread *t = thread_self;
-    _assert(t);
-    struct packet *p;
+    return -EINVAL;
+    //struct raw_socket *sock = s->data;
+    //_assert(sock);
+    //struct thread *t = thread_self;
+    //_assert(t);
+    //struct packet *p;
 
-    if (!sock->queue.head) {
-        sock->wait = t;
+    //if (!sock->queue.head) {
+    //    sock->wait = t;
 
-        while (!sock->queue.head) {
-            sched_unqueue(t, THREAD_WAITING_NET);
-            thread_check_signal(t, 0);
-        }
-    }
+    //    while (!sock->queue.head) {
+    //        sched_unqueue(t, THREAD_WAITING_NET);
+    //        thread_check_signal(t, 0);
+    //    }
+    //}
 
-    // Read a single packet
-    p = packet_queue_pop(&sock->queue);
-    _assert(p);
+    //// Read a single packet
+    //p = packet_queue_pop(&sock->queue);
+    //_assert(p);
 
-    size_t p_size = p->size;
-    if (p_size > lim) {
-        kerror("Packet buffer overflow\n");
-        return -1;
-    }
-    memcpy(buf, p->data, p_size);
-    packet_unref(p);
+    //size_t p_size = p->size;
+    //if (p_size > lim) {
+    //    kerror("Packet buffer overflow\n");
+    //    return -1;
+    //}
+    //memcpy(buf, p->data, p_size);
+    //packet_unref(p);
 
-    return p_size;
+    //return p_size;
 }
 
 static void raw_socket_close(struct socket *s) {
-    uintptr_t irq;
-    struct raw_socket *r_sock = s->data;
-    _assert(r_sock);
+    //uintptr_t irq;
+    //struct raw_socket *r_sock = s->data;
+    //_assert(r_sock);
 
-    spin_lock_irqsave(&g_raw_lock, &irq);
-    struct raw_socket *prev = r_sock->prev;
-    struct raw_socket *next = r_sock->next;
-    if (prev) {
-        prev->next = next;
-    } else {
-        g_raw_sockets = next;
-    }
-    if (next) {
-        next->prev = prev;
-    }
-    spin_release_irqrestore(&g_raw_lock, &irq);
+    //spin_lock_irqsave(&g_raw_lock, &irq);
+    //struct raw_socket *prev = r_sock->prev;
+    //struct raw_socket *next = r_sock->next;
+    //if (prev) {
+    //    prev->next = next;
+    //} else {
+    //    g_raw_sockets = next;
+    //}
+    //if (next) {
+    //    next->prev = prev;
+    //}
+    //spin_release_irqrestore(&g_raw_lock, &irq);
 
-    // Flush packet queue
-    while (r_sock->queue.head) {
-        struct packet *p = packet_queue_pop(&r_sock->queue);
-        packet_unref(p);
-    }
+    //// Flush packet queue
+    //while (r_sock->queue.head) {
+    //    struct packet *p = packet_queue_pop(&r_sock->queue);
+    //    packet_unref(p);
+    //}
 
-    kfree(r_sock);
+    //kfree(r_sock);
     s->data = NULL;
 }

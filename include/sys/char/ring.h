@@ -1,5 +1,6 @@
 #pragma once
 #include "sys/types.h"
+#include "sys/wait.h"
 #include "sys/spin.h"
 
 struct thread;
@@ -15,7 +16,8 @@ struct ring {
     char *base;
     int flags;
 
-    struct thread *reader_head;
+    // Reader notification
+    struct io_notify wait;
 };
 
 int ring_readable(struct ring *b);

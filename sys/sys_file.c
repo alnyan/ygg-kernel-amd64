@@ -1,4 +1,5 @@
 #include "user/errno.h"
+#include "arch/amd64/hw/timer.h"
 #include "arch/amd64/cpu.h"
 #include "fs/ofile.h"
 #include "sys/char/ring.h"
@@ -266,7 +267,47 @@ ssize_t sys_readdir(int fd, struct dirent *ent) {
     return vfs_readdir(&thr->ioctx, thr->fds[fd], ent);
 }
 
+static int sys_select_get_ready(struct ofile *fd) {
+    if (fd->flags & OF_SOCKET) {
+        panic("TODO\n");
+    } else {
+        struct vnode *vn = fd->file.vnode;
+        _assert(vn);
 
+        switch (vn->type) {
+        case VN_CHR: {
+                struct chrdev *chr = vn->dev;
+                _assert(chr);
+                if (chr->type == CHRDEV_TTY && (chr->tc.c_iflag & ICANON)) {
+                    return (chr->buffer.flags & (RING_SIGNAL_RET | RING_SIGNAL_EOF | RING_SIGNAL_BRK));
+                } else {
+                    return !!ring_readable(&chr->buffer);
+                }
+            }
+        default:
+            panic("Not implemented\n");
+        }
+    }
+}
+
+static struct io_notify *sys_select_get_wait(struct ofile *fd) {
+    if (fd->flags & OF_SOCKET) {
+        panic("TODO\n");
+    } else {
+        struct vnode *vn = fd->file.vnode;
+        _assert(vn);
+
+        switch (vn->type) {
+        case VN_CHR: {
+                struct chrdev *chr = vn->dev;
+                _assert(chr);
+                return &chr->buffer.wait;
+            }
+        default:
+            panic("Not implemented\n");
+        }
+    }
+}
 
 int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *tv) {
     struct thread *thr = get_cpu()->thread;
@@ -307,34 +348,68 @@ int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *t
     }
     int res;
 
-    while (system_time < deadline) {
+    list_head_init(&thr->wait_head);
+    for (int i = 0; i < n; ++i) {
+        if (FD_ISSET(i, &_inp)) {
+            struct ofile *fd = thr->fds[i];
+            _assert(fd);
+
+            struct io_notify *w = sys_select_get_wait(fd);
+            _assert(w);
+
+            thread_wait_io_add(thr, w);
+        }
+    }
+
+    thr->sleep_deadline = deadline;
+    thread_wait_io_add(thr, &thr->sleep_notify);
+    timer_add_sleep(thr);
+
+    struct io_notify *result;
+    int ready = 0;
+
+    while (1) {
+        res = 0;
+        // Check if data is available in any of the FDs
         for (int i = 0; i < n; ++i) {
             if (FD_ISSET(i, &_inp)) {
                 struct ofile *fd = thr->fds[i];
                 _assert(fd);
-                struct vnode *vn = fd->file.vnode;
-                _assert(vn && vn->type == VN_CHR);
-                struct chrdev *chr = vn->dev;
-                _assert(chr);
 
-                if (chr->type == CHRDEV_TTY && (chr->tc.c_iflag & ICANON)) {
-                    if (chr->buffer.flags & (RING_SIGNAL_RET | RING_SIGNAL_EOF | RING_SIGNAL_BRK)) {
-                        FD_SET(i, inp);
-                        return 1;
-                    }
-                } else {
-                    if (ring_readable(&chr->buffer)) {
-                        FD_SET(i, inp);
-                        return 1;
-                    }
+                if (sys_select_get_ready(fd)) {
+                    // Data available, don't wait
+                    FD_SET(i, inp);
+                    res = 1;
+                    timer_remove_sleep(thr);
+                    break;
                 }
             }
         }
 
-        // TODO: add something like "listen to all fds events"
-        asm volatile ("sti; hlt");
-        thread_check_signal(thr, 0);
+        if (res) {
+            break;
+        }
+
+        // Perform a wait for any single event
+        res = thread_wait_io_any(thr, &result);
+        ready = 1;
+
+        if (res < 0) {
+            // Likely interrupted
+            timer_remove_sleep(thr);
+            break;
+        }
+
+        // Check if request timed out
+        if (result == &thr->sleep_notify) {
+            kdebug("Timed out\n");
+            res = 0;
+            break;
+        }
     }
 
-    return 0;
+    // Remove select()ed io_notify structures from wait list
+    thread_wait_io_clear(thr);
+
+    return res;
 }

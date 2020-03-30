@@ -23,6 +23,10 @@ struct list_head {
 #define list_next_entry(pos, member) \
 	list_entry((pos)->member.next, typeof(*(pos)), member)
 
+#define list_for_each_safe(pos, n, head) \
+    for (pos = (head)->next, n = pos->next; pos != (head); \
+        pos = n, n = pos->next)
+
 static inline void list_head_init(struct list_head *list) {
 	list->next = list;
 	list->prev = list;
@@ -56,4 +60,9 @@ static inline void list_del(struct list_head *entry) {
 
 static inline int list_empty(const struct list_head *head) {
 	return head->next == head;
+}
+
+static inline void list_del_init(struct list_head *entry) {
+	__list_del(entry->prev, entry->next);
+	list_head_init(entry);
 }

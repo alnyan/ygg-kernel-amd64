@@ -257,6 +257,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
 
     list_head_init(&thr->g_link);
     list_head_init(&thr->shm_list);
+    thread_wait_io_init(&thr->sleep_notify);
 
     uint64_t *stack = (uint64_t *) (thr->data.rsp0_base + thr->data.rsp0_size);
 
@@ -389,6 +390,7 @@ int sys_fork(struct sys_fork_frame *frame) {
 
     list_head_init(&dst->g_link);
     list_head_init(&dst->shm_list);
+    thread_wait_io_init(&dst->sleep_notify);
 
     dst->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
     dst->data.rsp0_size = MM_PAGE_SIZE * 2;
@@ -689,17 +691,6 @@ int sys_waitpid(pid_t pid, int *status) {
     thread_free(chld);
 
     return 0;
-}
-
-int thread_sleep(struct thread *thr, uint64_t deadline, uint64_t *int_time) {
-    thr->sleep_deadline = deadline;
-    timer_add_sleep(thr);
-    sched_unqueue(thr, THREAD_WAITING);
-    // Store time when interrupt occured
-    if (int_time) {
-        *int_time = system_time;
-    }
-    return thread_check_signal(thr, 0);
 }
 
 void sys_sigreturn(void) {

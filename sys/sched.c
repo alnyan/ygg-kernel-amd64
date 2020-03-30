@@ -105,9 +105,8 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
 
     _assert((new_state == THREAD_WAITING) ||
             (new_state == THREAD_STOPPED) ||
-            (new_state == THREAD_WAITING_IO) ||
-            (new_state == THREAD_WAITING_PID) ||
-            (new_state == THREAD_WAITING_NET));
+            (new_state == THREAD_WAITING_IO2) ||
+            (new_state == THREAD_WAITING_PID));
     _assert(queue_sizes[cpu_no]);
     --queue_sizes[cpu_no];
     thr->state = new_state;

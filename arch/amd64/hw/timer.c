@@ -23,36 +23,35 @@
 #define PIT_CMD                     0x43
 
 uint64_t int_timer_ticks = 0;
-static struct thread *sleep_head = NULL;
+
+static spin_t g_sleep_lock = 0;
+static LIST_HEAD(g_sleep_head);
 
 void timer_add_sleep(struct thread *thr) {
-    thr->wait_prev = NULL;
-    thr->wait_next = sleep_head;
-    sleep_head = thr;
+    if (thr->pid > 0)
+        kdebug("Adding %d to sleepers\n", thr->pid);
+    uintptr_t irq;
+    struct io_notify *n = &thr->sleep_notify;
+    spin_lock_irqsave(&g_sleep_lock, &irq);
+    list_add(&n->link, &g_sleep_head);
+    spin_release_irqrestore(&g_sleep_lock, &irq);
 }
 
-void timer_remove_sleep(struct thread *target) {
-    struct thread *thr = sleep_head, *prev = NULL;
-    while (thr) {
-        struct thread *next = thr->wait_next;
-        if (thr == target) {
-            thr->wait_next = NULL;
-            if (prev) {
-                prev->wait_next = next;
-            } else {
-                sleep_head = next;
-            }
-
-            sched_queue(thr);
-
-            thr = next;
+void timer_remove_sleep(struct thread *thr) {
+    if (thr->pid > 0)
+        kdebug("Removing sleep %d\n", thr->pid);
+    uintptr_t irq;
+    struct io_notify *n = &thr->sleep_notify;
+    struct io_notify *it;
+    spin_lock_irqsave(&g_sleep_lock, &irq);
+    list_for_each_entry(it, &g_sleep_head, link) {
+        if (it == n) {
+            list_del_init(&it->link);
+            spin_release_irqrestore(&g_sleep_lock, &irq);
             return;
         }
-
-        prev = thr;
-        thr = next;
     }
-
+    spin_release_irqrestore(&g_sleep_lock, &irq);
     panic("No such thread\n");
 }
 
@@ -85,27 +84,23 @@ static uint32_t timer_tick(void *arg) {
     }
 #endif
 
-    // Wake up sleepers
-    struct thread *thr = sleep_head, *prev = NULL;
-    while (thr) {
-        struct thread *next = thr->wait_next;
-        if (thr->sleep_deadline <= system_time) {
-            thr->wait_next = NULL;
-            if (prev) {
-                prev->wait_next = next;
-            } else {
-                sleep_head = next;
-            }
-
-            sched_queue(thr);
-
-            thr = next;
+    struct list_head *iter, *b_iter;
+    uintptr_t irq;
+    spin_lock_irqsave(&g_sleep_lock, &irq);
+    list_for_each_safe(iter, b_iter, &g_sleep_head) {
+        struct io_notify *n = list_entry(iter, struct io_notify, link);
+        struct thread *t = n->owner;
+        if (!t) {
+            list_del_init(iter);
             continue;
         }
 
-        prev = thr;
-        thr = next;
+        if (t->sleep_deadline <= system_time) {
+            list_del_init(iter);
+            thread_notify_io(n);
+        }
     }
+    spin_release_irqrestore(&g_sleep_lock, &irq);
 
     return IRQ_UNHANDLED;
 }

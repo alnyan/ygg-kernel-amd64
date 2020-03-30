@@ -9,6 +9,7 @@
 #include "sys/sched.h"
 #include "user/inet.h"
 #include "sys/debug.h"
+#include "sys/wait.h"
 #include "net/util.h"
 #include "sys/heap.h"
 #include "sys/attr.h"
@@ -69,6 +70,7 @@ struct udp_socket {
     uint32_t recv_inaddr;
     struct netdev *bound;       // Bound interface (all packets go to this interface if set)
     struct thread *owner;       // Thread to suspend on blocking operation
+    struct io_notify wait;
     struct packet_queue pending;
 };
 
@@ -82,12 +84,15 @@ static struct udp_socket *udp_ports[UDP_BIND_COUNT] = {0};
 struct udp_socket *udp_socket_create(void) {
     struct udp_socket *sock = kmalloc(sizeof(struct udp_socket));
     _assert(sock);
+    struct thread *t = thread_self;
+    _assert(t);
 
     sock->flags = 0;
     sock->port = 0;
     sock->recv_port = 0;
-    sock->owner = NULL;
+    sock->owner = t;
     sock->bound = NULL;
+    thread_wait_io_init(&sock->wait);
     packet_queue_init(&sock->pending);
 
     return sock;
@@ -112,11 +117,7 @@ void udp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame
             // Add "pending" packet for this socket
             packet_ref(p);
             packet_queue_push(&sock->pending, p);
-
-            if (sock->flags & UDP_SOCKET_PENDING) {
-                sock->flags &= ~UDP_SOCKET_PENDING;
-                sched_queue(sock->owner);
-            }
+            thread_notify_io(&sock->wait);
         } else {
             kdebug("Packet is destined to unbound port: %u\n", dpt);
         }
@@ -148,17 +149,8 @@ static ssize_t udp_socket_recvfrom(struct socket *s,
     struct thread *t = thread_self;
     struct packet *p;
     _assert(t);
-    sock->owner = t;
-
-
-    if (!sock->pending.head) {
-        sock->flags |= UDP_SOCKET_PENDING;
-
-        while ((sock->flags & UDP_SOCKET_PENDING)) {
-            sched_unqueue(t, THREAD_WAITING_NET);
-            thread_check_signal(t, 0);
-        }
-    }
+    _assert(thread_wait_io(t, &sock->wait) == 0);
+    _assert(sock->pending.head);
 
     // Read a single packet
     p = packet_queue_pop(&sock->pending);

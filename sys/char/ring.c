@@ -1,5 +1,6 @@
 #include "sys/char/ring.h"
 #include "sys/thread.h"
+#include "user/errno.h"
 #include "sys/assert.h"
 #include "sys/sched.h"
 #include "sys/debug.h"
@@ -48,16 +49,17 @@ static void ring_advance_write(struct ring *ring) {
     }
 }
 
-static void ring_notify_reader(struct ring *ring) {
-    if (ring->reader_head) {
-        struct thread *thr = ring->reader_head;
-        ring->reader_head = NULL; //thr->wait_next;
-
-        sched_queue(thr);
-    }
-}
+//static void ring_notify_reader(struct ring *ring) {
+//    if (ring->reader_head) {
+//        struct thread *thr = ring->reader_head;
+//        ring->reader_head = NULL; //thr->wait_next;
+//
+//        sched_queue(thr);
+//    }
+//}
 
 int ring_getc(struct thread *ctx, struct ring *ring, char *c, int err) {
+    int res;
     if (err) {
         if (!ring_readable(ring)) {
             return -1;
@@ -71,18 +73,10 @@ int ring_getc(struct thread *ctx, struct ring *ring, char *c, int err) {
             }
 
             if (!ring_readable(ring)) {
-                asm volatile ("cli");
-                _assert(ctx);
-
-                ctx->wait_prev = NULL;
-                ctx->wait_next = ctx;
-                ring->reader_head = ctx;
-
-                _assert(ctx->cpu >= 0);
-                sched_unqueue(ctx, THREAD_WAITING_IO);
-
-                thread_check_signal(ctx, 0);
-                _assert(ctx->cpu >= 0);
+                if ((res = thread_wait_io(ctx, &ring->wait)) != 0) {
+                    _assert(res == -EINTR);
+                    return res;
+                }
             } else {
                 break;
             }
@@ -103,7 +97,7 @@ int ring_putc(struct thread *ctx, struct ring *ring, char c, int wait) {
 
     ring->base[ring->wr] = c;
     ring_advance_write(ring);
-    ring_notify_reader(ring);
+    thread_notify_io(&ring->wait);
 
     return 0;
 }
@@ -119,7 +113,7 @@ int ring_write(struct thread *ctx, struct ring *ring, const void *buf, size_t le
 
 void ring_signal(struct ring *r, int s) {
     r->flags |= s;
-    ring_notify_reader(r);
+    thread_notify_io(&r->wait);
 }
 
 int ring_init(struct ring *r, size_t cap) {
@@ -127,7 +121,7 @@ int ring_init(struct ring *r, size_t cap) {
     r->rd = 0;
     r->wr = 0;
     r->flags = 0;
-    r->reader_head = NULL;
+    thread_wait_io_init(&r->wait);
 
     if (!(r->base = kmalloc(cap))) {
         return -1;
