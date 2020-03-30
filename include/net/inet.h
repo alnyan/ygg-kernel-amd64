@@ -1,10 +1,6 @@
 #pragma once
 #include "sys/types.h"
 
-#define INET_P_ICMP         1
-#define INET_P_TCP          6
-#define INET_P_UDP          17
-
 struct inet_frame {
     uint8_t ihl:4;
     uint8_t version:4;

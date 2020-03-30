@@ -1,5 +1,6 @@
 #pragma once
 #include "node.h"
+#include "net/socket.h"
 #include <sys/types.h>
 
 #define OF_WRITABLE         (1 << 0)
@@ -19,10 +20,6 @@ struct ofile {
             size_t pos;
             void *priv_data;
         } file;
-        struct {
-            int domain;
-            int type;
-            void *sock;
-        } socket;
+        struct socket socket;
     };
 };

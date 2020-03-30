@@ -5,16 +5,55 @@
 #include "net/packet.h"
 #include "sys/assert.h"
 #include "sys/string.h"
+#include "net/class.h"
 #include "sys/sched.h"
 #include "user/inet.h"
 #include "sys/debug.h"
 #include "net/util.h"
 #include "sys/heap.h"
+#include "sys/attr.h"
 #include "fs/ofile.h"
 #include "net/inet.h"
 #include "net/udp.h"
 #include "net/eth.h"
 #include "net/if.h"
+
+static int udp_class_supports(int proto) {
+    return proto == IPPROTO_UDP || proto == 0;
+}
+
+static int udp_socket_open(struct socket *sock);
+static void udp_socket_close(struct socket *sock);
+static ssize_t udp_socket_recvfrom(struct socket *s,
+                                   void *buf,
+                                   size_t lim,
+                                   struct sockaddr *sa,
+                                   size_t *salen);
+static ssize_t udp_socket_sendto(struct socket *s,
+                                 const void *buf,
+                                 size_t lim,
+                                 struct sockaddr *sa,
+                                 size_t salen);
+static int udp_socket_bind(struct socket *s, struct sockaddr *sa, size_t len);
+static int udp_socket_setsockopt(struct socket *s, int optname, void *optval, size_t optlen);
+
+static struct sockops udp_socket_ops = {
+    .open = udp_socket_open,
+    .close = udp_socket_close,
+
+    .sendto = udp_socket_sendto,
+    .recvfrom = udp_socket_recvfrom,
+
+    .bind = udp_socket_bind,
+    .setsockopt = udp_socket_setsockopt,
+};
+static struct socket_class udp_socket_class = {
+    .name = "udp",
+    .ops = &udp_socket_ops,
+    .domain = AF_INET,
+    .type = SOCK_DGRAM,
+    .supports = udp_class_supports,
+};
 
 // Accept any packet (for receiving socket)
 #define UDP_SOCKET_ANY      (1 << 0)
@@ -54,19 +93,57 @@ struct udp_socket *udp_socket_create(void) {
     return sock;
 }
 
-int udp_socket_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type, int proto) {
-    struct udp_socket *sock = udp_socket_create();
-    _assert(sock);
+void udp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame *ip, void *data, size_t len) {
+    struct udp_frame *udp;
 
-    fd->socket.domain = AF_INET;
-    fd->socket.type = SOCK_DGRAM;
-    fd->socket.sock = sock;
+    if (len < sizeof(struct udp_frame)) {
+        return;
+    }
+
+    udp = data;
+
+    uint16_t dpt = ntohs(udp->dst_port);
+
+    if (dpt >= UDP_BIND_START && (dpt - UDP_BIND_START) < UDP_BIND_COUNT) {
+        // Check if it's a packet for one of "listening" sockets
+        struct udp_socket *sock = udp_ports[dpt - UDP_BIND_START];
+
+        if (sock) {
+            // Add "pending" packet for this socket
+            packet_ref(p);
+            packet_queue_push(&sock->pending, p);
+
+            if (sock->flags & UDP_SOCKET_PENDING) {
+                sock->flags &= ~UDP_SOCKET_PENDING;
+                sched_queue(sock->owner);
+            }
+        } else {
+            kdebug("Packet is destined to unbound port: %u\n", dpt);
+        }
+    }
+}
+
+static __init void udp_class_register(void) {
+    socket_class_register(&udp_socket_class);
+}
+
+/////////////
+// Socket impl.
+
+static int udp_socket_open(struct socket *sock) {
+    struct udp_socket *usock = udp_socket_create();
+    _assert(usock);
+    sock->data = usock;
 
     return 0;
 }
 
-ssize_t udp_socket_recv(struct vfs_ioctx *ioctx, struct ofile *fd, void *buf, size_t lim, struct sockaddr *sa, size_t *salen) {
-    struct udp_socket *sock = fd->socket.sock;
+static ssize_t udp_socket_recvfrom(struct socket *s,
+                                   void *buf,
+                                   size_t lim,
+                                   struct sockaddr *sa,
+                                   size_t *salen) {
+    struct udp_socket *sock = s->data;
     _assert(sock);
     struct thread *t = thread_self;
     struct packet *p;
@@ -102,8 +179,12 @@ ssize_t udp_socket_recv(struct vfs_ioctx *ioctx, struct ofile *fd, void *buf, si
     return p_size;
 }
 
-ssize_t udp_socket_send(struct vfs_ioctx *ioctx, struct ofile *fd, const void *buf, size_t lim, struct sockaddr *sa, size_t salen) {
-    struct udp_socket *sock = fd->socket.sock;
+static ssize_t udp_socket_sendto(struct socket *s,
+                                 const void *buf,
+                                 size_t lim,
+                                 struct sockaddr *sa,
+                                 size_t salen) {
+    struct udp_socket *sock = s->data;
     struct sockaddr_in *sin;
     int res;
     uint16_t port;
@@ -148,8 +229,8 @@ ssize_t udp_socket_send(struct vfs_ioctx *ioctx, struct ofile *fd, const void *b
     return lim;
 }
 
-int udp_socket_bind(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *sa, size_t len) {
-    struct udp_socket *sock = fd->socket.sock;
+static int udp_socket_bind(struct socket *s, struct sockaddr *sa, size_t len) {
+    struct udp_socket *sock = s->data;
     struct sockaddr_in *sin;
     _assert(sa);
     _assert(sock);
@@ -172,8 +253,8 @@ int udp_socket_bind(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *
     return 0;
 }
 
-int udp_setsockopt(struct vfs_ioctx *ioctx, struct ofile *fd, int optname, void *optval, size_t optlen) {
-    struct udp_socket *sock = fd->socket.sock;
+static int udp_socket_setsockopt(struct socket *s, int optname, void *optval, size_t optlen) {
+    struct udp_socket *sock = s->data;
     _assert(sock);
 
     switch (optname) {
@@ -188,47 +269,16 @@ int udp_setsockopt(struct vfs_ioctx *ioctx, struct ofile *fd, int optname, void 
     }
 }
 
-void udp_socket_close(struct vfs_ioctx *ioctx, struct ofile *fd) {
-    struct udp_socket *sock = fd->socket.sock;
+static void udp_socket_close(struct socket *s) {
+    struct udp_socket *sock = s->data;
     _assert(sock);
-
-    sock->flags &= ~UDP_SOCKET_ANY;
 
     if (sock->flags & UDP_SOCKET_ANY) {
         udp_ports[sock->recv_port - UDP_BIND_START] = NULL;
     }
 
+    sock->flags &= ~UDP_SOCKET_ANY;
+
     kfree(sock);
-    fd->socket.sock = NULL;
-    fd->flags &= ~OF_SOCKET;
-}
-
-void udp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame *ip, void *data, size_t len) {
-    struct udp_frame *udp;
-
-    if (len < sizeof(struct udp_frame)) {
-        return;
-    }
-
-    udp = data;
-
-    uint16_t dpt = ntohs(udp->dst_port);
-
-    if (dpt >= UDP_BIND_START && (dpt - UDP_BIND_START) < UDP_BIND_COUNT) {
-        // Check if it's a packet for one of "listening" sockets
-        struct udp_socket *sock = udp_ports[dpt - UDP_BIND_START];
-
-        if (sock) {
-            // Add "pending" packet for this socket
-            packet_ref(p);
-            packet_queue_push(&sock->pending, p);
-
-            if (sock->flags & UDP_SOCKET_PENDING) {
-                sock->flags &= ~UDP_SOCKET_PENDING;
-                sched_queue(sock->owner);
-            }
-        } else {
-            kdebug("Packet is destined to unbound port: %u\n", dpt);
-        }
-    }
+    s->data = NULL;
 }

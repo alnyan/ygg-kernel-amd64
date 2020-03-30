@@ -5,6 +5,7 @@
 #include "arch/amd64/mm/map.h"
 #include "arch/amd64/cpu.h"
 #include "sys/binfmt_elf.h"
+#include "net/socket.h"
 #include "fs/ofile.h"
 #include "sys/sys_proc.h"
 #include "sys/vmalloc.h"
@@ -18,7 +19,6 @@
 #include "sys/sched.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
-#include "net/net.h"
 #include "sys/mm.h"
 
 struct sys_fork_frame {

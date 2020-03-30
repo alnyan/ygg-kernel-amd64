@@ -7,9 +7,9 @@
 #include "sys/thread.h"
 #include "sys/assert.h"
 #include "sys/string.h"
+#include "net/socket.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
-#include "net/net.h"
 
 ssize_t sys_read(int fd, void *data, size_t lim) {
     struct thread *thr = thread_self;

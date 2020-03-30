@@ -1,5 +1,6 @@
 #include "net/packet.h"
 #include "sys/string.h"
+#include "user/inet.h"
 #include "sys/debug.h"
 #include "net/util.h"
 #include "net/inet.h"

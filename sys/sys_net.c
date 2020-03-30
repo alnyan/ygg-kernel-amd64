@@ -2,6 +2,7 @@
 #include "sys/sys_net.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
+#include "net/socket.h"
 #include "user/errno.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
@@ -40,7 +41,7 @@ int sys_socket(int domain, int type, int protocol) {
     struct ofile *ofile = kmalloc(sizeof(struct ofile));
     _assert(ofile);
 
-    if ((res = net_socket_open(&thr->ioctx, ofile, domain, type, protocol)) != 0) {
+    if ((res = net_open(&thr->ioctx, ofile, domain, type, protocol)) != 0) {
         kfree(ofile);
         return res;
     }
