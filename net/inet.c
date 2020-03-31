@@ -1,6 +1,7 @@
 #include "net/packet.h"
 #include "user/errno.h"
 #include "sys/string.h"
+#include "sys/assert.h"
 #include "user/inet.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
@@ -99,18 +100,32 @@ void inet_handle_frame(struct packet *p, struct eth_frame *eth, void *data, size
     len -= frame_size;
     data += frame_size;
 
-    switch (ip->proto) {
-    case INET_P_ICMP:
-        icmp_handle_frame(p, eth, ip, data, len);
-        break;
-    case INET_P_UDP:
-        udp_handle_frame(p, eth, ip, data, len);
-        break;
-    case INET_P_TCP:
-        tcp_handle_frame(p, eth, ip, data, len);
-        break;
-    default:
-        kwarn("%s: dropping unknown protocol %02x\n", p->dev->name, ip->proto);
-        break;
+    struct netdev *dev = p->dev;
+    _assert(dev);
+
+    if (// Broadcast
+        ip->dst_inaddr == INADDR_BROADCAST ||
+        // Protocol address match
+        ((dev->flags & IF_F_HASIP) && dev->inaddr == ntohl(ip->dst_inaddr))) {
+        switch (ip->proto) {
+        case INET_P_ICMP:
+            icmp_handle_frame(p, eth, ip, data, len);
+            break;
+        case INET_P_UDP:
+            udp_handle_frame(p, eth, ip, data, len);
+            break;
+        case INET_P_TCP:
+            if (ip->dst_inaddr == INADDR_BROADCAST) {
+                kdebug("Bruh: broadcast TCP exists?\n");
+                return;
+            }
+            tcp_handle_frame(p, eth, ip, data, len);
+            break;
+        default:
+            kwarn("%s: dropping unknown protocol %02x\n", p->dev->name, ip->proto);
+            break;
+        }
+    } else {
+        kdebug("TODO: IP forwarding (-> " FMT_INADDR ")\n", VA_INADDR(ntohl(ip->dst_inaddr)));
     }
 }
