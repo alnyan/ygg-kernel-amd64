@@ -70,33 +70,6 @@ pid_t thread_alloc_pid(int is_user) {
     }
 }
 
-//static void thread_add(struct thread *thr) {
-//    if (threads_all_head) {
-//        threads_all_head->g_prev = thr;
-//    }
-//    thr->g_next = threads_all_head;
-//    thr->g_prev = NULL;
-//    threads_all_head = thr;
-//}
-//
-//static void thread_remove(struct thread *thr) {
-//    struct thread *prev = thr->g_prev;
-//    struct thread *next = thr->g_next;
-//
-//    if (prev) {
-//        prev->g_next = next;
-//    } else {
-//        threads_all_head = next;
-//    }
-//
-//    if (next) {
-//        next->g_prev = prev;
-//    }
-//
-//    thr->g_next = NULL;
-//    thr->g_prev = NULL;
-//}
-
 ////
 
 static void thread_ioctx_empty(struct thread *thr) {
@@ -258,6 +231,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     list_head_init(&thr->g_link);
     list_head_init(&thr->shm_list);
     thread_wait_io_init(&thr->sleep_notify);
+    thread_wait_io_init(&thr->pid_notify);
 
     uint64_t *stack = (uint64_t *) (thr->data.rsp0_base + thr->data.rsp0_size);
 
@@ -391,6 +365,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     list_head_init(&dst->g_link);
     list_head_init(&dst->shm_list);
     thread_wait_io_init(&dst->sleep_notify);
+    thread_wait_io_init(&dst->pid_notify);
 
     dst->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
     dst->data.rsp0_size = MM_PAGE_SIZE * 2;
@@ -655,7 +630,12 @@ __attribute__((noreturn)) void sys_exit(int status) {
     thr->exit_status = status;
 
     if (thr->parent) {
-        thread_signal(thr->parent, SIGCHLD);
+        struct thread *p = thr->parent;
+
+        // Waiting on that descriptor
+        if (p->pid_notify.owner) {
+            thread_notify_io(&p->pid_notify);
+        }
     }
 
     sched_unqueue(thr, THREAD_STOPPED);
@@ -666,26 +646,31 @@ int sys_waitpid(pid_t pid, int *status) {
     struct thread *thr = thread_self;
     _assert(thr);
     struct thread *chld = thread_child(thr, pid);
+    int res;
 
     if (!chld) {
         return -ECHILD;
     }
 
-    while (chld->state != THREAD_STOPPED) {
-        sched_unqueue(thr, THREAD_WAITING_PID);
-        if (thread_signal_pending(thr, SIGCHLD)) {
-            thread_signal_clear(thr, SIGCHLD);
-            break;
+    while (1) {
+        res = thread_wait_io(thr, &thr->pid_notify);
+
+        if (res < 0) {
+            // Likely interrupted
+            return res;
         }
-        // Handle any other pending signal
-        kdebug("Waken up by some other signal, continuing\n");
-        thread_check_signal(thr, 0);
+
+        // State should already be "stopped" when notify is signalled
+        _assert(chld->state == THREAD_STOPPED);
+        break;
     }
 
     if (status) {
         *status = chld->exit_status;
     }
 
+    // TODO: automatically cleanup threads which don't have
+    //       a parent like PID 1
     thread_unchild(chld);
     list_del(&chld->g_link);
     thread_free(chld);
@@ -706,28 +691,16 @@ void thread_signal(struct thread *thr, int signum) {
             kdebug("Signal will be handled later\n");
             thread_signal_set(thr, signum);
 
-            if (thr->state == THREAD_WAITING) {
-                timer_remove_sleep(thr);
-            }
-
             sched_queue(thr);
         }
     } else if (thr->cpu >= 0) {
         kdebug("Signal will be handled later (other cpu%d)\n", thr->cpu);
         thread_signal_set(thr, signum);
 
-        if (thr->state == THREAD_WAITING) {
-            timer_remove_sleep(thr);
-        }
-
         sched_queue(thr);
     } else {
         kdebug("Signal will be handled later (not running)\n");
         thread_signal_set(thr, signum);
-
-        if (thr->state == THREAD_WAITING) {
-            timer_remove_sleep(thr);
-        }
 
         sched_queue(thr);
     }

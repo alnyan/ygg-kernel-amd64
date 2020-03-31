@@ -104,9 +104,7 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
     struct thread *sched_next = thr->sched_next;
 
     _assert((new_state == THREAD_WAITING) ||
-            (new_state == THREAD_STOPPED) ||
-            (new_state == THREAD_WAITING_IO2) ||
-            (new_state == THREAD_WAITING_PID));
+            (new_state == THREAD_STOPPED));
     _assert(queue_sizes[cpu_no]);
     --queue_sizes[cpu_no];
     thr->state = new_state;
@@ -170,16 +168,10 @@ static void sched_debug_tree(int level, struct thread *thr, int depth) {
         debugs(level, "RDY ");
         break;
     case THREAD_WAITING:
-        debugs(level, "IDLE");
-        break;
-    case THREAD_WAITING_IO:
-        debugs(level, "I/O ");
+        debugs(level, "WAIT");
         break;
     case THREAD_STOPPED:
         debugs(level, "STOP");
-        break;
-    case THREAD_WAITING_PID:
-        debugs(level, "CHLD");
         break;
     default:
         debugs(level, "UNKN");

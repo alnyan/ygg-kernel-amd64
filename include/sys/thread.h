@@ -15,10 +15,6 @@ enum thread_state {
     THREAD_READY = 1,
     THREAD_RUNNING,
     THREAD_WAITING,
-//    THREAD_WAITING_IO,
-//    THREAD_WAITING_NET,
-    THREAD_WAITING_IO2,
-    THREAD_WAITING_PID,
     THREAD_STOPPED
 };
 
@@ -47,12 +43,12 @@ struct thread {
     // I/O
     struct vfs_ioctx ioctx;
     struct ofile *fds[THREAD_MAX_FDS];
-    struct list_head wait_head;
 
     // Wait
     uint64_t sleep_deadline;
+    struct list_head wait_head;
     struct io_notify sleep_notify;
-    //struct thread *wait_prev, *wait_next;
+    struct io_notify pid_notify;
 
     // Signal
     uintptr_t signal_entry;

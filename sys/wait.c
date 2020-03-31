@@ -32,7 +32,7 @@ int thread_wait_io(struct thread *t, struct io_notify *n) {
         n->owner = t;
         spin_release_irqrestore(&n->lock, &irq);
 
-        sched_unqueue(t, THREAD_WAITING_IO2);
+        sched_unqueue(t, THREAD_WAITING);
 
         // Check if we were interrupted during io wait
         int r = thread_check_signal(t, 0);
@@ -92,7 +92,7 @@ int thread_wait_io_any(struct thread *thr, struct io_notify **r_n) {
         } else {
             // Wait
             // TODO: reset owners
-            sched_unqueue(thr, THREAD_WAITING_IO2);
+            sched_unqueue(thr, THREAD_WAITING);
 
             int r = thread_check_signal(thr, 0);
             if (r != 0) {
