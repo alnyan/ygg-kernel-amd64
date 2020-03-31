@@ -90,6 +90,7 @@ static uint32_t timer_tick(void *arg) {
     list_for_each_safe(iter, b_iter, &g_sleep_head) {
         struct io_notify *n = list_entry(iter, struct io_notify, link);
         struct thread *t = n->owner;
+
         if (!t) {
             list_del_init(iter);
             continue;

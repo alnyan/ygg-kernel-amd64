@@ -1,5 +1,6 @@
 #pragma once
 #include "sys/types.h"
+#include "sys/wait.h"
 
 struct sockaddr;
 struct vfs_ioctx;
@@ -9,6 +10,7 @@ struct netdev;
 struct socket {
     struct sockops *op;
     struct vfs_ioctx *ioctx;
+    struct io_notify rx_notify;
     void *data;
 };
 
@@ -28,3 +30,5 @@ ssize_t net_recvfrom(struct vfs_ioctx *ioctx,
 int net_bind(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *sa, size_t len);
 int net_setsockopt(struct vfs_ioctx *ioctx, struct ofile *fd, int optname, void *optval, size_t optlen);
 void net_close(struct vfs_ioctx *ioctx, struct ofile *fd);
+
+int socket_has_data(struct socket *sock);

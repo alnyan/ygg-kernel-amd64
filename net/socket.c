@@ -13,6 +13,11 @@ void socket_class_register(struct socket_class *cls) {
     list_add(&cls->link, &g_socket_class_head);
 }
 
+int socket_has_data(struct socket *sock) {
+    _assert(sock->op && sock->op->count_pending);
+    return !!sock->op->count_pending(sock);
+}
+
 int net_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type, int proto) {
     struct socket_class *cls, *iter;
 
@@ -29,6 +34,7 @@ int net_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type, int p
     }
 
     if (!cls) {
+        kinfo("Not supported: %d:%d:%d\n", dom, type, proto);
         // No support for (dom:type:proto) tuple
         return -EINVAL;
     }
@@ -38,6 +44,7 @@ int net_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type, int p
     fd->flags = OF_SOCKET;
     fd->socket.ioctx = ioctx;
     fd->socket.op = cls->ops;
+    thread_wait_io_init(&fd->socket.rx_notify);
 
     return cls->ops->open(&fd->socket);
 }

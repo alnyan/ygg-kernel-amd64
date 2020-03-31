@@ -14,6 +14,8 @@ struct sockops {
 
     int (*bind) (struct socket *, struct sockaddr *, size_t);
     int (*setsockopt) (struct socket *, int, void *, size_t);
+
+    int (*count_pending) (struct socket *);
 };
 
 struct socket_class {

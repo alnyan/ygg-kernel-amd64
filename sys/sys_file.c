@@ -269,7 +269,7 @@ ssize_t sys_readdir(int fd, struct dirent *ent) {
 
 static int sys_select_get_ready(struct ofile *fd) {
     if (fd->flags & OF_SOCKET) {
-        panic("TODO\n");
+        return socket_has_data(&fd->socket);
     } else {
         struct vnode *vn = fd->file.vnode;
         _assert(vn);
@@ -292,7 +292,7 @@ static int sys_select_get_ready(struct ofile *fd) {
 
 static struct io_notify *sys_select_get_wait(struct ofile *fd) {
     if (fd->flags & OF_SOCKET) {
-        panic("TODO\n");
+        return &fd->socket.rx_notify;
     } else {
         struct vnode *vn = fd->file.vnode;
         _assert(vn);
@@ -330,14 +330,9 @@ int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *t
         if (FD_ISSET(i, &_inp)) {
             struct ofile *fd = thr->fds[i];
 
-            if (!fd || (fd->flags & OF_SOCKET)) {
+            if (!sys_select_get_wait(fd)) {
+                // Can't wait on that fd
                 return -EBADF;
-            }
-
-            _assert(fd->file.vnode);
-            if (fd->file.vnode->type != VN_CHR) {
-                kerror("Tried to select() on non-char device/file: %s\n", fd->file.vnode->name);
-                return -ENOSYS;
             }
         }
     }
@@ -396,13 +391,12 @@ int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *t
 
         if (res < 0) {
             // Likely interrupted
-            timer_remove_sleep(thr);
+            //timer_remove_sleep(thr);
             break;
         }
 
         // Check if request timed out
         if (result == &thr->sleep_notify) {
-            kdebug("Timed out\n");
             res = 0;
             break;
         }

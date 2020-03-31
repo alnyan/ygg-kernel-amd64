@@ -25,6 +25,7 @@ static ssize_t raw_socket_recvfrom(struct socket *s,
                                    struct sockaddr *sa,
                                    size_t *salen);
 static void raw_socket_close(struct socket *s);
+static int raw_socket_count_pending(struct socket *s);
 static struct sockops raw_socket_ops = {
     .open = raw_socket_open,
     .close = raw_socket_close,
@@ -34,39 +35,43 @@ static struct sockops raw_socket_ops = {
 
     .bind = NULL,
     .setsockopt = NULL,
+
+    .count_pending = raw_socket_count_pending
 };
 static struct socket_class raw_socket_class = {
     .name = "raw-packet",
     .ops = &raw_socket_ops,
     .domain = AF_PACKET,
-    .type = SOCK_DGRAM,
+    .type = SOCK_RAW,
     .supports = raw_class_supports,
 };
 
 ////
 
 struct raw_socket {
-    struct thread *wait;
+    spin_t lock;
+    struct socket *gen_sock;
     struct packet_queue queue;
-    struct raw_socket *prev, *next;
+    struct list_head link;
 };
 
 static spin_t g_raw_lock = 0;
-static struct raw_socket *g_raw_sockets = NULL;
+static LIST_HEAD(g_raw_sockets);
 
 void raw_packet_handle(struct packet *p) {
     // Queue the packet for all the sockets
     uintptr_t irq;
     // TODO: too much time spent in spinlocked region?
     spin_lock_irqsave(&g_raw_lock, &irq);
-    for (struct raw_socket *r = g_raw_sockets; r; r = r->next) {
+
+    struct raw_socket *r;
+    list_for_each_entry(r, &g_raw_sockets, link) {
         packet_ref(p);
+        spin_lock(&r->lock);
         packet_queue_push(&r->queue, p);
-        struct thread *w = r->wait;
-        if (w) {
-            r->wait = NULL;
-            sched_queue(w);
-        }
+        spin_release(&r->lock);
+        _assert(r->gen_sock);
+        thread_notify_io(&r->gen_sock->rx_notify);
     }
     spin_release_irqrestore(&g_raw_lock, &irq);
 }
@@ -80,18 +85,28 @@ static __init void raw_class_register(void) {
 
 static int raw_socket_open(struct socket *s) {
     // TODO: check your privilege
+    uintptr_t irq;
     struct raw_socket *r_sock = kmalloc(sizeof(struct raw_socket));
     _assert(r_sock);
 
     packet_queue_init(&r_sock->queue);
-    r_sock->prev = NULL;
-    r_sock->next = g_raw_sockets;
-    r_sock->wait = NULL;
-    g_raw_sockets = r_sock;
+    list_head_init(&r_sock->link);
+    r_sock->gen_sock = s;
+    r_sock->lock = 0;
+
+    spin_lock_irqsave(&g_raw_lock, &irq);
+    list_add(&r_sock->link, &g_raw_sockets);
+    spin_release_irqrestore(&g_raw_lock, &irq);
 
     s->data = r_sock;
 
     return 0;
+}
+
+static int raw_socket_count_pending(struct socket *s) {
+    struct raw_socket *sock = s->data;
+    _assert(sock);
+    return !!sock->queue.head;
 }
 
 static ssize_t raw_socket_recvfrom(struct socket *s,
@@ -99,35 +114,37 @@ static ssize_t raw_socket_recvfrom(struct socket *s,
                                    size_t lim,
                                    struct sockaddr *sa,
                                    size_t *salen) {
-    return -EINVAL;
-    //struct raw_socket *sock = s->data;
-    //_assert(sock);
-    //struct thread *t = thread_self;
-    //_assert(t);
-    //struct packet *p;
+    uintptr_t irq;
+    int res;
+    struct raw_socket *sock = s->data;
+    _assert(sock);
+    struct thread *t = thread_self;
+    _assert(t);
+    struct packet *p;
 
-    //if (!sock->queue.head) {
-    //    sock->wait = t;
+    if (!sock->queue.head) {
+        res = thread_wait_io(t, &sock->gen_sock->rx_notify);
 
-    //    while (!sock->queue.head) {
-    //        sched_unqueue(t, THREAD_WAITING_NET);
-    //        thread_check_signal(t, 0);
-    //    }
-    //}
+        if (res < 0) {
+            return res;
+        }
+    }
 
-    //// Read a single packet
-    //p = packet_queue_pop(&sock->queue);
-    //_assert(p);
+    spin_lock_irqsave(&sock->lock, &irq);
+    p = packet_queue_pop(&sock->queue);
+    spin_release_irqrestore(&sock->lock, &irq);
 
-    //size_t p_size = p->size;
-    //if (p_size > lim) {
-    //    kerror("Packet buffer overflow\n");
-    //    return -1;
-    //}
-    //memcpy(buf, p->data, p_size);
-    //packet_unref(p);
+    _assert(p);
 
-    //return p_size;
+    size_t p_size = p->size;
+    if (p_size > lim) {
+        kerror("Packet buffer overflow\n");
+        return -1;
+    }
+    memcpy(buf, p->data, p_size);
+    packet_unref(p);
+
+    return p_size;
 }
 
 static void raw_socket_close(struct socket *s) {

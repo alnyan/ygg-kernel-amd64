@@ -106,6 +106,7 @@ void thread_wait_io_clear(struct thread *t) {
     while (!list_empty(&t->wait_head)) {
         struct list_head *h = t->wait_head.next;
         struct io_notify *n = list_entry(h, struct io_notify, own_link);
+        // TODO: maybe check here for sleep descriptors and cancel sleeps if needed
         n->owner = NULL;
         list_del_init(h);
     }

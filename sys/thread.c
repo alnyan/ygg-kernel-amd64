@@ -230,6 +230,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
 
     list_head_init(&thr->g_link);
     list_head_init(&thr->shm_list);
+    list_head_init(&thr->wait_head);
     thread_wait_io_init(&thr->sleep_notify);
     thread_wait_io_init(&thr->pid_notify);
 
@@ -364,6 +365,7 @@ int sys_fork(struct sys_fork_frame *frame) {
 
     list_head_init(&dst->g_link);
     list_head_init(&dst->shm_list);
+    list_head_init(&dst->wait_head);
     thread_wait_io_init(&dst->sleep_notify);
     thread_wait_io_init(&dst->pid_notify);
 
@@ -627,6 +629,11 @@ __attribute__((noreturn)) void sys_exit(int status) {
     struct thread *thr = thread_self;
     kdebug("Thread %d exited with status %d\n", thr->pid, status);
 
+    // Clear pending I/O (if exiting from signal interrupting select())
+    if (!list_empty(&thr->wait_head)) {
+        thread_wait_io_clear(thr);
+    }
+
     thr->exit_status = status;
 
     if (thr->parent) {
@@ -683,6 +690,11 @@ void sys_sigreturn(void) {
 }
 
 void thread_signal(struct thread *thr, int signum) {
+    if (thr->sleep_notify.owner) {
+        thr->sleep_notify.owner = NULL;
+        timer_remove_sleep(thr);
+    }
+
     if (thr->cpu == (int) get_cpu()->processor_id) {
         if (thr == thread_self) {
             kdebug("Signal will be handled now\n");
