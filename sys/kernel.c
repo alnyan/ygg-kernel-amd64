@@ -7,13 +7,11 @@
 #include "fs/sysfs.h"
 #include "sys/init.h"
 #include "net/net.h"
-#include "fs/tar.h"
 #include "fs/vfs.h"
 
 void main(void) {
     pci_init();
 
-    tarfs_init();
     vfs_init();
     tty_init();
 

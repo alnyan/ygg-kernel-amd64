@@ -2,10 +2,12 @@
 #include "user/errno.h"
 #include "sys/block/ram.h"
 #include "sys/block/blk.h"
+#include "arch/amd64/mm/phys.h"
+#include "fs/fs.h"
 #include "fs/ofile.h"
 #include "fs/node.h"
-#include "fs/tar.h"
 #include "fs/vfs.h"
+#include "sys/attr.h"
 #include "sys/string.h"
 #include "sys/assert.h"
 #include "sys/debug.h"
@@ -13,8 +15,10 @@
 #include "sys/heap.h"
 #include "sys/mm.h"
 
-#define TAR_DIRECT_BLOCKS       40
-#define TAR_INDIRECT_BLOCKS     4
+#define TAR_DIRECT_BLOCKS           40
+#define TAR_INDIRECT_L1_POINTERS    (4096 / sizeof(uintptr_t))
+#define TAR_INDIRECT_L2_POINTERS    ((4096 / sizeof(uintptr_t)) * TAR_INDIRECT_L1_POINTERS)
+#define TAR_MAX_BLOCKS              (TAR_DIRECT_BLOCKS + TAR_INDIRECT_L1_POINTERS + TAR_INDIRECT_L2_POINTERS)
 
 struct tar {
     char filename[100];
@@ -45,7 +49,10 @@ struct tar {
     // 157 bytes
     // Allows to have files up to ~128KiB
     uintptr_t direct_blocks[TAR_DIRECT_BLOCKS];
-    uintptr_t indirect_blocks[TAR_INDIRECT_BLOCKS];
+    uintptr_t indirect_block_l1;
+    uintptr_t indirect_block_l2;
+    uintptr_t __unused0;
+    uintptr_t __unused1;
     char __pad[3];
     // Should be 512 bytes
 } __attribute__((packed));
@@ -53,12 +60,12 @@ struct tar {
 static int tarfs_vnode_open(struct ofile *of, int opt);
 static int tarfs_vnode_stat(struct vnode *node, struct stat *st);
 static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count);
-static ssize_t tarfs_vnode_write(struct ofile *fd, const void *buf, size_t count);
+//static ssize_t tarfs_vnode_write(struct ofile *fd, const void *buf, size_t count);
 static off_t tarfs_vnode_lseek(struct ofile *fd, off_t off, int whence);
 static int tarfs_vnode_chmod(struct vnode *node, mode_t mode);
 static int tarfs_vnode_chown(struct vnode *node, uid_t uid, gid_t gid);
-static int tarfs_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode);
-static int tarfs_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode);
+//static int tarfs_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode);
+//static int tarfs_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode);
 static int tarfs_vnode_truncate(struct vnode *node, size_t length);
 
 static struct vnode_operations _tarfs_vnode_op = {
@@ -68,9 +75,9 @@ static struct vnode_operations _tarfs_vnode_op = {
     .lseek = tarfs_vnode_lseek,
     .chmod = tarfs_vnode_chmod,
     .chown = tarfs_vnode_chown,
-    .mkdir = tarfs_vnode_mkdir,
-    .creat = tarfs_vnode_creat,
-    .write = tarfs_vnode_write,
+    .mkdir = NULL, //tarfs_vnode_mkdir,
+    .creat = NULL, //tarfs_vnode_creat,
+    .write = NULL, //tarfs_vnode_write,
     .truncate = tarfs_vnode_truncate
 };
 
@@ -217,7 +224,7 @@ static int tar_init(struct fs *tar, const char *opt) {
         }
 
         size_t size_blocks = (node_size + 511) / 512;
-        if (size_blocks >= TAR_DIRECT_BLOCKS + 64 * TAR_INDIRECT_BLOCKS) {
+        if (size_blocks >= TAR_MAX_BLOCKS) {
             panic("File is too large: %S\n", node_size);
         }
 
@@ -225,21 +232,51 @@ static int tar_init(struct fs *tar, const char *opt) {
         for (size_t i = 0; i < size_blocks && i < TAR_DIRECT_BLOCKS; ++i) {
             // Tag this block pointer
             hdr->direct_blocks[i] = (uintptr_t) block + 512 + i * 512 + 1;
+            //kinfo("Map %d -> %p\n", i, block + 512 + i * 512);
         }
-        for (size_t i = 0; i < TAR_INDIRECT_BLOCKS; ++i) {
-            hdr->indirect_blocks[i] = 0;
-        }
-        for (size_t i = TAR_DIRECT_BLOCKS; i < size_blocks; ++i) {
-            size_t ind_index = (i - TAR_DIRECT_BLOCKS) / 64;
-            size_t ind_offset = (i - TAR_DIRECT_BLOCKS) % 64;
+        hdr->indirect_block_l1 = 0;
+        hdr->indirect_block_l2 = 0;
 
-            if (!hdr->indirect_blocks[ind_index]) {
-                hdr->indirect_blocks[ind_index] = (uintptr_t) kmalloc(512);
-                _assert(hdr->indirect_blocks[ind_index]);
-                memset((void *) hdr->indirect_blocks[ind_index], 0, 512);
+        // Map indirect L1 blocks
+        for (size_t i = TAR_DIRECT_BLOCKS; i < MIN(size_blocks, TAR_INDIRECT_L1_POINTERS + TAR_DIRECT_BLOCKS); ++i) {
+            size_t ind_index = i - TAR_DIRECT_BLOCKS;
+
+            if (!hdr->indirect_block_l1) {
+                hdr->indirect_block_l1 = MM_VIRTUALIZE(amd64_phys_alloc_page());
+                memset((void *) hdr->indirect_block_l1, 0, 0x1000);
             }
 
-            ((uintptr_t *) hdr->indirect_blocks[ind_index])[ind_offset] =
+            //kinfo("Map L1:%d (%d) -> %p\n", ind_index, i, block + 512 + i * 512);
+            ((uintptr_t *) hdr->indirect_block_l1)[ind_index] =
+                (uintptr_t) block + 512 + i * 512 + 1;
+        }
+
+        // Map indirect L2 blocks
+        for (size_t i = TAR_DIRECT_BLOCKS + TAR_INDIRECT_L1_POINTERS; i < size_blocks; ++i) {
+            size_t ind_offset = i - (TAR_DIRECT_BLOCKS + TAR_INDIRECT_L1_POINTERS);
+
+            // Per one indirect
+            size_t ind_block_num = ind_offset / TAR_INDIRECT_L1_POINTERS;
+            size_t ind_block_off = ind_offset % TAR_INDIRECT_L1_POINTERS;
+
+            //kinfo("Map L2:%d:%d (%d) -> %p\n", ind_block_num, ind_block_off, i, block + 512 + i * 512);
+
+            if (!hdr->indirect_block_l2) {
+                hdr->indirect_block_l2 = MM_VIRTUALIZE(amd64_phys_alloc_page());
+                memset((void *) hdr->indirect_block_l2, 0, 0x1000);
+            }
+
+            uintptr_t *ind2 = (uintptr_t *) hdr->indirect_block_l2;
+
+            if (!ind2[ind_block_num]) {
+                ind2[ind_block_num] = MM_VIRTUALIZE(amd64_phys_alloc_page());
+                memset((void *) ind2[ind_block_num], 0, 0x1000);
+            }
+
+            uintptr_t *ind1 = (uintptr_t *) ind2[ind_block_num];
+            _assert(ind1);
+
+            ind1[ind_block_off] =
                 (uintptr_t) block + 512 + i * 512 + 1;
         }
 
@@ -333,82 +370,89 @@ static int tarfs_vnode_stat(struct vnode *vn, struct stat *st) {
     }
 }
 
-static int tarfs_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode) {
-    _assert(at && at->type == VN_DIR);
-    _assert(name);
-
-    // Just create a vnode as we're only operating in memory
-    struct vnode *node = vnode_create(VN_DIR, name);
-    struct tar *hdr = kmalloc(512);
-    _assert(hdr);
-
-    hdr->meta.uid = uid;
-    hdr->meta.gid = gid;
-    hdr->meta.mode = mode & VFS_MODE_MASK;
-    hdr->meta.size = 0;
-    time_t cur_time = time();
-    hdr->meta.mtime = cur_time;
-    hdr->meta.ctime = cur_time;
-
-    node->uid = uid;
-    node->gid = gid;
-    node->mode = mode & VFS_MODE_MASK;
-    node->flags = VN_MEMORY;
-
-    node->fs_data = hdr;
-    node->fs = at->fs;
-    node->op = at->op;
-
-    vnode_attach(at, node);
-
-    return 0;
-}
-
-static int tarfs_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode) {
-    _assert(at && at->type == VN_DIR);
-    _assert(name);
-
-    // Just create a vnode as we're only operating in memory
-    struct vnode *node = vnode_create(VN_REG, name);
-    struct tar *hdr = kmalloc(512);
-    _assert(hdr);
-
-    hdr->meta.uid = uid;
-    hdr->meta.gid = gid;
-    hdr->meta.mode = mode & VFS_MODE_MASK;
-    hdr->meta.size = 0;
-    time_t cur_time = time();
-    hdr->meta.mtime = cur_time;
-    hdr->meta.ctime = cur_time;
-
-    for (size_t i = 0; i < TAR_DIRECT_BLOCKS; ++i) {
-        hdr->direct_blocks[i] = 0;
-    }
-    for (size_t i = 0; i < TAR_INDIRECT_BLOCKS; ++i) {
-        hdr->indirect_blocks[i] = 0;
-    }
-
-    node->uid = uid;
-    node->gid = gid;
-    node->mode = mode & VFS_MODE_MASK;
-    node->flags = VN_MEMORY;
-
-    node->fs_data = hdr;
-    node->fs = at->fs;
-    node->op = at->op;
-
-    vnode_attach(at, node);
-
-    return 0;
-}
+//static int tarfs_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode) {
+//    _assert(at && at->type == VN_DIR);
+//    _assert(name);
+//
+//    // Just create a vnode as we're only operating in memory
+//    struct vnode *node = vnode_create(VN_DIR, name);
+//    struct tar *hdr = kmalloc(512);
+//    _assert(hdr);
+//
+//    hdr->meta.uid = uid;
+//    hdr->meta.gid = gid;
+//    hdr->meta.mode = mode & VFS_MODE_MASK;
+//    hdr->meta.size = 0;
+//    time_t cur_time = time();
+//    hdr->meta.mtime = cur_time;
+//    hdr->meta.ctime = cur_time;
+//
+//    node->uid = uid;
+//    node->gid = gid;
+//    node->mode = mode & VFS_MODE_MASK;
+//    node->flags = VN_MEMORY;
+//
+//    node->fs_data = hdr;
+//    node->fs = at->fs;
+//    node->op = at->op;
+//
+//    vnode_attach(at, node);
+//
+//    return 0;
+//}
+//
+//static int tarfs_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode) {
+//    _assert(at && at->type == VN_DIR);
+//    _assert(name);
+//
+//    // Just create a vnode as we're only operating in memory
+//    struct vnode *node = vnode_create(VN_REG, name);
+//    struct tar *hdr = kmalloc(512);
+//    _assert(hdr);
+//
+//    hdr->meta.uid = uid;
+//    hdr->meta.gid = gid;
+//    hdr->meta.mode = mode & VFS_MODE_MASK;
+//    hdr->meta.size = 0;
+//    time_t cur_time = time();
+//    hdr->meta.mtime = cur_time;
+//    hdr->meta.ctime = cur_time;
+//
+//    for (size_t i = 0; i < TAR_DIRECT_BLOCKS; ++i) {
+//        hdr->direct_blocks[i] = 0;
+//    }
+//    for (size_t i = 0; i < TAR_INDIRECT_BLOCKS; ++i) {
+//        hdr->indirect_blocks[i] = 0;
+//    }
+//
+//    node->uid = uid;
+//    node->gid = gid;
+//    node->mode = mode & VFS_MODE_MASK;
+//    node->flags = VN_MEMORY;
+//
+//    node->fs_data = hdr;
+//    node->fs = at->fs;
+//    node->op = at->op;
+//
+//    vnode_attach(at, node);
+//
+//    return 0;
+//}
 
 static uintptr_t tarfs_block_addr(struct tar *hdr, uint32_t index) {
     if (index < TAR_DIRECT_BLOCKS) {
         return hdr->direct_blocks[index] & ~1;
-    } else if ((index - TAR_DIRECT_BLOCKS) < (TAR_INDIRECT_BLOCKS * 64)) {
-        uintptr_t *indirect = (uintptr_t *) hdr->indirect_blocks[(index - TAR_DIRECT_BLOCKS) / 64];
-        _assert(indirect);
-        return indirect[(index - TAR_DIRECT_BLOCKS) % 64] & ~1;
+    } else if ((index - TAR_DIRECT_BLOCKS) < TAR_INDIRECT_L1_POINTERS) {
+        uintptr_t *ind1 = (uintptr_t *) hdr->indirect_block_l1;
+        _assert(ind1);
+        return ind1[index - TAR_DIRECT_BLOCKS] & ~1;
+    } else if (index < TAR_MAX_BLOCKS) {
+        size_t ind = index - (TAR_DIRECT_BLOCKS + TAR_INDIRECT_L1_POINTERS);
+        uintptr_t *ind2 = (uintptr_t *) hdr->indirect_block_l2;
+        _assert(ind2);
+        uintptr_t *ind1 = (uintptr_t *) ind2[ind / TAR_INDIRECT_L1_POINTERS];
+        _assert(ind1);
+        return ind1[ind % TAR_INDIRECT_L1_POINTERS] & ~1;
     } else {
         panic("Index is too high: %u\n", index);
     }
@@ -428,58 +472,58 @@ static void tarfs_block_free(struct tar *hdr, uint32_t index) {
     }
 }
 
-static ssize_t tarfs_vnode_write(struct ofile *fd, const void *buf, size_t count) {
-    _assert(fd);
-    _assert(buf);
-    struct vnode *node = fd->file.vnode;
-    _assert(node);
-    struct tar *hdr = node->fs_data;
-    _assert(hdr);
-    // Update mtime on writes
-    hdr->meta.mtime = time();
-
-    if (fd->file.pos > hdr->meta.size) {
-        return -1;
-    }
-
-    size_t write_total = 0;
-    size_t bwrite;
-
-    while (count) {
-        size_t blk_off = fd->file.pos % 512;
-        size_t blk_ind = fd->file.pos / 512;
-        bwrite = MIN(512 - blk_off, count);
-
-        uintptr_t block_ptr = tarfs_block_addr(hdr, blk_ind);
-
-        // This would mean non-zero offset in some unallocated block
-        _assert(!blk_off || block_ptr);
-
-        if (!block_ptr) {
-            block_ptr = (uintptr_t) kmalloc(512);
-            _assert(block_ptr);
-
-            // Write block to block index
-            if (blk_ind < TAR_DIRECT_BLOCKS) {
-                hdr->direct_blocks[blk_ind] = block_ptr;
-            } else {
-                panic("TODO\n");
-            }
-        }
-
-        // Copy data to destination
-        memcpy((void *) (block_ptr + blk_off), buf, bwrite);
-
-        fd->file.pos += bwrite;
-        if (fd->file.pos > hdr->meta.size) {
-            hdr->meta.size = fd->file.pos;
-        }
-        count -= bwrite;
-        write_total += bwrite;
-    }
-
-    return write_total;
-}
+//static ssize_t tarfs_vnode_write(struct ofile *fd, const void *buf, size_t count) {
+//    _assert(fd);
+//    _assert(buf);
+//    struct vnode *node = fd->file.vnode;
+//    _assert(node);
+//    struct tar *hdr = node->fs_data;
+//    _assert(hdr);
+//    // Update mtime on writes
+//    hdr->meta.mtime = time();
+//
+//    if (fd->file.pos > hdr->meta.size) {
+//        return -1;
+//    }
+//
+//    size_t write_total = 0;
+//    size_t bwrite;
+//
+//    while (count) {
+//        size_t blk_off = fd->file.pos % 512;
+//        size_t blk_ind = fd->file.pos / 512;
+//        bwrite = MIN(512 - blk_off, count);
+//
+//        uintptr_t block_ptr = tarfs_block_addr(hdr, blk_ind);
+//
+//        // This would mean non-zero offset in some unallocated block
+//        _assert(!blk_off || block_ptr);
+//
+//        if (!block_ptr) {
+//            block_ptr = (uintptr_t) kmalloc(512);
+//            _assert(block_ptr);
+//
+//            // Write block to block index
+//            if (blk_ind < TAR_DIRECT_BLOCKS) {
+//                hdr->direct_blocks[blk_ind] = block_ptr;
+//            } else {
+//                panic("TODO\n");
+//            }
+//        }
+//
+//        // Copy data to destination
+//        memcpy((void *) (block_ptr + blk_off), buf, bwrite);
+//
+//        fd->file.pos += bwrite;
+//        if (fd->file.pos > hdr->meta.size) {
+//            hdr->meta.size = fd->file.pos;
+//        }
+//        count -= bwrite;
+//        write_total += bwrite;
+//    }
+//
+//    return write_total;
+//}
 
 static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
     _assert(fd);
@@ -530,16 +574,25 @@ static off_t tarfs_vnode_lseek(struct ofile *fd, off_t offset, int whence) {
     struct tar *hdr = node->fs_data;
     _assert(hdr);
 
-    if (whence != SEEK_SET) {
-        panic("NYI\n");
-    }
+    switch (whence) {
+    case 0:
+        if (offset > hdr->meta.size) {
+            return -EINVAL;
+        }
 
-    if (offset > hdr->meta.size) {
-        return -EINVAL;
+        fd->file.pos = offset;
+        kdebug("Seek to %p\n", fd->file.pos);
+        break;
+    case 1:
+        if (offset + fd->file.pos > hdr->meta.size) {
+            return -EINVAL;
+        }
+        fd->file.pos += offset;
+        kdebug("Seek to %p\n", fd->file.pos);
+        break;
+    default:
+        panic("Unsupported seek\n");
     }
-
-    fd->file.pos = offset;
-    kdebug("Seek to %p\n", fd->file.pos);
 
     return fd->file.pos;
 }
@@ -576,6 +629,6 @@ static int tarfs_vnode_truncate(struct vnode *node, size_t length) {
 
 //
 
-void tarfs_init(void) {
+static __init void tarfs_init(void) {
     fs_class_register(&_tarfs);
 }
