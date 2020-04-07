@@ -1,7 +1,7 @@
 // TODO: SMP/thread safety
-#include "arch/amd64/mm/phys.h"
 #include "sys/block/cache.h"
 #include "sys/block/blk.h"
+#include "sys/mem/phys.h"
 #include "sys/string.h"
 #include "sys/assert.h"
 #include "sys/debug.h"
@@ -171,14 +171,16 @@ static void block_cache_page_release(struct block_cache *cache, uintptr_t addres
     if (page & LRU_PAGE_DIRTY) {
         _assert(blk_page_sync(cache->blk, address * cache->page_size, page & LRU_PAGE_MASK) == 0);
     }
-    amd64_phys_free(page & LRU_PAGE_MASK);
+    mm_phys_free_page(page & LRU_PAGE_MASK);
+    //amd64_phys_free(page & LRU_PAGE_MASK);
 }
 
 static uintptr_t block_cache_page_alloc(struct block_cache *cache) {
     // Other sizes are not supported
     _assert(cache->page_size == MM_PAGE_SIZE);
     kdebug("Block cache: allocate page\n");
-    return amd64_phys_alloc_page();
+    return mm_phys_alloc_page();
+    //return amd64_phys_alloc_page();
 }
 
 void block_cache_mark_dirty(struct block_cache *cache, uintptr_t address) {

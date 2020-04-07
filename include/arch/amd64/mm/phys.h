@@ -11,8 +11,8 @@ struct amd64_phys_stat {
 
 void amd64_phys_memory_map(const multiboot_memory_map_t *mmap, size_t length);
 
-void amd64_phys_free(uintptr_t page);
-uintptr_t amd64_phys_alloc_page(void);
-uintptr_t amd64_phys_alloc_contiguous(size_t count);
+//void amd64_phys_free(uintptr_t page);
+//uintptr_t amd64_phys_alloc_page(void);
+//uintptr_t amd64_phys_alloc_contiguous(size_t count);
 
 void amd64_phys_stat(struct amd64_phys_stat *st);

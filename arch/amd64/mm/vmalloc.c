@@ -1,7 +1,7 @@
-#include "arch/amd64/mm/phys.h"
 #include "arch/amd64/mm/map.h"
+#include "sys/mem/vmalloc.h"
+#include "sys/mem/phys.h"
 #include "sys/assert.h"
-#include "sys/vmalloc.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
 
@@ -12,7 +12,7 @@ uintptr_t vmfind(const mm_space_t pml4, uintptr_t from, uintptr_t to, size_t npa
 
     while ((page_index + npages) <= (to / MM_PAGE_SIZE)) {
         for (size_t i = 0; i < npages; ++i) {
-            if (amd64_map_get(pml4, (page_index + i) * MM_PAGE_SIZE, 0) != MM_NADDR) {
+            if (mm_map_get(pml4, (page_index + i) * MM_PAGE_SIZE, NULL) != MM_NADDR) {
                 goto no_match;
             }
         }
@@ -37,7 +37,7 @@ uintptr_t vmalloc(mm_space_t pml4, uintptr_t from, uintptr_t to, size_t npages, 
 
     for (size_t i = 0; i < npages; ++i) {
         virt_page = addr + i * MM_PAGE_SIZE;
-        phys_page = amd64_phys_alloc_page();
+        phys_page = mm_phys_alloc_page();
 
         // Allocation of physical page failed, clean up
         if (phys_page == MM_NADDR) {
@@ -47,16 +47,16 @@ uintptr_t vmalloc(mm_space_t pml4, uintptr_t from, uintptr_t to, size_t npages, 
                 // Deallocate physical pages that've already been mapped
                 // We've mapped only 4KiB pages, so expect to unmap only
                 // 4KiB pages
-                assert((phys_page = amd64_map_umap(pml4, virt_page, 1)) != MM_NADDR,
+                assert((phys_page = mm_umap_single(pml4, virt_page, 1)) != MM_NADDR,
                         "Failed to deallocate page when cleaning up botched alloc: %p\n", virt_page);
 
-                amd64_phys_free(phys_page);
+                mm_phys_free_page(phys_page);
             }
             return MM_NADDR;
         }
 
         // Succeeded, map the page
-        assert(amd64_map_single(pml4, virt_page, phys_page, rflags) == 0, "Failed to map page: %p\n", virt_page);
+        assert(mm_map_single(pml4, virt_page, phys_page, rflags) == 0, "Failed to map page: %p\n", virt_page);
     }
 
     return addr;
@@ -65,9 +65,9 @@ uintptr_t vmalloc(mm_space_t pml4, uintptr_t from, uintptr_t to, size_t npages, 
 void vmfree(mm_space_t pml4, uintptr_t addr, size_t npages) {
     uintptr_t phys;
     for (size_t i = 0; i < npages; ++i) {
-        if ((phys = amd64_map_umap(pml4, addr + i * MM_PAGE_SIZE, 1)) == MM_NADDR) {
+        if ((phys = mm_umap_single(pml4, addr + i * MM_PAGE_SIZE, 1)) == MM_NADDR) {
             panic("Double vmfree error: %p is not an allocated page\n", addr + i * MM_PAGE_SIZE);
         }
-        amd64_phys_free(phys);
+        mm_phys_free_page(phys);
     }
 }

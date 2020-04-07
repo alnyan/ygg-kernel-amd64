@@ -1,15 +1,15 @@
-#include "sys/mm.h"
-#include "sys/debug.h"
-#include "sys/shmem.h"
-#include "sys/panic.h"
+#include "arch/amd64/mm/pool.h"
+#include "arch/amd64/mm/map.h"
+#include "sys/mem/shmem.h"
+#include "sys/mem/phys.h"
 #include "sys/assert.h"
 #include "sys/string.h"
 #include "sys/thread.h"
-#include "arch/amd64/mm/map.h"
-#include "arch/amd64/mm/phys.h"
-#include "arch/amd64/mm/pool.h"
+#include "sys/debug.h"
+#include "sys/panic.h"
+#include "sys/mm.h"
 
-uintptr_t amd64_map_get(const mm_space_t pml4, uintptr_t vaddr, uint64_t *flags) {
+uintptr_t mm_map_get(const mm_space_t pml4, uintptr_t vaddr, uint64_t *flags) {
     vaddr = AMD64_MM_STRIPSX(vaddr);
     size_t pml4i = (vaddr >> MM_PML4I_SHIFT) & MM_PTE_INDEX_MASK;
     size_t pdpti = (vaddr >> MM_PDPTI_SHIFT) & MM_PTE_INDEX_MASK;
@@ -62,7 +62,7 @@ uintptr_t amd64_map_get(const mm_space_t pml4, uintptr_t vaddr, uint64_t *flags)
     return (pt[pti] & MM_PTE_MASK) | (vaddr & MM_PAGE_OFFSET_MASK);
 }
 
-uintptr_t amd64_map_umap(mm_space_t pml4, uintptr_t vaddr, uint32_t size) {
+uintptr_t mm_umap_single(mm_space_t pml4, uintptr_t vaddr, uint32_t size) {
     vaddr = AMD64_MM_STRIPSX(vaddr);
     // TODO: support page sizes other than 4KiB
     // (Though I can't think of any reason to use it)
@@ -121,7 +121,7 @@ uintptr_t amd64_map_umap(mm_space_t pml4, uintptr_t vaddr, uint32_t size) {
     return old;
 }
 
-int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t flags) {
+int mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t flags) {
     virt_addr = AMD64_MM_STRIPSX(virt_addr);
     // TODO: support page sizes other than 4KiB
     // (Though I can't think of any reason to use it)
@@ -196,17 +196,17 @@ int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint6
     return 0;
 }
 
-int mm_map_pages_contiguous(mm_space_t pml4, uintptr_t virt_base, uintptr_t phys_base, size_t count, uint32_t flags) {
-    for (size_t i = 0; i < count; ++i) {
-        uintptr_t virt_addr = virt_base + i * MM_PAGE_SIZE;
-
-        if (amd64_map_single(pml4, virt_addr, phys_base + i * MM_PAGE_SIZE, flags) != 0) {
-            return -1;
-        }
-    }
-
-    return 0;
-}
+//int mm_map_pages_contiguous(mm_space_t pml4, uintptr_t virt_base, uintptr_t phys_base, size_t count, uint32_t flags) {
+//    for (size_t i = 0; i < count; ++i) {
+//        uintptr_t virt_addr = virt_base + i * MM_PAGE_SIZE;
+//
+//        if (amd64_map_single(pml4, virt_addr, phys_base + i * MM_PAGE_SIZE, flags) != 0) {
+//            return -1;
+//        }
+//    }
+//
+//    return 0;
+//}
 
 int mm_space_clone(mm_space_t dst_pml4, const mm_space_t src_pml4, uint32_t flags) {
     if ((flags & MM_CLONE_FLG_USER)) {
@@ -291,7 +291,7 @@ int mm_space_fork(struct thread *dst, const struct thread *src, uint32_t flags) 
                             kdebug("Skipping %p: is a shared memory region\n", src_page_virt);
                         } else {
                             uintptr_t src_page_phys = src_pt[pti] & MM_PTE_MASK;
-                            uintptr_t dst_page_phys = amd64_phys_alloc_page();
+                            uintptr_t dst_page_phys = mm_phys_alloc_page(); //amd64_phys_alloc_page();
                             _assert(dst_page_phys != MM_NADDR);
 
                             // SLOOOOOW UUUSEE COOOOW
@@ -353,7 +353,7 @@ void mm_space_release(struct thread *thr) {
                         kdebug("Not freeing %p: belongs to a shared region\n", page_virt);
                     } else {
                         uintptr_t page_phys = pt[pti] & MM_PTE_MASK;
-                        amd64_phys_free(page_phys);
+                        mm_phys_free_page(page_phys);
                     }
                 }
 

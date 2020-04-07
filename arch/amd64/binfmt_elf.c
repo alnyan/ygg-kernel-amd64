@@ -1,6 +1,6 @@
-#include "arch/amd64/mm/phys.h"
 #include "arch/amd64/mm/map.h"
 #include "sys/binfmt_elf.h"
+#include "sys/mem/phys.h"
 #include "user/fcntl.h"
 #include "user/errno.h"
 #include "fs/vfs.h"
@@ -26,14 +26,15 @@ static int elf_map_section(mm_space_t space, uintptr_t vma_dst, size_t size) {
     kdebug("Section needs %d pages\n", npages);
 
     for (size_t i = 0; i < npages; ++i) {
-        if ((page_phys = amd64_map_get(space, page_aligned + (i << 12), NULL)) == MM_NADDR) {
+        // TODO: access flags (e.g. is section writable?)
+        if ((page_phys = mm_map_get(space, page_aligned + i * MM_PAGE_SIZE, NULL)) == MM_NADDR) {
             // Allocation needed
-            assert((page_phys = amd64_phys_alloc_page()) != MM_NADDR,
+            assert((page_phys = mm_phys_alloc_page()) != MM_NADDR,
                     "Failed to allocate memory\n");
-            assert(amd64_map_single(space, page_aligned + (i << 12), page_phys, (1 << 1) | (1 << 2)) == 0,
+            assert(mm_map_single(space, page_aligned + i * MM_PAGE_SIZE, page_phys, MM_PAGE_USER | MM_PAGE_WRITE) == 0,
                     "Failed to map memory\n");
         } else {
-            kdebug("%p = %p (already)\n", page_aligned + (i << 12), page_phys);
+            kdebug("%p = %p (already)\n", page_aligned + i * MM_PAGE_SIZE, page_phys);
         }
     }
 
@@ -67,7 +68,7 @@ static int elf_load_bytes(mm_space_t space, struct vfs_ioctx *ctx, struct ofile 
 
     kdebug("memcpy %p <- %p, %S\n", vma_dst, load_src, size);
     for (size_t i = 0; i < npages; ++i) {
-        assert((page_phys = amd64_map_get(space, page_aligned + (i << 12), NULL)), "What?");
+        assert((page_phys = mm_map_get(space, page_aligned + i * MM_PAGE_SIZE, NULL)), "What?");
         size_t nbytes = MIN(rem, 4096 - page_offset);
 
         if ((res = elf_read(ctx, fd, load_src + off, buf, nbytes)) != 0) {
@@ -93,7 +94,7 @@ static int elf_bzero(mm_space_t space, uintptr_t vma_dst, size_t size) {
 
     kdebug("bzero %p, %S\n", vma_dst, size);
     for (size_t i = 0; i < npages; ++i) {
-        assert((page_phys = amd64_map_get(space, page_aligned + (i << 12), NULL)), "What?");
+        assert((page_phys = mm_map_get(space, page_aligned + i * MM_PAGE_SIZE, NULL)), "What?");
         size_t nbytes = MIN(rem, 4096 - page_offset);
         kdebug("Zero %u bytes in page %p + %04x (%u)\n", nbytes, page_phys, page_offset, i);
         memset((void *) MM_VIRTUALIZE(page_phys + page_offset), 0, nbytes);

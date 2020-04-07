@@ -2,7 +2,7 @@
 #include "drivers/usb/device.h"
 #include "drivers/pci/pci.h"
 #include "drivers/usb/usb.h"
-#include "arch/amd64/mm/phys.h"
+#include "sys/mem/phys.h"
 #include "arch/amd64/hw/io.h"
 #include "sys/string.h"
 #include "sys/assert.h"
@@ -119,10 +119,10 @@ static struct uhci_qh *uhci_alloc_qh(struct uhci *hc) {
     return NULL;
 }
 
-/* static */ void uhci_data_init(struct uhci *data, uint32_t bar4) {
-    uintptr_t frame_list_page = amd64_phys_alloc_contiguous(2);
+static void uhci_data_init(struct uhci *data, uint32_t bar4) {
+    uintptr_t frame_list_page = mm_phys_alloc_contiguous(2);
     _assert(frame_list_page != MM_NADDR && frame_list_page < 0x100000000);
-    uintptr_t pool_page = amd64_phys_alloc_page();
+    uintptr_t pool_page = mm_phys_alloc_page();
     _assert(pool_page != MM_NADDR && pool_page < 0x100000000);
 
     data->iobase = bar4 & ~3;

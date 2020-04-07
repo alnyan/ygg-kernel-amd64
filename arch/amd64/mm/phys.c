@@ -57,7 +57,7 @@ void amd64_phys_stat(struct amd64_phys_stat *st) {
 }
 
 // Allocate a single 4K page
-uintptr_t amd64_phys_alloc_page(void) {
+uintptr_t mm_phys_alloc_page(void) {
     uintptr_t irq;
     spin_lock_irqsave(&alloc_spin, &irq);
     for (uint64_t i = amd64_phys_last_index; i < PHYS_MAX_INDEX; ++i) {
@@ -85,7 +85,7 @@ uintptr_t amd64_phys_alloc_page(void) {
     return MM_NADDR;
 }
 
-void amd64_phys_free(uintptr_t page) {
+void mm_phys_free_page(uintptr_t page) {
     uintptr_t irq;
     spin_lock_irqsave(&alloc_spin, &irq);
 
@@ -106,7 +106,7 @@ void amd64_phys_free(uintptr_t page) {
 }
 
 // XXX: very slow impl.
-uintptr_t amd64_phys_alloc_contiguous(size_t count) {
+uintptr_t mm_phys_alloc_contiguous(size_t count) {
     uintptr_t addr = 0;
     kdebug("Requested %S\n", count << 12);
 

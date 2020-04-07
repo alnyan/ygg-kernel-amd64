@@ -5,11 +5,11 @@
 #include "sys/thread.h"
 #include "sys/debug.h"
 
+#include "sys/mem/shmem.h"
 #include "sys/sys_file.h"
 #include "sys/sys_sys.h"
 #include "sys/sys_proc.h"
 #include "sys/sys_net.h"
-#include "sys/shmem.h"
 
 #define MSR_IA32_STAR               0xC0000081
 #define MSR_IA32_LSTAR              0xC0000082

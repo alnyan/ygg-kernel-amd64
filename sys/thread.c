@@ -1,24 +1,24 @@
 #include "arch/amd64/hw/timer.h"
-#include "arch/amd64/mm/phys.h"
 #include "arch/amd64/mm/pool.h"
 #include "arch/amd64/context.h"
 #include "arch/amd64/mm/map.h"
+#include "sys/mem/vmalloc.h"
 #include "arch/amd64/cpu.h"
 #include "sys/binfmt_elf.h"
-#include "net/socket.h"
-#include "fs/ofile.h"
 #include "sys/sys_proc.h"
-#include "sys/vmalloc.h"
+#include "sys/mem/phys.h"
 #include "user/signum.h"
+#include "net/socket.h"
 #include "user/errno.h"
 #include "user/fcntl.h"
-#include "fs/vfs.h"
 #include "sys/assert.h"
 #include "sys/string.h"
 #include "sys/thread.h"
 #include "sys/sched.h"
 #include "sys/debug.h"
+#include "fs/ofile.h"
 #include "sys/heap.h"
+#include "fs/vfs.h"
 #include "sys/mm.h"
 
 struct sys_fork_frame {
@@ -193,7 +193,7 @@ void thread_free(struct thread *thr) {
 
     // Free kstack
     for (size_t i = 0; i < thr->data.rsp0_size / MM_PAGE_SIZE; ++i) {
-        amd64_phys_free(MM_PHYS(i * MM_PAGE_SIZE + thr->data.rsp0_base));
+        mm_phys_free_page(MM_PHYS(i * MM_PAGE_SIZE + thr->data.rsp0_base));
     }
 
     // Free page directory (if not mm_kernel)
@@ -212,7 +212,7 @@ void thread_free(struct thread *thr) {
 }
 
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
-    uintptr_t stack_pages = amd64_phys_alloc_contiguous(2);
+    uintptr_t stack_pages = mm_phys_alloc_contiguous(2); //amd64_phys_alloc_contiguous(2);
     _assert(stack_pages != MM_NADDR);
 
     thr->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
@@ -360,7 +360,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     _assert(dst);
     struct thread *src = thread_self;
 
-    uintptr_t stack_pages = amd64_phys_alloc_contiguous(2);
+    uintptr_t stack_pages = mm_phys_alloc_contiguous(2); //amd64_phys_alloc_contiguous(2);
     _assert(stack_pages != MM_NADDR);
 
     list_head_init(&dst->g_link);
@@ -469,7 +469,7 @@ int sys_fork(struct sys_fork_frame *frame) {
 }
 
 uintptr_t argp_copy(struct thread *thr, const char *const argv[], size_t *arg_count) {
-    uintptr_t dst_page_phys = amd64_phys_alloc_page();
+    uintptr_t dst_page_phys = mm_phys_alloc_page(); //amd64_phys_alloc_page();
     if (dst_page_phys == MM_NADDR) {
         return dst_page_phys;
     }
@@ -589,7 +589,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     uintptr_t argp_virt = vmfind(thr->space, 0x100000, 0xF0000000, 1);
     _assert(argp_virt != MM_NADDR);
     // Map it as non-writable user-accessable
-    _assert(amd64_map_single(thr->space, argp_virt, argp_phys, (1 << 2)) == 0);
+    _assert(mm_map_single(thr->space, argp_virt, argp_phys, MM_PAGE_USER | MM_PAGE_WRITE) == 0);
     // Fix up the pointers
     uintptr_t *argp_fixup = (uintptr_t *) MM_VIRTUALIZE(argp_phys);
     for (size_t i = 0; i < argc; ++i) {

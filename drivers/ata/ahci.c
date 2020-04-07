@@ -1,7 +1,7 @@
 #include "drivers/ata/ahci.h"
 #include "drivers/pci/pci.h"
 #include "drivers/ata/ata.h"
-#include "arch/amd64/mm/phys.h"
+#include "sys/mem/phys.h"
 #include "user/errno.h"
 #include "sys/block/blk.h"
 #include "sys/string.h"
@@ -157,17 +157,18 @@ static int ahci_port_alloc(struct ahci_port *port) {
     // 12288 bytes (page-aligned), 3 pages
 
     // Command list and FIS buffer
-    uintptr_t page0 = amd64_phys_alloc_page();
+    uintptr_t page0 = mm_phys_alloc_page(); //amd64_phys_alloc_page();
     if (page0 == MM_NADDR) {
         kerror("Failed to allocate a page\n");
         return -ENOMEM;
     }
 
     // Command table
-    uintptr_t page1 = amd64_phys_alloc_contiguous(2);
+    uintptr_t page1 = mm_phys_alloc_contiguous(2); //amd64_phys_alloc_contiguous(2);
     if (page1 == MM_NADDR) {
         kerror("Failed to allocate 2 pages\n");
-        amd64_phys_free(page0);
+        mm_phys_free_page(page0);
+        //amd64_phys_free(page0);
         return -ENOMEM;
     }
 

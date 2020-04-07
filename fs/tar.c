@@ -2,7 +2,7 @@
 #include "user/errno.h"
 #include "sys/block/ram.h"
 #include "sys/block/blk.h"
-#include "arch/amd64/mm/phys.h"
+#include "sys/mem/phys.h"
 #include "fs/fs.h"
 #include "fs/ofile.h"
 #include "fs/node.h"
@@ -242,7 +242,7 @@ static int tar_init(struct fs *tar, const char *opt) {
             size_t ind_index = i - TAR_DIRECT_BLOCKS;
 
             if (!hdr->indirect_block_l1) {
-                hdr->indirect_block_l1 = MM_VIRTUALIZE(amd64_phys_alloc_page());
+                hdr->indirect_block_l1 = MM_VIRTUALIZE(mm_phys_alloc_page() /*amd64_phys_alloc_page()*/);
                 memset((void *) hdr->indirect_block_l1, 0, 0x1000);
             }
 
@@ -262,14 +262,14 @@ static int tar_init(struct fs *tar, const char *opt) {
             //kinfo("Map L2:%d:%d (%d) -> %p\n", ind_block_num, ind_block_off, i, block + 512 + i * 512);
 
             if (!hdr->indirect_block_l2) {
-                hdr->indirect_block_l2 = MM_VIRTUALIZE(amd64_phys_alloc_page());
+                hdr->indirect_block_l2 = MM_VIRTUALIZE(mm_phys_alloc_page() /*amd64_phys_alloc_page()*/);
                 memset((void *) hdr->indirect_block_l2, 0, 0x1000);
             }
 
             uintptr_t *ind2 = (uintptr_t *) hdr->indirect_block_l2;
 
             if (!ind2[ind_block_num]) {
-                ind2[ind_block_num] = MM_VIRTUALIZE(amd64_phys_alloc_page());
+                ind2[ind_block_num] = MM_VIRTUALIZE(mm_phys_alloc_page() /*amd64_phys_alloc_page()*/);
                 memset((void *) ind2[ind_block_num], 0, 0x1000);
             }
 

@@ -1,4 +1,4 @@
-#include "arch/amd64/mm/phys.h"
+#include "sys/mem/phys.h"
 #include "arch/amd64/hw/io.h"
 #include "drivers/pci/pci.h"
 #include "sys/assert.h"
@@ -157,12 +157,12 @@ static void rtl8139_init(struct pci_device *dev) {
     packet_queue_init(&rtl->tx_queue);
 
     // Allocate 12288 bytes (3 pages)
-    rtl->recv_buf_phys = amd64_phys_alloc_contiguous(3);
+    rtl->recv_buf_phys = mm_phys_alloc_contiguous(3);
     _assert(rtl->recv_buf_phys != MM_NADDR);
 
     // Allocate Tx pages
     for (size_t i = 0; i < 4; ++i) {
-        rtl->send_buf_pages[i] = amd64_phys_alloc_page();
+        rtl->send_buf_pages[i] = mm_phys_alloc_page();
         _assert(rtl->send_buf_pages[i] != MM_NADDR);
     }
     rtl->free_txds = 4;

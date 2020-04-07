@@ -1,12 +1,11 @@
-#include "arch/amd64/mm/phys.h"
-#include "arch/amd64/mm/map.h"
+#include "sys/mem/vmalloc.h"
 #include "arch/amd64/cpu.h"
+#include "sys/mem/shmem.h"
 #include "sys/block/blk.h"
-#include "sys/vmalloc.h"
+#include "sys/mem/phys.h"
 #include "user/errno.h"
 #include "sys/thread.h"
 #include "sys/assert.h"
-#include "sys/shmem.h"
 #include "user/mman.h"
 #include "sys/debug.h"
 #include "fs/ofile.h"
@@ -23,7 +22,7 @@ struct shm_region *shm_region_create(size_t count) {
     _assert(res);
 
     for (size_t i = 0; i < count; ++i) {
-        res->phys[i] = amd64_phys_alloc_page();
+        res->phys[i] = mm_phys_alloc_page();
         _assert(res->phys[i] != MM_NADDR);
     }
 
@@ -43,7 +42,7 @@ void shm_region_free(struct shm_region *region) {
 
     kdebug("Releasing %u pages\n", region->page_count);
     for (size_t i = 0; i < region->page_count; ++i) {
-        amd64_phys_free(region->phys[i]);
+        mm_phys_free_page(region->phys[i]);
     }
 
     spin_release_irqrestore(&region->lock, &irq);
@@ -80,12 +79,11 @@ uintptr_t shm_region_map(struct shm_region *region, struct thread *thr) {
 
     // Map all the pages
     for (size_t i = 0; i < region->page_count; ++i) {
-        if (amd64_map_single(thr->space,
-                             vaddr + i * MM_PAGE_SIZE,
-                             region->phys[i],
-                             MM_PAGE_USER | MM_PAGE_WRITE) != 0) {
-            panic("map failed\n");
-        }
+        // TODO: access flags (prot)
+        _assert(mm_map_single(thr->space,
+                              vaddr + i * MM_PAGE_SIZE,
+                              region->phys[i],
+                              MM_PAGE_USER | MM_PAGE_WRITE) == 0);
     }
 
     // Add region ref to thread
@@ -245,7 +243,7 @@ int sys_munmap(void *_addr, size_t length) {
 
             // Unmap pages
             for (size_t i = 0; i < reg->page_count; ++i) {
-                _assert(amd64_map_umap(thr->space, reg_ref->virt + i * MM_PAGE_SIZE, 1) != MM_NADDR);
+                _assert(mm_umap_single(thr->space, reg_ref->virt + i * MM_PAGE_SIZE, 1) != MM_NADDR);
             }
 
             spin_lock_irqsave(&reg->lock, &irq);
@@ -272,7 +270,7 @@ int sys_munmap(void *_addr, size_t length) {
 
             // Unmap pages
             for (size_t i = 0; i < reg_ref->map.block.page_count; ++i) {
-                _assert(amd64_map_umap(thr->space, reg_ref->virt + i * MM_PAGE_SIZE, 1) != MM_NADDR);
+                _assert(mm_umap_single(thr->space, reg_ref->virt + i * MM_PAGE_SIZE, 1) != MM_NADDR);
             }
             kdebug("Unmapped %u pages at %p\n", reg_ref->map.block.page_count, reg_ref->virt);
         }
@@ -349,7 +347,7 @@ void shm_region_release_all(struct thread *thr, int noumap) {
             // Unmap pages
             if (!noumap) {
                 for (size_t i = 0; i < region->page_count; ++i) {
-                    _assert(amd64_map_umap(thr->space, reg_ref->virt + i * MM_PAGE_SIZE, 1) != MM_NADDR);
+                    _assert(mm_umap_single(thr->space, reg_ref->virt + i * MM_PAGE_SIZE, 1) != MM_NADDR);
                 }
             }
 
@@ -378,7 +376,7 @@ void shm_region_release_all(struct thread *thr, int noumap) {
                 if (!noumap) {
                     // Unmap pages
                     for (size_t i = 0; i < reg_ref->map.block.page_count; ++i) {
-                        _assert(amd64_map_umap(thr->space, reg_ref->virt + i * MM_PAGE_SIZE, 1) != MM_NADDR);
+                        _assert(mm_umap_single(thr->space, reg_ref->virt + i * MM_PAGE_SIZE, 1) != MM_NADDR);
                     }
                     kdebug("Unmapped %u pages at %p\n", reg_ref->map.block.page_count, reg_ref->virt);
                 }

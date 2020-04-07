@@ -1,4 +1,4 @@
-#include "arch/amd64/mm/phys.h"
+#include "sys/mem/phys.h"
 #include "arch/amd64/cpu.h"
 #include "user/socket.h"
 #include "sys/thread.h"
@@ -100,7 +100,7 @@ void packet_queue_init(struct packet_queue *pq) {
 
 struct packet *packet_create(size_t size) {
     struct packet *packet;
-    uintptr_t page = amd64_phys_alloc_page();
+    uintptr_t page = mm_phys_alloc_page();
     _assert(page != MM_NADDR);
     packet = (struct packet *) MM_VIRTUALIZE(page);
     packet->refcount = 0;
@@ -110,7 +110,7 @@ struct packet *packet_create(size_t size) {
 
 static void packet_free(struct packet *p) {
     uintptr_t page = MM_PHYS(p);
-    amd64_phys_free(page);
+    mm_phys_free_page(page);
 }
 
 void packet_ref(struct packet *p) {

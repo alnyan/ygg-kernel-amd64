@@ -18,7 +18,7 @@
  * @return Physical address corresponding to `vaddr' in `space' if mapping exists,
  *         MM_NADDR otherwise.
  */
-uintptr_t amd64_map_get(const mm_space_t space, uintptr_t vaddr, uint64_t *flags);
+//uintptr_t amd64_map_get(const mm_space_t space, uintptr_t vaddr, uint64_t *flags);
 
 /**
  * @brief Remove a virtual address mapping from memory space, optionally checking if it
@@ -33,7 +33,7 @@ uintptr_t amd64_map_get(const mm_space_t space, uintptr_t vaddr, uint64_t *flags
  * @return Physical address of the unmapped page (in case it has to be freed),
  *         MM_NADDR in case the mapping does not exist or the size does not match.
  */
-uintptr_t amd64_map_umap(mm_space_t space, uintptr_t vaddr, uint32_t size);
+//uintptr_t amd64_map_umap(mm_space_t space, uintptr_t vaddr, uint32_t size);
 
 /**
  * @brief Add a single page mapping to `pml4'
@@ -46,4 +46,4 @@ uintptr_t amd64_map_umap(mm_space_t space, uintptr_t vaddr, uint32_t size);
  *              * AMD64_MAP_USER
  * @return 0 on success, -1 otherwise
  */
-int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t flags);
+//int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t flags);
