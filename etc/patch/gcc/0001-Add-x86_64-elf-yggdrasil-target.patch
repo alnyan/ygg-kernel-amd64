@@ -1,22 +1,22 @@
-From 88356e3e55f393cbdd0fe8aa8df4e2bc42d9bcf2 Mon Sep 17 00:00:00 2001
+From 38ba77f44914562663b0eebfd317c844a6e094cf Mon Sep 17 00:00:00 2001
 From: Mark <alnyan@airmail.cc>
-Date: Tue, 14 Jan 2020 21:09:17 +0200
-Subject: [PATCH] Add yggdrasil support
+Date: Tue, 7 Apr 2020 21:51:12 +0300
+Subject: [PATCH] Add x86_64-elf-yggdrasil target
 
 ---
  config.sub                  |  2 +-
  fixincludes/mkfixinc.sh     |  1 +
  gcc/config.gcc              | 12 +++++++++++-
  gcc/config/i386/t-yggdrasil |  2 ++
- gcc/config/yggdrasil.h      | 25 +++++++++++++++++++++++++
+ gcc/config/yggdrasil.h      | 23 +++++++++++++++++++++++
  libgcc/config.host          |  8 ++++++--
- libstdc++-v3/crossconfig.m4 | 12 +++++++++---
- 7 files changed, 55 insertions(+), 7 deletions(-)
+ libstdc++-v3/crossconfig.m4 | 13 ++++++++++---
+ 7 files changed, 54 insertions(+), 7 deletions(-)
  create mode 100644 gcc/config/i386/t-yggdrasil
  create mode 100644 gcc/config/yggdrasil.h
 
 diff --git a/config.sub b/config.sub
-index 75bb6a3135b..30ccfb885b4 100755
+index 75bb6a313..30ccfb885 100755
 --- a/config.sub
 +++ b/config.sub
 @@ -1363,7 +1363,7 @@ case $os in
@@ -29,7 +29,7 @@ index 75bb6a3135b..30ccfb885b4 100755
  		;;
  	qnx*)
 diff --git a/fixincludes/mkfixinc.sh b/fixincludes/mkfixinc.sh
-index 0f9648608e9..f37044f11cd 100755
+index 0f9648608..f37044f11 100755
 --- a/fixincludes/mkfixinc.sh
 +++ b/fixincludes/mkfixinc.sh
 @@ -11,6 +11,7 @@ target=fixinc.sh
@@ -41,7 +41,7 @@ index 0f9648608e9..f37044f11cd 100755
      i?86-*-mingw32* | \
      x86_64-*-mingw32* | \
 diff --git a/gcc/config.gcc b/gcc/config.gcc
-index ddd3b8f4d9d..3470beec1bb 100644
+index ddd3b8f4d..950f7ff65 100644
 --- a/gcc/config.gcc
 +++ b/gcc/config.gcc
 @@ -180,7 +180,7 @@
@@ -53,33 +53,33 @@ index ddd3b8f4d9d..3470beec1bb 100644
  # 			The default character to be used for formatting
  #			the attribute in a
  #			.type symbol_name, ${t_t_f_c}<property>
-@@ -776,6 +776,12 @@ case ${target} in
- *-*-fuchsia*)
-   native_system_header_dir=/include
-   ;;
+@@ -675,6 +675,12 @@ x86_cpus="generic intel"
+ 
+ # Common parts for widely ported systems.
+ case ${target} in
 +*-*-yggdrasil*)
 +  gas=yes
 +  gnu_ld=yes
 +  default_use_cxa_atexit=yes
 +  use_gcc_stdint=wrap
 +  ;;
- *-*-linux* | frv-*-*linux* | *-*-kfreebsd*-gnu | *-*-gnu* | *-*-kopensolaris*-gnu)
-   extra_options="$extra_options gnu-user.opt"
-   gas=yes
-@@ -1743,6 +1749,10 @@ i[34567]86-*-linux* | i[34567]86-*-kfreebsd*-gnu | i[34567]86-*-gnu* | i[34567]8
- 		;;
- 	esac
- 	;;
+ *-*-darwin*)
+   tmake_file="t-darwin "
+   tm_file="${tm_file} darwin.h"
+@@ -978,6 +984,10 @@ case ${target} in
+ esac
+ 
+ case ${target} in
 +x86_64-*-yggdrasil*)
 +    tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h glibc-stdint.h i386/i386elf.h i386/x86-64.h yggdrasil.h"
 +    tmake_file="${tmake_file} t-yggdrasil"
 +    ;;
- x86_64-*-linux* | x86_64-*-kfreebsd*-gnu)
- 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h gnu-user.h glibc-stdint.h \
- 		 i386/x86-64.h i386/gnu-user-common.h i386/gnu-user64.h"
+ aarch64*-*-elf | aarch64*-*-fuchsia* | aarch64*-*-rtems*)
+ 	tm_file="${tm_file} dbxelf.h elfos.h newlib-stdint.h"
+ 	tm_file="${tm_file} aarch64/aarch64-elf.h aarch64/aarch64-elf-raw.h"
 diff --git a/gcc/config/i386/t-yggdrasil b/gcc/config/i386/t-yggdrasil
 new file mode 100644
-index 00000000000..8223e63c0c9
+index 000000000..8223e63c0
 --- /dev/null
 +++ b/gcc/config/i386/t-yggdrasil
 @@ -0,0 +1,2 @@
@@ -87,10 +87,10 @@ index 00000000000..8223e63c0c9
 +MULTILIB_DIRNAMES += no-red-zone
 diff --git a/gcc/config/yggdrasil.h b/gcc/config/yggdrasil.h
 new file mode 100644
-index 00000000000..5a9e4af5d5f
+index 000000000..db100d5e9
 --- /dev/null
 +++ b/gcc/config/yggdrasil.h
-@@ -0,0 +1,25 @@
+@@ -0,0 +1,23 @@
 +#undef TARGET_YGGDRASIL
 +#define TARGET_YGGDRASIL 1
 +
@@ -99,9 +99,6 @@ index 00000000000..5a9e4af5d5f
 +
 +#undef STARTFILE_SPEC
 +#define STARTFILE_SPEC "crt0.o%s crti.o%s crtbegin.o%s"
-+
-+#undef STANDARD_STARTFILE_PREFIX
-+#define STANDARD_STARTFILE_PREFIX "/home/alnyan/Programs/build/tmp/libc/"
 +
 +#undef ENDFILE_SPEC
 +#define ENDFILE_SPEC "crtend.o%s crtn.o%s"
@@ -116,8 +113,9 @@ index 00000000000..5a9e4af5d5f
 +        builtin_assert("system=unix"); \
 +        builtin_assert("system=posix"); \
 +    } while (0);
++
 diff --git a/libgcc/config.host b/libgcc/config.host
-index 91abc84da03..565db12aaae 100644
+index 91abc84da..565db12aa 100644
 --- a/libgcc/config.host
 +++ b/libgcc/config.host
 @@ -103,7 +103,7 @@ arm*-*-*)
@@ -150,10 +148,24 @@ index 91abc84da03..565db12aaae 100644
  	tmake_file="$tmake_file m32r/t-m32r t-fdpbit"
  	extra_parts="$extra_parts crtinit.o crtfini.o"
 diff --git a/libstdc++-v3/crossconfig.m4 b/libstdc++-v3/crossconfig.m4
-index 344eec09d8e..7018aa504b8 100644
+index 344eec09d..6fb1a7e3c 100644
 --- a/libstdc++-v3/crossconfig.m4
 +++ b/libstdc++-v3/crossconfig.m4
-@@ -94,7 +94,7 @@ case "${host}" in
+@@ -5,6 +5,13 @@ dnl
+ AC_DEFUN([GLIBCXX_CROSSCONFIG],[
+ # Base decisions on target environment.
+ case "${host}" in
++  *-yggdrasil*)
++    GLIBCXX_CHECK_COMPILER_FEATURES
++    GLIBCXX_CHECK_LINKER_FEATURES
++    GLIBCXX_CHECK_MATH_SUPPORT
++    GLIBCXX_CHECK_STDLIB_SUPPORT
++    ;;
++
+   arm*-*-symbianelf*)
+     # This is a freestanding configuration; there is nothing to do here.
+     ;;
+@@ -94,7 +101,7 @@ case "${host}" in
  
    *-freebsd*)
      SECTION_FLAGS='-ffunction-sections -fdata-sections'
@@ -162,20 +174,7 @@ index 344eec09d8e..7018aa504b8 100644
      GLIBCXX_CHECK_LINKER_FEATURES
      AC_DEFINE(HAVE_SETENV)
      AC_DEFINE(HAVE_FINITEF)
-@@ -186,6 +186,12 @@ case "${host}" in
- 	;;
-     esac
-     ;;
-+  *-yggdrasil*)
-+    GLIBCXX_CHECK_COMPILER_FEATURES
-+    GLIBCXX_CHECK_LINKER_FEATURES
-+    GLIBCXX_CHECK_MATH_SUPPORT
-+    GLIBCXX_CHECK_STDLIB_SUPPORT
-+    ;;
-   *-linux* | *-uclinux* | *-gnu* | *-kfreebsd*-gnu | *-cygwin* | *-solaris*)
-     GLIBCXX_CHECK_COMPILER_FEATURES
-     GLIBCXX_CHECK_LINKER_FEATURES
-@@ -209,7 +215,7 @@ case "${host}" in
+@@ -209,7 +216,7 @@ case "${host}" in
      ;;
    *-netbsd* | *-openbsd*)
      SECTION_FLAGS='-ffunction-sections -fdata-sections'
@@ -184,7 +183,7 @@ index 344eec09d8e..7018aa504b8 100644
      GLIBCXX_CHECK_LINKER_FEATURES
      AC_DEFINE(HAVE_FINITEF)
      AC_DEFINE(HAVE_FINITE)
-@@ -230,7 +236,7 @@ case "${host}" in
+@@ -230,7 +237,7 @@ case "${host}" in
      ;;
    *-qnx6.1* | *-qnx6.2*)
      SECTION_FLAGS='-ffunction-sections -fdata-sections'
@@ -194,5 +193,5 @@ index 344eec09d8e..7018aa504b8 100644
      AC_DEFINE(HAVE_COSF)
      AC_DEFINE(HAVE_COSL)
 -- 
-2.23.0
+2.24.1
 

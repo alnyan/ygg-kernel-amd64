@@ -10,6 +10,7 @@ yggdrasil kernel documentation
    :maxdepth: 2
    :caption: Contents:
 
+   building.rst
    sys/mem.rst
    dev/pci.rst
 

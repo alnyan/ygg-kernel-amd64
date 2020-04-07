@@ -1,7 +1,7 @@
 .PHONY: doc
-ifeq ($(ARCH),)
-$(error Target architecture is not specified: $${ARCH})
-endif
+#ifeq ($(ARCH),)
+#$(error Target architecture is not specified: $${ARCH})
+#endif
 
 ifeq ($(ARCH),amd64)
 CFLAGS+=-DARCH_AMD64
