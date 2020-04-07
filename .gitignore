@@ -6,3 +6,4 @@ bochsrc.txt
 config
 test.img
 eth_*
+doc/_build

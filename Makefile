@@ -18,6 +18,9 @@ include etc/make/$(ARCH)/conf.mk
 
 all: mkdirs config $(TARGETS)
 
+docs: $(HDRS)
+	@make -C doc
+
 clean:
 	@rm -rf $(O)
 
