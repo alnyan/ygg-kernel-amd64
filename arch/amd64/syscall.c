@@ -17,6 +17,10 @@
 
 extern void syscall_entry(void);
 
+static void sys_debug_trace(const char *msg, uintptr_t v0, uintptr_t v1) {
+    kdebug("trace@%d: %s, %p, %p\n", thread_self->pid, msg, v0, v1);
+}
+
 void *syscall_table[256] = {
     // I/O
     [SYSCALL_NR_READ] = sys_read,
@@ -46,7 +50,6 @@ void *syscall_table[256] = {
     [SYSCALL_NR_SETUID] = sys_setuid,
     [SYSCALL_NR_SETGID] = sys_setgid,
     // Process control
-    [SYSCALL_NR_BRK] = sys_brk,
     [SYSCALL_NRX_SIGENTRY] = sys_sigentry,
     [SYSCALL_NR_EXECVE] = sys_execve,
     [SYSCALL_NR_GETPID] = sys_getpid,
@@ -73,6 +76,9 @@ void *syscall_table[256] = {
     [SYSCALL_NR_BIND] = sys_bind,
     [SYSCALL_NR_SETSOCKOPT] = sys_setsockopt,
     [SYSCALL_NRX_NETCTL] = sys_netctl,
+
+    // Extension
+    [SYSCALL_NRX_TRACE] = sys_debug_trace,
 };
 
 int syscall_undefined(uint64_t rax) {

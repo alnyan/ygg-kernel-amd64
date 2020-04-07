@@ -17,6 +17,8 @@ struct tm {
     int tm_yday;
     int tm_isdst;
 };
+typedef uint32_t uid_t;
+typedef uint32_t gid_t;
 #endif
 
 typedef uint64_t uintptr_t;
@@ -28,7 +30,5 @@ typedef intptr_t ssize_t;
 typedef int64_t off_t;
 
 typedef uint32_t mode_t;
-typedef uint32_t uid_t;
-typedef uint32_t gid_t;
 
 typedef int32_t pid_t;

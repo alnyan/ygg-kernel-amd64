@@ -8,15 +8,13 @@
 typedef int sig_atomic_t;
 
 typedef int32_t pid_t;
-typedef uint32_t uid_t;
-typedef uint32_t gid_t;
 
 typedef int64_t ssize_t;
 typedef uint64_t size_t;
 typedef int64_t off_t;
 
 typedef uint32_t mode_t;
-typedef uint32_t uid_t;
-typedef uint32_t gid_t;
+typedef __uid_t uid_t;
+typedef __gid_t gid_t;
 
 typedef int32_t pid_t;

@@ -28,7 +28,8 @@
 // #define FASYNC          00020000
 // #define O_DIRECT        00040000
 // #define O_LARGEFILE     00100000
-#define O_DIRECTORY     00200000
+//#define O_DIRECTORY     00200000
+#define O_DIRECTORY     0x200000
 // #define O_NOFOLLOW      00400000
 // #define O_NOATIME       01000000
 // #define O_CLOEXEC       02000000

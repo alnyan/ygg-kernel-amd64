@@ -18,7 +18,7 @@ static spin_t g_shm_lock = 0;
 static LIST_HEAD(g_shm_region_head);
 
 struct shm_region *shm_region_create(size_t count) {
-    kinfo("Allocating a SHM region of %u pages\n", count);
+    kdebug("Allocating a SHM region of %u pages\n", count);
     struct shm_region *res = kmalloc(sizeof(struct shm_region) + count * sizeof(uintptr_t));
     _assert(res);
 
@@ -41,7 +41,7 @@ void shm_region_free(struct shm_region *region) {
     _assert(list_empty(&region->owners));
     _assert(!region->ref_count);
 
-    kinfo("Releasing %u pages\n", region->page_count);
+    kdebug("Releasing %u pages\n", region->page_count);
     for (size_t i = 0; i < region->page_count; ++i) {
         amd64_phys_free(region->phys[i]);
     }

@@ -29,7 +29,6 @@
 #define SYSCALL_NRX_UMOUNT      166
 #define SYSCALL_NR_REBOOT       169
 
-#define SYSCALL_NR_BRK          12
 #define SYSCALL_NRX_SIGENTRY    13
 #define SYSCALL_NR_SIGRETURN    15
 #define SYSCALL_NR_GETPID       39
@@ -51,3 +50,5 @@
 #define SYSCALL_NR_BIND         49
 #define SYSCALL_NR_SETSOCKOPT   54
 #define SYSCALL_NRX_NETCTL      248
+
+#define SYSCALL_NRX_TRACE       249
