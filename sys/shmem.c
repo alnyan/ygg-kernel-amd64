@@ -62,6 +62,12 @@ uintptr_t shm_region_map(struct shm_region *region, struct thread *thr) {
 
     uintptr_t vaddr = vmfind(thr->space, 0x80000000, 0x100000000, region->page_count);
 
+    if (vaddr == MM_NADDR) {
+        kfree(reg_ref);
+        kfree(own_ref);
+        kerror("Could not find memory for mapping\n");
+        return MM_NADDR;
+    }
     kdebug("-> %p\n", vaddr);
 
     reg_ref->type = SHM_TYPE_PHYS;
@@ -249,6 +255,7 @@ int sys_munmap(void *_addr, size_t length) {
 
             if (!reg->ref_count) {
                 spin_release_irqrestore(&reg->lock, &irq);
+                list_del(&reg->link);
                 shm_region_free(reg);
             } else {
                 spin_release_irqrestore(&reg->lock, &irq);
@@ -353,6 +360,7 @@ void shm_region_release_all(struct thread *thr, int noumap) {
 
             if (!region->ref_count) {
                 spin_release_irqrestore(&region->lock, &irq);
+                list_del(&region->link);
                 shm_region_free(region);
             } else {
                 spin_release_irqrestore(&region->lock, &irq);
