@@ -138,7 +138,7 @@ static void ahci_port_start(struct ahci_port *port) {
 static int ahci_port_cmd_alloc(struct ahci_port *port) {
     uint32_t slots = (port->sact | port->ci);
     for (int i = 0; i < AHCI_CMD_LIST_SIZE; ++i) {
-        if (!(slots & (1 << i))) {
+        if (!(slots & (1U << i))) {
             return i;
         }
     }
@@ -228,7 +228,7 @@ static int ahci_port_ata_cmd(struct ahci_port *port, uint8_t ata, uintptr_t lba,
 
         if (i == prd_count - 1) {
             // Mark last PRDT entry
-            table_entry->prdt[i].dbc |= 1 << 31;
+            table_entry->prdt[i].dbc |= 1U << 31;
         }
 
         bytes_left -= prd_size;
@@ -562,7 +562,7 @@ static void ahci_controller_init(struct ahci_controller *ahci) {
 
     // Check which ports are supported by AHCI controller
     for (size_t i = 0; i < AHCI_MAX_PORTS; ++i) {
-        if (ahci->regs->pi & (1 << i)) {
+        if (ahci->regs->pi & (1U << i)) {
             // Get SATA connnection status
             struct ahci_port *port = &ahci->regs->port[i];
 

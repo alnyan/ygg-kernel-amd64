@@ -30,7 +30,8 @@ endif
 CFLAGS+=-D__KERNEL__ \
 		-DKERNEL_VERSION_STR='"$(KERNEL_VERSION_STR)"'
 
-OBJS+=$(O)/sys/debug.o \
+OBJS+=$(O)/sys/ubsan.o \
+	  $(O)/sys/debug.o \
 	  $(O)/sys/string.o \
 	  $(O)/sys/panic.o \
 	  $(O)/sys/errno.o \

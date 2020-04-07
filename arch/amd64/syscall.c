@@ -18,6 +18,7 @@
 extern void syscall_entry(void);
 
 static void sys_debug_trace(const char *msg, uintptr_t v0, uintptr_t v1) {
+    userptr_check(msg);
     kdebug("trace@%d: %s, %p, %p\n", thread_self->pid, msg, v0, v1);
 }
 

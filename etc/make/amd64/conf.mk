@@ -23,6 +23,10 @@ $(O)/%.o: %.c $(HEADERS) config
 	@printf " CC\t%s\n" $(@:$(O)/%=%)
 	@$(CC64) $(kernel_CFLAGS) -c -o $@ $<
 
+$(O)/arch/amd64/acpica/%.o: arch/amd64/acpica/%.c
+	@printf " CC\t%s\n" $(@:$(O)/%=%)
+	@$(CC64) $(kernel_CFLAGS_BASE) -c -o $@ $<
+
 $(O)/arch/amd64/hw/ap_code_blob.o: $(O)/arch/amd64/hw/ap_code.bin config
 	@printf " AS\t%s\n" $(@:$(O)/%=%)
 	@$(CC64) $(kernel_CFLAGS) -c \

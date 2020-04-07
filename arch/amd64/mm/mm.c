@@ -16,6 +16,12 @@ mm_space_t mm_kernel;
 
 extern int _kernel_end;
 
+void userptr_check(const void *ptr) {
+    // TODO: "hardened" check - also check that the address is mapped
+    assert(ptr, "invalid userptr: NULL\n");
+    assert((uintptr_t) ptr < KERNEL_VIRT_BASE, "invalid userptr: in kernel space (%p)\n", ptr);
+}
+
 void amd64_mm_init(struct amd64_loader_data *data) {
     kdebug("Memory manager init\n");
 

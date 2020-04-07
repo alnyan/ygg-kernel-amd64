@@ -58,27 +58,32 @@ kernel_LDFLAGS=-nostdlib \
 			   -z max-page-size=0x1000 \
 			   -ggdb \
 			   -T$(kernel_LINKER)
-kernel_CFLAGS=-ffreestanding \
-			  -I. \
-			  -I include/arch/amd64/acpica \
-			  $(DEFINES) \
-			  $(CFLAGS) \
-			  -nostdlib \
-			  -fPIE \
-			  -fno-plt \
-			  -fno-pic \
-			  -static \
-			  -fno-asynchronous-unwind-tables \
-			  -Wno-format \
-			  -Wno-comment \
-			  -Wno-unused-but-set-variable \
-			  -mcmodel=large \
-			  -mno-red-zone \
-			  -mno-mmx \
-			  -mno-sse \
-			  -mno-sse2 \
-			  -z max-page-size=0x1000 \
-			  -D__KERNEL__
+kernel_CFLAGS_BASE=-ffreestanding \
+			  	   -I. \
+			  	   -I include/arch/amd64/acpica \
+			  	   $(DEFINES) \
+			  	   $(CFLAGS) \
+			  	   -nostdlib \
+			  	   -fPIE \
+			  	   -fno-plt \
+			  	   -fno-pic \
+			  	   -static \
+			  	   -fno-asynchronous-unwind-tables \
+			  	   -Wno-format \
+			  	   -Wno-comment \
+			  	   -Wno-unused-but-set-variable \
+			  	   -mcmodel=large \
+			  	   -mno-red-zone \
+			  	   -mno-mmx \
+			  	   -mno-sse \
+			  	   -mno-sse2 \
+			  	   -z max-page-size=0x1000 \
+			  	   -D__KERNEL__ \
+				   -fstack-protector-all \
+				   -fstack-protector-strong
+kernel_CFLAGS=-fsanitize=undefined \
+			  -fsanitize-address-use-after-scope \
+			  $(kernel_CFLAGS_BASE)
 
 kernel_OBJS=$(O)/arch/amd64/crti.o \
 			$(O)/arch/amd64/entry.o \

@@ -148,3 +148,5 @@ int mm_memcpy_kernel_to_user(mm_space_t pd, userspace void *dst, const void *src
  * @return -1 on error
  */
 int mm_memcpy_user_to_kernel(mm_space_t pd, void *dst, const userspace void *src, size_t count);
+
+void userptr_check(const void *ptr);
