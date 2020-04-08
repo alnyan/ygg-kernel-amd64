@@ -287,9 +287,7 @@ int mm_space_fork(struct thread *dst, const struct thread *src, uint32_t flags) 
                                                   (pdi << MM_PDI_SHIFT) |
                                                   (pti << MM_PTI_SHIFT);
 
-                        if (shm_region_find((struct thread *) src, src_page_virt)) {
-                            kdebug("Skipping %p: is a shared memory region\n", src_page_virt);
-                        } else {
+                        if (!shm_region_find((struct thread *) src, src_page_virt)) {
                             uintptr_t src_page_phys = src_pt[pti] & MM_PTE_MASK;
                             uintptr_t dst_page_phys = mm_phys_alloc_page(); //amd64_phys_alloc_page();
                             _assert(dst_page_phys != MM_NADDR);
@@ -349,9 +347,7 @@ void mm_space_release(struct thread *thr) {
                                           (pdi << MM_PDI_SHIFT) |
                                           (pti << MM_PTI_SHIFT);
 
-                    if (shm_region_find(thr, page_virt)) {
-                        kdebug("Not freeing %p: belongs to a shared region\n", page_virt);
-                    } else {
+                    if (!shm_region_find(thr, page_virt)) {
                         uintptr_t page_phys = pt[pti] & MM_PTE_MASK;
                         mm_phys_free_page(page_phys);
                     }

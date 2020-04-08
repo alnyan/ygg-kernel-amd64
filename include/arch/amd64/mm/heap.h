@@ -3,7 +3,7 @@
 #include "sys/heap.h"
 #include <stdint.h>
 
-#define KERNEL_HEAP     (16 * 1024 * 1024)
+#define KERNEL_HEAP     (512 * 1024)
 
 /**
  * @brief Initialize heap instance of size `sz' at `phys_base'

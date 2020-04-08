@@ -10,6 +10,7 @@
 #include "sys/assert.h"
 #include "sys/string.h"
 #include "sys/thread.h"
+#include "sys/mem/slab.h"
 #include "fs/fs.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
@@ -230,7 +231,9 @@ static int system_mem_getter(void *ctx, char *buf, size_t lim) {
     struct amd64_phys_stat phys_st;
     struct heap_stat heap_st;
     struct amd64_pool_stat pool_st;
+    struct slab_stat slab_st;
 
+    slab_stat(&slab_st);
     amd64_phys_stat(&phys_st);
     amd64_mm_pool_stat(&pool_st);
     heap_stat(heap_global, &heap_st);
@@ -247,12 +250,16 @@ static int system_mem_getter(void *ctx, char *buf, size_t lim) {
     sysfs_buf_printf(buf, lim, "HeapFree:       %u kB\n", heap_st.free_size / 1024);
     sysfs_buf_printf(buf, lim, "HeapUsed:       %u kB\n", (heap_st.total_size - heap_st.free_size) / 1024);
 
+    sysfs_buf_printf(buf, lim, "SlabObjects:    %u\n",    slab_st.alloc_objects);
+    sysfs_buf_printf(buf, lim, "SlabTotal:      %u kB\n", slab_st.alloc_pages * 4);
+    sysfs_buf_printf(buf, lim, "SlabUsed:       %u kB\n", slab_st.alloc_bytes / 1024);
+
     return 0;
 }
 
 void sysfs_populate(void) {
     sysfs_add_config_endpoint("version", SYSFS_MODE_DEFAULT, sizeof(KERNEL_VERSION_STR) + 1, KERNEL_VERSION_STR, sysfs_config_getter, NULL);
-    sysfs_add_config_endpoint("mem", SYSFS_MODE_DEFAULT, 256, NULL, system_mem_getter, NULL);
+    sysfs_add_config_endpoint("mem", SYSFS_MODE_DEFAULT, 512, NULL, system_mem_getter, NULL);
 
     sysfs_add_config_endpoint("uptime", SYSFS_MODE_DEFAULT, 32, NULL, system_uptime_getter, NULL);
 

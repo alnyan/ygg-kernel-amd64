@@ -88,6 +88,7 @@ struct vnode {
 
 // Node itself
 struct vnode *vnode_create(enum vnode_type t, const char *name);
+void vnode_destroy(struct vnode *vn);
 
 // Tree manipulation
 void vnode_attach(struct vnode *parent, struct vnode *child);

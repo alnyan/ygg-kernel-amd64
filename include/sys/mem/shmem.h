@@ -30,7 +30,7 @@ struct shm_owner_ref {
 struct shm_region_ref {
     enum {
         // -> memory pages
-        SHM_TYPE_PHYS,
+        SHM_TYPE_PHYS = 0,
         // -> block device mapping
         SHM_TYPE_BLOCK,
     } type;

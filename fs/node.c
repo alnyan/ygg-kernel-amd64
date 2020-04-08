@@ -7,40 +7,30 @@
 #include "sys/debug.h"
 #include "sys/panic.h"
 #include "sys/heap.h"
+#include "sys/mem/slab.h"
+
+static struct slab_cache *vnode_cache = NULL;
 
 struct vnode *vnode_create(enum vnode_type t, const char *name) {
-    struct vnode *node = (struct vnode *) kmalloc(sizeof(struct vnode));
+    if (!vnode_cache) {
+        vnode_cache = slab_cache_get(sizeof(struct vnode));
+        kdebug("Initialized vnode cache\n");
+    }
+    struct vnode *node = slab_calloc(vnode_cache);
     _assert(node);
 
     node->type = t;
-    node->flags = 0;
-
-    node->parent = NULL;
-    node->first_child = NULL;
-    node->next_child = NULL;
-
-    node->target = NULL;
-
-    node->fs = NULL;
-    node->fs_data = NULL;
-
-    node->op = NULL;
-    node->dev = NULL;
-
-    node->uid = 0;
-    node->gid = 0;
-    node->mode = 0;
-
-    node->open_count = 0;
-
     if (name) {
         _assert(strlen(name) < NODE_MAXLEN);
         strcpy(node->name, name);
-    } else {
-        node->name[0] = 0;
     }
 
     return node;
+}
+
+void vnode_destroy(struct vnode *vn) {
+    _assert(vnode_cache);
+    slab_free(vnode_cache, vn);
 }
 
 void vnode_attach(struct vnode *parent, struct vnode *child) {

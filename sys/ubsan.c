@@ -129,5 +129,25 @@ struct type_mismatch_info {
 void __ubsan_handle_type_mismatch_v1(struct type_mismatch_info *type_mismatch,
                                      uintptr_t pointer) {
     struct source_location *location = &type_mismatch->location;
+
+    if (pointer == 0) {
+        kfatal("NULL pointer access\n");
+    } else if (type_mismatch->alignment != 0 &&
+               is_aligned(pointer, type_mismatch->alignment)) {
+        // Most useful on architectures with stricter memory alignment requirements, like ARM.
+        kfatal("Unaligned memory access\n");
+    } else {
+        kfatal("Insufficient size:\n");
+        if (type_mismatch->type_check_kind < sizeof(Type_Check_Kinds) / sizeof(Type_Check_Kinds[0])) {
+            kfatal("%s address %p with insufficient space for object of type %s\n",
+                Type_Check_Kinds[type_mismatch->type_check_kind], (void *) pointer,
+                type_mismatch->type->name);
+        }
+        //log("Insufficient size");
+        //logf("%s address %p with insufficient space for object of type %s\n",
+        //     Type_Check_Kinds[type_mismatch->type_check_kind], (void *)pointer,
+        //     type_mismatch->type->name);
+    }
+
     ubsan_abort(location, "type mismatch");
 }

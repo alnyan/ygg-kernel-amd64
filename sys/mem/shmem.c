@@ -3,6 +3,7 @@
 #include "sys/mem/shmem.h"
 #include "sys/block/blk.h"
 #include "sys/mem/phys.h"
+#include "sys/mem/slab.h"
 #include "user/errno.h"
 #include "sys/thread.h"
 #include "sys/assert.h"
@@ -10,11 +11,19 @@
 #include "sys/debug.h"
 #include "fs/ofile.h"
 #include "sys/heap.h"
+#include "sys/attr.h"
 #include "fs/node.h"
 #include "sys/mm.h"
 
 static spin_t g_shm_lock = 0;
 static LIST_HEAD(g_shm_region_head);
+static struct slab_cache *shm_region_ref_cache = NULL;
+static struct slab_cache *shm_owner_ref_cache = NULL;
+
+static __init void shm_init_slab_caches(void) {
+    shm_region_ref_cache = slab_cache_get(sizeof(struct shm_region_ref));
+    shm_owner_ref_cache = slab_cache_get(sizeof(struct shm_owner_ref));
+}
 
 struct shm_region *shm_region_create(size_t count) {
     kdebug("Allocating a SHM region of %u pages\n", count);
@@ -54,16 +63,16 @@ uintptr_t shm_region_map(struct shm_region *region, struct thread *thr) {
     spin_lock_irqsave(&region->lock, &irq);
     kdebug("Mapping region of %u pages into thread %d\n", region->page_count, thr->pid);
 
-    struct shm_region_ref *reg_ref = kmalloc(sizeof(struct shm_region_ref));
+    struct shm_region_ref *reg_ref = slab_calloc(shm_region_ref_cache);
     _assert(reg_ref);
-    struct shm_owner_ref *own_ref = kmalloc(sizeof(struct shm_owner_ref));
+    struct shm_owner_ref *own_ref = slab_calloc(shm_owner_ref_cache);
     _assert(own_ref);
 
     uintptr_t vaddr = vmfind(thr->space, 0x80000000, 0x100000000, region->page_count);
 
     if (vaddr == MM_NADDR) {
-        kfree(reg_ref);
-        kfree(own_ref);
+        slab_free(shm_region_ref_cache, reg_ref);
+        slab_free(shm_owner_ref_cache, own_ref);
         kerror("Could not find memory for mapping\n");
         return MM_NADDR;
     }
@@ -187,12 +196,12 @@ void *sys_mmap(void *hint, size_t length, int prot, int flags, int fd, off_t off
             return (void *) -ENOENT;
         }
 
-        struct shm_region_ref *reg_ref = kmalloc(sizeof(struct shm_region_ref));
+        struct shm_region_ref *reg_ref = slab_calloc(shm_region_ref_cache);
         _assert(reg_ref);
         void *vaddr = blk->mmap(blk, of, hint, length, flags);
 
         if (vaddr == NULL || vaddr == MAP_FAILED) {
-            kfree(reg_ref);
+            slab_free(shm_region_ref_cache, reg_ref);
             return MAP_FAILED;
         }
 
@@ -259,7 +268,7 @@ int sys_munmap(void *_addr, size_t length) {
                 spin_release_irqrestore(&reg->lock, &irq);
             }
 
-            kfree(own_ref);
+            slab_free(shm_owner_ref_cache, own_ref);
         }
         break;
     case SHM_TYPE_BLOCK: {
@@ -277,7 +286,7 @@ int sys_munmap(void *_addr, size_t length) {
         break;
     }
     list_del(&reg_ref->link);
-    kfree(reg_ref);
+    slab_free(shm_region_ref_cache, reg_ref);
 
     kdebug("New region mapping list:\n");
     shm_thread_describe(thr);
@@ -364,7 +373,7 @@ void shm_region_release_all(struct thread *thr, int noumap) {
                 spin_release_irqrestore(&region->lock, &irq);
             }
 
-            kfree(own_ref);
+            slab_free(shm_owner_ref_cache, own_ref);
             break;
 
         case SHM_TYPE_BLOCK: {

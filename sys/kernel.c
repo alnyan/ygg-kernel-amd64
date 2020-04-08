@@ -9,15 +9,7 @@
 #include "net/net.h"
 #include "fs/vfs.h"
 
-#include "sys/debug.h"
-
 void main(void) {
-    char v = 0;
-    for (int i = 0; i < 256; ++i) {
-        ++v;
-    }
-    kinfo("???\n");
-
     pci_init();
 
     vfs_init();

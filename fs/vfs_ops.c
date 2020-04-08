@@ -321,8 +321,7 @@ int vfs_rmdir(struct vfs_ioctx *ctx, const char *path) {
     }
 
     vnode_detach(node);
-    memset(node, 0, sizeof(struct vnode));
-    kfree(node);
+    vnode_destroy(node);
 
     return 0;
 }
@@ -354,8 +353,7 @@ int vfs_unlink(struct vfs_ioctx *ctx, const char *path) {
     }
 
     vnode_detach(node);
-    memset(node, 0, sizeof(struct vnode));
-    kfree(node);
+    vnode_destroy(node);
 
     return 0;
 }

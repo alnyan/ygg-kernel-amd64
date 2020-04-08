@@ -19,7 +19,7 @@ CFLAGS+=-Wall \
 		-O$(OPTIMIZE) \
 		-ggdb
 
-ifdef KERNEL_TEST_MODE
+ifeq ($(KERNEL_TEST_MODE),1)
 CFLAGS+=-DKERNEL_TEST_MODE
 endif
 
@@ -61,12 +61,14 @@ OBJS+=$(O)/sys/ubsan.o \
 	  $(O)/sys/font/logo.o \
 	  $(O)/sys/font/psf.o \
 	  $(O)/sys/font/default8x16.o \
-	  $(O)/sys/shmem.o \
+	  $(O)/sys/mem/shmem.o \
+	  $(O)/sys/mem/slab.o \
 	  $(O)/sys/wait.o
 DIRS+=$(O)/sys \
 	  $(O)/sys/char \
 	  $(O)/sys/block \
-	  $(O)/sys/font
+	  $(O)/sys/font \
+	  $(O)/sys/mem
 
 OBJS+=$(O)/fs/vfs.o \
 	  $(O)/fs/vfs_ops.o \
