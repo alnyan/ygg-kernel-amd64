@@ -395,6 +395,8 @@ void shm_region_release_all(struct thread *thr, int noumap) {
     }
 
     while (!list_empty(&thr->shm_list)) {
-        list_del(thr->shm_list.next);
+        struct shm_region_ref *ref = list_entry(thr->shm_list.next, struct shm_region_ref, link);
+        list_del(&ref->link);
+        slab_free(shm_region_ref_cache, ref);
     }
 }
