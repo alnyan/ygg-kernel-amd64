@@ -130,7 +130,7 @@ static inline void *slab_alloc_from(struct slab_cache *cp, struct slab *slabp) {
     return objp;
 }
 
-void *slab_calloc(struct slab_cache *cp) {
+void *slab_calloc_int(struct slab_cache *cp) {
     struct list_head *slabs_partial, *slabs_empty, *entry;
     struct slab *slabp;
 try_again:
@@ -162,7 +162,7 @@ try_again:
     return slab_alloc_from(cp, slabp);
 }
 
-void slab_free(struct slab_cache *cp, void *objp) {
+void slab_free_int(struct slab_cache *cp, void *objp) {
     struct slab *slabp;
     // Get page-aligned address
     uintptr_t page = (uintptr_t) objp;
@@ -219,3 +219,19 @@ void slab_stat(struct slab_stat *st) {
         }
     }
 }
+
+// Tracing
+#if defined(SLAB_TRACE_ALLOC)
+
+void *slab_calloc_trace(const char *filename, int line, struct slab_cache *cp) {
+    void *objp = slab_calloc_int(cp);
+    debugf(DEBUG_DEFAULT, "\033[43;30m%s:%d: slab allocate %u = %p\033[0m\n", filename, line, cp->object_size, objp);
+    return objp;
+}
+
+void slab_free_trace(const char *filename, int line, struct slab_cache *cp, void *ptr) {
+    debugf(DEBUG_DEFAULT, "\033[44;32m%s:%d: slab free     %p (%u)\033[0m\n", filename, line, ptr, cp->object_size);
+    slab_free_int(cp, ptr);
+}
+
+#endif
