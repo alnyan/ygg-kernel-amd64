@@ -1,0 +1,4 @@
+#pragma once
+
+int sys_module_load(const char *path, const char *params);
+int sys_module_unload(const char *name);

@@ -456,6 +456,25 @@ int vfs_access(struct vfs_ioctx *ctx, const char *path, int accmode) {
     return vfs_access_node(ctx, node, accmode);
 }
 
+int vfs_fstat(struct vfs_ioctx *ctx, struct ofile *fd, struct stat *st) {
+    int res;
+
+    _assert(ctx);
+    _assert(fd);
+    _assert(!(fd->flags & OF_SOCKET));
+    _assert(st);
+
+    struct vnode *node = fd->file.vnode;
+
+    _assert(node);
+
+    if (!node->op || !node->op->stat) {
+        return -EINVAL;
+    }
+
+    return node->op->stat(node, st);
+}
+
 int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st) {
     struct vnode *node;
     int res;

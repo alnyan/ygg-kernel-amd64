@@ -52,6 +52,7 @@ int vfs_chown(struct vfs_ioctx *ctx, const char *path, uid_t uid, gid_t gid);
 int vfs_ioctl(struct vfs_ioctx *ctx, struct ofile *fd, unsigned int cmd, void *arg);
 
 int vfs_access(struct vfs_ioctx *ctx, const char *path, int accmode);
+int vfs_fstat(struct vfs_ioctx *ctx, struct ofile *fd, struct stat *st);
 int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st);
 int vfs_access_check(struct vfs_ioctx *ctx, int desm, mode_t mode, uid_t uid, gid_t gid);
 int vfs_access_node(struct vfs_ioctx *ctx, struct vnode *vn, int mode);

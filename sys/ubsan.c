@@ -2,8 +2,8 @@
 #include "sys/panic.h"
 #include "sys/debug.h"
 
-#define UBSAN_ABORT     1
-//#undef UBSAN_ABORT
+//#define UBSAN_ABORT     1
+#undef UBSAN_ABORT
 
 struct source_location {
     const char *file;
@@ -143,10 +143,6 @@ void __ubsan_handle_type_mismatch_v1(struct type_mismatch_info *type_mismatch,
                 Type_Check_Kinds[type_mismatch->type_check_kind], (void *) pointer,
                 type_mismatch->type->name);
         }
-        //log("Insufficient size");
-        //logf("%s address %p with insufficient space for object of type %s\n",
-        //     Type_Check_Kinds[type_mismatch->type_check_kind], (void *)pointer,
-        //     type_mismatch->type->name);
     }
 
     ubsan_abort(location, "type mismatch");

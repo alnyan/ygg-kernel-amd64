@@ -5,6 +5,7 @@
 #include "sys/spin.h"
 #include "sys/config.h"
 #include "sys/elf.h"
+#include "sys/assert.h"
 #include <stdint.h>
 
 #if defined(ARCH_AMD64)
@@ -24,6 +25,24 @@ void debug_symbol_table_set(uintptr_t s0, uintptr_t s1, size_t z0, size_t z1) {
     g_symtab_size = z0;
     g_strtab_ptr = s1;
     g_strtab_size = z1;
+}
+
+int debug_symbol_find_by_name(const char *name, uintptr_t *value) {
+    _assert(g_symtab_ptr && g_strtab_ptr);
+    Elf64_Sym *symtab = (Elf64_Sym *) g_symtab_ptr;
+    for (size_t i = 0; i < g_symtab_size / sizeof(Elf64_Sym); ++i) {
+        Elf64_Sym *sym = &symtab[i];
+        if (sym->st_name < g_strtab_size) {
+            const char *r_name = (const char *) g_strtab_ptr + sym->st_name;
+
+            if (!strcmp(r_name, name)) {
+                *value = sym->st_value;
+                return 0;
+            }
+        }
+    }
+
+    return -1;
 }
 
 int debug_symbol_find(uintptr_t addr, const char **name, uintptr_t *base) {

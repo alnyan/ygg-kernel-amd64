@@ -63,7 +63,8 @@ OBJS+=$(O)/sys/ubsan.o \
 	  $(O)/sys/font/default8x16.o \
 	  $(O)/sys/mem/shmem.o \
 	  $(O)/sys/mem/slab.o \
-	  $(O)/sys/wait.o
+	  $(O)/sys/wait.o \
+	  $(O)/sys/mod.o
 DIRS+=$(O)/sys \
 	  $(O)/sys/char \
 	  $(O)/sys/block \
