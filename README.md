@@ -3,8 +3,8 @@ Yggdrasil x86-64 kernel
 
 (I still need refactoring, huh.)
 
-Yggdrasil is the name for my kernel development project which 
-tries to follow the Unix principles (sheesh, yet another POSIX 
+Yggdrasil is the name for my kernel development project which
+tries to follow the Unix principles (yet another POSIX
 OS?) and is loosely inspired by stuff like Linux,
 BSD and other *nixes I've laid my hands on so far.
 
@@ -13,14 +13,7 @@ BSD and other *nixes I've laid my hands on so far.
 Building
 --------
 
-```Shell session
-    cp defconfig config
-    export ARCH=amd64
-    make
-```
-
-The results are build/sys/amd64/loader.elf (32-bit loader and for 64-bit kernel)
-and build/sys/amd64/kernel.elf (the kernel itself)
+See [Building Guide](doc/building.rst)
 
 What works
 ----------
