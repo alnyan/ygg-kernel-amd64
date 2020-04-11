@@ -3,6 +3,9 @@
 #include "arch/amd64/smp/smp.h"
 #endif
 #include "arch/amd64/cpu.h"
+#include "sys/mem/phys.h"
+#include "sys/thread.h"
+#include "sys/string.h"
 #include "sys/types.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
@@ -40,18 +43,92 @@ struct amd64_exception_frame {
     uint64_t rip, cs, rflags, rsp, ss;
 };
 
+int do_pfault(struct amd64_exception_frame *frame, uintptr_t cr2, uintptr_t cr3) {
+    mm_space_t space = (mm_space_t) MM_VIRTUALIZE(cr3);
+
+    if (!cr2) {
+        // Don't even try to resolve NULL references
+        return -1;
+    }
+
+    if (frame->cs == 0x23 && cr2 < KERNEL_VIRT_BASE) {
+        // Userspace fault
+        uint64_t flags;
+        uintptr_t phys = mm_map_get(space, cr2 & MM_PAGE_MASK, &flags);
+        struct thread *thr = thread_self;
+
+        if (phys != MM_NADDR) {
+            // If the exception was caused by write operation
+            if ((frame->exc_no & X86_PF_WRITE) &&               // Error was caused by write
+                (flags & MM_PAGE_USER) &&                       // Page is user-accessible
+                (!(flags & MM_PAGE_WRITE))) {                   // Page is not writable
+                struct page *page = PHYS2PAGE(phys);
+                _assert(page);
+                _assert(page->refcount);
+
+                if (page->refcount == 2) {
+                    kdebug("[%d] Cloning page @ %p\n", thr->pid, cr2 & MM_PAGE_MASK);
+                    uintptr_t new_phys = mm_phys_alloc_page();
+                    _assert(new_phys != MM_NADDR);
+                    memcpy((void *) MM_VIRTUALIZE(new_phys), (const void *) MM_VIRTUALIZE(phys), MM_PAGE_SIZE);
+                    _assert(mm_umap_single(space, cr2 & MM_PAGE_MASK, 1) == phys);
+                    _assert(mm_map_single(space, cr2 & MM_PAGE_MASK, new_phys, MM_PAGE_USER | MM_PAGE_WRITE) == 0);
+                } else if (page->refcount == 1) {
+                    kdebug("[%d] Only one referring to %p now, claiming ownership\n", thr->pid, cr2 & MM_PAGE_MASK);
+                    _assert(mm_umap_single(space, cr2 & MM_PAGE_MASK, 1) == phys);
+                    _assert(mm_map_single(space, cr2 & MM_PAGE_MASK, phys, MM_PAGE_USER | MM_PAGE_WRITE) == 0);
+                } else {
+                    panic("???\n");
+                }
+
+                return 0;
+            }
+        }
+
+        return -1;
+    } else {
+        // Kernel page faults are not resolvable
+        return -1;
+    }
+}
+
 void amd64_exception(struct amd64_exception_frame *frame) {
-    kfatal("Error\n");
-#if defined(AMD64_SMP)
-    // Send PANIC IPIs to all other CPUs
-    size_t cpu = get_cpu()->processor_id;
-    kfatal("cpu%u initiates panic sequence\n", cpu);
-    for (size_t i = 0; i < smp_ncpus; ++i) {
-        if (i != cpu) {
-            amd64_ipi_send(i, IPI_VECTOR_PANIC);
+    if (frame->exc_no == X86_EXCEPTION_PF) {
+        uintptr_t cr2, cr3;
+        asm volatile ("movq %%cr2, %0":"=r"(cr2));
+        asm volatile ("movq %%cr3, %0":"=r"(cr3));
+
+        if (do_pfault(frame, cr2, cr3) != 0) {
+            kfatal("Page fault without resolution:\n");
+            kfatal("%%cr3 = %p\n", cr3);
+            if (MM_VIRTUALIZE(cr3) == (uintptr_t) mm_kernel) {
+                kfatal("(Kernel)\n");
+            }
+            kfatal("Fault address: %p\n", cr2);
+
+            if (frame->exc_code & X86_PF_RESVD) {
+                kfatal(" - Page structure has reserved bit set\n");
+            }
+            if (frame->exc_code & X86_PF_EXEC) {
+                kfatal(" - Instruction fetch\n");
+            } else {
+                if (frame->exc_code & X86_PF_WRITE) {
+                    kfatal(" - Write operation\n");
+                } else {
+                    kfatal(" - Read operation\n");
+                }
+            }
+            if (!(frame->exc_code & X86_PF_PRESENT)) {
+                kfatal(" - Refers to non-present page\n");
+            }
+            if (frame->exc_code & X86_PF_USER) {
+                kfatal(" - Userspace\n");
+            }
+        } else {
+            return;
         }
     }
-#endif
+
     // Dump frame
     kfatal("CPU raised exception #%u\n", frame->exc_no);
 
@@ -80,39 +157,6 @@ void amd64_exception(struct amd64_exception_frame *frame) {
             (frame->rflags & X86_FLAGS_OF) ? 'O' : '-',
             (frame->rflags & X86_FLAGS_IF) ? 'I' : '-',
             (frame->rflags & X86_FLAGS_TF) ? 'T' : '-');
-
-    if (frame->exc_no == X86_EXCEPTION_PF) {
-        uintptr_t cr2, cr3;
-        asm volatile ("movq %%cr2, %0":"=r"(cr2));
-        asm volatile ("movq %%cr3, %0":"=r"(cr3));
-
-        kfatal("Page fault info:\n");
-        kfatal("%%cr3 = %p\n", cr3);
-        if (MM_VIRTUALIZE(cr3) == (uintptr_t) mm_kernel) {
-            kfatal("(Kernel)\n");
-        }
-        kfatal("Fault address: %p\n", cr2);
-
-        if (frame->exc_code & X86_PF_RESVD) {
-            kfatal(" - Page structure has reserved bit set\n");
-        }
-        if (frame->exc_code & X86_PF_EXEC) {
-            kfatal(" - Instruction fetch\n");
-        } else {
-            if (frame->exc_code & X86_PF_WRITE) {
-                kfatal(" - Write operation\n");
-            } else {
-                kfatal(" - Read operation\n");
-            }
-        }
-        if (!(frame->exc_code & X86_PF_PRESENT)) {
-            kfatal(" - Refers to non-present page\n");
-        }
-        if (frame->exc_code & X86_PF_USER) {
-            kfatal(" - Userspace\n");
-        }
-    }
-
     uintptr_t sym_base;
     const char *sym_name;
     if (debug_symbol_find(frame->rip, &sym_name, &sym_base) == 0) {
@@ -122,6 +166,17 @@ void amd64_exception(struct amd64_exception_frame *frame) {
     } else {
         kfatal("%rip is in unknown location\n");
     }
+
+#if defined(AMD64_SMP)
+    // Send PANIC IPIs to all other CPUs
+    size_t cpu = get_cpu()->processor_id;
+    kfatal("cpu%u initiates panic sequence\n", cpu);
+    for (size_t i = 0; i < smp_ncpus; ++i) {
+        if (i != cpu) {
+            amd64_ipi_send(i, IPI_VECTOR_PANIC);
+        }
+    }
+#endif
 
     while (1) {
         asm volatile ("cli; hlt");

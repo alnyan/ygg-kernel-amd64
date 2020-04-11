@@ -59,6 +59,10 @@ uintptr_t mm_map_get(const mm_space_t pml4, uintptr_t vaddr, uint64_t *flags) {
         return MM_NADDR;
     }
 
+    if (flags) {
+        *flags = pt[pti] & MM_PTE_FLAGS_MASK;
+    }
+
     return (pt[pti] & MM_PTE_MASK) | (vaddr & MM_PAGE_OFFSET_MASK);
 }
 
@@ -117,6 +121,10 @@ uintptr_t mm_umap_single(mm_space_t pml4, uintptr_t vaddr, uint32_t size) {
     pt[pti] = 0;
 
     asm volatile("invlpg (%0)"::"r"(vaddr));
+    struct page *page = PHYS2PAGE(old);
+    _assert(page);
+    _assert(page->refcount);
+    --page->refcount;
 
     return old;
 }
@@ -187,6 +195,11 @@ int mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t
             (flags & MM_PAGE_GLOBAL) ? 'G' : '-');
 #endif
 
+    // Increase refcount on physical page
+    struct page *pg = PHYS2PAGE(phys);
+    _assert(pg);
+    ++pg->refcount;
+
     pt[pti] = (phys & MM_PAGE_MASK) |
               (flags & MM_PTE_FLAGS_MASK) |
               MM_PAGE_PRESENT;
@@ -195,18 +208,6 @@ int mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t
 
     return 0;
 }
-
-//int mm_map_pages_contiguous(mm_space_t pml4, uintptr_t virt_base, uintptr_t phys_base, size_t count, uint32_t flags) {
-//    for (size_t i = 0; i < count; ++i) {
-//        uintptr_t virt_addr = virt_base + i * MM_PAGE_SIZE;
-//
-//        if (amd64_map_single(pml4, virt_addr, phys_base + i * MM_PAGE_SIZE, flags) != 0) {
-//            return -1;
-//        }
-//    }
-//
-//    return 0;
-//}
 
 int mm_space_clone(mm_space_t dst_pml4, const mm_space_t src_pml4, uint32_t flags) {
     if ((flags & MM_CLONE_FLG_USER)) {
@@ -230,8 +231,6 @@ int mm_space_fork(struct thread *dst, const struct thread *src, uint32_t flags) 
     const mm_pml4_t src_pml4 = src->space;
 
     if (flags & MM_CLONE_FLG_USER) {
-        // Copy user pages:
-        // TODO: CoW
         for (size_t pml4i = 0; pml4i < AMD64_PML4I_USER_END; ++pml4i) {
             if (!(src_pml4[pml4i] & MM_PAGE_PRESENT)) {
                 continue;
@@ -286,28 +285,28 @@ int mm_space_fork(struct thread *dst, const struct thread *src, uint32_t flags) 
                                                   (pdpti << MM_PDPTI_SHIFT) |
                                                   (pdi << MM_PDI_SHIFT) |
                                                   (pti << MM_PTI_SHIFT);
+                        uintptr_t src_page_phys = src_pt[pti] & MM_PTE_MASK;
+                        struct page *src_page = PHYS2PAGE(src_page_phys);
 
-                        if (!shm_region_find((struct thread *) src, src_page_virt)) {
-                            uintptr_t src_page_phys = src_pt[pti] & MM_PTE_MASK;
-                            uintptr_t dst_page_phys = mm_phys_alloc_page(); //amd64_phys_alloc_page();
-                            _assert(dst_page_phys != MM_NADDR);
+                        // TODO: differentiate between shared and anonymous mappings
+                        _assert(src_page->refcount);
+                        ++src_page->refcount;
 
-                            // SLOOOOOW UUUSEE COOOOW
-                            kdebug("Cloning %p <- %p\n", dst_page_phys, src_page_phys);
-                            memcpy((void *) MM_VIRTUALIZE(dst_page_phys),
-                                   (const void *) MM_VIRTUALIZE(src_page_phys),
-                                   MM_PAGE_SIZE);
-
-                            dst_pt[pti] = dst_page_phys | (src_pt[pti] & MM_PTE_FLAGS_MASK);
+                        if (src_pt[pti] & MM_PAGE_WRITE) {
+                            // Clone the mapping, use CoW
+                            uint64_t access = src_pt[pti] & (MM_PTE_FLAGS_MASK & ~MM_PAGE_WRITE);
+                            dst_pt[pti] = src_page_phys | access;
+                            src_pt[pti] &= ~MM_PAGE_WRITE;
+                            asm volatile("invlpg (%0)"::"r"(src_page_virt));
+                        } else {
+                            // Just clone the mapping - it's readonly
+                            dst_pt[pti] = src_page_phys | (src_pt[pti] & MM_PTE_FLAGS_MASK);
                         }
                     }
                 }
             }
         }
     }
-
-    kdebug("Forking shared memory:\n");
-    shm_space_fork(dst, (struct thread *) src);
 
     // Kernel pages don't need to be copied - just use mm_space_clone(, , MM_CLONE_FLG_KERNEL)
     return mm_space_clone(dst_pml4, src_pml4, MM_CLONE_FLG_KERNEL & flags);
@@ -342,13 +341,12 @@ void mm_space_release(struct thread *thr) {
                         continue;
                     }
 
-                    uintptr_t page_virt = (pml4i << MM_PML4I_SHIFT) |
-                                          (pdpti << MM_PDPTI_SHIFT) |
-                                          (pdi << MM_PDI_SHIFT) |
-                                          (pti << MM_PTI_SHIFT);
+                    uintptr_t page_phys = pt[pti] & MM_PTE_MASK;
+                    struct page *page = PHYS2PAGE(page_phys);
+                    _assert(page->refcount);
+                    --page->refcount;
 
-                    if (!shm_region_find(thr, page_virt)) {
-                        uintptr_t page_phys = pt[pti] & MM_PTE_MASK;
+                    if (!page->refcount) {
                         mm_phys_free_page(page_phys);
                     }
                 }
@@ -363,9 +361,6 @@ void mm_space_release(struct thread *thr) {
 
         pml4[pml4i] = 0;
     }
-
-    kdebug("Releasing shared memory:\n");
-    shm_region_release_all(thr, 1);
 }
 
 void mm_space_free(struct thread *thr) {
