@@ -22,7 +22,7 @@
 #define AHCI_CMD_LIST_SIZE              32
 #define AHCI_CMD_TABLE_ENTSZ            256
 
-#define AHCI_PORT_IS_TFES               (1 << 30)
+#define AHCI_PORT_IS_TFES               (1U << 30)
 
 #define AHCI_PORT_SSTS_IPM_ACTIVE       0x01
 #define AHCI_PORT_SSTS_DET_CONNECTED    0x03
@@ -333,7 +333,7 @@ static int ahci_port_atapi_read(struct ahci_port *port, uint64_t lba, void *buf,
 
         if (i == prd_count - 1) {
             // Mark last PRDT entry
-            table_entry->prdt[i].dbc |= 1 << 31;
+            table_entry->prdt[i].dbc |= 1U << 31;
         }
 
         bytes_left -= prd_size;
