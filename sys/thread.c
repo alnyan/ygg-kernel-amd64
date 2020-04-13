@@ -242,7 +242,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
         thr->data.cr3 = MM_PHYS(space);
         thr->space = space;
 
-        uintptr_t ustack_base = vmalloc(space, 0x1000000, 0xF0000000, 4, MM_PAGE_WRITE | MM_PAGE_USER);
+        uintptr_t ustack_base = vmalloc(space, 0x1000000, 0xF0000000, 4, MM_PAGE_WRITE | MM_PAGE_USER, PU_PRIVATE);
         thr->data.rsp3_base = ustack_base;
         thr->data.rsp3_size = MM_PAGE_SIZE * 4;
 
@@ -589,7 +589,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     uintptr_t argp_virt = vmfind(thr->space, 0x100000, 0xF0000000, 1);
     _assert(argp_virt != MM_NADDR);
     // Map it as non-writable user-accessable
-    _assert(mm_map_single(thr->space, argp_virt, argp_phys, MM_PAGE_USER | MM_PAGE_WRITE) == 0);
+    _assert(mm_map_single(thr->space, argp_virt, argp_phys, MM_PAGE_USER | MM_PAGE_WRITE, PU_PRIVATE) == 0);
     // Fix up the pointers
     uintptr_t *argp_fixup = (uintptr_t *) MM_VIRTUALIZE(argp_phys);
     for (size_t i = 0; i < argc; ++i) {
@@ -600,7 +600,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     thr->data.rsp0 = thr->data.rsp0_top;
 
     // Allocate a new user stack
-    uintptr_t ustack = vmalloc(thr->space, 0x100000, 0xF0000000, 4, MM_PAGE_USER | MM_PAGE_WRITE /* | MM_PAGE_NOEXEC */);
+    uintptr_t ustack = vmalloc(thr->space, 0x100000, 0xF0000000, 4, MM_PAGE_USER | MM_PAGE_WRITE /* | MM_PAGE_NOEXEC */, PU_PRIVATE);
     thr->data.rsp3_base = ustack;
     thr->data.rsp3_size = 4 * MM_PAGE_SIZE;
 

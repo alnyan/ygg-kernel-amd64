@@ -21,6 +21,7 @@ struct page {
         PU_UNKNOWN = 0,
         PU_PRIVATE,             // Program data: image + mmap()ed anonymous regions
         PU_SHARED,              // Shared memory mapping
+        PU_KERNEL,              // Not a userspace page
     } usage;
     size_t refcount;
 };

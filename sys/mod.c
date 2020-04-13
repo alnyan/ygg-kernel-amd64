@@ -53,7 +53,7 @@ static int elf_map_section(mm_space_t space, uintptr_t base, uintptr_t addr, siz
             uintptr_t phys = mm_phys_alloc_page();
             _assert(phys != MM_NADDR);
             kdebug("%p: mapping to %p\n", virt, phys);
-            _assert(mm_map_single(space, virt, phys, MM_PAGE_WRITE | MM_PAGE_GLOBAL) == 0);
+            _assert(mm_map_single(space, virt, phys, MM_PAGE_WRITE | MM_PAGE_GLOBAL, PU_KERNEL) == 0);
         } else {
             kdebug("%p: already mapped\n", virt);
         }

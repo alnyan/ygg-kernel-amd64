@@ -31,7 +31,7 @@ static int elf_map_section(mm_space_t space, uintptr_t vma_dst, size_t size) {
             // Allocation needed
             assert((page_phys = mm_phys_alloc_page()) != MM_NADDR,
                     "Failed to allocate memory\n");
-            assert(mm_map_single(space, page_aligned + i * MM_PAGE_SIZE, page_phys, MM_PAGE_USER | MM_PAGE_WRITE) == 0,
+            assert(mm_map_single(space, page_aligned + i * MM_PAGE_SIZE, page_phys, MM_PAGE_USER | MM_PAGE_WRITE, PU_PRIVATE) == 0,
                     "Failed to map memory\n");
         } else {
             kdebug("%p = %p (already)\n", page_aligned + i * MM_PAGE_SIZE, page_phys);

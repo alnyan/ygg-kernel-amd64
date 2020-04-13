@@ -26,7 +26,7 @@ no_match:
     return MM_NADDR;
 }
 
-uintptr_t vmalloc(mm_space_t pml4, uintptr_t from, uintptr_t to, size_t npages, uint64_t flags) {
+uintptr_t vmalloc(mm_space_t pml4, uintptr_t from, uintptr_t to, size_t npages, uint64_t flags, int usage) {
     uintptr_t addr = vmfind(pml4, from, to, npages);
     uintptr_t virt_page, phys_page;
     uint64_t rflags = flags & (MM_PAGE_USER | MM_PAGE_WRITE | MM_PAGE_NOEXEC);
@@ -56,7 +56,7 @@ uintptr_t vmalloc(mm_space_t pml4, uintptr_t from, uintptr_t to, size_t npages, 
         }
 
         // Succeeded, map the page
-        assert(mm_map_single(pml4, virt_page, phys_page, rflags) == 0, "Failed to map page: %p\n", virt_page);
+        assert(mm_map_single(pml4, virt_page, phys_page, rflags, usage) == 0, "Failed to map page: %p\n", virt_page);
     }
 
     return addr;

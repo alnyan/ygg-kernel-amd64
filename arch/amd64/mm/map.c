@@ -129,7 +129,7 @@ uintptr_t mm_umap_single(mm_space_t pml4, uintptr_t vaddr, uint32_t size) {
     return old;
 }
 
-int mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t flags) {
+int mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t flags, int usage) {
     virt_addr = AMD64_MM_STRIPSX(virt_addr);
     // TODO: support page sizes other than 4KiB
     // (Though I can't think of any reason to use it)
@@ -199,6 +199,7 @@ int mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t
     struct page *pg = PHYS2PAGE(phys);
     _assert(pg);
     ++pg->refcount;
+    pg->usage = usage;
 
     pt[pti] = (phys & MM_PAGE_MASK) |
               (flags & MM_PTE_FLAGS_MASK) |
@@ -288,11 +289,10 @@ int mm_space_fork(struct thread *dst, const struct thread *src, uint32_t flags) 
                         uintptr_t src_page_phys = src_pt[pti] & MM_PTE_MASK;
                         struct page *src_page = PHYS2PAGE(src_page_phys);
 
-                        // TODO: differentiate between shared and anonymous mappings
                         _assert(src_page->refcount);
                         ++src_page->refcount;
 
-                        if (src_pt[pti] & MM_PAGE_WRITE) {
+                        if ((src_pt[pti] & MM_PAGE_WRITE) && src_page->usage == PU_PRIVATE) {
                             // Clone the mapping, use CoW
                             uint64_t access = src_pt[pti] & (MM_PTE_FLAGS_MASK & ~MM_PAGE_WRITE);
                             dst_pt[pti] = src_page_phys | access;
@@ -346,6 +346,7 @@ void mm_space_release(struct thread *thr) {
                     _assert(page->refcount);
                     --page->refcount;
 
+                    // Any page with zero refcount can be released
                     if (!page->refcount) {
                         mm_phys_free_page(page_phys);
                     }

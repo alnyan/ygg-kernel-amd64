@@ -66,17 +66,21 @@ int do_pfault(struct amd64_exception_frame *frame, uintptr_t cr2, uintptr_t cr3)
                 _assert(page);
                 _assert(page->refcount);
 
+                if (page->usage != PU_PRIVATE) {
+                    panic("Write to non-CoW page triggered a page fault\n");
+                }
+
                 if (page->refcount == 2) {
                     kdebug("[%d] Cloning page @ %p\n", thr->pid, cr2 & MM_PAGE_MASK);
                     uintptr_t new_phys = mm_phys_alloc_page();
                     _assert(new_phys != MM_NADDR);
                     memcpy((void *) MM_VIRTUALIZE(new_phys), (const void *) MM_VIRTUALIZE(phys), MM_PAGE_SIZE);
                     _assert(mm_umap_single(space, cr2 & MM_PAGE_MASK, 1) == phys);
-                    _assert(mm_map_single(space, cr2 & MM_PAGE_MASK, new_phys, MM_PAGE_USER | MM_PAGE_WRITE) == 0);
+                    _assert(mm_map_single(space, cr2 & MM_PAGE_MASK, new_phys, MM_PAGE_USER | MM_PAGE_WRITE, PU_PRIVATE) == 0);
                 } else if (page->refcount == 1) {
                     kdebug("[%d] Only one referring to %p now, claiming ownership\n", thr->pid, cr2 & MM_PAGE_MASK);
                     _assert(mm_umap_single(space, cr2 & MM_PAGE_MASK, 1) == phys);
-                    _assert(mm_map_single(space, cr2 & MM_PAGE_MASK, phys, MM_PAGE_USER | MM_PAGE_WRITE) == 0);
+                    _assert(mm_map_single(space, cr2 & MM_PAGE_MASK, phys, MM_PAGE_USER | MM_PAGE_WRITE, PU_PRIVATE) == 0);
                 } else {
                     panic("???\n");
                 }
