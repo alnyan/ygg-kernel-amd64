@@ -56,7 +56,6 @@ void amd64_mm_init(struct amd64_loader_data *data) {
                                                      MM_PAGE_WRITE;
     pml4[AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 39] = ((uintptr_t) pdpt) |
                                                      MM_PAGE_PRESENT |
-                                                     MM_PAGE_GLOBAL |
                                                      MM_PAGE_WRITE;
     for (uint64_t i = 0; i < 4; ++i) {
         kdebug("Mapping %p -> %p\n", KERNEL_VIRT_BASE | (i << 30), i << 30);
