@@ -8,7 +8,8 @@ ACPICA_OBJS=$(ACPICA_SRCS:%.c=$(O)/%.o)
 ACPICA_SRCD=$(shell find arch/amd64/acpica -type d)
 ACPICA_OBJD=$(ACPICA_SRCD:%=$(O)/%)
 
-OBJS+=$(ACPICA_OBJS) \
+OBJS+=$(O)/arch/amd64/entry64.o \
+	  $(ACPICA_OBJS) \
 	  $(O)/arch/amd64/acpi_osl_mem.o \
 	  $(O)/arch/amd64/acpi_osl_printf.o \
 	  $(O)/arch/amd64/acpi_osl_thread.o \
