@@ -445,3 +445,8 @@ void debug_dump(int level, const void *block, size_t count) {
         debugc(level, '\n');
     }
 }
+
+uintptr_t __stack_chk_guard = 0x8BAD1DEA6EA11743;
+__attribute__((noreturn)) void __stack_chk_fail(void) {
+    panic("Stack smashing detected\n");
+}
