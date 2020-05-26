@@ -2,7 +2,7 @@
  * amd64 kernel linker script
  */
 
-ENTRY(_start)
+ENTRY(_entry64)
 
 _kernel_base = 0xFFFFFF0000000000;
 /*

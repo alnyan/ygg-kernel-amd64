@@ -71,20 +71,21 @@ static void phys_add_page(size_t index) {
     _pages[index].refcount = 0;
 }
 
-void amd64_phys_memory_map(const multiboot_memory_map_t *mmap, size_t length) {
-    //kdebug("Kernel table pool ends @ %p\n", PHYS_ALLOWED_BEGIN);
+void amd64_phys_memory_map(const struct multiboot_tag_mmap *mmap) {
+    kdebug("Kernel table pool ends @ %p\n", PHYS_ALLOWED_BEGIN);
     kdebug("Memory map @ %p\n", mmap);
-    uintptr_t curr_item = (uintptr_t) mmap;
-    uintptr_t mmap_end = length + curr_item;
+
+    size_t item_offset = offsetof(struct multiboot_tag_mmap, entries);
 
     memset(_pages, 0xFF, sizeof(_pages));
     _total_pages = 0;
     _alloc_pages = 0;
 
     // Collect usable physical memory information
-    while (curr_item < mmap_end) {
-        const multiboot_memory_map_t *entry = (const multiboot_memory_map_t *) (curr_item);
-
+    while (item_offset < mmap->size) {
+        //const multiboot_memory_map_t *entry = (const multiboot_memory_map_t *) (curr_item);
+        const struct multiboot_mmap_entry *entry =
+            (const struct multiboot_mmap_entry *) ((uintptr_t) mmap + item_offset);
         uintptr_t page_aligned_begin = MAX((entry->addr + 0xFFF) & ~0xFFF, PHYS_ALLOWED_BEGIN);
         uintptr_t page_aligned_end = (entry->addr + entry->len) & ~0xFFF;
 
@@ -100,7 +101,7 @@ void amd64_phys_memory_map(const multiboot_memory_map_t *mmap, size_t length) {
             }
         }
 
-        curr_item += entry->size + sizeof(uint32_t);
+        item_offset += mmap->entry_size;
     }
 
     kdebug("%S available\n", _total_pages << 12);
