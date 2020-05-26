@@ -189,6 +189,23 @@ int sys_stat(const char *filename, struct stat *st) {
     return vfs_stat(&thr->ioctx, filename, st);
 }
 
+int sys_fstat(int fd, struct stat *st) {
+    struct thread *thr = get_cpu()->thread;
+    struct ofile *of;
+    _assert(thr);
+    _assert(st);
+
+    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+        return -EBADF;
+    }
+
+    if (!(of = thr->fds[fd])) {
+        return -EBADF;
+    }
+
+    return vfs_fstat(&thr->ioctx, of, st);
+}
+
 int sys_access(const char *path, int mode) {
     userptr_check(path);
     struct thread *thr = get_cpu()->thread;

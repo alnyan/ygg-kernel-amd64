@@ -5,6 +5,7 @@
 #define SYSCALL_NR_OPEN             2
 #define SYSCALL_NR_CLOSE            3
 #define SYSCALL_NR_STAT             4
+#define SYSCALL_NR_FSTAT            5
 #define SYSCALL_NR_LSEEK            8
 #define SYSCALL_NR_MMAP             9
 #define SYSCALL_NR_MUNMAP           11
