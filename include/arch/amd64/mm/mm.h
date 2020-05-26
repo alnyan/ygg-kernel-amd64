@@ -1,7 +1,6 @@
 /* vim: set ft=cpp.doxygen : */
 #pragma once
 #include <stdint.h>
-#include "arch/amd64/loader/data.h"
 
 /// The place where the kernel pages are virtually mapped to
 #define KERNEL_VIRT_BASE                    0xFFFFFF0000000000
@@ -62,4 +61,4 @@ typedef mm_pml4_t mm_space_t;
 /// Kernel memory space
 extern mm_space_t mm_kernel;
 
-void amd64_mm_init(struct amd64_loader_data *data);
+void amd64_mm_init(void);

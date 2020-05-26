@@ -1,5 +1,5 @@
 #pragma once
-#include "arch/amd64/loader/multiboot.h"
+#include "arch/amd64/multiboot2.h"
 #include "sys/types.h"
 #include <stdint.h>
 
@@ -9,7 +9,8 @@ struct amd64_phys_stat {
     size_t limit;
 };
 
-void amd64_phys_memory_map(const multiboot_memory_map_t *mmap, size_t length);
+void amd64_phys_memory_map(const struct multiboot_tag_mmap *mmap);
+//void amd64_phys_memory_map(const multiboot_memory_map_t *mmap, size_t length);
 
 //void amd64_phys_free(uintptr_t page);
 //uintptr_t amd64_phys_alloc_page(void);

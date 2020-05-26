@@ -1,10 +1,7 @@
 #pragma once
-#if defined(ARCH_AMD64)
-// For KERNEL_CMDLINE_MAX
-#include "arch/amd64/loader/data.h"
-#endif
-
 #include "sys/types.h"
+
+#define KERNEL_CMDLINE_MAX 256
 
 enum {
     CFG_ROOT = 1,

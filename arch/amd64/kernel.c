@@ -1,3 +1,4 @@
+#include "arch/amd64/multiboot2.h"
 #include "arch/amd64/hw/rs232.h"
 #include "arch/amd64/hw/vesa.h"
 #include "arch/amd64/hw/apic.h"
@@ -20,35 +21,81 @@
 #include "sys/panic.h"
 #include "sys/mm.h"
 
-static multiboot_info_t *multiboot_info;
+static uintptr_t multiboot_info_addr;
+static struct multiboot_tag_mmap    *multiboot_tag_mmap;
+static struct multiboot_tag_module  *multiboot_tag_initrd_module;
+static struct multiboot_tag_string  *multiboot_tag_cmdline;
+
+extern struct {
+    uint32_t eax, ebx;
+} __attribute__((packed)) multiboot_registers;
 
 static void amd64_make_random_seed(void) {
     random_init(15267 + system_time);
 }
 
-void kernel_early_init(struct amd64_loader_data *data) {
-    cpuid_init();
-    data = (struct amd64_loader_data *) MM_VIRTUALIZE(data);
-    multiboot_info = (multiboot_info_t *) MM_VIRTUALIZE(data->multiboot_info_ptr);
+void kernel_early_init(void) {
+    // Check Multiboot2 signature
+    if (multiboot_registers.eax != MULTIBOOT2_BOOTLOADER_MAGIC) {
+        panic("Invalid bootloader magic\n");
+    }
+    multiboot_info_addr = MM_VIRTUALIZE(multiboot_registers.ebx);
 
-    if (data->symtab_ptr) {
-        kinfo("Kernel symbol table at %p\n", MM_VIRTUALIZE(data->symtab_ptr));
-        debug_symbol_table_set(MM_VIRTUALIZE(data->symtab_ptr), MM_VIRTUALIZE(data->strtab_ptr), data->symtab_size, data->strtab_size);
+    // Find all requested tags
+    uint32_t multiboot_len = *(uint32_t *) multiboot_info_addr;
+    size_t offset = 8; // Skip 2 fields
+    while (offset < multiboot_len) {
+        struct multiboot_tag *tag = (struct multiboot_tag *) (multiboot_info_addr + offset);
+
+        if (tag->type == 0) {
+            break;
+        }
+
+        switch (tag->type) {
+        case MULTIBOOT_TAG_TYPE_CMDLINE:
+            multiboot_tag_cmdline = (struct multiboot_tag_string *) tag;
+            break;
+        case MULTIBOOT_TAG_TYPE_MMAP:
+            multiboot_tag_mmap = (struct multiboot_tag_mmap *) tag;
+            break;
+        case MULTIBOOT_TAG_TYPE_MODULE:
+            multiboot_tag_initrd_module = (struct multiboot_tag_module *) tag;
+            break;
+        default:
+            kdebug("tag.type = %u, tag.size = %u\n", tag->type, tag->size);
+            break;
+        }
+
+        offset += (tag->size + 7) & ~7;
     }
 
-    // Parse kernel command line
-    kernel_set_cmdline(data->cmdline);
+    if (!multiboot_tag_mmap) {
+        panic("Multiboot2 loader provided no memory map\n");
+    }
+
+    cpuid_init();
+
+    // TODO: use "ELF symbols" tag to get this info
+    //if (data->symtab_ptr) {
+    //    kinfo("Kernel symbol table at %p\n", MM_VIRTUALIZE(data->symtab_ptr));
+    //    debug_symbol_table_set(MM_VIRTUALIZE(data->symtab_ptr), MM_VIRTUALIZE(data->strtab_ptr), data->symtab_size, data->strtab_size);
+    //}
+
+    if (multiboot_tag_cmdline) {
+        // Set kernel command line
+        kinfo("Provided command line: \"%s\"\n", multiboot_tag_cmdline->string);
+        kernel_set_cmdline(multiboot_tag_cmdline->string);
+    }
 
     // Reinitialize RS232 properly
     rs232_init(RS232_COM1);
     ps2_init();
 
-    amd64_phys_memory_map((multiboot_memory_map_t *) MM_VIRTUALIZE(multiboot_info->mmap_addr),
-                          multiboot_info->mmap_length);
+    amd64_phys_memory_map(multiboot_tag_mmap);
 
     amd64_gdt_init();
     amd64_idt_init(0);
-    amd64_mm_init(data);
+    amd64_mm_init();
 
     ps2_register_device();
 
@@ -71,9 +118,10 @@ void kernel_early_init(struct amd64_loader_data *data) {
         t.tm_year, t.tm_mon, t.tm_mday,
         t.tm_hour, t.tm_min, t.tm_sec);
 
-    if (data->initrd_ptr) {
+    if (multiboot_tag_initrd_module) {
         // Create ram0 block device
-        ramblk_init(MM_VIRTUALIZE(data->initrd_ptr), data->initrd_len);
+        ramblk_init(MM_VIRTUALIZE(multiboot_tag_initrd_module->mod_start),
+                    multiboot_tag_initrd_module->mod_end - multiboot_tag_initrd_module->mod_start);
     }
 
     amd64_make_random_seed();
@@ -85,7 +133,7 @@ void kernel_early_init(struct amd64_loader_data *data) {
 #endif
 }
 
-void kernel_main(struct amd64_loader_data *data) {
-    kernel_early_init(data);
+void kernel_main(void) {
+    kernel_early_init();
     main();
 }
