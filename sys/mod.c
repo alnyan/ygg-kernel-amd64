@@ -2,6 +2,7 @@
 #include "arch/amd64/cpu.h"
 #include "sys/mem/phys.h"
 #include "sys/mem/slab.h"
+#include "sys/snprintf.h"
 #include "user/module.h"
 #include "user/errno.h"
 #include "sys/string.h"
@@ -10,6 +11,7 @@
 #include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
+#include "fs/sysfs.h"
 #include "sys/heap.h"
 #include "fs/ofile.h"
 #include "sys/elf.h"
@@ -23,8 +25,14 @@
 #define MOD_EXIT_SYM                "_mod_exit"
 #define MOD_DESC_SYM                "_mod_desc"
 
+enum module_state {
+    MOD_ACTIVE,
+    MOD_ERROR
+};
+
 struct module {
     struct list_head list;
+    enum module_state state;
 
     int (*entry_func) (void);
     void (*exit_func) (void);
@@ -105,6 +113,7 @@ static int elf_sym_get(void *image, uintptr_t base, Elf64_Shdr *shdrs, size_t ta
 #define R_X86_64_64             1
 #define R_X86_64_PC32           2
 #define R_X86_64_PLT32          4
+#define R_X86_64_32             10
 
 static int elf_rela_apply(void *image, uintptr_t base, Elf64_Shdr *shdrs, Elf64_Shdr *shdr_relatab) {
     Elf64_Rela *relatab = image + shdr_relatab->sh_offset;
@@ -434,5 +443,17 @@ int sys_module_load(const char *path, const char *params) {
 
     kdebug("Loaded %s\n", mod->desc->name);
 
+    return 0;
+}
+
+int mod_list(void *ctx, char *buf, size_t lim) {
+    struct module *mod;
+    list_for_each_entry(mod, &module_list, list) {
+        sysfs_buf_printf(buf, lim, "%s %s %p %u\n",
+                mod->desc->name,
+                mod->state == MOD_ACTIVE ? "active" : "error",
+                mod->base,
+                mod->page_count);
+    }
     return 0;
 }

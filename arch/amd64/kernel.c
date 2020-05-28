@@ -17,14 +17,17 @@
 #include "sys/config.h"
 #include "sys/kernel.h"
 #include "sys/random.h"
+#include "sys/string.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
+#include "sys/elf.h"
 #include "sys/mm.h"
 
 static uintptr_t multiboot_info_addr;
-static struct multiboot_tag_mmap    *multiboot_tag_mmap;
-static struct multiboot_tag_module  *multiboot_tag_initrd_module;
-static struct multiboot_tag_string  *multiboot_tag_cmdline;
+static struct multiboot_tag_mmap         *multiboot_tag_mmap;
+static struct multiboot_tag_module       *multiboot_tag_initrd_module;
+static struct multiboot_tag_elf_sections *multiboot_tag_sections;
+static struct multiboot_tag_string       *multiboot_tag_cmdline;
 
 extern struct {
     uint32_t eax, ebx;
@@ -55,6 +58,9 @@ void kernel_early_init(void) {
         case MULTIBOOT_TAG_TYPE_CMDLINE:
             multiboot_tag_cmdline = (struct multiboot_tag_string *) tag;
             break;
+        case MULTIBOOT_TAG_TYPE_ELF_SECTIONS:
+            multiboot_tag_sections = (struct multiboot_tag_elf_sections *) tag;
+            break;
         case MULTIBOOT_TAG_TYPE_MMAP:
             multiboot_tag_mmap = (struct multiboot_tag_mmap *) tag;
             break;
@@ -75,11 +81,45 @@ void kernel_early_init(void) {
 
     cpuid_init();
 
-    // TODO: use "ELF symbols" tag to get this info
-    //if (data->symtab_ptr) {
-    //    kinfo("Kernel symbol table at %p\n", MM_VIRTUALIZE(data->symtab_ptr));
-    //    debug_symbol_table_set(MM_VIRTUALIZE(data->symtab_ptr), MM_VIRTUALIZE(data->strtab_ptr), data->symtab_size, data->strtab_size);
-    //}
+    if (multiboot_tag_sections) {
+        kinfo("Loading kernel symbols\n");
+        kinfo("%u section headers:\n", multiboot_tag_sections->num);
+        size_t string_section_offset = multiboot_tag_sections->shndx * multiboot_tag_sections->entsize;
+        Elf64_Shdr *string_section_hdr = (Elf64_Shdr *) &multiboot_tag_sections->sections[string_section_offset];
+        const char *shstrtab = (const char *) MM_VIRTUALIZE(string_section_hdr->sh_addr);
+        Elf64_Shdr *symtab_shdr = NULL, *strtab_shdr = NULL;
+
+        for (size_t i = 0; i < multiboot_tag_sections->num; ++i) {
+            Elf64_Shdr *shdr = (Elf64_Shdr *) &multiboot_tag_sections->sections[i * multiboot_tag_sections->entsize];
+            const char *name = &shstrtab[shdr->sh_name];
+            switch (shdr->sh_type) {
+            case SHT_SYMTAB:
+                if (symtab_shdr) {
+                    panic("Kernel image has 2+ symbol tables\n");
+                }
+                symtab_shdr = shdr;
+                break;
+            case SHT_STRTAB:
+                if (strcmp(name, ".strtab")) {
+                    break;
+                }
+                if (strtab_shdr) {
+                    panic("kernel image has 2+ string tables\n");
+                }
+                strtab_shdr = shdr;
+                break;
+            default:
+                break;
+            }
+        }
+
+        if (symtab_shdr && strtab_shdr) {
+            uintptr_t symtab_ptr = MM_VIRTUALIZE(symtab_shdr->sh_addr);
+            uintptr_t strtab_ptr = MM_VIRTUALIZE(strtab_shdr->sh_addr);
+
+            debug_symbol_table_set(symtab_ptr, strtab_ptr, symtab_shdr->sh_size, strtab_shdr->sh_size);
+        }
+    }
 
     if (multiboot_tag_cmdline) {
         // Set kernel command line
@@ -107,6 +147,10 @@ void kernel_early_init(void) {
 
     // Print kernel version now
     kinfo("yggdrasil " KERNEL_VERSION_STR "\n");
+
+    if (!multiboot_tag_sections) {
+        kwarn("No ELF sections provided, module loading is unavailable\n");
+    }
 
     amd64_apic_init();
     rtc_init();

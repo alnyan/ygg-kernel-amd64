@@ -19,7 +19,6 @@
 _entry64:
 .code32
     cli
-
     // Store multiboot info before doing anything
     leal (multiboot_registers - 0xFFFFFF0000000000), %edi
     movl %eax, 0(%edi)
@@ -54,7 +53,6 @@ _entry64:
     // Setup PDPT
     movl $0x1FE000, %edi
     movl $0, %ecx
-.setup_pdpt_loop:
 1:
     // PDPT[i] = (i << 30) | write | present | huge | global
     movl %ecx, %edx

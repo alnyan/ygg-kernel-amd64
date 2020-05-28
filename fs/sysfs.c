@@ -12,6 +12,7 @@
 #include "sys/thread.h"
 #include "sys/mem/slab.h"
 #include "fs/fs.h"
+#include "sys/mod.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
 #include "sys/attr.h"
@@ -154,7 +155,7 @@ int sysfs_config_getter(void *ctx, char *buf, size_t lim) {
 
 int sysfs_config_int64_getter(void *ctx, char *buf, size_t lim) {
     // TODO: long format for snprintf
-    //sysfs_buf_printf(buf, lim, "%d\n", *(int *) ctx);
+    sysfs_buf_printf(buf, lim, "%d\n", *(int *) ctx);
     return 0;
 }
 
@@ -265,6 +266,8 @@ void sysfs_populate(void) {
 
     sysfs_add_config_endpoint("self.pid", SYSFS_MODE_DEFAULT, 16, (void *) PROC_PROP_PID, proc_property_getter, NULL);
     sysfs_add_config_endpoint("self.name", SYSFS_MODE_DEFAULT, 128, (void *) PROC_PROP_NAME, proc_property_getter, NULL);
+
+    sysfs_add_config_endpoint("modules", SYSFS_MODE_DEFAULT, 512, NULL, mod_list, NULL);
 }
 
 static void __init sysfs_class_init(void) {
