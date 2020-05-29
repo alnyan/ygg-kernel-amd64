@@ -7,6 +7,7 @@ extern struct chrdev *g_keyboard_tty;
 #define INPUT_MOD_CONTROL   (1 << 0)
 #define INPUT_MOD_SHIFT     (1 << 1)
 #define INPUT_MOD_CAPS      (1 << 2)
+#define INPUT_MOD_ALT       (1 << 3)
 
 #define INPUT_KEY_LEFT      0x80
 #define INPUT_KEY_RIGHT     0x81

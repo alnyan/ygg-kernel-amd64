@@ -19,6 +19,11 @@
 #define PS2_KEY_LCTRL_DOWN      0x1D
 #define PS2_KEY_LCTRL_UP        0x9D
 
+#define PS2_KEY_LALT_DOWN       0x38
+#define PS2_KEY_RALT_DOWN       0x38
+#define PS2_KEY_LALT_UP         0xB8
+#define PS2_KEY_RALT_UP         0xB8
+
 #define PS2_KEY_CAPS_LOCK_DOWN  0x3A
 
 // Mouse stuff
@@ -113,9 +118,14 @@ uint32_t ps2_irq_keyboard(void *ctx) {
     if (key == PS2_KEY_LCTRL_UP) {
         ps2_kbd_mods &= ~INPUT_MOD_CONTROL;
     }
-
     if (key == PS2_KEY_CAPS_LOCK_DOWN) {
         ps2_kbd_mods ^= INPUT_MOD_CAPS;
+    }
+    if (key == PS2_KEY_LALT_DOWN || key == PS2_KEY_RALT_DOWN) {
+        ps2_kbd_mods |= INPUT_MOD_ALT;
+    }
+    if (key == PS2_KEY_LALT_UP || key == PS2_KEY_RALT_UP) {
+        ps2_kbd_mods &= ~INPUT_MOD_ALT;
     }
 
     if (!(key & 0x80)) {

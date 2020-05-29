@@ -70,6 +70,7 @@ void input_key(uint8_t key, uint8_t mods, const char *map0, const char *map1) {
 
         switch (c) {
         case 'c':
+        case '.':
         case 'd':
             tty_control_write(g_keyboard_tty, c);
             break;

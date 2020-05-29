@@ -18,9 +18,14 @@
 
 extern void syscall_entry(void);
 
-static void sys_debug_trace(const char *msg, uintptr_t v0, uintptr_t v1) {
-    userptr_check(msg);
-    kdebug("trace@%d: %s, %p, %p\n", thread_self->pid, msg, v0, v1);
+static void sys_debug_trace(const char *fmt, ...) {
+    struct thread *thr = thread_self;
+    va_list args;
+    userptr_check(fmt);
+    debugf(DEBUG_DEFAULT, "[%2u] ", thr->pid);
+    va_start(args, fmt);
+    debugfv(DEBUG_DEFAULT, fmt, args);
+    va_end(args);
 }
 
 void *syscall_table[256] = {
