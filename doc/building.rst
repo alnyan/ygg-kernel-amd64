@@ -33,7 +33,7 @@ Get the kernel sources:
 
 .. code-block:: shell
 
-    git clone https://git.alnyan.me/alnyan/yggdrasil.git
+    git clone https://git.alnyan.me/yggdrasil/kernel
     cd yggdrasil
     # This is recommended
     git checkout dev
@@ -42,7 +42,7 @@ Get the userspace sources:
 
 .. code-block:: shell
 
-    git clone https://git.alnyan.me/alnyan/ygg-userspace.git
+    git clone https://git.alnyan.me/yggdrasil/userspace
     cd ygg-userspace
     # This is recommended
     git checkout dev
@@ -64,7 +64,7 @@ Get yggdrasil-newlib sources:
 
 .. code-block:: shell
 
-    git clone https://git.alnyan.me/alnyan/newlib-yggdrasil.git
+    git clone https://git.alnyan.me/yggdrasil/newlib
     cd newlib-yggdrasil
     # Make sure to check out "yggdrasil" branch
     git checkout yggdrasil
@@ -149,43 +149,6 @@ install "stage 1" GCC:
 
 I'd suggest a coffebreak now, these commands are going to take much time.
 
-**Optionally**, you may also want to build a 32-bit (i686-elf) cross-compiler
-for building the bootloader stub in the kernel. This doesn't require any patching,
-just run the following command to build it from the same sources you've cloned
-for building binutils and GCC in previous stages:
-
-.. code-block:: shell
-
-    # In your "main" directory
-    mkdir binutils-build-32
-    cd binutils-build-32
-    <binutils sources>/configure \
-        --target=i686-elf \
-        --disable-nls \
-        --with-sysroot \
-        --prefix=<32-bit toolchain prefix>
-    make && make install
-
-    # In some "main" directory again
-    mkdir gcc-build-32
-    cd gcc-build-32
-    <gcc sources>/configure \
-        --target=i686-elf \
-        --disable-nls \
-        --without-headers \
-        --enable-languages=c,c++ \
-        --prefix=<32-bit toolchain prefix>
-    make all-gcc && make all-target-libgcc && \
-        make install-gcc && make install-target-libgcc
-
-Again, this is going to take a while.
-
-.. note
-
-    While it's not necessary to build this 32-bit toolchain, it's considered
-    to be a good practive when cross-compiling for bare-metal environment.
-    See `osdev wiki page <https://wiki.osdev.org/GCC_Cross-Compiler>`_.
-
 3. Building the kernel
 ----------------------
 
@@ -198,10 +161,6 @@ setup when working with the toolchain:
     export KERNEL_DIR=<yggdrasil sources>
     export PATH="<toolchain prefix>/bin:$PATH"
     export INSTALL_HDR=<toolchain prefix>/x86_64-elf-yggdrasil/include
-
-    # Uncomment the "####" line to use your system's compiler (assuming x86/x86-64)
-    # in case you've decided not to build i686-elf- toolchain for cross-compiling
-    #### export CC86="gcc -m32"
 
 The kernel is then built using ``make`` command, but first you'll need to provide a
 config file for it (just copy ``defconfig``):
@@ -220,11 +179,9 @@ to make an ISO image with grub:
     mkdir -p image/boot/grub
     cat >image/boot/grub/grub.cfg <<EOF
     menuentry "yggdrasil" {
-        multiboot /boot/loader
-        module /boot/kernel kernel
+        multiboot2 /boot/kernel
     }
     EOF
-    cp <kernel sources>/build/loader.elf image/boot/loader
     cp <kernel sources>/build/kernel.elf image/boot/kernel
     grub-mkrescue -o image.iso image
 
