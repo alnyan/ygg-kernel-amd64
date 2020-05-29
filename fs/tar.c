@@ -598,12 +598,14 @@ static off_t tarfs_vnode_lseek(struct ofile *fd, off_t offset, int whence) {
 }
 
 static int tarfs_vnode_chmod(struct vnode *node, mode_t mode) {
-    panic("NYI\n");
+    node->mode &= ~0xFFF;
+    node->mode |= mode & 0xFFF;
     return 0;
 }
 
 static int tarfs_vnode_chown(struct vnode *node, uid_t uid, gid_t gid) {
-    panic("NYI\n");
+    node->uid = uid;
+    node->gid = gid;
     return 0;
 }
 
