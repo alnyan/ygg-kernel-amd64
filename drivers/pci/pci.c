@@ -243,8 +243,18 @@ static int sysfs_pci_device_read(void *ctx, char *buf, size_t lim) {
 static void pci_device_add(struct pci_device *dev) {
     // For testing purposes
     char name[256];
-    snprintf(name, sizeof(name), "pci.%02x.%02x.%02x", dev->bus, dev->dev, dev->func);
-    sysfs_add_config_endpoint(name, SYSFS_MODE_DEFAULT, 512, dev, sysfs_pci_device_read, NULL);
+    snprintf(name, sizeof(name), "%02x:%02x:%02x", dev->bus, dev->dev, dev->func);
+
+    struct vnode *dir;
+    if (sysfs_add_dir(NULL, "pci", &dir) != 0) {
+        panic("Failed to create PCI dir\n");
+    }
+
+    if (sysfs_add_dir(dir, name, &dir) != 0) {
+        panic("Failed to create PCI device dir\n");
+    }
+
+    sysfs_add_config_endpoint(dir, "config", SYSFS_MODE_DEFAULT, 512, dev, sysfs_pci_device_read, NULL);
 
     dev->next = g_pci_devices;
     g_pci_devices = dev;

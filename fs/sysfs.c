@@ -159,7 +159,30 @@ int sysfs_config_int64_getter(void *ctx, char *buf, size_t lim) {
     return 0;
 }
 
-int sysfs_add_config_endpoint(const char *name, mode_t mode, size_t bufsz, void *ctx, cfg_read_func_t read, cfg_write_func_t write) {
+int sysfs_add_dir(struct vnode *at, const char *name, struct vnode **res) {
+    struct vnode *tmp;
+    sysfs_ensure_root();
+    if (!at) {
+        at = g_sysfs_root;
+    }
+    // TODO: proper check that "at" vnode belongs to sysfs
+    _assert(at->flags & VN_MEMORY);
+
+    if (vnode_lookup_child(at, name, &tmp) != 0) {
+        kdebug("Can't find %s in %s, creating\n", name, at->name);
+        tmp = vnode_create(VN_DIR, name);
+        tmp->flags |= VN_MEMORY;
+        tmp->mode = S_IXUSR | S_IXGRP | S_IXOTH |
+                    S_IRUSR | S_IRGRP | S_IROTH;
+
+        vnode_attach(at, tmp);
+    }
+
+    *res = tmp;
+    return 0;
+}
+
+int sysfs_add_config_endpoint(struct vnode *at, const char *name, mode_t mode, size_t bufsz, void *ctx, cfg_read_func_t read, cfg_write_func_t write) {
     struct sysfs_config_endpoint *endp = kmalloc(sizeof(struct sysfs_config_endpoint));
     _assert(endp);
 
@@ -184,7 +207,12 @@ int sysfs_add_config_endpoint(const char *name, mode_t mode, size_t bufsz, void 
     node->fs_data = endp;
 
     sysfs_ensure_root();
-    vnode_attach(g_sysfs_root, node);
+    if (!at) {
+        at = g_sysfs_root;
+    }
+    // TODO: proper check that "at" vnode belongs to sysfs
+    _assert(at->flags & VN_MEMORY);
+    vnode_attach(at, node);
 
     return 0;
 }
@@ -259,15 +287,18 @@ static int system_mem_getter(void *ctx, char *buf, size_t lim) {
 }
 
 void sysfs_populate(void) {
-    sysfs_add_config_endpoint("version", SYSFS_MODE_DEFAULT, sizeof(KERNEL_VERSION_STR) + 1, KERNEL_VERSION_STR, sysfs_config_getter, NULL);
-    sysfs_add_config_endpoint("mem", SYSFS_MODE_DEFAULT, 512, NULL, system_mem_getter, NULL);
+    struct vnode *dir;
+    sysfs_add_dir(NULL, "kernel", &dir);
 
-    sysfs_add_config_endpoint("uptime", SYSFS_MODE_DEFAULT, 32, NULL, system_uptime_getter, NULL);
+    sysfs_add_config_endpoint(dir, "version", SYSFS_MODE_DEFAULT, sizeof(KERNEL_VERSION_STR) + 1, KERNEL_VERSION_STR, sysfs_config_getter, NULL);
+    sysfs_add_config_endpoint(dir, "uptime", SYSFS_MODE_DEFAULT, 32, NULL, system_uptime_getter, NULL);
+    sysfs_add_config_endpoint(dir, "modules", SYSFS_MODE_DEFAULT, 512, NULL, mod_list, NULL);
 
-    sysfs_add_config_endpoint("self.pid", SYSFS_MODE_DEFAULT, 16, (void *) PROC_PROP_PID, proc_property_getter, NULL);
-    sysfs_add_config_endpoint("self.name", SYSFS_MODE_DEFAULT, 128, (void *) PROC_PROP_NAME, proc_property_getter, NULL);
+    sysfs_add_dir(NULL, "self", &dir);
+    sysfs_add_config_endpoint(dir, "pid", SYSFS_MODE_DEFAULT, 16, (void *) PROC_PROP_PID, proc_property_getter, NULL);
+    sysfs_add_config_endpoint(dir, "name", SYSFS_MODE_DEFAULT, 128, (void *) PROC_PROP_NAME, proc_property_getter, NULL);
 
-    sysfs_add_config_endpoint("modules", SYSFS_MODE_DEFAULT, 512, NULL, mod_list, NULL);
+    sysfs_add_config_endpoint(NULL, "mem", SYSFS_MODE_DEFAULT, 512, NULL, system_mem_getter, NULL);
 }
 
 static void __init sysfs_class_init(void) {
