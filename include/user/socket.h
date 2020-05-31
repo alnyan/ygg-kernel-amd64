@@ -21,3 +21,5 @@ struct sockaddr {
     uint16_t sa_family;
     char __pad[SA_MAX_SIZE - sizeof(uint16_t)];
 } __attribute__((packed));
+
+typedef size_t socklen_t;
