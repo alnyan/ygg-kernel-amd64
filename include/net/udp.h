@@ -13,3 +13,4 @@ struct inet_frame;
 struct packet;
 
 void udp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame *ip, void *data, size_t len);
+void udp_init(void);

@@ -7,6 +7,7 @@
 #include "sys/string.h"
 #include "net/class.h"
 #include "sys/sched.h"
+#include "net/ports.h"
 #include "user/inet.h"
 #include "sys/debug.h"
 #include "sys/wait.h"
@@ -37,6 +38,7 @@ static ssize_t udp_socket_sendto(struct socket *s,
                                  size_t salen);
 static int udp_socket_bind(struct socket *s, struct sockaddr *sa, size_t len);
 static int udp_socket_setsockopt(struct socket *s, int optname, void *optval, size_t optlen);
+static int udp_socket_count_pending(struct socket *s);
 
 static struct sockops udp_socket_ops = {
     .open = udp_socket_open,
@@ -47,6 +49,8 @@ static struct sockops udp_socket_ops = {
 
     .bind = udp_socket_bind,
     .setsockopt = udp_socket_setsockopt,
+
+    .count_pending = udp_socket_count_pending
 };
 static struct socket_class udp_socket_class = {
     .name = "udp",
@@ -74,12 +78,13 @@ struct udp_socket {
     struct packet_queue pending;
 };
 
-static uint16_t udp_eph_port = 32768;
+#define UDP_EPH_PORT_BASE           32768
+static uint16_t udp_eph_port = UDP_EPH_PORT_BASE;
+static struct port_array udp_port_array;
 
-// Only allowed for binding now
-#define UDP_BIND_COUNT          16
-#define UDP_BIND_START          60
-static struct udp_socket *udp_ports[UDP_BIND_COUNT] = {0};
+void udp_init(void) {
+    port_array_init(&udp_port_array);
+}
 
 struct udp_socket *udp_socket_create(void) {
     struct udp_socket *sock = kmalloc(sizeof(struct udp_socket));
@@ -109,17 +114,15 @@ void udp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame
 
     uint16_t dpt = ntohs(udp->dst_port);
 
-    if (dpt >= UDP_BIND_START && (dpt - UDP_BIND_START) < UDP_BIND_COUNT) {
-        // Check if it's a packet for one of "listening" sockets
-        struct udp_socket *sock = udp_ports[dpt - UDP_BIND_START];
+    if (dpt < UDP_EPH_PORT_BASE) {
+        struct udp_socket *sock;
 
-        if (sock) {
-            // Add "pending" packet for this socket
+        if (port_array_lookup(&udp_port_array, dpt, (void **) &sock) == 0) {
+            _assert(sock);
+
             packet_ref(p);
             packet_queue_push(&sock->pending, p);
             thread_notify_io(&sock->wait);
-        } else {
-            kdebug("Packet is destined to unbound port: %u\n", dpt);
         }
     }
 }
@@ -163,6 +166,20 @@ static ssize_t udp_socket_recvfrom(struct socket *s,
     // TODO: track position in packet so it can be read partially
     if (p_size > lim) {
         panic("Not implemented: partial packet reading\n");
+    }
+
+    // Fill sockaddr from packet
+    if (salen != NULL) {
+        _assert(sa);
+        struct sockaddr_in *sin = (struct sockaddr_in *) sa;
+        struct inet_frame *in = (struct inet_frame *) (p->data + sizeof(struct eth_frame));
+        struct udp_frame *udp = (struct udp_frame *) ((void *) in + sizeof(struct inet_frame));
+
+        sin->sin_family = AF_INET;
+        sin->sin_addr = in->src_inaddr;
+        sin->sin_port = udp->src_port;
+
+        *salen = sizeof(struct sockaddr_in);
     }
 
     memcpy(buf, p_data, p_size);
@@ -233,10 +250,16 @@ static int udp_socket_bind(struct socket *s, struct sockaddr *sa, size_t len) {
     _assert(!(sock->flags));
 
     uint16_t port = ntohs(sin->sin_port);
-    if (port < UDP_BIND_START || (port - UDP_BIND_START) >= UDP_BIND_COUNT) {
+
+    if (port >= UDP_EPH_PORT_BASE) {
         return -EINVAL;
     }
-    udp_ports[port - UDP_BIND_START] = sock;
+
+    if (port_array_lookup(&udp_port_array, port, NULL) == 0) {
+        return -EEXIST;
+    }
+
+    port_array_insert(&udp_port_array, port, sock);
 
     sock->flags |= UDP_SOCKET_ANY;
     sock->recv_port = port;
@@ -266,11 +289,17 @@ static void udp_socket_close(struct socket *s) {
     _assert(sock);
 
     if (sock->flags & UDP_SOCKET_ANY) {
-        udp_ports[sock->recv_port - UDP_BIND_START] = NULL;
+        _assert(port_array_delete(&udp_port_array, sock->recv_port) == sock);
     }
 
     sock->flags &= ~UDP_SOCKET_ANY;
 
     kfree(sock);
     s->data = NULL;
+}
+
+static int udp_socket_count_pending(struct socket *s) {
+    struct udp_socket *sock = s->data;
+    _assert(sock);
+    return !!sock->pending.head;
 }

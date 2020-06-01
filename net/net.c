@@ -139,6 +139,10 @@ int net_receive(struct netdev *dev, const void *data, size_t len) {
     return 0;
 }
 
+void net_init(void) {
+    udp_init();
+}
+
 void net_daemon_start(void) {
     packet_queue_init(&g_rxq);
 

@@ -20,6 +20,7 @@ void main(void) {
     syscall_init();
     sched_init();
 
+    net_init();
     usb_daemon_start();
     net_daemon_start();
     user_init_start();

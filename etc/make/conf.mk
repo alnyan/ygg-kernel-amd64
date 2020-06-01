@@ -111,7 +111,8 @@ OBJS+=$(O)/sys/sys_net.o \
 	  $(O)/net/tcp.o \
 	  $(O)/net/if.o \
 	  $(O)/net/socket.o \
-	  $(O)/net/util.o
+	  $(O)/net/util.o \
+	  $(O)/net/ports.o
 DIRS+=$(O)/net
 
 ifeq ($(DEBUG_COUNTERS),1)
