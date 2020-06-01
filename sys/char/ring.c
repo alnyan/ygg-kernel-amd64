@@ -97,7 +97,9 @@ int ring_putc(struct thread *ctx, struct ring *ring, char c, int wait) {
 
     ring->base[ring->wr] = c;
     ring_advance_write(ring);
-    thread_notify_io(&ring->wait);
+    if (ring->flags & RING_RAW) {
+        thread_notify_io(&ring->wait);
+    }
 
     return 0;
 }

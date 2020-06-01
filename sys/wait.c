@@ -49,6 +49,7 @@ void thread_notify_io(struct io_notify *n) {
     spin_lock_irqsave(&n->lock, &irq);
     ++n->value;
     t = n->owner;
+    kdebug("%p->owner = %p\n", n, t);
     n->owner = NULL;
     spin_release_irqrestore(&n->lock, &irq);
 
@@ -59,8 +60,10 @@ void thread_notify_io(struct io_notify *n) {
 
 void thread_wait_io_add(struct thread *thr, struct io_notify *n) {
     uintptr_t irq;
+    _assert(n);
     spin_lock_irqsave(&n->lock, &irq);
     _assert(!n->owner);
+    kdebug("%p->owner = %p\n", n, thr);
     n->owner = thr;
     list_add(&n->own_link, &thr->wait_head);
     spin_release_irqrestore(&n->lock, &irq);

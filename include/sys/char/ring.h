@@ -8,6 +8,7 @@ struct thread;
 #define RING_SIGNAL_BRK     (1 << 0)
 #define RING_SIGNAL_EOF     (1 << 1)
 #define RING_SIGNAL_RET     (1 << 2)
+#define RING_RAW            (1 << 3)
 
 // Ring buffer
 struct ring {
