@@ -53,6 +53,34 @@ static uint16_t tcp_checksum(uint32_t daddr, uint32_t saddr, uint16_t tcp_length
 }
 
 // Reset a connection attempt given its SYN packet
+static void tcp_reset_attempt(struct netdev *dev,
+                              uint32_t src_addr,
+                              struct tcp_frame *src_tcp) {
+    if (!(dev->flags & IF_F_HASIP)) {
+        return;
+    }
+
+    struct packet *p = packet_create(PACKET_SIZE_L3INET + sizeof(struct tcp_frame));
+    struct tcp_frame *tcp = PACKET_L4(p);
+    void *dst_data = &tcp[1];
+    memset(tcp, 0, sizeof(struct tcp_frame));
+
+    tcp->src_port = src_tcp->dst_port;
+    tcp->dst_port = src_tcp->src_port;
+    tcp->ack_seq = 0;
+    tcp->ack_seq = htonl(ntohl(src_tcp->seq) + 1);
+    tcp->doff = sizeof(struct tcp_frame) / 4;
+    tcp->flags.rst = 1;
+    tcp->flags.ack = 1;
+    tcp->window = htons(64400);
+
+    uint16_t checksum = tcp_checksum(src_addr, dev->inaddr, sizeof(struct tcp_frame), tcp);
+    tcp->checksum = htons(checksum);
+
+    inet_send_wrapped(dev, src_addr, INET_P_TCP, p);
+}
+
+// Send a packet to a client
 static void tcp_packet_send(struct netdev *dev,
                             struct tcp_socket *sock,
                             struct tcp_flags flags,
@@ -120,7 +148,7 @@ void tcp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame
             tcp_packet_send(p->dev, &client, flags, NULL, 0);
         } else {
             // Reply with ACK+RST
-            //    tcp_syn_reset(p->dev, ntohl(ip->src_inaddr), tcp);
+            tcp_reset_attempt(p->dev, ntohl(ip->src_inaddr), tcp);
         }
     } else if (tcp->flags.ack && !tcp->flags.syn) {
         uint16_t remote_port = ntohs(tcp->src_port);
@@ -129,7 +157,7 @@ void tcp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame
 
         if (port == 9000 && remote_port == client.remote_port && remote_inaddr == client.remote_inaddr) {
             if (client.state == TCP_STA_SYNACK_SENT) {
-                kdebug("Remote side confirmed establishing\n");
+                //kdebug("Remote side confirmed establishing\n");
                 client.state = TCP_STA_ESTABLISHED;
                 ++client.local_seq;
             } else if (client.state == TCP_STA_ESTABLISHED) {
@@ -137,16 +165,16 @@ void tcp_handle_frame(struct packet *p, struct eth_frame *eth, struct inet_frame
                     panic("TODO: handle this\n");
                 }
 
-                kdebug("Got ACK on established socket\n");
+                //kdebug("Got ACK on established socket\n");
                 if (tcp->flags.psh) {
-                    kdebug("Also PSH\n");
+                    //kdebug("Also PSH\n");
                 }
                 uint32_t rel_seq = segment_seq - client.remote_seq;
-                kdebug("Seq %u:%u\n", rel_seq, rel_seq + len);
+                //kdebug("Seq %u:%u\n", rel_seq, rel_seq + len);
                 if (rel_seq != 0) {
                     panic("TODO: out-of-order segment reception\n");
                 }
-                debug_dump(DEBUG_DEFAULT, data, len);
+                //debug_dump(DEBUG_DEFAULT, data, len);
 
                 // Reply with ACK
                 struct tcp_flags flags = {
