@@ -75,7 +75,6 @@ static void rtl8139_send_now(struct rtl8139 *rtl, struct packet *p) {
 
     memcpy(tx_buf, p->data, p->size);
 
-    outl(rtl->iobase + REG_TSAD(rtl->tx_pos), page & 0xFFFFFFFF);
     outl(rtl->iobase + REG_TSD(rtl->tx_pos), p->size & 0xFFF);
     rtl->tx_pos = (rtl->tx_pos + 1) % 4;
     --rtl->free_txds;
@@ -208,6 +207,11 @@ static void rtl8139_init(struct pci_device *dev) {
     // Enable receiver and trasnmitter
     outb(rtl->iobase + REG_CR, CR_RE | CR_TE);
     outw(rtl->iobase + REG_ISR, 0);
+
+    // Config Tx addresses
+    for (uint16_t i = 0; i < 4; ++i) {
+        outl(rtl->iobase + REG_TSAD(i), rtl->send_buf_pages[i]);
+    }
 
     pci_add_irq(dev, rtl8139_irq, rtl);
 }

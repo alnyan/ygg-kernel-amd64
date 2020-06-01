@@ -11,12 +11,18 @@ void strmac(char *dst, const uint8_t *hw);
 
 static inline uint32_t ntohl(uint32_t w) {
     uint8_t *s = (uint8_t *)&w;
-    return (uint32_t) (s[0] << 24 | s[1] << 16 | s[2] << 8 | s[3]);
+    return (uint32_t) (((uint32_t) s[0] << 24) |
+                       ((uint32_t) s[1] << 16) |
+                       ((uint32_t) s[2] << 8) |
+                       ((uint32_t) s[3]));
 }
 
 static inline uint32_t htonl(uint32_t w) {
     uint8_t *s = (uint8_t *)&w;
-    return (uint32_t) (s[0] << 24 | s[1] << 16 | s[2] << 8 | s[3]);
+    return (uint32_t) (((uint32_t) s[0] << 24) |
+                       ((uint32_t) s[1] << 16) |
+                       ((uint32_t) s[2] << 8) |
+                       ((uint32_t) s[3]));
 }
 
 static inline uint16_t ntohs(uint16_t w) {

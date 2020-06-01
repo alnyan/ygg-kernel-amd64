@@ -37,12 +37,8 @@ static void net_daemon(void) {
 
     while (1) {
         if (!g_rxq.head) {
-            // qword writes are atomic (when storing new head)
-            // so I guess checking if ANYTHING is present
-            // before locking is a good idea to avoid unnecessary
-            // overhead
-
-            thread_sleep(thread_self, system_time + 10000000ULL, NULL);
+            // TODO: old code with sleep led to huge delays
+            asm volatile ("sti; hlt");
             continue;
         }
 
