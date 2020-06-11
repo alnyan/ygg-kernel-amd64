@@ -8,7 +8,19 @@
 .long ARCH
 .long HDRLEN
 .long CHKSUM
-.long 0
+
+#if defined(VESA_ENABLE)
+// Framebuffer tag
+.short 5
+.short 0
+.long 20
+.long VESA_WIDTH
+.long VESA_HEIGHT
+.long VESA_DEPTH
+#endif
+
+// End tag
+.short 0
 .long 8
 
 .section .text

@@ -1,8 +1,8 @@
+#include "arch/amd64/multiboot2.h"
 #include "arch/amd64/hw/vesa.h"
-#include "arch/amd64/mm/map.h"
-#include "sys/block/blk.h"
+#include "sys/mem/vmalloc.h"
 #include "arch/amd64/cpu.h"
-#include "sys/vmalloc.h"
+#include "sys/block/blk.h"
 #include "sys/thread.h"
 #include "user/video.h"
 #include "user/errno.h"
@@ -54,7 +54,7 @@ static void *vesa_blk_mmap(struct blkdev *blk, struct ofile *fd, void *hint, siz
     uintptr_t phys = MM_PHYS(vesa_addr);
 
     for (size_t i = 0; i < length / MM_PAGE_SIZE; ++i) {
-        amd64_map_single(thr->space, vaddr + i * MM_PAGE_SIZE, phys + i * MM_PAGE_SIZE, MM_PAGE_WRITE | MM_PAGE_USER);
+        mm_map_single(thr->space, vaddr + i * MM_PAGE_SIZE, phys + i * MM_PAGE_SIZE, MM_PAGE_WRITE | MM_PAGE_USER, 0);
     }
 
     return (void *) vaddr;
@@ -88,22 +88,18 @@ void vesa_put(uint32_t x, uint32_t y, uint32_t v) {
     }
 }
 
-void amd64_vesa_init(multiboot_info_t *info) {
-    if (info->flags & (1 << 12)) {
+void amd64_vesa_init(struct multiboot_tag_framebuffer *tag) {
+    if (tag->common.framebuffer_type == 1) {
         vesa_available = 1;
-        vesa_addr = MM_VIRTUALIZE(info->framebuffer_addr);
-        vesa_pitch = info->framebuffer_pitch;
-        vesa_width = info->framebuffer_width;
-        vesa_height = info->framebuffer_height;
-        vesa_bpp = info->framebuffer_bpp;
+        vesa_addr =     MM_VIRTUALIZE(tag->common.framebuffer_addr);
+        vesa_pitch =    tag->common.framebuffer_pitch;
+        vesa_width =    tag->common.framebuffer_width;
+        vesa_height =   tag->common.framebuffer_height;
+        vesa_bpp =      tag->common.framebuffer_bpp;
 
-        if (info->framebuffer_type == 0) {
-            panic("Indexed framebuffers are not supported yet\n");
-        } else {
-            kdebug("Set up VESA video:\n");
-            kdebug("BPP: %d, Width: %d, Height: %d\n", vesa_bpp, vesa_width, vesa_height);
-            kdebug("Addr: %p\n", vesa_addr);
-        }
+        kdebug("Set up VESA video:\n");
+        kdebug("BPP: %d, Width: %d, Height: %d\n", vesa_bpp, vesa_width, vesa_height);
+        kdebug("Addr: %p\n", vesa_addr);
 
         dev_add(DEV_CLASS_BLOCK, DEV_BLOCK_OTHER, &_vesa_fb0, "fb0");
     }

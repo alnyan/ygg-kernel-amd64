@@ -28,6 +28,7 @@ static struct multiboot_tag_mmap         *multiboot_tag_mmap;
 static struct multiboot_tag_module       *multiboot_tag_initrd_module;
 static struct multiboot_tag_elf_sections *multiboot_tag_sections;
 static struct multiboot_tag_string       *multiboot_tag_cmdline;
+static struct multiboot_tag_framebuffer  *multiboot_tag_framebuffer;
 
 extern struct {
     uint32_t eax, ebx;
@@ -66,6 +67,9 @@ void kernel_early_init(void) {
             break;
         case MULTIBOOT_TAG_TYPE_MODULE:
             multiboot_tag_initrd_module = (struct multiboot_tag_module *) tag;
+            break;
+        case MULTIBOOT_TAG_TYPE_FRAMEBUFFER:
+            multiboot_tag_framebuffer = (struct multiboot_tag_framebuffer *) tag;
             break;
         default:
             kdebug("tag.type = %u, tag.size = %u\n", tag->type, tag->size);
@@ -141,7 +145,9 @@ void kernel_early_init(void) {
 
     amd64_acpi_init();
 #if defined(VESA_ENABLE)
-    amd64_vesa_init(multiboot_info);
+    if (multiboot_tag_framebuffer) {
+        amd64_vesa_init(multiboot_tag_framebuffer);
+    }
 #endif
     amd64_con_init();
 
