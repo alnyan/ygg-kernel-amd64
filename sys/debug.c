@@ -82,7 +82,7 @@ void debug_backtrace(uintptr_t rbp, int depth, int limit) {
     }
 
     if ((rbp & 0xFFFFFF0000000000) != 0xFFFFFF0000000000) {
-        kfatal("-- %rbp is not from kernel space\n");
+        debugs(DEBUG_FATAL, "-- %rbp is not from kernel space\n");
         return;
     }
 
@@ -93,13 +93,13 @@ void debug_backtrace(uintptr_t rbp, int depth, int limit) {
     const char *name;
 
     if (debug_symbol_find(rip, &name, &base) == 0) {
-        kfatal("%d: %p <%s + %04x>\n", depth, rip, name, rip - base);
+        debugf(DEBUG_FATAL, "%d: %p <%s + %04x>\n", depth, rip, name, rip - base);
     } else {
-        kfatal("%d: %p (unknown)\n", depth, rip);
+        debugf(DEBUG_FATAL, "%d: %p (unknown)\n", depth, rip);
     }
 
     if (rbp_next == 0) {
-        kfatal("-- End of frame chain\n");
+        debugs(DEBUG_FATAL, "-- End of frame chain\n");
         return;
     }
 

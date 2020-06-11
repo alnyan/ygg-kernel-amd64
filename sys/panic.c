@@ -17,11 +17,11 @@ void panicf(const char *fmt, ...) {
     va_start(args, fmt);
     debugs(DEBUG_FATAL, "\033[41m");
     debugfv(DEBUG_FATAL, fmt, args);
-    debugs(DEBUG_FATAL, "\n\033[0m");
     va_end(args);
 
-    kfatal("Call trace:\n");
+    debugs(DEBUG_FATAL, "Call trace:\n");
     debug_backtrace(rbp, 0, 10);
+    debugs(DEBUG_FATAL, "\033[0,");
 
     kfatal("--- Panic ---\n");
 
