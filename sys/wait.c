@@ -44,6 +44,11 @@ int thread_wait_io(struct thread *t, struct io_notify *n) {
 }
 
 void thread_notify_io(struct io_notify *n) {
+    //kdebug("NOTIFY IO FROM:\n");
+    //uintptr_t rbp;
+    //asm volatile ("movq %%rbp, %0":"=a"(rbp));
+    //debug_backtrace(rbp, 0, 5);
+
     uintptr_t irq;
     struct thread *t = NULL;
     spin_lock_irqsave(&n->lock, &irq);

@@ -74,11 +74,11 @@ void tty_control_write(struct chrdev *tty, char c) {
         ring_signal(&tty->buffer, RING_SIGNAL_EOF);
         break;
     case '.':
-        ring_signal(&tty->buffer, RING_SIGNAL_BRK);
+        //ring_signal(&tty->buffer, RING_SIGNAL_BRK);
         thread_signal_pgid(data->fg_pgid, SIGUSR1);
         break;
     case 'c':
-        ring_signal(&tty->buffer, RING_SIGNAL_BRK);
+        //ring_signal(&tty->buffer, RING_SIGNAL_BRK);
         thread_signal_pgid(data->fg_pgid, SIGINT);
         break;
     default:
@@ -102,6 +102,7 @@ void tty_data_write(struct chrdev *tty, char c) {
         }
         break;
     case '\b':
+        ring_signal(&tty->buffer, 0);
         break;
     case '\033':
         if ((tty->tc.c_lflag & ECHO) || (tty->tc.c_iflag & ICANON)) {

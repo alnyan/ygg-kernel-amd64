@@ -691,8 +691,9 @@ void sys_sigreturn(void) {
 
 void thread_signal(struct thread *thr, int signum) {
     if (thr->sleep_notify.owner) {
-        thr->sleep_notify.owner = NULL;
-        timer_remove_sleep(thr);
+        thread_notify_io(&thr->sleep_notify);
+        //thr->sleep_notify.owner = NULL;
+        //timer_remove_sleep(thr);
     }
 
     if (thr->cpu == (int) get_cpu()->processor_id) {
