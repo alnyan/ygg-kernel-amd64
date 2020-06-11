@@ -7,6 +7,9 @@
 #include "sys/debug.h"
 
 void panicf(const char *fmt, ...) {
+    uintptr_t rbp;
+    asm volatile ("movq %%rbp, %0":"=r"(rbp));
+
     asm volatile ("cli");
     va_list args;
     kfatal("--- Panic ---\n");
@@ -14,8 +17,11 @@ void panicf(const char *fmt, ...) {
     va_start(args, fmt);
     debugs(DEBUG_FATAL, "\033[41m");
     debugfv(DEBUG_FATAL, fmt, args);
-    debugs(DEBUG_FATAL, "\033[0m");
+    debugs(DEBUG_FATAL, "\n\033[0m");
     va_end(args);
+
+    kfatal("Call trace:\n");
+    debug_backtrace(rbp, 0, 10);
 
     kfatal("--- Panic ---\n");
 
