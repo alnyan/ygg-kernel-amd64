@@ -562,14 +562,17 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
         thr->sigq = 0;
 
         thr->space = amd64_mm_pool_alloc();
-        _assert(thr->space);
-        thr->data.cr3 = MM_PHYS(thr->space);
         thr->flags = 0;
+        _assert(thr->space);
 
+        mm_space_clone(thr->space, mm_kernel, MM_CLONE_FLG_KERNEL);
+
+        asm volatile ("cli");
         thr->data.fxsave = kmalloc(FXSAVE_REGION);
         _assert(thr->data.fxsave);
 
-        mm_space_clone(thr->space, mm_kernel, MM_CLONE_FLG_KERNEL);
+        thr->data.cr3 = MM_PHYS(thr->space);
+        asm volatile ("sti");
     } else {
         mm_space_release(thr);
     }

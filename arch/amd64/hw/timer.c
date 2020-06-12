@@ -129,8 +129,9 @@ void amd64_timer_init(void) {
     // LAPIC Timer is only used to trigger task switches
     LAPIC(LAPIC_REG_TMRDIV) = 0x3;
     LAPIC(LAPIC_REG_LVTT) = 32 | (1 << 17);
-    LAPIC(LAPIC_REG_TMRINITCNT) = 1562500;
+    LAPIC(LAPIC_REG_TMRINITCNT) = 150000;
     LAPIC(LAPIC_REG_TMRCURRCNT) = 0;
 
     get_cpu()->ticks = 0;
+    asm volatile ("cli");
 }
