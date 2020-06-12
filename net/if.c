@@ -14,7 +14,6 @@ struct netdev *netdev_create(int type) {
     struct netdev *net = kmalloc(sizeof(struct netdev));
     _assert(net);
 
-    net->inaddr = 0;
     net->flags = 0;
     net->type = type;
     net->arp_ent_head = NULL;
@@ -48,41 +47,41 @@ struct netdev *netdev_by_name(const char *name) {
 
 // Find an interface through which this inaddr should be
 // accessible (TODO: route tables)
-struct netdev *netdev_find_inaddr(uint32_t inaddr) {
-    for (struct netdev *dev = g_netdev; dev; dev = dev->next) {
-        if (!(dev->flags & IF_F_HASIP)) {
-            continue;
-        }
-        if ((inaddr & ~0xFFFF) == (dev->inaddr & ~0xFFFF)) {
-            return dev;
-        }
-    }
-
-    return NULL;
-}
+//struct netdev *netdev_find_inaddr(uint32_t inaddr) {
+//    for (struct netdev *dev = g_netdev; dev; dev = dev->next) {
+//        if (!(dev->flags & IF_F_HASIP)) {
+//            continue;
+//        }
+//        if ((inaddr & ~0xFFFF) == (dev->inaddr & ~0xFFFF)) {
+//            return dev;
+//        }
+//    }
+//
+//    return NULL;
+//}
 
 int netctl(struct netdev *dev, uint32_t op, void *data) {
     _assert(dev);
 
     switch (op) {
     case NETCTL_GET_INADDR:
-        if (!(dev->flags & IF_F_HASIP)) {
-            // No address set
-            return -ENOENT;
-        }
-        _assert(data);
-        *(uint32_t *) data = dev->inaddr;
-        return 0;
+        //if (!(dev->flags & IF_F_HASIP)) {
+        //    // No address set
+        //    return -ENOENT;
+        //}
+        //_assert(data);
+        //*(uint32_t *) data = dev->inaddr;
+        return -EINVAL;
     case NETCTL_SET_INADDR:
         // Have to flush old addr first
-        if (dev->flags & IF_F_HASIP) {
-            return -EEXIST;
-        }
-        _assert(data);
-        dev->inaddr = *(uint32_t *) data;
-        dev->flags |= IF_F_HASIP;
-        kinfo("%s: set address: " FMT_INADDR "\n", dev->name, VA_INADDR(dev->inaddr));
-        return 0;
+        //if (dev->flags & IF_F_HASIP) {
+        //    return -EEXIST;
+        //}
+        //_assert(data);
+        //dev->inaddr = *(uint32_t *) data;
+        //dev->flags |= IF_F_HASIP;
+        //kinfo("%s: set address: " FMT_INADDR "\n", dev->name, VA_INADDR(dev->inaddr));
+        return -EINVAL;
     default:
         kwarn("%s: invalid operation requested: 0x%x\n", dev->name, op);
         return -EINVAL;

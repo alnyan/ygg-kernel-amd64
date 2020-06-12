@@ -13,10 +13,6 @@
 #include "sys/spin.h"
 
 #include "net/packet.h"
-#include "net/eth.h"
-#include "net/udp.h"
-#include "net/raw.h"
-#include "net/net.h"
 #include "net/if.h"
 
 static struct thread netd_thread = {0};
@@ -25,10 +21,7 @@ static struct packet_queue g_rxq;
 static void packet_free(struct packet *p);
 
 static inline void net_handle_packet(struct packet *p) {
-    // TODO: check if interface sends packet not in ethernet format
-    eth_handle_frame(p);
-    // Notify all raw sockets
-    raw_packet_handle(p);
+    // XXX: Dummy handler until I rewrite networking properly
 }
 
 static void net_daemon(void) {
@@ -140,7 +133,7 @@ int net_receive(struct netdev *dev, const void *data, size_t len) {
 }
 
 void net_init(void) {
-    udp_init();
+    // XXX: Dummy
 }
 
 void net_daemon_start(void) {

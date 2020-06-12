@@ -14,8 +14,7 @@ typedef int (*netdev_send_func_t) (struct netdev *, struct packet *);
 struct netdev {
     char name[32];
     uint8_t hwaddr[6];
-    // Only one inaddr now
-    uint32_t inaddr;
+
     uint32_t flags;
     int type;
 

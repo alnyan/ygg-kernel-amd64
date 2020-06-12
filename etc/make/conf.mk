@@ -102,13 +102,6 @@ DIRS+=$(O)/drivers/net
 
 OBJS+=$(O)/sys/sys_net.o \
 	  $(O)/net/net.o \
-	  $(O)/net/eth.o \
-	  $(O)/net/arp.o \
-	  $(O)/net/inet.o \
-	  $(O)/net/icmp.o \
-	  $(O)/net/udp.o \
-	  $(O)/net/raw.o \
-	  $(O)/net/tcp.o \
 	  $(O)/net/if.o \
 	  $(O)/net/socket.o \
 	  $(O)/net/util.o \
