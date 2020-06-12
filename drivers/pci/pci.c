@@ -8,6 +8,7 @@
 #include "sys/string.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
+#include "sys/list.h"
 #include "fs/sysfs.h"
 #include "sys/heap.h"
 #include "sys/mm.h"
@@ -58,8 +59,7 @@ struct pci_device {
 
     struct pci_driver *driver;
 
-    // For list
-    struct pci_device *next;
+    struct list_head list;
 };
 
 struct pci_driver {
@@ -69,9 +69,11 @@ struct pci_driver {
     uint32_t match;
 };
 
-static struct pci_device *g_pci_devices = NULL;
+static LIST_HEAD(g_pci_devices);
 static struct pci_driver  g_pci_drivers[PCI_MAX_DRIVERS] = {0};
 static size_t             g_pci_driver_count;
+
+static void pci_reenumerate_devices(void);
 
 #define PCI_DRIVER_CLASS        1
 #define PCI_DRIVER_DEV          2
@@ -155,6 +157,8 @@ void pci_add_class_driver(uint32_t full_class, pci_driver_func_t func, const cha
     driver->init_func = func;
     driver->type = PCI_DRIVER_CLASS;
     driver->match = full_class & ~0xFF000000;
+
+    pci_reenumerate_devices();
 }
 
 void pci_add_device_driver(uint32_t id, pci_driver_func_t func, const char *name) {
@@ -168,6 +172,8 @@ void pci_add_device_driver(uint32_t id, pci_driver_func_t func, const char *name
     driver->init_func = func;
     driver->type = PCI_DRIVER_DEV;
     driver->match = id;
+
+    pci_reenumerate_devices();
 }
 
 void pci_add_root_bus(uint8_t n) {
@@ -256,8 +262,7 @@ static void pci_device_add(struct pci_device *dev) {
 
     sysfs_add_config_endpoint(dir, "config", SYSFS_MODE_DEFAULT, 512, dev, sysfs_pci_device_read, NULL);
 
-    dev->next = g_pci_devices;
-    g_pci_devices = dev;
+    list_add(&dev->list, &g_pci_devices);
 }
 
 static int pci_device_setup(struct pci_device *dev) {
@@ -266,6 +271,8 @@ static int pci_device_setup(struct pci_device *dev) {
     uint8_t irq_pin;
 
     dev->driver = NULL;
+
+    list_head_init(&dev->list);
 
     class = pci_config_read_dword(dev, PCI_CONFIG_CLASS);
     caps_offset = pci_config_read_dword(dev, PCI_CONFIG_CAPABILITIES) & 0xFF;
@@ -322,6 +329,32 @@ static int pci_device_setup(struct pci_device *dev) {
     }
 
     return -1;
+}
+
+static void pci_reenumerate_devices(void) {
+    // Reenumerate already added devices to load missing drivers
+    struct pci_device *dev;
+    list_for_each_entry(dev, &g_pci_devices, list) {
+        if (!dev->driver) {
+            struct pci_driver *driver_class, *driver_dev;
+            uint32_t id = pci_config_read_dword(dev, PCI_CONFIG_ID);
+            uint32_t class = pci_config_read_dword(dev, PCI_CONFIG_CLASS);
+
+            pci_pick_driver(id, class >> 8, &driver_class, &driver_dev);
+
+            if (driver_dev) {
+                dev->driver = driver_dev;
+                driver_dev->init_func(dev);
+                continue;
+            }
+
+            if (driver_class) {
+                dev->driver = driver_class;
+                driver_class->init_func(dev);
+                continue;
+            }
+        }
+    }
 }
 
 static void pcie_enumerate_device(uintptr_t base_address, uint16_t seg, uint8_t start_bus, uint8_t bus, uint8_t dev_no) {
