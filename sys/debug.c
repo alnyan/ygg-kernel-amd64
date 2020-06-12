@@ -1,3 +1,4 @@
+#include "arch/amd64/multiboot2.h"
 #include "sys/string.h"
 #include "sys/debug.h"
 #include "sys/ctype.h"
@@ -6,6 +7,8 @@
 #include "sys/config.h"
 #include "sys/elf.h"
 #include "sys/assert.h"
+#include "sys/mm.h"
+
 #include <stdint.h>
 
 #if defined(ARCH_AMD64)
@@ -19,6 +22,52 @@ static uintptr_t g_symtab_ptr = 0;
 static uintptr_t g_strtab_ptr = 0;
 static size_t g_symtab_size = 0;
 static size_t g_strtab_size = 0;
+
+// Multiboot2-loaded sections are misaligned for some reason
+void debug_symbol_table_multiboot2(struct multiboot_tag_elf_sections *tag) {
+    kinfo("Loading kernel symbols\n");
+    kinfo("%u section headers:\n", tag->num);
+    size_t string_section_offset = tag->shndx * tag->entsize;
+    Elf64_Shdr *string_section_hdr = (Elf64_Shdr *) &tag->sections[string_section_offset];
+    const char *shstrtab = (const char *) MM_VIRTUALIZE(realigned(string_section_hdr, sh_addr));
+
+    Elf64_Shdr *symtab_shdr = NULL, *strtab_shdr = NULL;
+
+    for (size_t i = 0; i < tag->num; ++i) {
+        Elf64_Shdr *shdr = (Elf64_Shdr *) &tag->sections[i * tag->entsize];
+        const char *name = &shstrtab[realigned(shdr, sh_name)];
+
+        switch (realigned(shdr, sh_type)) {
+        case SHT_SYMTAB:
+            if (symtab_shdr) {
+                panic("Kernel image has 2+ symbol tables\n");
+            }
+            symtab_shdr = shdr;
+            break;
+        case SHT_STRTAB:
+            if (strcmp(name, ".strtab")) {
+                break;
+            }
+            if (strtab_shdr) {
+                panic("kernel image has 2+ string tables\n");
+            }
+            strtab_shdr = shdr;
+            break;
+        default:
+            break;
+        }
+    }
+
+    if (symtab_shdr && strtab_shdr) {
+        uintptr_t symtab_ptr = MM_VIRTUALIZE(realigned(symtab_shdr, sh_addr));
+        uintptr_t strtab_ptr = MM_VIRTUALIZE(realigned(strtab_shdr, sh_addr));
+
+        debug_symbol_table_set(symtab_ptr,
+                               strtab_ptr,
+                               realigned(symtab_shdr, sh_size),
+                               realigned(strtab_shdr, sh_size));
+    }
+}
 
 void debug_symbol_table_set(uintptr_t s0, uintptr_t s1, size_t z0, size_t z1) {
     g_symtab_ptr = s0;

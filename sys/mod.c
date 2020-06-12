@@ -143,7 +143,11 @@ static int elf_rela_apply(void *image, uintptr_t base, Elf64_Shdr *shdrs, Elf64_
 
             switch (ELF64_R_TYPE(rela->r_info)) {
             case R_X86_64_64:
-                *((uint64_t *) value_ptr) = (uint64_t) (value + (intptr_t) rela->r_addend);
+                {
+                    uint64_t src = (uint64_t) (value + (intptr_t) rela->r_addend);
+                    // value_ptr most likely will be unaligned
+                    memcpy(value_ptr, &src, sizeof(uint64_t));
+                }
                 break;
             case R_X86_64_PLT32:    // Treat this the same as PC32
             case R_X86_64_PC32:

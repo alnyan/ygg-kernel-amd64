@@ -86,43 +86,7 @@ void kernel_early_init(void) {
     cpuid_init();
 
     if (multiboot_tag_sections) {
-        kinfo("Loading kernel symbols\n");
-        kinfo("%u section headers:\n", multiboot_tag_sections->num);
-        size_t string_section_offset = multiboot_tag_sections->shndx * multiboot_tag_sections->entsize;
-        Elf64_Shdr *string_section_hdr = (Elf64_Shdr *) &multiboot_tag_sections->sections[string_section_offset];
-        const char *shstrtab = (const char *) MM_VIRTUALIZE(string_section_hdr->sh_addr);
-        Elf64_Shdr *symtab_shdr = NULL, *strtab_shdr = NULL;
-
-        for (size_t i = 0; i < multiboot_tag_sections->num; ++i) {
-            Elf64_Shdr *shdr = (Elf64_Shdr *) &multiboot_tag_sections->sections[i * multiboot_tag_sections->entsize];
-            const char *name = &shstrtab[shdr->sh_name];
-            switch (shdr->sh_type) {
-            case SHT_SYMTAB:
-                if (symtab_shdr) {
-                    panic("Kernel image has 2+ symbol tables\n");
-                }
-                symtab_shdr = shdr;
-                break;
-            case SHT_STRTAB:
-                if (strcmp(name, ".strtab")) {
-                    break;
-                }
-                if (strtab_shdr) {
-                    panic("kernel image has 2+ string tables\n");
-                }
-                strtab_shdr = shdr;
-                break;
-            default:
-                break;
-            }
-        }
-
-        if (symtab_shdr && strtab_shdr) {
-            uintptr_t symtab_ptr = MM_VIRTUALIZE(symtab_shdr->sh_addr);
-            uintptr_t strtab_ptr = MM_VIRTUALIZE(strtab_shdr->sh_addr);
-
-            debug_symbol_table_set(symtab_ptr, strtab_ptr, symtab_shdr->sh_size, strtab_shdr->sh_size);
-        }
+        debug_symbol_table_multiboot2(multiboot_tag_sections);
     }
 
     if (multiboot_tag_cmdline) {

@@ -2,8 +2,8 @@
 #include "sys/panic.h"
 #include "sys/debug.h"
 
-//#define UBSAN_ABORT     1
-#undef UBSAN_ABORT
+#define UBSAN_ABORT     1
+//#undef UBSAN_ABORT
 
 struct source_location {
     const char *file;
@@ -123,7 +123,7 @@ void __ubsan_handle_vla_bound_not_positive(void *data_raw,
 struct type_mismatch_info {
     struct source_location location;
     struct type_descriptor *type;
-    uintptr_t alignment;
+    uint8_t alignment;
     uint8_t type_check_kind;
 };
 void __ubsan_handle_type_mismatch_v1(struct type_mismatch_info *type_mismatch,
@@ -135,7 +135,7 @@ void __ubsan_handle_type_mismatch_v1(struct type_mismatch_info *type_mismatch,
     } else if (type_mismatch->alignment != 0 &&
                is_aligned(pointer, type_mismatch->alignment)) {
         // Most useful on architectures with stricter memory alignment requirements, like ARM.
-        kfatal("Unaligned memory access\n");
+        kfatal("Unaligned memory access: %p\n", pointer);
     } else {
         kfatal("Insufficient size:\n");
         if (type_mismatch->type_check_kind < sizeof(Type_Check_Kinds) / sizeof(Type_Check_Kinds[0])) {

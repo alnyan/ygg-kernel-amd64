@@ -5,6 +5,14 @@
 #pragma once
 #include "sys/types.h"
 
+// A macro to properly read data from misaligned pointers, byte by byte
+// May be slower, but at least UBSan doesn't complain
+#define realigned(base, field) ({ \
+        typeof(base->field) __v0; \
+        memcpy(&__v0, (void *) (base) + offsetof(typeof(*base), field), sizeof(__v0)); \
+        __v0; \
+    })
+
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
