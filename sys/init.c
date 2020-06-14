@@ -61,7 +61,8 @@ static void user_init_func(void *arg) {
     const char *argp[] = {
         "/init", NULL
     };
-    sys_execve(argp[0], argp, NULL);
+    // &argp[1] - just an empty envp
+    sys_execve(argp[0], argp, &argp[1]);
 
     while (1) {
         asm volatile ("hlt");

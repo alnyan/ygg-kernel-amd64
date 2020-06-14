@@ -315,6 +315,10 @@ int mm_space_fork(struct thread *dst, const struct thread *src, uint32_t flags) 
 void mm_space_release(struct thread *thr) {
     mm_space_t pml4 = thr->space;
 
+    if (pml4 == mm_kernel) {
+        panic("???\n");
+    }
+
     for (size_t pml4i = 0; pml4i < AMD64_PML4I_USER_END; ++pml4i) {
         if (!(pml4[pml4i] & MM_PAGE_PRESENT)) {
             continue;
