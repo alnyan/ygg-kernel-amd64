@@ -95,7 +95,9 @@ void amd64_phys_memory_map(const struct multiboot_tag_mmap *mmap) {
             for (uintptr_t addr = page_aligned_begin - PHYS_ALLOWED_BEGIN;
                  addr < (page_aligned_end - PHYS_ALLOWED_BEGIN); addr += 0x1000) {
                 size_t index = addr / MM_PAGE_SIZE;
-                _assert(index < PHYS_MAX_PAGES);
+                if (index >= PHYS_MAX_PAGES) {
+                    break;
+                }
                 phys_add_page(index);
                 ++_total_pages;
             }

@@ -103,17 +103,20 @@ void kernel_early_init(void) {
 
     amd64_gdt_init();
     amd64_idt_init(0);
+
     amd64_mm_init();
 
-    ps2_register_device();
-
-    amd64_acpi_init();
+    // Console can only be initialized after memory buffers can be allocated
 #if defined(VESA_ENABLE)
     if (multiboot_tag_framebuffer) {
         amd64_vesa_init(multiboot_tag_framebuffer);
     }
-#endif
     amd64_con_init();
+#endif
+
+    ps2_register_device();
+
+    amd64_acpi_init();
 
     // Print kernel version now
     kinfo("yggdrasil " KERNEL_VERSION_STR "\n");

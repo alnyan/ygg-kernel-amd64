@@ -26,7 +26,7 @@ struct type_descriptor {
 #endif
 
 static __ubsan_abort__ void ubsan_abort(struct source_location *loc, const char *error) {
-    kfatal("%s:%d: %s\n", loc->file, loc->line, error);
+    //kfatal("%s:%d: %s\n", loc->file, loc->line, error);
 #if defined(UBSAN_ABORT)
     panic("Undefined behavior detected\n");
 #endif
@@ -137,7 +137,7 @@ void __ubsan_handle_type_mismatch_v1(struct type_mismatch_info *type_mismatch,
         // Most useful on architectures with stricter memory alignment requirements, like ARM.
         kfatal("Unaligned memory access: %p\n", pointer);
     } else {
-        kfatal("Insufficient size:\n");
+        //kfatal("Insufficient size:\n");
         if (type_mismatch->type_check_kind < sizeof(Type_Check_Kinds) / sizeof(Type_Check_Kinds[0])) {
             kfatal("%s address %p with insufficient space for object of type %s\n",
                 Type_Check_Kinds[type_mismatch->type_check_kind], (void *) pointer,
