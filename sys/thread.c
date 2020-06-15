@@ -491,7 +491,7 @@ static size_t procv_strcpy_paged(uintptr_t *phys_pages,
         ncpy -= len;
     }
 
-    return 0;
+    return off_in_str;
 }
 
 // Setup process vectors:
@@ -552,7 +552,6 @@ static int procv_setup(struct thread *thr,
     offset = (argc + envc + 2) * sizeof(uintptr_t);
     for (size_t i = 0; i < argc; ++i) {
         NEW_ARGV(i) = offset;
-        kdebug("Copy arg: %s\n", argv[i]);
         offset += procv_strcpy_paged(phys_pages, offset, argv[i], page_count);
     }
     for (size_t i = 0; i < envc; ++i) {
