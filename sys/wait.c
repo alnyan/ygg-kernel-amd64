@@ -44,17 +44,11 @@ int thread_wait_io(struct thread *t, struct io_notify *n) {
 }
 
 void thread_notify_io(struct io_notify *n) {
-    //kdebug("NOTIFY IO FROM:\n");
-    //uintptr_t rbp;
-    //asm volatile ("movq %%rbp, %0":"=a"(rbp));
-    //debug_backtrace(rbp, 0, 5);
-
     uintptr_t irq;
     struct thread *t = NULL;
     spin_lock_irqsave(&n->lock, &irq);
     ++n->value;
     t = n->owner;
-    kdebug("%p->owner = %p\n", n, t);
     n->owner = NULL;
     spin_release_irqrestore(&n->lock, &irq);
 
@@ -68,7 +62,6 @@ void thread_wait_io_add(struct thread *thr, struct io_notify *n) {
     _assert(n);
     spin_lock_irqsave(&n->lock, &irq);
     _assert(!n->owner);
-    kdebug("%p->owner = %p\n", n, thr);
     n->owner = thr;
     list_add(&n->own_link, &thr->wait_head);
     spin_release_irqrestore(&n->lock, &irq);
