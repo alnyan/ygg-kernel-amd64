@@ -28,8 +28,8 @@ static spin_t g_sleep_lock = 0;
 static LIST_HEAD(g_sleep_head);
 
 void timer_add_sleep(struct thread *thr) {
-    if (thr->pid > 0)
-        kdebug("Adding %d to sleepers\n", thr->pid);
+    //if (thr->pid > 0)
+        //kdebug("Adding %d to sleepers\n", thr->pid);
     uintptr_t irq;
     struct io_notify *n = &thr->sleep_notify;
     spin_lock_irqsave(&g_sleep_lock, &irq);
@@ -38,8 +38,8 @@ void timer_add_sleep(struct thread *thr) {
 }
 
 void timer_remove_sleep(struct thread *thr) {
-    if (thr->pid > 0)
-        kdebug("Removing sleep %d\n", thr->pid);
+    //if (thr->pid > 0)
+        //kdebug("Removing sleep %d\n", thr->pid);
     uintptr_t irq;
     struct io_notify *n = &thr->sleep_notify;
     struct io_notify *it;
@@ -58,18 +58,18 @@ void timer_remove_sleep(struct thread *thr) {
 static uint32_t timer_tick(void *arg) {
     switch ((uint64_t) arg) {
     case TIMER_PIT:
-        #if defined(VESA_ENABLE)
-        ++int_timer_ticks;
-        if (int_timer_ticks >= 300) {
-            con_blink();
-            int_timer_ticks = 0;
-        }
-        if (!vesa_available) {
-#else
-        {
-#endif
-            amd64_con_sync_cursor();
-        }
+//        #if defined(VESA_ENABLE)
+//        ++int_timer_ticks;
+//        if (int_timer_ticks >= 300) {
+//            con_blink();
+//            int_timer_ticks = 0;
+//        }
+//        if (!vesa_available) {
+//#else
+//        {
+//#endif
+//            amd64_con_sync_cursor();
+//        }
         // Each tick is approx. 1ms, so add 1ms to system time
         system_time += 1000000;
         break;

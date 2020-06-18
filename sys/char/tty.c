@@ -23,19 +23,11 @@
 static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t lim);
 static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg);
 
-struct tty_data {
-    // Process group ID of the foreground group (session leader)
-    pid_t fg_pgid;
-    // Output device info
-    void *out_dev;
-    int (*out_putc) (void *dev, char c);
-};
-
 // Keyboard + display
 static struct tty_data _dev_tty0_data = {
     .fg_pgid = 1,
-    .out_dev = 0,
-    .out_putc = pc_con_putc
+    .out_dev = NULL,
+    .out_putc = NULL, //pc_con_putc
 };
 
 static struct chrdev _dev_tty0 = {
@@ -47,23 +39,6 @@ static struct chrdev _dev_tty0 = {
     .read = line_read,
     .ioctl = tty_ioctl
 };
-
-// Serial console
-//static struct tty_data _dev_ttyS0_data = {
-//    .fg_pgid = 1,
-//    .out_dev = (void *) RS232_COM1,
-//    .out_putc = rs232_putc
-//};
-
-//static struct chrdev _dev_ttyS0 = {
-//    .type = CHRDEV_TTY,
-//    .dev_data = &_dev_ttyS0_data,
-//    .tc = TERMIOS_DEFAULT,
-//    .write = tty_write,
-//    // Line discipline
-//    .read = line_read,
-//    .ioctl = tty_ioctl
-//};
 
 void tty_control_write(struct chrdev *tty, char c) {
     struct tty_data *data = tty->dev_data;
@@ -126,8 +101,8 @@ void tty_puts(struct chrdev *tty, const char *s) {
 void tty_putc(struct chrdev *tty, char c) {
     struct tty_data *data = tty->dev_data;
     _assert(data);
-    _assert(data->out_putc);
-    data->out_putc(data->out_dev, c);
+    //_assert(data->out_putc);
+    //data->out_putc(data->out_dev, c);
 }
 
 void tty_init(void) {
@@ -143,42 +118,9 @@ void tty_init(void) {
 }
 
 static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t lim) {
-    struct tty_data *data = tty->dev_data;
-    _assert(data);
-    _assert(data->out_putc);
-    for (size_t i = 0; i < lim; ++i) {
-        // This is printed as-is without tty_putc wrapper
-        data->out_putc(data->out_dev, ((const char *) buf)[i]);
-    }
     return lim;
 }
 
 static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg) {
-    struct tty_data *data = tty->dev_data;
-    _assert(data);
-
-    switch (cmd) {
-    case TCGETS:
-        memcpy(arg, &tty->tc, sizeof(struct termios));
-        return 0;
-    case TCSETS:
-        memcpy(&tty->tc, arg, sizeof(struct termios));
-        if (tty->tc.c_iflag & ICANON) {
-            tty->buffer.flags &= ~RING_RAW;
-        } else {
-            tty->buffer.flags |= RING_RAW;
-        }
-        return 0;
-    case TIOCGWINSZ:
-        // TODO: See comment on tty data struct
-        amd64_con_get_size(arg);
-        return 0;
-    case TIOCSPGRP:
-        // Clear interrupts and stuff
-        tty->buffer.flags = 0;
-        data->fg_pgid = *(pid_t *) arg;
-        return 0;
-    default:
-        return -EINVAL;
-    }
+    return -EINVAL;
 }

@@ -45,8 +45,7 @@ OBJS+=$(ACPICA_OBJS) \
 	  $(O)/arch/amd64/sched_s.o \
 	  $(O)/arch/amd64/syscall_s.o \
 	  $(O)/arch/amd64/syscall.o \
-	  $(O)/arch/amd64/binfmt_elf.o \
-	  $(O)/arch/amd64/hw/con.o
+	  $(O)/arch/amd64/binfmt_elf.o
 
 kernel_LINKER=arch/amd64/link.ld
 kernel_LDFLAGS=-nostdlib \

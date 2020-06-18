@@ -61,8 +61,40 @@ void *sys_mmap(void *hint, size_t length, int prot, int flags, int fd, off_t off
         // Anonymous mapping
         return sys_mmap_anon(page_count, prot, flags);
     } else {
+        struct thread *thr = thread_self;
+
         // File/device-backed mapping
-        panic("TODO\n");
+        if (fd < 0 || fd >= THREAD_MAX_FDS) {
+            return (void *) -EBADF;
+        }
+
+        struct ofile *of = thr->fds[fd];
+        if (!of) {
+            return (void *) -EBADF;
+        }
+
+        if (of->flags & OF_SOCKET) {
+            return (void *) -EINVAL;
+        }
+
+        struct vnode *vn = of->file.vnode;
+        _assert(vn);
+
+        switch (vn->type) {
+        case VN_BLK:
+            {
+                struct blkdev *blk = vn->dev;
+                _assert(blk);
+
+                if (!blk->mmap) {
+                    return (void *) -EINVAL;
+                }
+
+                return blk->mmap(blk, of, hint, length, flags);
+            }
+        default:
+            return (void *) -EINVAL;
+        }
     }
 }
 
@@ -90,6 +122,8 @@ int sys_munmap(void *ptr, size_t len) {
 
     len /= MM_PAGE_SIZE;
 
+    // TODO: If it's a device mapping, notify device a page was unmapped
+
     for (size_t i = 0; i < len; ++i) {
         uint64_t flags;
         uintptr_t phys = mm_map_get(thr->space, addr + i * MM_PAGE_SIZE, &flags);
@@ -100,6 +134,14 @@ int sys_munmap(void *ptr, size_t len) {
 
         struct page *page = PHYS2PAGE(phys);
         _assert(page);
+
+        // TODO: FIX THIS
+        if (page->usage == PU_DEVICE) {
+            _assert(page->refcount);
+            _assert(mm_umap_single(thr->space, addr + i * MM_PAGE_SIZE, 1) == phys);
+
+            continue;
+        }
 
         if (!(page->flags & PG_MMAPED)) {
             panic("Tried to unmap non-mmapped page\n");

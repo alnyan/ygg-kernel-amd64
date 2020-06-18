@@ -53,6 +53,12 @@ void thread_notify_io(struct io_notify *n) {
     spin_release_irqrestore(&n->lock, &irq);
 
     if (t) {
+        // Prevent double task wakeup when
+        // two event sources simultaneously try
+        // to do it
+        if (t->sched_next) {
+            return;
+        }
         sched_queue(t);
     }
 }
