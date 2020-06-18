@@ -64,6 +64,8 @@ OBJS+=$(O)/sys/ubsan.o \
 	  $(O)/sys/mem/shmem.o \
 	  $(O)/sys/mem/slab.o \
 	  $(O)/sys/wait.o \
+	  $(O)/sys/console.o \
+	  $(O)/sys/display.o \
 	  $(O)/sys/mod.o
 DIRS+=$(O)/sys \
 	  $(O)/sys/char \

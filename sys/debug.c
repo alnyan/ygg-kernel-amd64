@@ -1,4 +1,5 @@
 #include "arch/amd64/multiboot2.h"
+#include "sys/console.h"
 #include "sys/string.h"
 #include "sys/debug.h"
 #include "sys/ctype.h"
@@ -197,9 +198,9 @@ void debugc(int level, char c) {
     if (DEBUG_SERIAL(level) & kernel_config[CFG_DEBUG]) {
         rs232_send(RS232_COM1, c);
     }
-    //if (DEBUG_DISP(level) & kernel_config[CFG_DEBUG]) {
-    //    amd64_con_putc(c);
-    //}
+    if (DEBUG_DISP(level) & kernel_config[CFG_DEBUG]) {
+        console_default_putc(c);
+    }
 #endif
 }
 

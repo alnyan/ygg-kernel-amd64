@@ -10,6 +10,7 @@
 #include "arch/amd64/cpu.h"
 #include "sys/char/tty.h"
 #include "sys/char/chr.h"
+#include "sys/console.h"
 #include "sys/string.h"
 #include "sys/thread.h"
 #include "sys/assert.h"
@@ -17,28 +18,14 @@
 #include "sys/debug.h"
 #include "sys/sched.h"
 #include "sys/panic.h"
+#include "sys/heap.h"
 #include "sys/dev.h"
 #include "sys/mm.h"
 
 static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t lim);
 static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg);
 
-// Keyboard + display
-static struct tty_data _dev_tty0_data = {
-    .fg_pgid = 1,
-    .out_dev = NULL,
-    .out_putc = NULL, //pc_con_putc
-};
-
-static struct chrdev _dev_tty0 = {
-    .type = CHRDEV_TTY,
-    .dev_data = &_dev_tty0_data,
-    .tc = TERMIOS_DEFAULT,
-    .write = tty_write,
-    // Line discipline
-    .read = line_read,
-    .ioctl = tty_ioctl
-};
+static const struct termios default_termios = TERMIOS_DEFAULT;
 
 void tty_control_write(struct chrdev *tty, char c) {
     struct tty_data *data = tty->dev_data;
@@ -98,18 +85,47 @@ void tty_puts(struct chrdev *tty, const char *s) {
     }
 }
 
+int tty_create(struct console *master) {
+    struct chrdev *tty = kmalloc(sizeof(struct chrdev));
+    _assert(tty);
+
+    struct tty_data *data = kmalloc(sizeof(struct tty_data));
+    _assert(data);
+
+    data->fg_pgid = 1;
+    data->master = NULL;
+    data->buffer = NULL;
+    list_head_init(&data->list);
+
+    tty->type = CHRDEV_TTY;
+    memcpy(&tty->tc, &default_termios, sizeof(struct termios));
+    tty->write = tty_write;
+    tty->ioctl = tty_ioctl;
+    tty->read = line_read;
+    tty->dev_data = data;
+
+    ring_init(&tty->buffer, 16);
+
+    console_attach(master, tty);
+
+    dev_add(DEV_CLASS_CHAR, DEV_CHAR_TTY, tty, "tty0");
+
+    return 0;
+}
+
 void tty_putc(struct chrdev *tty, char c) {
     struct tty_data *data = tty->dev_data;
     _assert(data);
-    //_assert(data->out_putc);
-    //data->out_putc(data->out_dev, c);
+    _assert(data->master);
+
+    console_putc(data->master, tty, c);
 }
 
 void tty_init(void) {
     // tty0
-    ring_init(&_dev_tty0.buffer, 16);
-    g_keyboard_tty = &_dev_tty0;
-    dev_add(DEV_CLASS_CHAR, DEV_CHAR_TTY, &_dev_tty0, "tty0");
+//    ring_init(&_dev_tty0.buffer, 16);
+//    g_keyboard_tty = &_dev_tty0;
+//    dev_add(DEV_CLASS_CHAR, DEV_CHAR_TTY, &_dev_tty0, "tty0");
 
     // ttyS0
     //ring_init(&_dev_ttyS0.buffer, 16);
@@ -118,9 +134,47 @@ void tty_init(void) {
 }
 
 static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t lim) {
+    struct tty_data *data = tty->dev_data;
+    _assert(data);
+
+    for (size_t i = 0; i < lim; ++i) {
+        console_putc(data->master, tty, ((const char *) buf)[i]);
+    }
+
     return lim;
 }
 
 static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg) {
+    struct tty_data *data = tty->dev_data;
+    _assert(data);
+
+    switch (cmd) {
+    case TIOCGWINSZ:
+        {
+            _assert(arg);
+            struct winsize *winsz = arg;
+            _assert(data->master);
+
+            winsz->ws_col = data->master->width_chars;
+            winsz->ws_row = data->master->height_chars;
+        }
+        return 0;
+    case TCGETS:
+        memcpy(arg, &tty->tc, sizeof(struct termios));
+        return 0;
+    case TCSETS:
+        memcpy(&tty->tc, arg, sizeof(struct termios));
+        if (tty->tc.c_iflag & ICANON) {
+            tty->buffer.flags &= ~RING_RAW;
+        } else {
+            tty->buffer.flags |= RING_RAW;
+        }
+        return 0;
+    case TIOCSPGRP:
+        // Clear interrupts and stuff
+        tty->buffer.flags = 0;
+        data->fg_pgid = *(pid_t *) arg;
+        return 0;
+    }
     return -EINVAL;
 }

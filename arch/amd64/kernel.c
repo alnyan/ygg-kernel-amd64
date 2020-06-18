@@ -107,12 +107,11 @@ void kernel_early_init(void) {
     amd64_mm_init();
 
     // Console can only be initialized after memory buffers can be allocated
-//#if defined(VESA_ENABLE)
-//    if (multiboot_tag_framebuffer) {
-//        amd64_vesa_init(multiboot_tag_framebuffer);
-//    }
-//    amd64_con_init();
-//#endif
+#if defined(VESA_ENABLE)
+    if (multiboot_tag_framebuffer) {
+        amd64_vesa_init(multiboot_tag_framebuffer);
+    }
+#endif
 
     ps2_register_device();
 

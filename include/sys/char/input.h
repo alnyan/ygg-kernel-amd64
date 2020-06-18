@@ -1,8 +1,8 @@
 #pragma once
 #include "sys/types.h"
 
-struct chrdev;
-extern struct chrdev *g_keyboard_tty;
+struct console;
+extern struct console *g_keyboard_console;
 
 #define INPUT_MOD_CONTROL   (1 << 0)
 #define INPUT_MOD_SHIFT     (1 << 1)

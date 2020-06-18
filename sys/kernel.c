@@ -2,6 +2,7 @@
 #include "drivers/pci/pci.h"
 #include "drivers/usb/usb.h"
 #include "sys/char/tty.h"
+#include "sys/console.h"
 #include "sys/sched.h"
 #include "sys/panic.h"
 #include "fs/sysfs.h"
@@ -13,6 +14,7 @@ void main(void) {
     pci_init();
 
     vfs_init();
+    console_init_default();
     tty_init();
 
     sysfs_populate();

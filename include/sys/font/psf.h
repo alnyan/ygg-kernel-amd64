@@ -14,5 +14,7 @@ struct psf_font {
     uint32_t width;
 };
 
-void psf_init(uintptr_t addr, uintptr_t pitch, uint16_t *charw, uint16_t *charh);
-void psf_draw(uint16_t row, uint16_t col, uint8_t c, uint32_t fg, uint32_t bg);
+extern struct psf_font *font;
+
+struct display;
+void psf_draw(struct display *disp, uint16_t row, uint16_t col, uint8_t c, uint32_t fg, uint32_t bg);
