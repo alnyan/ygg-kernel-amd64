@@ -28,6 +28,8 @@ struct display {
     struct list_head list;
 };
 
+extern int g_display_blink_state;
+
 void display_add(struct display *d);
 struct display *display_create(void);
 

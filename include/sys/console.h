@@ -24,7 +24,9 @@ struct console {
 // Enslave a TTY to a physical console
 void console_attach(struct console *con, struct chrdev *tty);
 
+uint16_t console_buffer_at(uint16_t y, uint16_t x);
 void console_resize(struct console *con, uint16_t new_width, uint16_t new_height);
+void console_update_cursor(void);
 
 void console_putc(struct console *con, struct chrdev *tty, int c);
 void console_type(struct console *con, int c);

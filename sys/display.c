@@ -1,11 +1,13 @@
 #include "sys/font/psf.h"
 #include "sys/display.h"
+#include "sys/console.h"
 #include "sys/debug.h"
 #include <stddef.h>
 
+int g_display_blink_state = 0;
+
 static LIST_HEAD(displays);
 
-static uint8_t color_map[8] = { 0, 4, 2, 6, 1, 5, 3, 7 };
 static uint32_t rgb_map[16] = {
     0x000000,
     0x0000AA,
@@ -44,7 +46,6 @@ void display_add(struct display *disp) {
 
 void display_setc(struct display *disp, uint16_t y, uint16_t x, uint16_t ch) {
     if (disp->flags & DISP_GRAPHIC) {
-        // TODO: attr conversion
         psf_draw(disp, y, x, ch & 0xFF, rgb_map[(ch >> 8) & 0xF], rgb_map[(ch >> 12) & 0xF]);
     }
 }

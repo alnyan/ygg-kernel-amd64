@@ -27,26 +27,26 @@ static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg);
 
 static const struct termios default_termios = TERMIOS_DEFAULT;
 
-void tty_control_write(struct chrdev *tty, char c) {
-    struct tty_data *data = tty->dev_data;
-    _assert(data);
-
-    switch (c) {
-    case 'd':
-        ring_signal(&tty->buffer, RING_SIGNAL_EOF);
-        break;
-    case '.':
-        //ring_signal(&tty->buffer, RING_SIGNAL_BRK);
-        thread_signal_pgid(data->fg_pgid, SIGUSR1);
-        break;
-    case 'c':
-        //ring_signal(&tty->buffer, RING_SIGNAL_BRK);
-        thread_signal_pgid(data->fg_pgid, SIGINT);
-        break;
-    default:
-        panic("Unhandled control to TTY: ^%c\n", c);
-    }
-}
+//void tty_control_write(struct chrdev *tty, char c) {
+//    struct tty_data *data = tty->dev_data;
+//    _assert(data);
+//
+//    switch (c) {
+//    case 'd':
+//        ring_signal(&tty->buffer, RING_SIGNAL_EOF);
+//        break;
+//    case '.':
+//        //ring_signal(&tty->buffer, RING_SIGNAL_BRK);
+//        thread_signal_pgid(data->fg_pgid, SIGUSR1);
+//        break;
+//    case 'c':
+//        //ring_signal(&tty->buffer, RING_SIGNAL_BRK);
+//        thread_signal_pgid(data->fg_pgid, SIGINT);
+//        break;
+//    default:
+//        panic("Unhandled control to TTY: ^%c\n", c);
+//    }
+//}
 
 void tty_data_write(struct chrdev *tty, char c) {
     _assert(tty && tty->type == CHRDEV_TTY);
@@ -54,7 +54,6 @@ void tty_data_write(struct chrdev *tty, char c) {
 
     switch (c) {
     case '\n':
-        // TODO: this should also check ICANON
         if (tty->tc.c_lflag & ECHONL) {
             tty_putc(tty, c);
         }

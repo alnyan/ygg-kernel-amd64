@@ -7,6 +7,8 @@
 #include "arch/amd64/hw/idt.h"
 #include "arch/amd64/hw/io.h"
 #include "arch/amd64/cpu.h"
+#include "sys/display.h"
+#include "sys/console.h"
 #include "user/time.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
@@ -58,18 +60,12 @@ void timer_remove_sleep(struct thread *thr) {
 static uint32_t timer_tick(void *arg) {
     switch ((uint64_t) arg) {
     case TIMER_PIT:
-//        #if defined(VESA_ENABLE)
-//        ++int_timer_ticks;
-//        if (int_timer_ticks >= 300) {
-//            con_blink();
-//            int_timer_ticks = 0;
-//        }
-//        if (!vesa_available) {
-//#else
-//        {
-//#endif
-//            amd64_con_sync_cursor();
-//        }
+        ++int_timer_ticks;
+        if (int_timer_ticks >= 300) {
+            g_display_blink_state ^= 1;
+            int_timer_ticks = 0;
+        }
+        console_update_cursor();
         // Each tick is approx. 1ms, so add 1ms to system time
         system_time += 1000000;
         break;
