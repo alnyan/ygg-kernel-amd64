@@ -23,9 +23,9 @@
 .short 0
 .long 8
 
-.section .text
 // Args:
 // %rdi - Address of loader's information struct
+.section .text
 .type _entry64, %function
 .global _entry64
 _entry64:
@@ -42,43 +42,52 @@ _entry64:
     or $((1 << 5) | (1 << 4)), %eax
     mov %eax, %cr4
 
-    // 0x1FF000 - PML4
-    // 0x1FE000 - PDPT
-    movl $0x1FE000, %ebx
-    // Zero out the tables
-    movl %ebx, %edi
-    movl $0x800, %ecx
+    // Clear kernel page structs
+    leal (kernel_pd_res - 0xFFFFFF0000000000), %edi
+    movl %edi, %ebx
+    movl $0x1800, %ecx
     xorl %eax, %eax
     cld
     rep stosl
 
-    // Setup PML4
-    // PDPT | present | write
-    orl $((1 << 1) | (1 << 0)), %ebx
-    // PML4[0]   -> ...
-    movl $0x1FF000, %edi
-    movl %ebx, (%edi)
-    // PML4[510] -> ...
-    movl $0x1FFFF0, %edi
-    movl %ebx, (%edi)
-
-    // Setup PDPT
-    movl $0x1FE000, %edi
-    movl $0, %ecx
+    // Setup PDs
+    movl %ebx, %edi
+    xorl %ecx, %ecx
 1:
-    // PDPT[i] = (i << 30) | write | present | huge | global
+    // PD[i] = (i << 21) | write | present | huge
     movl %ecx, %edx
-    shl $30, %edx
-    orl $((1 << 7) | (1 << 1) | (1 << 0)), %edx
+    shl $21, %edx
+    orl $((1 << 7) | (1 << 0) | (1 << 1)), %edx
     movl %edx, (%edi, %ecx, 8)
 
     incl %ecx
-    cmpl $4, %ecx
+    cmpl $(512 * 4), %ecx
     jne 1b
 
+    // Setup PDPT
+    addl $(4096 * 4), %edi
+    xorl %ecx, %ecx
+2:
+    // edi[ecx++] <- (ebx += 0x1000) | (1 << 0) | (1 << 1)
+    movl %ebx, %edx
+    orl $((1 << 0) | (1 << 1)), %edx
+    movl %edx, (%edi, %ecx, 8)
+    addl $0x1000, %ebx
+
+    incl %ecx
+    cmpl $4, %ecx
+    jne 2b
+
+    // Setup PML4
+    // %edi - PDPT
+    movl %edi, %ebx
+    addl $0x1000, %edi
+    orl $((1 << 0) | (1 << 1)), %ebx
+    movl %ebx, (%edi)
+    movl %ebx, 4080(%edi)
+
     // Load PML4 into CR3
-    movl $0x1FF000, %eax
-    movl %eax, %cr3
+    movl %edi, %cr3
 
     // Enable EFER.LME
     mov $0xC0000080, %ecx

@@ -13,6 +13,11 @@
 
 mm_space_t mm_kernel;
 
+// Reserved space for kernel page structs
+// TODO: option to enable PDPE1GB
+// 1x PML4; 1x PDPT; 4x PD
+__attribute__((aligned(0x1000))) uint64_t kernel_pd_res[6 * 512];
+
 extern int _kernel_end;
 
 void userptr_check(const void *ptr) {
@@ -24,19 +29,7 @@ void userptr_check(const void *ptr) {
 void amd64_mm_init(void) {
     kdebug("Memory manager init\n");
 
-    // TODO: restore NX and do it per-CPU
-    //{
-    //    // TODO: make NX optional via config
-    //    if (!(cpuid_ext_features_edx & CPUID_EXT_EDX_FEATURE_NX)) {
-    //        panic("NX is not supported\n");
-    //    }
-
-    //    uint64_t efer = rdmsr(MSR_IA32_EFER);
-    //    efer |= IA32_EFER_NXE;
-    //    wrmsr(MSR_IA32_EFER, efer);
-    //}
-
-    mm_kernel = (mm_space_t) (MM_VIRTUALIZE(0x1FF000));
+    mm_kernel = &kernel_pd_res[5 * 512];
     // Create a pool located right after kernel image
     amd64_mm_pool_init((uintptr_t) &_kernel_end, MM_POOL_SIZE);
 
