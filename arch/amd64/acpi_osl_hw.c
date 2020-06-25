@@ -64,7 +64,31 @@ ACPI_STATUS AcpiOsReadPciConfiguration(ACPI_PCI_ID *PciId, UINT32 Reg, UINT64 *V
 }
 
 ACPI_STATUS AcpiOsWritePciConfiguration(ACPI_PCI_ID *PciId, UINT32 Reg, UINT64 Value, UINT32 Width) {
-    panic("Stub\n");
+    UINT32 DWordAlignedReg = Reg & ~3;
+    UINT32 DWord;
+
+    if (Width == 32) {
+        DWord = 0;
+    } else {
+        DWord = pci_config_read_dword_legacy(PciId->Bus, PciId->Device, PciId->Function, DWordAlignedReg);
+    }
+
+    switch (Width) {
+    case 8:
+        DWord |= (Value & 0xFF) << (Reg - DWordAlignedReg);
+        pci_config_write_dword_legacy(PciId->Bus, PciId->Device, PciId->Function, DWordAlignedReg, DWord);
+        return AE_OK;
+    case 16:
+        DWord |= (Value & 0xFFFF) << (Reg - DWordAlignedReg);
+        pci_config_write_dword_legacy(PciId->Bus, PciId->Device, PciId->Function, DWordAlignedReg, DWord);
+        return AE_OK;
+    case 32:
+        _assert(DWordAlignedReg == Reg);
+        pci_config_write_dword_legacy(PciId->Bus, PciId->Device, PciId->Function, DWordAlignedReg, Value & 0xFFFFFFFF);
+        return AE_OK;
+    default:
+        panic("Unsupported PCI read width: %u\n", Width);
+    }
     return AE_OK;
 }
 
