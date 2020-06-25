@@ -144,11 +144,13 @@ static void process_csi(struct console *con, struct console_buffer *buf) {
         switch (buf->esc_argv[0]) {
         case 0:
             // Erase lines down
-            //memsetw(con_buffer, attr, con_width * y);
+            memsetw(buf->data, buf->attr, con->width_chars * buf->y);
             break;
         case 1:
             // Erase lines up
-            //memsetw(&con_buffer[y * con_width], attr, con_width * (con_height - y));
+            memsetw(&buf->data[buf->y * con->width_chars],
+                    buf->attr,
+                    con->width_chars * (con->height_chars - buf->y));
             break;
         case 2:
             // Erase all
