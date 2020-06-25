@@ -162,63 +162,63 @@ static void process_csi(struct console *con, struct console_buffer *buf) {
         buf->y = (buf->esc_argv[0] - 1) % con->height_chars;
         buf->x = (buf->esc_argv[1] - 1) % (con->width_chars - 1);
         break;
+    case 'A':
+        // Cursor up
+        if (!buf->esc_argv[0]) {
+            buf->esc_argv[0] = 1;
+        }
+
+        if (buf->esc_argv[0] >= buf->y) {
+            buf->y = 0;
+        } else {
+            buf->y -= buf->esc_argv[0];
+        }
+        break;
+    case 'B':
+        // Cursor down
+        if (!buf->esc_argv[0]) {
+            buf->esc_argv[0] = 1;
+        }
+
+        if (buf->esc_argv[0] + buf->y >= (uint32_t) con->height_chars) {
+            buf->y = con->height_chars - 1;
+        } else {
+            buf->y += buf->esc_argv[0];
+        }
+        break;
+    case 'C':
+        // Forward
+        if (!buf->esc_argv[0]) {
+            buf->esc_argv[0] = 1;
+        }
+
+        if (buf->esc_argv[0] + buf->x >= con->width_chars) {
+            buf->x = con->width_chars - 1;
+        } else {
+            buf->x += buf->esc_argv[0];
+        }
+
+        break;
+    case 'D':
+        // Backward
+        if (!buf->esc_argv[0]) {
+            buf->esc_argv[0] = 1;
+        }
+
+        if (buf->esc_argv[0] >= buf->x) {
+            buf->x = 0;
+        } else {
+            buf->x -= buf->esc_argv[0];
+        }
+
+        break;
+    case 'K':
+        // Erase end of line
+        memsetw(&buf->data[buf->y * con->width_chars + buf->x], buf->attr, con->width_chars - buf->x);
+        break;
     default:
         kdebug("\033[31mUnknown CSI sequence: %c\033[0m\n", buf->esc_letter);
         break;
-    //case 'A':
-    //    // Cursor up
-    //    if (!esc_argv[0]) {
-    //        esc_argv[0] = 1;
-    //    }
-
-    //    if (esc_argv[0] >= y) {
-    //        y = 0;
-    //    } else {
-    //        y -= esc_argv[0];
-    //    }
-    //    break;
-    //case 'B':
-    //    // Cursor down
-    //    if (!esc_argv[0]) {
-    //        esc_argv[0] = 1;
-    //    }
-
-    //    if (esc_argv[0] + y >= (uint32_t) (con_height - 1)) {
-    //        y = 22;
-    //    } else {
-    //        y += esc_argv[0];
-    //    }
-    //    break;
-    //case 'C':
-    //    // Forward
-    //    if (!esc_argv[0]) {
-    //        esc_argv[0] = 1;
-    //    }
-
-    //    if (esc_argv[0] + x >= con_width) {
-    //        x = 79;
-    //    } else {
-    //        x += esc_argv[0];
-    //    }
-
-    //    break;
-    //case 'D':
-    //    // Backward
-    //    if (!esc_argv[0]) {
-    //        esc_argv[0] = 1;
-    //    }
-
-    //    if (esc_argv[0] >= x) {
-    //        x = 0;
-    //    } else {
-    //        x -= esc_argv[0];
-    //    }
-
-    //    break;
-    //case 'K':
-    //    // Erase end of line
-    //    memsetw(&con_buffer[y * con_width + x], attr, con_width - x);
-    //    break;
     }
 }
 
