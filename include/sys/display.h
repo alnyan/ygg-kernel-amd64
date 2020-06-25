@@ -10,8 +10,6 @@
 struct display {
     // Text modes: set character at y, x
     void (*setc) (uint16_t y, uint16_t x, uint16_t c);
-    // If DISP_GRAPHIC and not DISP_LFB
-    void (*setpixel) (uint32_t x, uint32_t y, uint32_t c);
 
     uint32_t flags;
     // If DISP_GRAPHIC

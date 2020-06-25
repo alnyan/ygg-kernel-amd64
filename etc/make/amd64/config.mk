@@ -21,10 +21,10 @@ endif
 
 ifeq ($(VESA_ENABLE),1)
 DEFINES+=-DVESA_ENABLE=1 \
-		 -DVESA_WIDTH=$(VESA_WIDTH) \
-		 -DVESA_HEIGHT=$(VESA_HEIGHT) \
-		 -DVESA_DEPTH=$(VESA_DEPTH) \
-		 -DVESA_MODE=0
+   	 -DVESA_WIDTH=$(VESA_WIDTH) \
+   	 -DVESA_HEIGHT=$(VESA_HEIGHT) \
+   	 -DVESA_DEPTH=$(VESA_DEPTH) \
+   	 -DVESA_MODE=0
 OBJS+=$(O)/arch/amd64/hw/vesa.o
 endif
 

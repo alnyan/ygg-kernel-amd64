@@ -1,6 +1,7 @@
 #include "sys/font/psf.h"
 #include "sys/display.h"
 #include "sys/console.h"
+#include "sys/assert.h"
 #include "sys/debug.h"
 #include <stddef.h>
 
@@ -47,5 +48,8 @@ void display_add(struct display *disp) {
 void display_setc(struct display *disp, uint16_t y, uint16_t x, uint16_t ch) {
     if (disp->flags & DISP_GRAPHIC) {
         psf_draw(disp, y, x, ch & 0xFF, rgb_map[(ch >> 8) & 0xF], rgb_map[(ch >> 12) & 0xF]);
+    } else {
+        _assert(disp->setc);
+        disp->setc(y, x, ch);
     }
 }

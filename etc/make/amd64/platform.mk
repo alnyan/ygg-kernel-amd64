@@ -17,6 +17,7 @@ OBJS+=$(ACPICA_OBJS) \
 	  $(O)/arch/amd64/acpi_osl_irq.o \
 	  $(O)/arch/amd64/acpi_osl_hw.o \
 	  $(O)/arch/amd64/hw/rs232.o \
+	  $(O)/arch/amd64/hw/con.o \
 	  $(O)/arch/amd64/kernel.o \
 	  $(O)/arch/amd64/hw/gdt.o \
 	  $(O)/arch/amd64/hw/gdt_s.o \

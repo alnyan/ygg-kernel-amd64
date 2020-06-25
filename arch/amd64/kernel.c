@@ -14,6 +14,7 @@
 #include "arch/amd64/mm/mm.h"
 #include "arch/amd64/fpu.h"
 #include "sys/block/ram.h"
+#include "sys/console.h"
 #include "sys/config.h"
 #include "sys/kernel.h"
 #include "sys/random.h"
@@ -39,6 +40,9 @@ static void amd64_make_random_seed(void) {
 }
 
 void kernel_early_init(void) {
+    // Allows early output
+    amd64_console_init();
+
     // Check Multiboot2 signature
     if (multiboot_registers.eax != MULTIBOOT2_BOOTLOADER_MAGIC) {
         panic("Invalid bootloader magic\n");
@@ -79,6 +83,14 @@ void kernel_early_init(void) {
         offset += (tag->size + 7) & ~7;
     }
 
+    // Console can only be initialized after memory buffers can be allocated
+#if defined(VESA_ENABLE)
+    if (multiboot_tag_framebuffer) {
+        // Early display init
+        vesa_init(multiboot_tag_framebuffer);
+    }
+#endif
+
     if (!multiboot_tag_mmap) {
         panic("Multiboot2 loader provided no memory map\n");
     }
@@ -106,12 +118,7 @@ void kernel_early_init(void) {
 
     amd64_mm_init();
 
-    // Console can only be initialized after memory buffers can be allocated
-#if defined(VESA_ENABLE)
-    if (multiboot_tag_framebuffer) {
-        amd64_vesa_init(multiboot_tag_framebuffer);
-    }
-#endif
+    console_init_default();
 
     ps2_register_device();
 

@@ -14,7 +14,6 @@ void main(void) {
     pci_init();
 
     vfs_init();
-    console_init_default();
     tty_init();
 
     sysfs_populate();

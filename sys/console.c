@@ -287,6 +287,8 @@ void console_update_cursor(void) {
     if (g_display_blink_state != prev_blink) {
         list_for_each_entry(con, &g_consoles, list) {
             if (con->display && con->buf_active) {
+                // TODO: don't blink on text-mode only consoles:
+                //       use hardware cursor
                 struct console_buffer *buf = con->buf_active;
                 uint16_t c = buf->data[buf->y * con->width_chars + buf->x];
                 if (g_display_blink_state) {
