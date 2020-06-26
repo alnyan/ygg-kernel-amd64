@@ -258,27 +258,44 @@ static void _console_putc(struct console *con, struct console_buffer *buf, int c
             return;
         }
 
-        if (c == '\n') {
+        switch (c) {
+        case '\n':
             ++buf->y;
+            // TODO: separate \r and \n?
             buf->x = 0;
             console_scroll_check(con, buf);
-        } else if (c >= ' ') {
-            buf->data[buf->y * con->width_chars + buf->x] = c | buf->attr;
-            if (act) {
-                uint16_t a = buf->attr;
-                if (buf->xattrs & ATTR_BOLD) {
-                    a |= 0x8000;
-                }
-                display_setc(con->display, buf->y, buf->x, c | a);
-            }
-
-            ++buf->x;
+            break;
+        case '\r':
+            buf->x = 0;
+            break;
+        case '\t':
+            buf->x += (4 - buf->x % 4);
             if (buf->x >= con->width_chars) {
                 ++buf->y;
                 buf->x = 0;
                 console_scroll_check(con, buf);
             }
+            break;
+        default:
+            if (c >= ' ') {
+                buf->data[buf->y * con->width_chars + buf->x] = c | buf->attr;
+                if (act) {
+                    uint16_t a = buf->attr;
+                    if (buf->xattrs & ATTR_BOLD) {
+                        a |= 0x8000;
+                    }
+                    display_setc(con->display, buf->y, buf->x, c | a);
+                }
+
+                ++buf->x;
+                if (buf->x >= con->width_chars) {
+                    ++buf->y;
+                    buf->x = 0;
+                    console_scroll_check(con, buf);
+                }
+            }
         }
+        break;
     }
 }
 
