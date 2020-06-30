@@ -717,13 +717,9 @@ __attribute__((noreturn)) void sys_exit(int status) {
 
     thr->exit_status = status;
 
-    if (thr->parent) {
-        struct thread *p = thr->parent;
-
-        // Waiting on that descriptor
-        if (p->pid_notify.owner) {
-            thread_notify_io(&p->pid_notify);
-        }
+    // Notify waitpid()ers
+    if (thr->pid_notify.owner) {
+        thread_notify_io(&thr->pid_notify);
     }
 
     sched_unqueue(thr, THREAD_STOPPED);
@@ -740,8 +736,8 @@ int sys_waitpid(pid_t pid, int *status) {
         return -ECHILD;
     }
 
-    while (1) {
-        res = thread_wait_io(thr, &thr->pid_notify);
+    while (chld->state != THREAD_STOPPED) {
+        res = thread_wait_io(thr, &chld->pid_notify);
 
         if (res < 0) {
             // Likely interrupted
