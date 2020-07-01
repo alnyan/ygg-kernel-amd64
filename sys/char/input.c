@@ -7,43 +7,43 @@
 struct console *g_keyboard_console = NULL;
 
 void input_scan(uint8_t c) {
-    //switch (c) {
-    //case INPUT_KEY_UP:
-    //    tty_data_write(g_keyboard_tty, '\033');
-    //    tty_data_write(g_keyboard_tty, '[');
-    //    tty_data_write(g_keyboard_tty, 'A');
-    //    break;
-    //case INPUT_KEY_DOWN:
-    //    tty_data_write(g_keyboard_tty, '\033');
-    //    tty_data_write(g_keyboard_tty, '[');
-    //    tty_data_write(g_keyboard_tty, 'B');
-    //    break;
-    //case INPUT_KEY_RIGHT:
-    //    tty_data_write(g_keyboard_tty, '\033');
-    //    tty_data_write(g_keyboard_tty, '[');
-    //    tty_data_write(g_keyboard_tty, 'C');
-    //    break;
-    //case INPUT_KEY_LEFT:
-    //    tty_data_write(g_keyboard_tty, '\033');
-    //    tty_data_write(g_keyboard_tty, '[');
-    //    tty_data_write(g_keyboard_tty, 'D');
-    //    break;
-    //case INPUT_KEY_HOME:
-    //    tty_data_write(g_keyboard_tty, '\033');
-    //    tty_data_write(g_keyboard_tty, '[');
-    //    tty_data_write(g_keyboard_tty, '[');
-    //    tty_data_write(g_keyboard_tty, 'H');
-    //    break;
-    //case INPUT_KEY_END:
-    //    tty_data_write(g_keyboard_tty, '\033');
-    //    tty_data_write(g_keyboard_tty, '[');
-    //    tty_data_write(g_keyboard_tty, '[');
-    //    tty_data_write(g_keyboard_tty, 'F');
-    //    break;
-    //default:
-    //    kdebug("Ignoring unhandled key: %02x\n", c);
-    //    break;
-    //}
+    switch (c) {
+    case INPUT_KEY_UP:
+        console_type(g_keyboard_console, '\033');
+        console_type(g_keyboard_console, '[');
+        console_type(g_keyboard_console, 'A');
+        break;
+    case INPUT_KEY_DOWN:
+        console_type(g_keyboard_console, '\033');
+        console_type(g_keyboard_console, '[');
+        console_type(g_keyboard_console, 'B');
+        break;
+    case INPUT_KEY_RIGHT:
+        console_type(g_keyboard_console, '\033');
+        console_type(g_keyboard_console, '[');
+        console_type(g_keyboard_console, 'C');
+        break;
+    case INPUT_KEY_LEFT:
+        console_type(g_keyboard_console, '\033');
+        console_type(g_keyboard_console, '[');
+        console_type(g_keyboard_console, 'D');
+        break;
+    case INPUT_KEY_HOME:
+        console_type(g_keyboard_console, '\033');
+        console_type(g_keyboard_console, '[');
+        console_type(g_keyboard_console, '[');
+        console_type(g_keyboard_console, 'H');
+        break;
+    case INPUT_KEY_END:
+        console_type(g_keyboard_console, '\033');
+        console_type(g_keyboard_console, '[');
+        console_type(g_keyboard_console, '[');
+        console_type(g_keyboard_console, 'F');
+        break;
+    default:
+        kdebug("Ignoring unhandled key: %02x\n", c);
+        break;
+    }
 }
 
 void input_key(uint8_t key, uint8_t mods, const char *map0, const char *map1) {
@@ -71,14 +71,17 @@ void input_key(uint8_t key, uint8_t mods, const char *map0, const char *map1) {
             input_scan(c);
         }
     } else {
-        //char c = map0[key];
+        char c = map0[key];
 
-        //switch (c) {
-        //case 'c':
-        //case '.':
-        //case 'd':
-        //    tty_control_write(g_keyboard_tty, c);
-        //    break;
-        //}
+        switch (c) {
+        case 'd':
+            console_type(g_keyboard_console, 4);    // EOT
+            break;
+        case 'c':
+            console_type(g_keyboard_console, 3);    // ETX
+            break;
+        default:
+            break;
+        }
     }
 }

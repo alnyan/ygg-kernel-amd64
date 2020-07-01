@@ -27,29 +27,26 @@ static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg);
 
 static const struct termios default_termios = TERMIOS_DEFAULT;
 
-//void tty_control_write(struct chrdev *tty, char c) {
-//    struct tty_data *data = tty->dev_data;
-//    _assert(data);
-//
-//    switch (c) {
-//    case 'd':
-//        ring_signal(&tty->buffer, RING_SIGNAL_EOF);
-//        break;
-//    case '.':
-//        //ring_signal(&tty->buffer, RING_SIGNAL_BRK);
-//        thread_signal_pgid(data->fg_pgid, SIGUSR1);
-//        break;
-//    case 'c':
-//        //ring_signal(&tty->buffer, RING_SIGNAL_BRK);
-//        thread_signal_pgid(data->fg_pgid, SIGINT);
-//        break;
-//    default:
-//        panic("Unhandled control to TTY: ^%c\n", c);
-//    }
-//}
-
 void tty_data_write(struct chrdev *tty, char c) {
     _assert(tty && tty->type == CHRDEV_TTY);
+
+    if ((tty->tc.c_iflag & ICANON) && (tty->tc.c_cc[VEOF] == c)) {
+        // EOF
+        ring_signal(&tty->buffer, RING_SIGNAL_EOF);
+        return;
+    }
+
+    if (tty->tc.c_cc[VINTR] == c) {
+        if (tty->tc.c_lflag & ISIG) {
+            thread_signal_pgid(((struct tty_data *) tty->dev_data)->fg_pgid, SIGINT);
+            return;
+        } else {
+            // Just display ^C
+            tty_putc(tty, '^');
+            tty_putc(tty, 'C');
+        }
+    }
+
     ring_putc(NULL, &tty->buffer, c, 0);
 
     switch (c) {

@@ -15,21 +15,33 @@
 #define ONLRET          (1 << 6)
 
 // Control flags
+#define ISIG            (1 << 0)
 #define ECHO            (1 << 4)        // Echo input characters
 #define ECHOE           (1 << 5)        // if ICANON, ERASE erases prec. character,
                                         //            WERASE erases prec. word
 #define ECHOK           (1 << 6)        // if ICANON, KILL character erases the line
 #define ECHONL          (1 << 8)        // if ICANON, echo newline (even if no ECHO)
 
+enum {
+    VEOF = 0,
+    VINTR,
+    NCCS
+};
+
 #define TERMIOS_DEFAULT \
     { \
         .c_iflag = ICANON, \
         .c_oflag = OPOST, \
         .c_cflag = 0, \
-        .c_lflag = ECHO | ECHONL | ECHOE | ECHOK, \
+        .c_lflag = ECHO | ECHONL | ECHOE | ECHOK | ISIG, \
+        .c_cc = { \
+            [VEOF] = 4, \
+            [VINTR] = 3, \
+        }, \
     }
 
 typedef unsigned int tcflag_t;
+typedef char cc_t;
 
 struct winsize {
     unsigned short ws_row;
@@ -43,6 +55,7 @@ struct termios {
     tcflag_t c_oflag;
     tcflag_t c_cflag;
     tcflag_t c_lflag;
+    cc_t c_cc[NCCS];
 };
 
 #define TCSANOW         0
