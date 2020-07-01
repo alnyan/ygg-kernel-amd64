@@ -141,7 +141,7 @@ void heap_free(heap_t *heap, void *ptr) {
     // Check if the pointer belongs to the heap
     if (((uintptr_t) ptr) < MM_VIRTUALIZE(heap->phys_base) ||
         ((uintptr_t) ptr) > (MM_VIRTUALIZE(heap->phys_base) + heap->limit)) {
-        panic("Tried to free a pointer from outside a heap\n");
+        panic("Tried to free a pointer from outside a heap: %p\n", ptr);
     }
 
     // Check if ptr is in a valid block

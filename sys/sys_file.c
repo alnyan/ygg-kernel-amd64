@@ -3,6 +3,7 @@
 #include "arch/amd64/cpu.h"
 #include "fs/ofile.h"
 #include "sys/char/ring.h"
+#include "sys/char/pipe.h"
 #include "sys/char/chr.h"
 #include "sys/sys_file.h"
 #include "sys/thread.h"
@@ -213,6 +214,67 @@ int sys_access(const char *path, int mode) {
     _assert(path);
 
     return vfs_access(&thr->ioctx, path, mode);
+}
+
+int sys_pipe(int *filedes) {
+    userptr_check(filedes);
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    struct ofile *read_end, *write_end;
+    int fd0 = -1, fd1 = -1;
+    int res;
+
+    if ((res = pipe_create(&read_end, &write_end)) != 0) {
+        return res;
+    }
+
+
+    // XXX: This should be atomic
+    for (int i = 0; i < THREAD_MAX_FDS; ++i) {
+        if (!thr->fds[i]) {
+            if (fd0 == -1) {
+                fd0 = i;
+            } else {
+                fd1 = i;
+                break;
+            }
+        }
+    }
+    if (fd0 == -1 || fd1 == -1) {
+        return -EMFILE;
+    }
+
+    thr->fds[fd0] = read_end;
+    thr->fds[fd1] = write_end;
+
+    filedes[0] = fd0;
+    filedes[1] = fd1;
+
+    return 0;
+}
+
+int sys_dup2(int oldfd, int newfd) {
+    if (oldfd < 0 || newfd < 0 || oldfd >= THREAD_MAX_FDS || newfd >= THREAD_MAX_FDS) {
+        return -EBADF;
+    }
+
+    struct thread *thr = thread_self;
+    _assert(thr);
+
+    if (!thr->fds[newfd]) {
+        return -EBADF;
+    }
+
+    sys_close(oldfd);
+    _assert(!thr->fds[oldfd]);
+
+    thr->fds[oldfd] = thr->fds[newfd];
+    if (!(thr->fds[oldfd]->flags & OF_SOCKET)) {
+        ++thr->fds[oldfd]->file.refcount;
+    }
+
+    return newfd;
 }
 
 int sys_openpty(int *master, int *slave) {

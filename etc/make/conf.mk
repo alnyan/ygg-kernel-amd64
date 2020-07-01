@@ -44,6 +44,7 @@ OBJS+=$(O)/sys/ubsan.o \
 	  $(O)/sys/char/line.o \
 	  $(O)/sys/char/tty.o \
 	  $(O)/sys/char/chr.o \
+	  $(O)/sys/char/pipe.o \
 	  $(O)/sys/block/pseudo.o \
 	  $(O)/sys/block/part_gpt.o \
 	  $(O)/sys/block/ram.o \

@@ -429,12 +429,12 @@ void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd) {
     _assert(fd->file.vnode);
     _assert(fd->file.refcount > 0);
 
-    if (fd->file.vnode->op && fd->file.vnode->op->close) {
-        fd->file.vnode->op->close(fd);
-    }
-
     --fd->file.vnode->open_count;
     --fd->file.refcount;
+
+    if (!fd->file.refcount && fd->file.vnode->op && fd->file.vnode->op->close) {
+        fd->file.vnode->op->close(fd);
+    }
 }
 
 int vfs_access(struct vfs_ioctx *ctx, const char *path, int accmode) {
