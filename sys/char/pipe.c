@@ -71,10 +71,6 @@ static ssize_t pipe_vnode_read(struct ofile *of, void *buf, size_t count) {
     size_t rem = count;
     char *wr = buf;
 
-    if (r->flags & RING_SIGNAL_EOF) {
-        return 0;
-    }
-
     while (rem) {
         if (ring_getc(thr, r, &c, 0) < 0) {
             break;

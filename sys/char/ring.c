@@ -66,10 +66,12 @@ int ring_getc(struct thread *ctx, struct ring *ring, char *c, int err) {
         }
     } else {
         do {
+            // TODO: better handling of EOF condition?
             if (ring->flags & (RING_SIGNAL_BRK | RING_SIGNAL_EOF)) {
-                ring->flags &= ~RING_SIGNAL_BRK;
-                // TODO: send SIGINT on break
-                return -1;
+                if (!ring_readable(ring)) {
+                    ring->flags &= ~RING_SIGNAL_BRK;
+                    return -1;
+                }
             }
 
             if (!ring_readable(ring)) {
