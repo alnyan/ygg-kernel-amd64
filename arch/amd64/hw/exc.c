@@ -82,6 +82,7 @@ int do_pfault(struct amd64_exception_frame *frame, uintptr_t cr2, uintptr_t cr3)
                     _assert(mm_umap_single(space, cr2 & MM_PAGE_MASK, 1) == phys);
                     _assert(mm_map_single(space, cr2 & MM_PAGE_MASK, phys, MM_PAGE_USER | MM_PAGE_WRITE, PU_PRIVATE) == 0);
                 } else {
+                    kdebug("Page refcount == %d\n", page->refcount);
                     panic("???\n");
                 }
 
