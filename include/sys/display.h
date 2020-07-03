@@ -10,6 +10,7 @@
 struct display {
     // Text modes: set character at y, x
     void (*setc) (uint16_t y, uint16_t x, uint16_t c);
+    void (*cursor) (uint16_t y, uint16_t x);
 
     uint32_t flags;
     // If DISP_GRAPHIC

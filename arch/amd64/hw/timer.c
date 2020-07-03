@@ -65,7 +65,9 @@ static uint32_t timer_tick(void *arg) {
             g_display_blink_state ^= 1;
             int_timer_ticks = 0;
         }
-        console_update_cursor();
+        if (int_timer_ticks % 2 == 0) {
+            console_update_cursor();
+        }
         // Each tick is approx. 1ms, so add 1ms to system time
         system_time += 1000000;
         break;

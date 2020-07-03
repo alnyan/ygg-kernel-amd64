@@ -303,34 +303,40 @@ void console_update_cursor(void) {
     struct console *con;
     static int prev_blink = 0;
 
-    if (g_display_blink_state != prev_blink) {
-        list_for_each_entry(con, &g_consoles, list) {
-            if (con->display && con->buf_active) {
-                // TODO: don't blink on text-mode only consoles:
-                //       use hardware cursor
-                struct console_buffer *buf = con->buf_active;
-                uint16_t c = buf->data[buf->y * con->width_chars + buf->x];
-                if (g_display_blink_state) {
-                    // Swap attributes
-                    c = ((c >> 4) & 0xF00) |
-                        ((c & 0xF00) << 4) |
-                        (c & 0xFF);
+    list_for_each_entry(con, &g_consoles, list) {
+        if (con->display && con->buf_active) {
+            struct display *d = con->display;
+            struct console_buffer *buf = con->buf_active;
+
+            if (d->flags & DISP_GRAPHIC) {
+                if (g_display_blink_state != prev_blink) {
+                    uint16_t c = buf->data[buf->y * con->width_chars + buf->x];
+                    if (g_display_blink_state) {
+                        // Swap attributes
+                        c = ((c >> 4) & 0xF00) |
+                            ((c & 0xF00) << 4) |
+                            (c & 0xFF);
+                    }
+                    display_setc(d, buf->y, buf->x, c);
+                    if (buf->last_blink_x != buf->x || buf->last_blink_y != buf->y) {
+                        // Also redraw character at last blink position
+                        display_setc(d,
+                                     buf->last_blink_y,
+                                     buf->last_blink_x,
+                                     buf->data[buf->last_blink_y * con->width_chars +
+                                               buf->last_blink_x]);
+                        buf->last_blink_x = buf->x;
+                        buf->last_blink_y = buf->y;
+                    }
                 }
-                display_setc(con->display, buf->y, buf->x, c);
-                if (buf->last_blink_x != buf->x || buf->last_blink_y != buf->y) {
-                    // Also redraw character at last blink position
-                    display_setc(con->display,
-                                 buf->last_blink_y,
-                                 buf->last_blink_x,
-                                 buf->data[buf->last_blink_y * con->width_chars +
-                                           buf->last_blink_x]);
-                    buf->last_blink_x = buf->x;
-                    buf->last_blink_y = buf->y;
-                }
+            } else {
+                _assert(d->cursor);
+                d->cursor(buf->y, buf->x);
             }
         }
-        prev_blink = g_display_blink_state;
     }
+
+    prev_blink = g_display_blink_state;
 }
 
 void console_putc(struct console *con, struct chrdev *tty, int c) {
