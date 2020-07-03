@@ -14,7 +14,8 @@ typedef uint64_t size_t;
 typedef int64_t off_t;
 
 typedef uint32_t mode_t;
-typedef __uid_t uid_t;
-typedef __gid_t gid_t;
+
+typedef uint16_t uid_t;
+typedef uint16_t gid_t;
 
 typedef int32_t pid_t;
