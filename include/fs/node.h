@@ -13,11 +13,17 @@
 // Means the node has no physical storage and resides only
 // in memory
 #define VN_MEMORY       (1 << 0)
+// Means the link has different meanings depending on
+// resolving process ID - use target_func instead
+#define VN_PER_PROCESS  (1 << 1)
 
 struct ofile;
 struct vfs_ioctx;
+struct thread;
 struct vnode;
 struct fs;
+
+typedef struct vnode *(*vnode_link_getter_t) (struct thread *, struct vnode *);
 
 enum vnode_type {
     VN_REG,
@@ -66,7 +72,10 @@ struct vnode {
     // For filesystem roots, mountpoint directory vnode
     // For symlinks, this is target vnode
     // For mountpoints, this is filesystem root
-    struct vnode *target;
+    union {
+        struct vnode *target;
+        vnode_link_getter_t target_func;
+    };
 
     uint32_t open_count;
     uint64_t ino;

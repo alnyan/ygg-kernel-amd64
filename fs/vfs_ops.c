@@ -274,7 +274,7 @@ int vfs_mkdir(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
     }
 
     // Find parent vnode
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, parent_path, &at)) != 0) {
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, parent_path, 0, &at)) != 0) {
         return res;
     }
 
@@ -296,7 +296,7 @@ int vfs_rmdir(struct vfs_ioctx *ctx, const char *path) {
     struct vnode *node;
     int res;
 
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 0, &node)) != 0) {
         return res;
     }
 
@@ -330,7 +330,7 @@ int vfs_unlink(struct vfs_ioctx *ctx, const char *path) {
     struct vnode *node;
     int res;
 
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 1, &node)) != 0) {
         return res;
     }
 
@@ -373,7 +373,7 @@ int vfs_creat(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
     }
 
     // Find parent vnode
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, parent_path, &at)) != 0) {
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, parent_path, 0, &at)) != 0) {
         return res;
     }
 
@@ -399,7 +399,7 @@ int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int opt,
     _assert(fd);
     _assert(path);
 
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 0, &node)) != 0) {
         if (opt & O_CREAT) {
             if (opt & O_DIRECTORY) {
                 return -EINVAL;
@@ -411,7 +411,7 @@ int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int opt,
             }
 
             // If creation succeeded, find file again
-            if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+            if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 0, &node)) != 0) {
                 return res;
             }
         } else {
@@ -444,7 +444,7 @@ int vfs_access(struct vfs_ioctx *ctx, const char *path, int accmode) {
     _assert(ctx);
     _assert(path);
 
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 0, &node)) != 0) {
         return res;
     }
 
@@ -475,6 +475,25 @@ int vfs_fstat(struct vfs_ioctx *ctx, struct ofile *fd, struct stat *st) {
     return node->op->stat(node, st);
 }
 
+int vfs_lstat(struct vfs_ioctx *ctx, const char *path, struct stat *st) {
+    struct vnode *node;
+    int res;
+
+    _assert(ctx);
+    _assert(path);
+    _assert(st);
+
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 1, &node)) != 0) {
+        return res;
+    }
+
+    if (!node->op || !node->op->stat) {
+        return -EINVAL;
+    }
+
+    return node->op->stat(node, st);
+}
+
 int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st) {
     struct vnode *node;
     int res;
@@ -483,7 +502,7 @@ int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st) {
     _assert(path);
     _assert(st);
 
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 0, &node)) != 0) {
         return res;
     }
 
@@ -592,8 +611,13 @@ int vfs_chmod(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
 
     mode &= VFS_MODE_MASK;
 
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 1, &node)) != 0) {
         return res;
+    }
+
+    if (node->type == VN_LNK) {
+        kwarn("Tried to change permissions on a symbolic link\n");
+        return -EINVAL;
     }
 
     // Only root or file owner can do that
@@ -618,7 +642,7 @@ int vfs_chown(struct vfs_ioctx *ctx, const char *path, uid_t uid, gid_t gid) {
     struct vnode *node;
     int res;
 
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 0, &node)) != 0) {
         return res;
     }
 

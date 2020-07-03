@@ -1,5 +1,6 @@
 #pragma once
 #include "sys/types.h"
+#include "fs/node.h"
 
 struct vnode;
 
@@ -21,6 +22,7 @@ enum dev_class {
 
 int dev_add(enum dev_class cls, int subcls, void *dev, const char *name);
 int dev_add_link(const char *name, struct vnode *to);
+int dev_add_live_link(const char *name, vnode_link_getter_t getter);
 int dev_find(enum dev_class cls, const char *name, struct vnode **dev_node);
 
 //struct dev_entry {

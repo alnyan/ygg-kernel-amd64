@@ -1,3 +1,4 @@
+#include "arch/amd64/cpu.h"
 #include "user/fcntl.h"
 #include "user/errno.h"
 #include "sys/block/blk.h"
@@ -10,7 +11,11 @@
 #include "sys/panic.h"
 #include "sys/debug.h"
 
-static int vfs_find_internal(struct vfs_ioctx *ctx, struct vnode *at, const char *path, struct vnode **child);
+static int vfs_find_internal(struct vfs_ioctx *ctx,
+                             struct vnode *at,
+                             const char *path,
+                             int link_itself,
+                             struct vnode **child);
 
 static struct vnode *vfs_root = NULL;
 static struct vfs_ioctx _kernel_ioctx = {0};
@@ -48,12 +53,12 @@ int vfs_setcwd(struct vfs_ioctx *ctx, const char *path) {
         if (!vfs_root) {
             ctx->cwd_vnode = NULL;
         } else {
-            if ((res = vfs_find_internal(ctx, vfs_root, path, &node)) != 0) {
+            if ((res = vfs_find_internal(ctx, vfs_root, path, 0, &node)) != 0) {
                 return res;
             }
 
             // Resolve mounts and symlinks
-            if ((res = vfs_link_resolve(ctx, node, &dst)) != 0) {
+            if ((res = vfs_link_resolve(ctx, node, &dst, 0)) != 0) {
                 return res;
             }
 
@@ -73,11 +78,11 @@ int vfs_setcwd(struct vfs_ioctx *ctx, const char *path) {
         }
         return 0;
     } else {
-        if ((res = vfs_find(ctx, ctx->cwd_vnode, path, &node)) != 0) {
+        if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 0, &node)) != 0) {
             return res;
         }
 
-        if ((res = vfs_link_resolve(ctx, node, &dst)) != 0) {
+        if ((res = vfs_link_resolve(ctx, node, &dst, 0)) != 0) {
             return res;
         }
 
@@ -151,7 +156,11 @@ static const char *path_element(const char *path, char *element) {
     }
 }
 
-static int vfs_link_resolve_internal(struct vfs_ioctx *ctx, struct vnode *lnk, struct vnode **to, int cnt) {
+static int vfs_link_resolve_internal(struct vfs_ioctx *ctx,
+                                     struct vnode *lnk,
+                                     struct vnode **to,
+                                     int link_itself,
+                                     int cnt) {
     _assert(lnk);
 
     if (lnk->type != VN_LNK) {
@@ -173,21 +182,29 @@ static int vfs_link_resolve_internal(struct vfs_ioctx *ctx, struct vnode *lnk, s
         }
 
         // Try to load that path
-        if ((res = vfs_find(ctx, lnk->parent, path, &lnk->target)) != 0) {
+        if ((res = vfs_find(ctx, lnk->parent, path, link_itself, &lnk->target)) != 0) {
             lnk->target = NULL;
             return res;
         }
     }
 
-    if (lnk->target) {
-        if (lnk->target->type == VN_LNK) {
+    struct vnode *target;
+    if (lnk->flags & VN_PER_PROCESS) {
+        _assert(lnk->target_func);
+        // TODO: pass it as an argument instead of ioctx
+        target = lnk->target_func(thread_self, lnk);
+    } else {
+        target = lnk->target;
+    }
+    if (target) {
+        if (target->type == VN_LNK) {
             if (cnt <= 1) {
                 return -ELOOP;
             }
 
-            return vfs_link_resolve_internal(ctx, lnk->target, to, cnt - 1);
+            return vfs_link_resolve_internal(ctx, target, to, link_itself, cnt - 1);
         } else {
-            *to = lnk->target;
+            *to = target;
             return 0;
         }
     }
@@ -195,8 +212,8 @@ static int vfs_link_resolve_internal(struct vfs_ioctx *ctx, struct vnode *lnk, s
     return -ENOENT;
 }
 
-int vfs_link_resolve(struct vfs_ioctx *ctx, struct vnode *lnk, struct vnode **to) {
-    return vfs_link_resolve_internal(ctx, lnk, to, LINK_MAX);
+int vfs_link_resolve(struct vfs_ioctx *ctx, struct vnode *lnk, struct vnode **to, int link_itself) {
+    return vfs_link_resolve_internal(ctx, lnk, to, LINK_MAX, link_itself);
 }
 
 static int vfs_lookup_or_load(struct vnode *at, const char *name, struct vnode **child) {
@@ -230,7 +247,11 @@ static int vfs_lookup_or_load(struct vnode *at, const char *name, struct vnode *
     return -ENOENT;
 }
 
-static int vfs_find_internal(struct vfs_ioctx *ctx, struct vnode *at, const char *path, struct vnode **child) {
+static int vfs_find_internal(struct vfs_ioctx *ctx,
+                             struct vnode *at,
+                             const char *path,
+                             int link_itself,
+                             struct vnode **child) {
     // FIXME: trailing slash should result in symlink resolution in cases like:
     //      /dir
     //      /lnk -> /dir
@@ -254,7 +275,7 @@ static int vfs_find_internal(struct vfs_ioctx *ctx, struct vnode *at, const char
     }
 
     if (at->type == VN_LNK) {
-        if ((err = vfs_link_resolve(ctx, at, &node)) != 0) {
+        if ((err = vfs_link_resolve(ctx, at, &node, link_itself)) != 0) {
             kdebug("miss: link resolution: %s\n", at->name);
             return err;
         } else {
@@ -304,7 +325,7 @@ static int vfs_find_internal(struct vfs_ioctx *ctx, struct vnode *at, const char
                 parent = at;
             }
             kdebug(".. hit %s\n", parent->name);
-            return vfs_find_internal(ctx, parent, child_path, child);
+            return vfs_find_internal(ctx, parent, child_path, link_itself, child);
         }
 
         break;
@@ -319,11 +340,28 @@ static int vfs_find_internal(struct vfs_ioctx *ctx, struct vnode *at, const char
 
     if (!child_path) {
         kdebug("hit-final %s\n", name);
-        *child = node;
+
+        // TODO: only run link resolution here is asked to
+        struct vnode *r = node;
+        if (!link_itself) {
+            if (r->type == VN_LNK) {
+                if ((err = vfs_link_resolve(ctx, r, &node, 0)) != 0) {
+                    kdebug("miss: link resolution: %s\n", r->name);
+                    return err;
+                } else {
+                    r = node;
+                }
+            }
+
+            // TODO: links to links
+            _assert(r->type != VN_LNK);
+        }
+
+        *child = r;
         return 0;
     } else {
         kdebug("hit %s\n", name);
-        return vfs_find_internal(ctx, node, child_path, child);
+        return vfs_find_internal(ctx, node, child_path, link_itself, child);
     }
 
     return -ENOENT;
@@ -339,7 +377,7 @@ int vfs_umount(struct vfs_ioctx *ctx, const char *dir_name) {
     struct vnode *node;
     int res;
 
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, dir_name, &node)) != 0) {
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, dir_name, 0, &node)) != 0) {
         return res;
     }
 
@@ -467,7 +505,7 @@ int vfs_mount(struct vfs_ioctx *ctx, const char *at, void *blk, const char *fs, 
     if (!strcmp(at, "/")) {
         mountpoint = NULL;
     } else {
-        if ((res = vfs_find(ctx, ctx->cwd_vnode, at, &mountpoint)) != 0) {
+        if ((res = vfs_find(ctx, ctx->cwd_vnode, at, 0, &mountpoint)) != 0) {
             return res;
         }
     }
@@ -483,7 +521,11 @@ int vfs_mount(struct vfs_ioctx *ctx, const char *at, void *blk, const char *fs, 
     }
 }
 
-int vfs_find(struct vfs_ioctx *ctx, struct vnode *rel, const char *path, struct vnode **node) {
+int vfs_find(struct vfs_ioctx *ctx,
+             struct vnode *rel,
+             const char *path,
+             int link_itself,
+             struct vnode **node) {
     int res;
     struct vnode *r;
 
@@ -496,7 +538,7 @@ int vfs_find(struct vfs_ioctx *ctx, struct vnode *rel, const char *path, struct 
         while (*path == '/') {
             ++path;
         }
-        res = vfs_find_internal(ctx, vfs_root, path, &r);
+        res = vfs_find_internal(ctx, vfs_root, path, link_itself, &r);
     } else {
         if (!rel) {
             rel = ctx->cwd_vnode;
@@ -504,7 +546,7 @@ int vfs_find(struct vfs_ioctx *ctx, struct vnode *rel, const char *path, struct 
         if (!rel) {
             rel = vfs_root;
         }
-        res = vfs_find_internal(ctx, rel, path, &r);
+        res = vfs_find_internal(ctx, rel, path, link_itself, &r);
     }
 
     if (res) {

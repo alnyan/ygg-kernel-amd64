@@ -18,6 +18,7 @@ int sys_open(const char *filename, int flags, int mode);
 void sys_close(int fd);
 int sys_stat(const char *filename, struct stat *st);
 int sys_fstat(int fd, struct stat *st);
+int sys_lstat(const char *filename, struct stat *st);
 int sys_access(const char *path, int mode);
 int sys_pipe(int *filedes);
 int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *tv);

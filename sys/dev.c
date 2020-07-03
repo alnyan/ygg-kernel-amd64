@@ -76,6 +76,23 @@ static struct vnode *devfs_get_root(struct fs *fs) {
 
 /////
 
+int dev_add_live_link(const char *name, vnode_link_getter_t getter) {
+    struct vnode *node = vnode_create(VN_LNK, name);
+    node->target_func = getter;
+    node->flags |= VN_MEMORY | VN_PER_PROCESS;
+
+    devfs_ensure_root();
+
+    node->mode = 0777;
+    node->uid = 0;
+    node->gid = 0;
+    node->op = &_devfs_node_ops;
+
+    vnode_attach(devfs_root, node);
+
+    return 0;
+}
+
 int dev_add_link(const char *name, struct vnode *to) {
     struct vnode *node = vnode_create(VN_LNK, name);
     node->target = to;

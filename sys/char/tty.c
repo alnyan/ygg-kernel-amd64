@@ -117,16 +117,14 @@ void tty_putc(struct chrdev *tty, char c) {
     console_putc(data->master, tty, c);
 }
 
-void tty_init(void) {
-    // tty0
-//    ring_init(&_dev_tty0.buffer, 16);
-//    g_keyboard_tty = &_dev_tty0;
-//    dev_add(DEV_CLASS_CHAR, DEV_CHAR_TTY, &_dev_tty0, "tty0");
+static struct vnode *tty_link_getter(struct thread *ctx, struct vnode *link) {
+    struct vnode *res;
+    dev_find(DEV_CLASS_CHAR, "tty0", &res);
+    return res;
+}
 
-    // ttyS0
-    //ring_init(&_dev_ttyS0.buffer, 16);
-    //rs232_set_tty(RS232_COM1, &_dev_ttyS0);
-    //dev_add(DEV_CLASS_CHAR, DEV_CHAR_TTY, &_dev_ttyS0, "ttyS0");
+void tty_init(void) {
+    dev_add_live_link("tty", tty_link_getter);
 }
 
 static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t lim) {

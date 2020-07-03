@@ -113,6 +113,9 @@ void vnode_dump_tree(int level, struct vnode *node, int depth) {
         debugs(level, " => [root]");
         node = node->target;
     }
+    if (node->type == VN_LNK) {
+        return;
+    }
     while (node && node->type == VN_LNK) {
         if (node->target) {
             debugs(level, "\033[0m -> ");

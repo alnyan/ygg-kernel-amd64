@@ -27,7 +27,7 @@ int sys_mount(const char *dev_name, const char *dir_name, const char *type, unsi
     }
 
     if (dev_name) {
-        if ((res = vfs_find(&thr->ioctx, thr->ioctx.cwd_vnode, dev_name, &dev_node)) != 0) {
+        if ((res = vfs_find(&thr->ioctx, thr->ioctx.cwd_vnode, dev_name, 0, &dev_node)) != 0) {
             return res;
         }
 

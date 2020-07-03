@@ -161,6 +161,67 @@ static int tarfs_mapper_create_path(struct vnode *root, const char *path, struct
     return 0;
 }
 
+static int tar_move_blocks(struct tar *hdr, char *block, size_t node_size) {
+    size_t size_blocks = (node_size + 511) / 512;
+    if (size_blocks >= TAR_MAX_BLOCKS) {
+        panic("File is too large: %S\n", node_size);
+    }
+
+    // Map blocks
+    for (size_t i = 0; i < size_blocks && i < TAR_DIRECT_BLOCKS; ++i) {
+        // Tag this block pointer
+        hdr->direct_blocks[i] = (uintptr_t) block + 512 + i * 512 + 1;
+        //kinfo("Map %d -> %p\n", i, block + 512 + i * 512);
+    }
+    hdr->indirect_block_l1 = 0;
+    hdr->indirect_block_l2 = 0;
+
+    // Map indirect L1 blocks
+    for (size_t i = TAR_DIRECT_BLOCKS; i < MIN(size_blocks, TAR_INDIRECT_L1_POINTERS + TAR_DIRECT_BLOCKS); ++i) {
+        size_t ind_index = i - TAR_DIRECT_BLOCKS;
+
+        if (!hdr->indirect_block_l1) {
+            hdr->indirect_block_l1 = MM_VIRTUALIZE(mm_phys_alloc_page() /*amd64_phys_alloc_page()*/);
+            memset((void *) hdr->indirect_block_l1, 0, 0x1000);
+        }
+
+        //kinfo("Map L1:%d (%d) -> %p\n", ind_index, i, block + 512 + i * 512);
+        ((uintptr_t *) hdr->indirect_block_l1)[ind_index] =
+            (uintptr_t) block + 512 + i * 512 + 1;
+    }
+
+    // Map indirect L2 blocks
+    for (size_t i = TAR_DIRECT_BLOCKS + TAR_INDIRECT_L1_POINTERS; i < size_blocks; ++i) {
+        size_t ind_offset = i - (TAR_DIRECT_BLOCKS + TAR_INDIRECT_L1_POINTERS);
+
+        // Per one indirect
+        size_t ind_block_num = ind_offset / TAR_INDIRECT_L1_POINTERS;
+        size_t ind_block_off = ind_offset % TAR_INDIRECT_L1_POINTERS;
+
+        //kinfo("Map L2:%d:%d (%d) -> %p\n", ind_block_num, ind_block_off, i, block + 512 + i * 512);
+
+        if (!hdr->indirect_block_l2) {
+            hdr->indirect_block_l2 = MM_VIRTUALIZE(mm_phys_alloc_page() /*amd64_phys_alloc_page()*/);
+            memset((void *) hdr->indirect_block_l2, 0, 0x1000);
+        }
+
+        uintptr_t *ind2 = (uintptr_t *) hdr->indirect_block_l2;
+
+        if (!ind2[ind_block_num]) {
+            ind2[ind_block_num] = MM_VIRTUALIZE(mm_phys_alloc_page() /*amd64_phys_alloc_page()*/);
+            memset((void *) ind2[ind_block_num], 0, 0x1000);
+        }
+
+        uintptr_t *ind1 = (uintptr_t *) ind2[ind_block_num];
+        _assert(ind1);
+
+        ind1[ind_block_off] =
+            (uintptr_t) block + 512 + i * 512 + 1;
+    }
+
+    return 0;
+}
+
 static int tar_init(struct fs *tar, const char *opt) {
     size_t off = 0;
     int prev_zero = 0;
@@ -186,6 +247,7 @@ static int tar_init(struct fs *tar, const char *opt) {
 
     struct vnode *node;
 
+    // Pass 1 - add regular files and directories
     while (1) {
         char *block = (char *) mem_base + off;
         // Check that the block is at least 2B-aligned, so its pointer can be tagged
@@ -201,10 +263,7 @@ static int tar_init(struct fs *tar, const char *opt) {
             continue;
         }
 
-        struct tar *hdr = kmalloc(512);
-        _assert(hdr);
-        memcpy(hdr, block, 512);
-
+        struct tar *hdr = (struct tar *) block;
         size_t node_size = 0;
         int isdir = 1;
         // Convert node metadata values from octal
@@ -214,70 +273,30 @@ static int tar_init(struct fs *tar, const char *opt) {
 
         time_t mtime = tarfs_octal(hdr->meta_oct.mtime, 12);
 
-        if (hdr->meta_oct.typeflag[0] == '\0' || hdr->meta_oct.typeflag[0] == '0') {
+        switch (hdr->meta_oct.typeflag[0]) {
+        case '\0':
+        case '0':
             node_size = tarfs_octal(hdr->meta_oct.size, 12);
             mode |= S_IFREG;
             isdir = 0;
-        } else {
+            break;
+        case '2':
+            kwarn("%s: skipping symlink\n", hdr->filename);
+            goto skip;
+        case '5':
             mode |= S_IFDIR;
             node_size = 0;
+            break;
+        default:
+            panic("Unsupported node type: %c\n", hdr->meta_oct.typeflag[0]);
         }
 
-        size_t size_blocks = (node_size + 511) / 512;
-        if (size_blocks >= TAR_MAX_BLOCKS) {
-            panic("File is too large: %S\n", node_size);
-        }
+        hdr = kmalloc(512);
+        _assert(hdr);
+        memcpy(hdr, block, 512);
 
-        // Map blocks
-        for (size_t i = 0; i < size_blocks && i < TAR_DIRECT_BLOCKS; ++i) {
-            // Tag this block pointer
-            hdr->direct_blocks[i] = (uintptr_t) block + 512 + i * 512 + 1;
-            //kinfo("Map %d -> %p\n", i, block + 512 + i * 512);
-        }
-        hdr->indirect_block_l1 = 0;
-        hdr->indirect_block_l2 = 0;
-
-        // Map indirect L1 blocks
-        for (size_t i = TAR_DIRECT_BLOCKS; i < MIN(size_blocks, TAR_INDIRECT_L1_POINTERS + TAR_DIRECT_BLOCKS); ++i) {
-            size_t ind_index = i - TAR_DIRECT_BLOCKS;
-
-            if (!hdr->indirect_block_l1) {
-                hdr->indirect_block_l1 = MM_VIRTUALIZE(mm_phys_alloc_page() /*amd64_phys_alloc_page()*/);
-                memset((void *) hdr->indirect_block_l1, 0, 0x1000);
-            }
-
-            //kinfo("Map L1:%d (%d) -> %p\n", ind_index, i, block + 512 + i * 512);
-            ((uintptr_t *) hdr->indirect_block_l1)[ind_index] =
-                (uintptr_t) block + 512 + i * 512 + 1;
-        }
-
-        // Map indirect L2 blocks
-        for (size_t i = TAR_DIRECT_BLOCKS + TAR_INDIRECT_L1_POINTERS; i < size_blocks; ++i) {
-            size_t ind_offset = i - (TAR_DIRECT_BLOCKS + TAR_INDIRECT_L1_POINTERS);
-
-            // Per one indirect
-            size_t ind_block_num = ind_offset / TAR_INDIRECT_L1_POINTERS;
-            size_t ind_block_off = ind_offset % TAR_INDIRECT_L1_POINTERS;
-
-            //kinfo("Map L2:%d:%d (%d) -> %p\n", ind_block_num, ind_block_off, i, block + 512 + i * 512);
-
-            if (!hdr->indirect_block_l2) {
-                hdr->indirect_block_l2 = MM_VIRTUALIZE(mm_phys_alloc_page() /*amd64_phys_alloc_page()*/);
-                memset((void *) hdr->indirect_block_l2, 0, 0x1000);
-            }
-
-            uintptr_t *ind2 = (uintptr_t *) hdr->indirect_block_l2;
-
-            if (!ind2[ind_block_num]) {
-                ind2[ind_block_num] = MM_VIRTUALIZE(mm_phys_alloc_page() /*amd64_phys_alloc_page()*/);
-                memset((void *) ind2[ind_block_num], 0, 0x1000);
-            }
-
-            uintptr_t *ind1 = (uintptr_t *) ind2[ind_block_num];
-            _assert(ind1);
-
-            ind1[ind_block_off] =
-                (uintptr_t) block + 512 + i * 512 + 1;
+        if (node_size && (mode & S_IFMT) == S_IFREG) {
+            _assert(tar_move_blocks(hdr, block, node_size) == 0);
         }
 
         if ((res = tarfs_mapper_create_path(tar_root, hdr->filename, &node, isdir)) < 0) {
@@ -300,6 +319,7 @@ static int tar_init(struct fs *tar, const char *opt) {
         node->fs_data = hdr;
         node->fs = tar;
 
+skip:
         off += 512 + ((node_size + 511) & ~511);
     }
 

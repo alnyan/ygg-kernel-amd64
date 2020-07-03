@@ -35,8 +35,8 @@ void vfs_vnode_path(char *path, struct vnode *node);
 
 int vfs_mount_internal(struct vnode *at, void *blk, struct fs_class *cls, uint32_t flags, const char *opt);
 
-int vfs_link_resolve(struct vfs_ioctx *ctx, struct vnode *lnk, struct vnode **res);
-int vfs_find(struct vfs_ioctx *ctx, struct vnode *rel, const char *path, struct vnode **node);
+int vfs_link_resolve(struct vfs_ioctx *ctx, struct vnode *lnk, struct vnode **res, int link_itself);
+int vfs_find(struct vfs_ioctx *ctx, struct vnode *rel, const char *path, int link_itself, struct vnode **node);
 int vfs_mount(struct vfs_ioctx *ctx, const char *at, void *blk, const char *fs, uint32_t flags, const char *opt);
 int vfs_umount(struct vfs_ioctx *ctx, const char *dir_name);
 
@@ -53,6 +53,7 @@ int vfs_ioctl(struct vfs_ioctx *ctx, struct ofile *fd, unsigned int cmd, void *a
 
 int vfs_access(struct vfs_ioctx *ctx, const char *path, int accmode);
 int vfs_fstat(struct vfs_ioctx *ctx, struct ofile *fd, struct stat *st);
+int vfs_lstat(struct vfs_ioctx *ctx, const char *path, struct stat *st);
 int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st);
 int vfs_access_check(struct vfs_ioctx *ctx, int desm, mode_t mode, uid_t uid, gid_t gid);
 int vfs_access_node(struct vfs_ioctx *ctx, struct vnode *vn, int mode);

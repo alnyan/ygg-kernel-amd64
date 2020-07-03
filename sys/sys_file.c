@@ -190,6 +190,16 @@ int sys_stat(const char *filename, struct stat *st) {
     return vfs_stat(&thr->ioctx, filename, st);
 }
 
+int sys_lstat(const char *filename, struct stat *st) {
+    userptr_check(filename);
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+    _assert(filename);
+    _assert(st);
+
+    return vfs_lstat(&thr->ioctx, filename, st);
+}
+
 int sys_fstat(int fd, struct stat *st) {
     struct thread *thr = get_cpu()->thread;
     struct ofile *of;

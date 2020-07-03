@@ -36,6 +36,7 @@ void *syscall_table[256] = {
     [SYSCALL_NR_CLOSE] =            sys_close,
     [SYSCALL_NR_STAT] =             sys_stat,
     [SYSCALL_NR_FSTAT] =            sys_fstat,
+    [SYSCALL_NR_LSTAT] =            sys_lstat,
     [SYSCALL_NR_LSEEK] =            sys_lseek,
     [SYSCALL_NR_MMAP] =             sys_mmap,
     [SYSCALL_NR_MUNMAP] =           sys_munmap,
