@@ -110,7 +110,7 @@ int ring_write(struct thread *ctx, struct ring *ring, const void *buf, size_t le
             return -1;
         }
     }
-    return 0;
+    return len;
 }
 
 void ring_signal(struct ring *r, int s) {

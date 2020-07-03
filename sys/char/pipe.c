@@ -57,7 +57,11 @@ static ssize_t pipe_vnode_write(struct ofile *of, const void *buf, size_t count)
     struct ring *r = of->file.priv_data;
     _assert(r);
 
-    return ring_write(thr, r, buf, count, 0);
+    ssize_t res = ring_write(thr, r, buf, count, 0);
+    if (res > 0) {
+        ring_signal(r, RING_SIGNAL_RET);
+    }
+    return res;
 }
 
 static ssize_t pipe_vnode_read(struct ofile *of, void *buf, size_t count) {
@@ -79,6 +83,11 @@ static ssize_t pipe_vnode_read(struct ofile *of, void *buf, size_t count) {
         *wr++ = c;
         ++rd;
         --rem;
+
+        if (!ring_readable(r) && (r->flags & RING_SIGNAL_RET)) {
+            r->flags &= ~RING_SIGNAL_RET;
+            return rd;
+        }
     }
 
     if (rd == 0) {
