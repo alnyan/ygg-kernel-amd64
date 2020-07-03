@@ -43,6 +43,7 @@ void *syscall_table[256] = {
     [SYSCALL_NR_ACCESS] =           sys_access,
     [SYSCALL_NR_PIPE] =             sys_pipe,
     [SYSCALL_NR_SELECT] =           sys_select,
+    [SYSCALL_NR_DUP] =              sys_dup,
     [SYSCALL_NR_DUP2] =             sys_dup2,
     [SYSCALL_NR_GETCWD] =           sys_getcwd,
     [SYSCALL_NR_CHDIR] =            sys_chdir,

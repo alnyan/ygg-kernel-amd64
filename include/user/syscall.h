@@ -13,6 +13,7 @@
 #define SYSCALL_NR_ACCESS           21
 #define SYSCALL_NR_PIPE             22
 #define SYSCALL_NR_SELECT           23
+#define SYSCALL_NR_DUP              32
 #define SYSCALL_NR_DUP2             33
 #define SYSCALL_NR_GETCWD           79
 #define SYSCALL_NR_CHDIR            80

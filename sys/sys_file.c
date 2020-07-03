@@ -254,27 +254,42 @@ int sys_pipe(int *filedes) {
     return 0;
 }
 
-int sys_dup2(int oldfd, int newfd) {
-    if (oldfd < 0 || newfd < 0 || oldfd >= THREAD_MAX_FDS || newfd >= THREAD_MAX_FDS) {
+int sys_dup(int from) {
+    struct thread *thr = thread_self;
+    _assert(thr);
+
+    int fd = -1;
+    for (int i = 0; i < THREAD_MAX_FDS; ++i) {
+        if (!thr->fds[i]) {
+            fd = i;
+            break;
+        }
+    }
+
+    return sys_dup2(from, fd);
+}
+
+int sys_dup2(int from, int to) {
+    if (from < 0 || to < 0 || from >= THREAD_MAX_FDS || to >= THREAD_MAX_FDS) {
         return -EBADF;
     }
 
     struct thread *thr = thread_self;
     _assert(thr);
 
-    if (!thr->fds[newfd]) {
+    if (!thr->fds[from]) {
         return -EBADF;
     }
 
-    sys_close(oldfd);
-    _assert(!thr->fds[oldfd]);
+    sys_close(to);
+    _assert(!thr->fds[to]);
 
-    thr->fds[oldfd] = thr->fds[newfd];
-    if (!(thr->fds[oldfd]->flags & OF_SOCKET)) {
-        ++thr->fds[oldfd]->file.refcount;
+    thr->fds[to] = thr->fds[from];
+    if (!(thr->fds[from]->flags & OF_SOCKET)) {
+        ++thr->fds[from]->file.refcount;
     }
 
-    return newfd;
+    return to;
 }
 
 int sys_openpty(int *master, int *slave) {
