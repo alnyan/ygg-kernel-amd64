@@ -222,6 +222,9 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     for (size_t i = 0; i < procv_vecp[1]; ++i) {
         envp_fixup[i] += procv_virt;
     }
+    // Terminate arrays
+    argv_fixup[procv_vecp[0]] = 0;
+    envp_fixup[procv_vecp[1]] = 0;
 
     thr->signal_entry = 0;
     thr->data.rsp0 = thr->data.rsp0_top;
