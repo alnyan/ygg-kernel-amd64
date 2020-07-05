@@ -92,7 +92,7 @@ void pci_config_write_dword_legacy(uint8_t bus, uint8_t dev, uint8_t func, uint3
          (((uint32_t) dev) << 11) |
          (((uint32_t) func) << 8) |
          (off & ~0x3) |
-         (1 << 31);
+         (1U << 31);
 
     outl(PCI_PORT_CONFIG_ADDR, w0);
     outl(PCI_PORT_CONFIG_DATA, val);
