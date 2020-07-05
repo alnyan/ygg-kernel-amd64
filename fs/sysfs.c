@@ -172,6 +172,7 @@ int sysfs_add_dir(struct vnode *at, const char *name, struct vnode **res) {
         kdebug("Can't find %s in %s, creating\n", name, at->name);
         tmp = vnode_create(VN_DIR, name);
         tmp->flags |= VN_MEMORY;
+        tmp->op = &g_sysfs_vnode_ops;
         tmp->mode = S_IXUSR | S_IXGRP | S_IXOTH |
                     S_IRUSR | S_IRGRP | S_IROTH;
 
