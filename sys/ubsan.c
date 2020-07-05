@@ -26,7 +26,7 @@ struct type_descriptor {
 #endif
 
 static __ubsan_abort__ void ubsan_abort(struct source_location *loc, const char *error) {
-    //kfatal("%s:%d: %s\n", loc->file, loc->line, error);
+    kfatal("%s:%d: %s\n", loc->file, loc->line, error);
 #if defined(UBSAN_ABORT)
     panic("Undefined behavior detected\n");
 #endif
