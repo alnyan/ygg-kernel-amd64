@@ -19,6 +19,8 @@ struct ring {
 
     // Reader notification
     struct io_notify wait;
+    // Writer notification
+    struct io_notify writer_wait;
 };
 
 int ring_readable(struct ring *b);

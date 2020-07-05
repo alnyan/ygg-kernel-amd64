@@ -87,13 +87,19 @@ int ring_getc(struct thread *ctx, struct ring *ring, char *c, int err) {
 
     *c = ring->base[ring->rd];
     ring_advance_read(ring);
+    thread_notify_io(&ring->writer_wait);
+
     return 0;
 }
 
 int ring_putc(struct thread *ctx, struct ring *ring, char c, int wait) {
     if (wait) {
+        int res;
         while (!ring_writable(ring)) {
-            panic("Not implemented\n");
+            if ((res = thread_wait_io(ctx, &ring->writer_wait)) != 0) {
+                _assert(res == -EINTR);
+                return res;
+            }
         }
     }
 
@@ -124,6 +130,7 @@ int ring_init(struct ring *r, size_t cap) {
     r->wr = 0;
     r->flags = 0;
     thread_wait_io_init(&r->wait);
+    thread_wait_io_init(&r->writer_wait);
 
     if (!(r->base = kmalloc(cap))) {
         return -1;
