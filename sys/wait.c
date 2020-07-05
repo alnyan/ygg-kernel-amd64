@@ -34,10 +34,11 @@ int thread_wait_io(struct thread *t, struct io_notify *n) {
 
         sched_unqueue(t, THREAD_WAITING);
 
+        n->owner = NULL;
+
         // Check if we were interrupted during io wait
         int r = thread_check_signal(t, 0);
         if (r != 0) {
-            n->owner = NULL;
             return r;
         }
     }
