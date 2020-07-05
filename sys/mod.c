@@ -384,7 +384,7 @@ int sys_module_unload(const char *name) {
 int sys_module_load(const char *path, const char *params) {
     struct vfs_ioctx kernel_ioctx = {0, 0, 0};
     int res;
-    struct ofile fd;
+    struct ofile fd = {0};
     struct thread *thr = thread_self;
 
     if (thr->ioctx.uid != 0) {

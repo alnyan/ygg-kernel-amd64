@@ -80,17 +80,13 @@ static void thread_ioctx_empty(struct thread *thr) {
 void thread_ioctx_fork(struct thread *dst, struct thread *src) {
     thread_ioctx_empty(dst);
 
-    // TODO: increase refcount (when cwd has one)
     dst->ioctx.cwd_vnode = src->ioctx.cwd_vnode;
     dst->ioctx.gid = src->ioctx.gid;
     dst->ioctx.uid = src->ioctx.uid;
 
     for (int i = 0; i < THREAD_MAX_FDS; ++i) {
         if (src->fds[i]) {
-            dst->fds[i] = src->fds[i];
-            if (!(dst->fds[i]->flags & OF_SOCKET)) {
-                ++dst->fds[i]->file.refcount;
-            }
+            dst->fds[i] = ofile_dup(src->fds[i]);
         }
     }
 }
@@ -165,16 +161,7 @@ void thread_cleanup(struct thread *thr) {
     kdebug("Cleaning up %d\n", thr->pid);
     for (size_t i = 0; i < THREAD_MAX_FDS; ++i) {
         if (thr->fds[i]) {
-
-            if (thr->fds[i]->flags & OF_SOCKET) {
-                net_close(&thr->ioctx, thr->fds[i]);
-            } else {
-                vfs_close(&thr->ioctx, thr->fds[i]);
-                _assert(thr->fds[i]->file.refcount >= 0);
-                if (thr->fds[i]->file.refcount == 0) {
-                    kfree(thr->fds[i]);
-                }
-            }
+            ofile_close(&thr->ioctx, thr->fds[i]);
             thr->fds[i] = NULL;
         }
     }
@@ -569,7 +556,7 @@ static int procv_setup(struct thread *thr,
 int sys_execve(const char *path, const char **argv, const char **envp) {
     struct thread *thr = thread_self;
     _assert(thr);
-    struct ofile fd;
+    struct ofile fd = {0};
     struct stat st;
     uintptr_t entry;
     size_t argc;

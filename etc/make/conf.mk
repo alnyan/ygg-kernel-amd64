@@ -78,6 +78,7 @@ OBJS+=$(O)/fs/vfs.o \
 	  $(O)/fs/vfs_ops.o \
 	  $(O)/fs/vfs_access.o \
 	  $(O)/fs/fs_class.o \
+	  $(O)/fs/ofile.o \
 	  $(O)/fs/node.o \
 	  $(O)/fs/tar.o \
 	  $(O)/fs/sysfs.o \

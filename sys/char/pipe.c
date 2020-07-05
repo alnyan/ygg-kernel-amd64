@@ -24,11 +24,8 @@ static struct vnode_operations pipe_vnode_ops = {
 };
 
 int pipe_create(struct ofile **_read, struct ofile **_write) {
-    // TODO: ofile_create
-    struct ofile *read_end = kmalloc(sizeof(struct ofile));
-    _assert(read_end);
-    struct ofile *write_end = kmalloc(sizeof(struct ofile));
-    _assert(write_end);
+    struct ofile *read_end = ofile_create();
+    struct ofile *write_end = ofile_create();
 
     struct ring *pipe_ring = kmalloc(sizeof(struct ring));
     _assert(pipe_ring);
@@ -41,12 +38,10 @@ int pipe_create(struct ofile **_read, struct ofile **_write) {
 
     read_end->flags = OF_READABLE;
     read_end->file.vnode = vnode;
-    read_end->file.refcount = 1;
     read_end->file.priv_data = pipe_ring;
 
     write_end->flags = OF_WRITABLE;
     write_end->file.vnode = vnode;
-    write_end->file.refcount = 1;
     write_end->file.priv_data = pipe_ring;
 
     *_read = read_end;

@@ -11,11 +11,13 @@
 #define OF_MEMDIR_DOTDOT    (1 << 5)
 #define OF_SOCKET           (1 << 6)
 
+struct vfs_ioctx;
+
 struct ofile {
     int flags;
+    int refcount;
     union {
         struct {
-            int refcount;
             struct vnode *vnode;
             size_t pos;
             void *priv_data;
@@ -23,3 +25,8 @@ struct ofile {
         struct socket socket;
     };
 };
+
+struct ofile *ofile_create(void);
+struct ofile *ofile_dup(struct ofile *of);
+void ofile_destroy(struct ofile *of);
+void ofile_close(struct vfs_ioctx *ctx, struct ofile *of);

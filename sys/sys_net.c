@@ -38,11 +38,10 @@ int sys_socket(int domain, int type, int protocol) {
         return -EMFILE;
     }
 
-    struct ofile *ofile = kmalloc(sizeof(struct ofile));
-    _assert(ofile);
+    struct ofile *ofile = ofile_create();
 
     if ((res = net_open(&thr->ioctx, ofile, domain, type, protocol)) != 0) {
-        kfree(ofile);
+        ofile_destroy(ofile);
         return res;
     }
 

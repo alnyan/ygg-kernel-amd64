@@ -31,8 +31,8 @@ static void user_init_func(void *arg) {
     }
 
     // Open STDOUT_FILENO and STDERR_FILENO
-    struct ofile *fd_stdout = kmalloc(sizeof(struct ofile));
-    struct ofile *fd_stdin = kmalloc(sizeof(struct ofile));
+    struct ofile *fd_stdout = ofile_create();
+    struct ofile *fd_stdin = ofile_create();
 
     if ((res = dev_find(DEV_CLASS_CHAR, "tty0", &tty_dev)) != 0) {
         kerror("tty0: %s\n", kstrerror(res));
@@ -49,14 +49,12 @@ static void user_init_func(void *arg) {
         panic("Fail\n");
     }
 
-    thread_self->fds[0] = fd_stdin;
-    thread_self->fds[1] = fd_stdout;
-    thread_self->fds[2] = fd_stdout;
-    // Duplicate the FD
-    ++fd_stdout->file.refcount;
+    thread_self->fds[0] = ofile_dup(fd_stdin);
+    thread_self->fds[1] = ofile_dup(fd_stdout);
+    thread_self->fds[2] = ofile_dup(fd_stdout);
 
-    _assert(fd_stdin->file.refcount == 1);
-    _assert(fd_stdout->file.refcount == 2);
+    _assert(fd_stdin->refcount == 1);
+    _assert(fd_stdout->refcount == 2);
 
     const char *argp[] = {
         "/init", NULL

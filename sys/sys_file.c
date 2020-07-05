@@ -143,15 +143,16 @@ int sys_open(const char *filename, int flags, int mode) {
         return -EMFILE;
     }
 
-    struct ofile *ofile = kmalloc(sizeof(struct ofile));
-    _assert(ofile);
+    struct ofile *ofile = ofile_create();
 
     if ((res = vfs_open(&thr->ioctx, ofile, filename, flags, mode)) != 0) {
-        kfree(ofile);
+        ofile_destroy(ofile);
         return res;
     }
 
-    thr->fds[fd] = ofile;
+    thr->fds[fd] = ofile_dup(ofile);
+    _assert(thr->fds[fd]->refcount == 1);
+
     return fd;
 }
 
@@ -167,16 +168,7 @@ void sys_close(int fd) {
         return;
     }
 
-    if (thr->fds[fd]->flags & OF_SOCKET) {
-        net_close(&thr->ioctx, thr->fds[fd]);
-        kfree(thr->fds[fd]);
-    } else {
-        vfs_close(&thr->ioctx, thr->fds[fd]);
-        _assert(thr->fds[fd]->file.refcount >= 0);
-        if (!thr->fds[fd]->file.refcount) {
-            kfree(thr->fds[fd]);
-        }
-    }
+    ofile_close(&thr->ioctx, thr->fds[fd]);
     thr->fds[fd] = NULL;
 }
 
@@ -294,10 +286,7 @@ int sys_dup2(int from, int to) {
     sys_close(to);
     _assert(!thr->fds[to]);
 
-    thr->fds[to] = thr->fds[from];
-    if (!(thr->fds[from]->flags & OF_SOCKET)) {
-        ++thr->fds[from]->file.refcount;
-    }
+    thr->fds[to] = ofile_dup(thr->fds[from]);
 
     return to;
 }

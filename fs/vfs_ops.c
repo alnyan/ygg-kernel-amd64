@@ -75,7 +75,6 @@ static int vfs_opendir(struct vfs_ioctx *ctx, struct ofile *fd) {
         fd->flags |= OF_MEMDIR | OF_MEMDIR_DOT;
         fd->file.pos = (size_t) node->first_child;
 
-        ++fd->file.refcount;
         ++node->open_count;
 
         return 0;
@@ -89,7 +88,6 @@ static int vfs_opendir(struct vfs_ioctx *ctx, struct ofile *fd) {
             return res;
         }
 
-        ++fd->file.refcount;
         ++node->open_count;
 
         return 0;
@@ -196,7 +194,6 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
             return -EACCES;
         }
 
-        fd->file.refcount = 0;
         fd->file.pos = 0;
         fd->file.vnode = node;
         fd->flags = OF_DIRECTORY | OF_READABLE;
@@ -228,7 +225,6 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
         }
     }
 
-    fd->file.refcount = 0;
     fd->file.pos = 0;
     fd->file.vnode = node;
     fd->flags = 0;
@@ -253,7 +249,6 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
         }
     }
 
-    ++fd->file.refcount;
     ++fd->file.vnode->open_count;
 
     return 0;
@@ -479,13 +474,12 @@ void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd) {
     _assert(ctx);
     _assert(fd);
     _assert(!(fd->flags & OF_SOCKET));
+    _assert(!(fd->refcount));
     _assert(fd->file.vnode);
-    _assert(fd->file.refcount > 0);
 
     --fd->file.vnode->open_count;
-    --fd->file.refcount;
 
-    if (!fd->file.refcount && fd->file.vnode->op && fd->file.vnode->op->close) {
+    if (fd->file.vnode->op && fd->file.vnode->op->close) {
         fd->file.vnode->op->close(fd);
     }
 }
