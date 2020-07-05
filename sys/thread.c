@@ -657,6 +657,10 @@ int sys_setpgid(pid_t pid, pid_t pgrp) {
         return 0;
     }
 
+    if (pid == thr->pid) {
+        thr->pgid = pgrp;
+        return 0;
+    }
     // Find child with pid pid (guess only children can be setpgid'd)
     struct thread *chld = thread_child(thr, pid);
     if (!chld) {
