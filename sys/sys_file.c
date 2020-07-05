@@ -247,8 +247,8 @@ int sys_pipe(int *filedes) {
         return -EMFILE;
     }
 
-    thr->fds[fd0] = read_end;
-    thr->fds[fd1] = write_end;
+    thr->fds[fd0] = ofile_dup(read_end);
+    thr->fds[fd1] = ofile_dup(write_end);
 
     filedes[0] = fd0;
     filedes[1] = fd1;
