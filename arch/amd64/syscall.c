@@ -20,9 +20,13 @@ extern void syscall_entry(void);
 
 static void sys_debug_trace(const char *fmt, ...) {
     struct thread *thr = thread_self;
+    _assert(thr);
+    struct process *proc = thr->proc;
+    _assert(proc);
+
     va_list args;
     userptr_check(fmt);
-    debugf(DEBUG_DEFAULT, "[%2u] ", thr->pid);
+    debugf(DEBUG_DEFAULT, "[%2u] ", proc->pid);
     va_start(args, fmt);
     debugfv(DEBUG_DEFAULT, fmt, args);
     va_end(args);
@@ -85,12 +89,12 @@ void *syscall_table[256] = {
     [SYSCALL_NRX_MODULE_UNLOAD] =   sys_module_unload,
 
     // Network
-    [SYSCALL_NR_SOCKET] =           sys_socket,
-    [SYSCALL_NR_SENDTO] =           sys_sendto,
-    [SYSCALL_NR_RECVFROM] =         sys_recvfrom,
-    [SYSCALL_NR_BIND] =             sys_bind,
-    [SYSCALL_NR_SETSOCKOPT] =       sys_setsockopt,
-    [SYSCALL_NRX_NETCTL] =          sys_netctl,
+//    [SYSCALL_NR_SOCKET] =           sys_socket,
+//    [SYSCALL_NR_SENDTO] =           sys_sendto,
+//    [SYSCALL_NR_RECVFROM] =         sys_recvfrom,
+//    [SYSCALL_NR_BIND] =             sys_bind,
+//    [SYSCALL_NR_SETSOCKOPT] =       sys_setsockopt,
+//    [SYSCALL_NRX_NETCTL] =          sys_netctl,
 
     // Extension
     [SYSCALL_NRX_TRACE] =           sys_debug_trace,

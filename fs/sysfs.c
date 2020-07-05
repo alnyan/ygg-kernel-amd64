@@ -224,15 +224,15 @@ int sysfs_add_config_endpoint(struct vnode *at, const char *name, mode_t mode, s
 
 static int proc_property_getter(void *ctx, char *buf, size_t lim) {
     uint64_t prop = (uint64_t) ctx;
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
+    struct process *proc = thread_self->proc;
+    _assert(proc);
 
     switch (prop) {
     case PROC_PROP_PID:
-        sysfs_buf_printf(buf, lim, "%d\n", (int) thr->pid);
+        sysfs_buf_printf(buf, lim, "%d\n", (int) proc->pid);
         break;
     case PROC_PROP_NAME:
-        sysfs_buf_puts(buf, lim, thr->name);
+        sysfs_buf_puts(buf, lim, proc->name);
         sysfs_buf_puts(buf, lim, "\n");
         break;
     }

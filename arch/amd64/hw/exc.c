@@ -56,6 +56,9 @@ int do_pfault(struct amd64_exception_frame *frame, uintptr_t cr2, uintptr_t cr3)
         uint64_t flags;
         uintptr_t phys = mm_map_get(space, cr2 & MM_PAGE_MASK, &flags);
         struct thread *thr = thread_self;
+        _assert(thr);
+        struct process *proc = thr->proc;
+        _assert(proc);
 
         if (phys != MM_NADDR) {
             // If the exception was caused by write operation
@@ -71,14 +74,14 @@ int do_pfault(struct amd64_exception_frame *frame, uintptr_t cr2, uintptr_t cr3)
                 }
 
                 if (page->refcount == 2) {
-                    kdebug("[%d] Cloning page @ %p\n", thr->pid, cr2 & MM_PAGE_MASK);
+                    kdebug("[%d] Cloning page @ %p\n", proc->pid, cr2 & MM_PAGE_MASK);
                     uintptr_t new_phys = mm_phys_alloc_page();
                     _assert(new_phys != MM_NADDR);
                     memcpy((void *) MM_VIRTUALIZE(new_phys), (const void *) MM_VIRTUALIZE(phys), MM_PAGE_SIZE);
                     _assert(mm_umap_single(space, cr2 & MM_PAGE_MASK, 1) == phys);
                     _assert(mm_map_single(space, cr2 & MM_PAGE_MASK, new_phys, MM_PAGE_USER | MM_PAGE_WRITE, PU_PRIVATE) == 0);
                 } else if (page->refcount == 1) {
-                    kdebug("[%d] Only one referring to %p now, claiming ownership\n", thr->pid, cr2 & MM_PAGE_MASK);
+                    kdebug("[%d] Only one referring to %p now, claiming ownership\n", proc->pid, cr2 & MM_PAGE_MASK);
                     _assert(mm_umap_single(space, cr2 & MM_PAGE_MASK, 1) == phys);
                     _assert(mm_map_single(space, cr2 & MM_PAGE_MASK, phys, MM_PAGE_USER | MM_PAGE_WRITE, PU_PRIVATE) == 0);
                 } else {

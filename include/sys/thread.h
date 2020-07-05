@@ -18,24 +18,55 @@ enum thread_state {
     THREAD_STOPPED
 };
 
+enum process_state {
+    PROC_ACTIVE,
+    PROC_FINISHED
+};
+
 #define THREAD_KERNEL           (1 << 0)
-#define THREAD_EMPTY            (1 << 1)
+#define PROC_EMPTY              (1 << 1)
 #define THREAD_FPU_SAVED        (1 << 2)
 #define THREAD_IDLE             (1 << 3)
 
-#define thread_signal_clear(thr, signum) \
+#define process_signal_clear(thr, signum) \
     (thr)->sigq &= ~(1ULL << ((signum) - 1))
-#define thread_signal_set(thr, signum) \
+#define process_signal_set(thr, signum) \
     (thr)->sigq |= 1ULL << ((signum) - 1);
-#define thread_signal_pending(thr, signum) \
+#define process_signal_pending(thr, signum) \
     ((thr)->sigq & (1ULL << ((signum) - 1)))
+
+struct process;
 
 struct thread {
     // Platform data and context
     struct thread_data data;
+    enum thread_state state;
+
+    // Wait
+    uint64_t sleep_deadline;
+    struct list_head wait_head;
+    struct io_notify sleep_notify;
+
+    struct process *proc;
+    struct thread *next_thread;
+
+    uint32_t flags;
+
+    // Scheduler
+    int cpu;
+    struct thread *sched_prev, *sched_next;
+};
+
+struct process {
     mm_space_t space;
     size_t image_end;
     size_t brk;
+
+    int proc_state;
+
+    // Threads
+    struct thread *first_thread;
+    size_t thread_count;
 
     // Shared memory
     struct list_head shm_list;
@@ -45,9 +76,6 @@ struct thread {
     struct ofile *fds[THREAD_MAX_FDS];
 
     // Wait
-    uint64_t sleep_deadline;
-    struct list_head wait_head;
-    struct io_notify sleep_notify;
     struct io_notify pid_notify;
 
     // Signal
@@ -59,29 +87,28 @@ struct thread {
     uint32_t flags;
     pid_t pid;
     pid_t pgid;
-    enum thread_state state;
-    struct thread *parent;
-    struct thread *first_child;
-    struct thread *next_child;
+    struct process *parent;
+    struct process *first_child;
+    struct process *next_child;
     int exit_status;
 
-    // Global thread list (for stuff like finding by PID)
+    // Global process list (for stuff like finding by PID)
     struct list_head g_link;
-
-    // Scheduler
-    int cpu;
-    struct thread *sched_prev, *sched_next;
 };
 
-pid_t thread_alloc_pid(int is_user);
-void thread_ioctx_fork(struct thread *dst, struct thread *src);
-int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user);
-void thread_cleanup(struct thread *thr);
+pid_t process_alloc_pid(int is_user);
 
-struct thread *thread_find(pid_t pid);
-void thread_signal(struct thread *thr, int signum);
+int process_init_thread(struct process *proc, uintptr_t entry, void *arg, int user);
+
+//pid_t thread_alloc_pid(int is_user);
+//void thread_ioctx_fork(struct thread *dst, struct thread *src);
+int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user);
+//void thread_cleanup(struct thread *thr);
+
+struct process *process_find(pid_t pid);
+void process_signal(struct process *proc, int signum);
 int thread_check_signal(struct thread *thr, int ret);
 void thread_sigenter(int signum);
-int thread_signal_pgid(pid_t pgid, int signum);
+int process_signal_pgid(pid_t pgid, int signum);
 
 int thread_sleep(struct thread *thr, uint64_t deadline, uint64_t *int_time);

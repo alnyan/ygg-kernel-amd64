@@ -1,14 +1,14 @@
-#include "arch/amd64/hw/timer.h"
+//#include "arch/amd64/hw/timer.h"
 #include "arch/amd64/mm/pool.h"
 #include "arch/amd64/context.h"
-#include "arch/amd64/mm/map.h"
+//#include "arch/amd64/mm/map.h"
 #include "sys/mem/vmalloc.h"
 #include "arch/amd64/cpu.h"
 #include "sys/binfmt_elf.h"
 #include "sys/sys_proc.h"
 #include "sys/mem/phys.h"
 #include "user/signum.h"
-#include "net/socket.h"
+//#include "net/socket.h"
 #include "user/errno.h"
 #include "user/fcntl.h"
 #include "sys/assert.h"
@@ -18,8 +18,8 @@
 #include "sys/debug.h"
 #include "fs/ofile.h"
 #include "sys/heap.h"
-#include "fs/vfs.h"
-#include "sys/mm.h"
+//#include "fs/vfs.h"
+//#include "sys/mm.h"
 
 struct sys_fork_frame {
     uint64_t rdi, rsi, rdx, rcx;
@@ -37,7 +37,7 @@ struct sys_fork_frame {
 
 ////
 
-LIST_HEAD(threads_all_head);
+LIST_HEAD(proc_all_head);
 static pid_t last_kernel_pid = 0;
 static pid_t last_user_pid = 0;
 // TODO: MAKE THIS PER-PROCESSOR
@@ -62,7 +62,7 @@ void context_restore_fpu(struct thread *new, struct thread *old) {
     }
 }
 
-pid_t thread_alloc_pid(int is_user) {
+pid_t process_alloc_pid(int is_user) {
     if (is_user) {
         return ++last_user_pid;
     } else {
@@ -70,15 +70,15 @@ pid_t thread_alloc_pid(int is_user) {
     }
 }
 
-////
 
-static void thread_ioctx_empty(struct thread *thr) {
-    memset(&thr->ioctx, 0, sizeof(struct vfs_ioctx));
-    memset(thr->fds, 0, sizeof(thr->fds));
+
+static void process_ioctx_empty(struct process *proc) {
+    memset(&proc->ioctx, 0, sizeof(struct vfs_ioctx));
+    memset(proc->fds, 0, sizeof(proc->fds));
 }
 
-void thread_ioctx_fork(struct thread *dst, struct thread *src) {
-    thread_ioctx_empty(dst);
+void process_ioctx_fork(struct process *dst, struct process *src) {
+    process_ioctx_empty(dst);
 
     dst->ioctx.cwd_vnode = src->ioctx.cwd_vnode;
     dst->ioctx.gid = src->ioctx.gid;
@@ -91,15 +91,15 @@ void thread_ioctx_fork(struct thread *dst, struct thread *src) {
     }
 }
 
-////
 
-int thread_signal_pgid(pid_t pgid, int signum) {
+
+int process_signal_pgid(pid_t pgid, int signum) {
     int ret = 0;
 
-    struct thread *thr;
-    list_for_each_entry(thr, &threads_all_head, g_link) {
-        if (thr->state != THREAD_STOPPED && thr->pgid == pgid) {
-            thread_signal(thr, signum);
+    struct process *proc;
+    list_for_each_entry(proc, &proc_all_head, g_link) {
+        if (proc->proc_state != PROC_FINISHED && proc->pgid == pgid) {
+            process_signal(proc, signum);
             ++ret;
         }
     }
@@ -107,41 +107,41 @@ int thread_signal_pgid(pid_t pgid, int signum) {
     return ret == 0 ? -1 : ret;
 }
 
-struct thread *thread_find(pid_t pid) {
-    struct thread *thr;
-    list_for_each_entry(thr, &threads_all_head, g_link) {
-        if (thr->pid == pid) {
-            return thr;
+struct process *process_find(pid_t pid) {
+    struct process *proc;
+    list_for_each_entry(proc, &proc_all_head, g_link) {
+        if (proc->pid == pid) {
+            return proc;
         }
     }
 
     return NULL;
 }
 
-struct thread *thread_child(struct thread *of, pid_t pid) {
-    for (struct thread *thr = of->first_child; thr; thr = thr->next_child) {
-        if (thr->pid == pid) {
-            return thr;
+struct process *process_child(struct process *of, pid_t pid) {
+    for (struct process *proc = of->first_child; proc; proc = proc->next_child) {
+        if (proc->pid == pid) {
+            return proc;
         }
     }
     return NULL;
 }
 
-void thread_unchild(struct thread *thr) {
-    struct thread *par = thr->parent;
+void process_unchild(struct process *proc) {
+    struct process *par = proc->parent;
     _assert(par);
 
-    struct thread *p = NULL;
-    struct thread *c = par->first_child;
+    struct process *p = NULL;
+    struct process *c = par->first_child;
     int found = 0;
 
     while (c) {
-        if (c == thr) {
+        if (c == proc) {
             found = 1;
             if (p) {
-                p->next_child = thr->next_child;
+                p->next_child = proc->next_child;
             } else {
-                par->first_child = thr->next_child;
+                par->first_child = proc->next_child;
             }
             break;
         }
@@ -153,30 +153,35 @@ void thread_unchild(struct thread *thr) {
     _assert(found);
 }
 
-void thread_cleanup(struct thread *thr) {
-    _assert(thr);
+void process_cleanup(struct process *proc) {
     // Leave only the system context required for hierachy tracking and error code/pid
-    thr->state = THREAD_STOPPED;
-    thr->flags |= THREAD_EMPTY;
-    kdebug("Cleaning up %d\n", thr->pid);
+    _assert(proc->proc_state == PROC_FINISHED);
+    _assert(proc->thread_count == 1);
+    proc->flags |= PROC_EMPTY;
+    kdebug("Cleaning up %d\n", proc->pid);
     for (size_t i = 0; i < THREAD_MAX_FDS; ++i) {
-        if (thr->fds[i]) {
-            ofile_close(&thr->ioctx, thr->fds[i]);
-            thr->fds[i] = NULL;
+        if (proc->fds[i]) {
+            ofile_close(&proc->ioctx, proc->fds[i]);
+            proc->fds[i] = NULL;
         }
     }
 
     // Release userspace pages
-    mm_space_release(thr);
+    mm_space_release(proc);
 }
 
-void thread_free(struct thread *thr) {
+void process_free(struct process *proc) {
+    // Make sure all the threads of the process have stopped -
+    // only main remains
+    _assert(proc->thread_count == 1);
+
     // Sure that no code of this thread will be running anymore -
     // can clean up its stuff
-    thread_cleanup(thr);
+    process_cleanup(proc);
 
-    _assert(thr->flags & THREAD_STOPPED);
-    _assert(thr->flags & THREAD_EMPTY);
+    _assert(proc->proc_state == PROC_FINISHED);
+    struct thread *thr = proc->first_thread;
+    _assert(thr);
 
     // Free kstack
     for (size_t i = 0; i < thr->data.rsp0_size / MM_PAGE_SIZE; ++i) {
@@ -184,18 +189,61 @@ void thread_free(struct thread *thr) {
     }
 
     // Free page directory (if not mm_kernel)
-    if (thr->space != mm_kernel) {
+    if (proc->space != mm_kernel) {
         // Make sure we don't shoot a leg off
         uintptr_t cr3;
         asm volatile ("movq %%cr3, %0":"=a"(cr3));
-        _assert(MM_VIRTUALIZE(cr3) != (uintptr_t) thr->space);
+        _assert(MM_VIRTUALIZE(cr3) != (uintptr_t) proc->space);
 
-        mm_space_free(thr);
+        mm_space_free(proc);
     }
 
     // Free thread itself
     memset(thr, 0, sizeof(struct thread));
     kfree(thr);
+    // Free the process
+    memset(proc, 0, sizeof(struct process));
+    kfree(proc);
+}
+
+int process_init_thread(struct process *proc, uintptr_t entry, void *arg, int user) {
+    list_head_init(&proc->g_link);
+    list_head_init(&proc->shm_list);
+    thread_wait_io_init(&proc->pid_notify);
+
+    proc->name[0] = 0;
+    proc->flags = user ? 0 : THREAD_KERNEL;
+
+    if (user) {
+        proc->space = amd64_mm_pool_alloc();
+        mm_space_clone(proc->space, mm_kernel, MM_CLONE_FLG_KERNEL);
+    } else {
+        proc->space = mm_kernel;
+    }
+
+    struct thread *main_thread = kmalloc(sizeof(struct thread));
+    _assert(main_thread);
+    main_thread->proc = proc;
+
+    int res = thread_init(main_thread, entry, arg, user);
+    _assert(res == 0);
+
+    process_ioctx_empty(proc);
+
+    proc->first_thread = main_thread;
+    proc->thread_count = 1;
+    proc->parent = NULL;
+    proc->first_child = NULL;
+    proc->next_child = NULL;
+    proc->pgid = -1;
+    proc->pid = -1;
+
+    proc->sigq = 0;
+    proc->proc_state = PROC_ACTIVE;
+
+    list_add(&proc->g_link, &proc_all_head);
+
+    return 0;
 }
 
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
@@ -205,51 +253,37 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     thr->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
     thr->data.rsp0_size = MM_PAGE_SIZE * 2;
     thr->data.rsp0_top = thr->data.rsp0_base + thr->data.rsp0_size;
-    thr->name[0] = 0;
     thr->flags = user ? 0 : THREAD_KERNEL;
 
-    if (!(thr->flags & THREAD_KERNEL)) {
+    if (user) {
         thr->data.fxsave = kmalloc(FXSAVE_REGION);
         _assert(thr->data.fxsave);
     } else {
         thr->data.fxsave = NULL;
     }
 
-    list_head_init(&thr->g_link);
-    list_head_init(&thr->shm_list);
     list_head_init(&thr->wait_head);
     thread_wait_io_init(&thr->sleep_notify);
-    thread_wait_io_init(&thr->pid_notify);
 
     uint64_t *stack = (uint64_t *) (thr->data.rsp0_base + thr->data.rsp0_size);
 
-    if (user) {
-        mm_space_t space = amd64_mm_pool_alloc();
-        mm_space_clone(space, mm_kernel, MM_CLONE_FLG_KERNEL);
-        thr->data.cr3 = MM_PHYS(space);
-        thr->space = space;
+    mm_space_t space = NULL;
+    if (thr->proc) {
+        space = thr->proc->space;
+    } else if (!user) {
+        space = mm_kernel;
+    }
+    _assert(space);
+    thr->data.cr3 = MM_PHYS(space);
 
+    if (user) {
+        // Allocate thread user stack
         uintptr_t ustack_base = vmalloc(space, 0x1000000, 0xF0000000, 4, MM_PAGE_WRITE | MM_PAGE_USER, PU_PRIVATE);
         thr->data.rsp3_base = ustack_base;
         thr->data.rsp3_size = MM_PAGE_SIZE * 4;
-
-        // Allow this thread to access upper pages for testing
-        space[AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 39] |= MM_PAGE_USER;
-        uint64_t *pdpt = (uint64_t *) MM_VIRTUALIZE(space[AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 39] & ~0xFFF);
-        for (uint64_t i = 0; i < 4; ++i) {
-            pdpt[((AMD64_MM_STRIPSX(KERNEL_VIRT_BASE) >> 30) + i) & 0x1FF] |= MM_PAGE_USER;
-        }
-    } else {
-        thr->data.cr3 = MM_PHYS(mm_kernel);
-        thr->space = mm_kernel;
     }
 
     thr->state = THREAD_READY;
-    thr->parent = NULL;
-    thr->first_child = NULL;
-    thr->next_child = NULL;
-
-    thread_ioctx_empty(thr);
 
     // Initial thread context
     // Entry context
@@ -329,11 +363,6 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
     //   - step one
 
     thr->data.rsp0 = (uintptr_t) stack;
-    thr->sigq = 0;
-    thr->pgid = -1;
-    thr->pid = -1;
-
-    list_add(&thr->g_link, &threads_all_head);
 
     return 0;
 }
@@ -343,54 +372,73 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user) {
 //        threads can just be created by thread_init() and
 //        sched_queue())
 int sys_fork(struct sys_fork_frame *frame) {
-    struct thread *dst = kmalloc(sizeof(struct thread));
+    struct thread *src_thread = thread_self;
+    _assert(src_thread);
+    struct process *src = src_thread->proc;
+    _assert(src);
+
+    if (src->thread_count != 1) {
+        panic("XXX: fork() a multithreaded process\n");
+    }
+
+    struct process *dst = kmalloc(sizeof(struct process));
     _assert(dst);
-    struct thread *src = thread_self;
+    struct thread *dst_thread = kmalloc(sizeof(struct thread));
+    _assert(dst_thread);
 
-    uintptr_t stack_pages = mm_phys_alloc_contiguous(2); //amd64_phys_alloc_contiguous(2);
-    _assert(stack_pages != MM_NADDR);
-
-    list_head_init(&dst->g_link);
-    list_head_init(&dst->shm_list);
-    list_head_init(&dst->wait_head);
-    thread_wait_io_init(&dst->sleep_notify);
-    thread_wait_io_init(&dst->pid_notify);
-
-    dst->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
-    dst->data.rsp0_size = MM_PAGE_SIZE * 2;
-    dst->data.rsp0_top = dst->data.rsp0_base + dst->data.rsp0_size;
-    dst->flags = 0;
-
+    // Initialize dst process: memory space
     mm_space_t space = amd64_mm_pool_alloc();
     dst->space = space;
     mm_space_fork(dst, src, MM_CLONE_FLG_KERNEL | MM_CLONE_FLG_USER);
 
-    dst->data.rsp3_base = src->data.rsp3_base;
-    dst->data.rsp3_size = src->data.rsp3_size;
-
-    dst->data.cr3 = MM_PHYS(space);
-
-    dst->signal_entry = src->signal_entry;
-
+    // Initialize dst process state
+    list_head_init(&dst->g_link);
+    list_head_init(&dst->shm_list);
+    thread_wait_io_init(&dst->pid_notify);
+    dst->flags = 0;
     strcpy(dst->name, src->name);
-
-    dst->data.fxsave = kmalloc(FXSAVE_REGION);
-    _assert(dst->data.fxsave);
-    _assert(src->data.fxsave);
-
-    if (src->flags & THREAD_FPU_SAVED) {
-        memcpy(dst->data.fxsave, src->data.fxsave, FXSAVE_REGION);
-    }
-
-    thread_ioctx_fork(dst, src);
-
-    dst->state = THREAD_READY;
+    dst->signal_entry = src->signal_entry;
+    process_ioctx_fork(dst, src);
     dst->parent = src;
     dst->next_child = src->first_child;
     src->first_child = dst;
     dst->first_child = NULL;
+    dst->pid = process_alloc_pid(1);
+    dst->pgid = src->pgid;
+    dst->sigq = 0;
+    dst->first_thread = dst_thread;
+    dst->thread_count = 1;
+    dst->proc_state = PROC_ACTIVE;
 
-    uint64_t *stack = (uint64_t *) dst->data.rsp0_top;
+    // Initialize dst thread
+    dst_thread->proc = dst;
+
+    uintptr_t stack_pages = mm_phys_alloc_contiguous(2); //amd64_phys_alloc_contiguous(2);
+    _assert(stack_pages != MM_NADDR);
+    list_head_init(&dst_thread->wait_head);
+    thread_wait_io_init(&dst_thread->sleep_notify);
+
+    dst_thread->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
+    dst_thread->data.rsp0_size = MM_PAGE_SIZE * 2;
+    dst_thread->data.rsp0_top = dst_thread->data.rsp0_base + dst_thread->data.rsp0_size;
+    dst_thread->flags = 0;
+
+    dst_thread->data.rsp3_base = src_thread->data.rsp3_base;
+    dst_thread->data.rsp3_size = src_thread->data.rsp3_size;
+
+    dst_thread->data.cr3 = MM_PHYS(space);
+
+    dst_thread->data.fxsave = kmalloc(FXSAVE_REGION);
+    _assert(dst_thread->data.fxsave);
+    _assert(src_thread->data.fxsave);
+
+    if (src_thread->flags & THREAD_FPU_SAVED) {
+        memcpy(dst_thread->data.fxsave, src_thread->data.fxsave, FXSAVE_REGION);
+    }
+
+    dst_thread->state = THREAD_READY;
+
+    uint64_t *stack = (uint64_t *) dst_thread->data.rsp0_top;
 
     // Initial thread context
     // Entry context
@@ -442,50 +490,52 @@ int sys_fork(struct sys_fork_frame *frame) {
     // rbx
     *--stack = frame->rbx;
 
-    dst->data.rsp0 = (uintptr_t) stack;
+    dst_thread->data.rsp0 = (uintptr_t) stack;
 
-    // Allocate a new PID for userspace thread
-    dst->pid = thread_alloc_pid(1);
-    dst->pgid = src->pgid;
-    dst->sigq = 0;
-
-    list_add(&dst->g_link, &threads_all_head);
-    sched_queue(dst);
+    list_add(&dst->g_link, &proc_all_head);
+    sched_queue(dst->first_thread);
 
     return dst->pid;
 }
+
 void thread_sigenter(int signum) {
     if (signum == SIGCHLD) {
         kdebug("Skipping SIGCHLD\n");
         return;
     }
     struct thread *thr = thread_self;
-    kdebug("%d: Handle signal %d\n", thr->pid, signum);
+    kdebug("%d: Handle signal %d\n", thr->proc->pid, signum);
     uintptr_t old_rsp0_top = thr->data.rsp0_top;
     // XXX: Either use a separate stack or ensure stuff doesn't get overwritten
     uintptr_t signal_rsp3 = thr->data.rsp3_base + 0x800;
 
-    context_sigenter(thr->signal_entry, signal_rsp3, signum);
+    context_sigenter(thr->proc->signal_entry, signal_rsp3, signum);
 
     thr->data.rsp0_top = old_rsp0_top;
 }
 
 __attribute__((noreturn)) void sys_exit(int status) {
     struct thread *thr = thread_self;
-    kdebug("Thread %d exited with status %d\n", thr->pid, status);
+    struct process *proc = thr->proc;
+
+    if (proc->thread_count != 1) {
+        panic("XXX: exit() in multithread process\n");
+    }
+    kdebug("Process %d exited with status %d\n", proc->pid, status);
 
     // Clear pending I/O (if exiting from signal interrupting select())
     if (!list_empty(&thr->wait_head)) {
         thread_wait_io_clear(thr);
     }
 
-    thr->exit_status = status;
+    proc->exit_status = status;
 
     // Notify waitpid()ers
-    if (thr->pid_notify.owner) {
-        thread_notify_io(&thr->pid_notify);
+    if (proc->pid_notify.owner) {
+        thread_notify_io(&proc->pid_notify);
     }
 
+    proc->proc_state = PROC_FINISHED;
     sched_unqueue(thr, THREAD_STOPPED);
     panic("This code shouldn't run\n");
 }
@@ -493,14 +543,16 @@ __attribute__((noreturn)) void sys_exit(int status) {
 int sys_waitpid(pid_t pid, int *status) {
     struct thread *thr = thread_self;
     _assert(thr);
-    struct thread *chld = thread_child(thr, pid);
+    struct process *proc_self = thr->proc;
+    _assert(proc_self);
+    struct process *chld = process_child(proc_self, pid);
     int res;
 
     if (!chld) {
         return -ECHILD;
     }
 
-    while (chld->state != THREAD_STOPPED) {
+    while (chld->proc_state != PROC_FINISHED) {
         res = thread_wait_io(thr, &chld->pid_notify);
 
         if (res < 0) {
@@ -509,7 +561,7 @@ int sys_waitpid(pid_t pid, int *status) {
         }
 
         // State should already be "stopped" when notify is signalled
-        _assert(chld->state == THREAD_STOPPED);
+        _assert(chld->proc_state == PROC_FINISHED);
         break;
     }
 
@@ -519,9 +571,9 @@ int sys_waitpid(pid_t pid, int *status) {
 
     // TODO: automatically cleanup threads which don't have
     //       a parent like PID 1
-    thread_unchild(chld);
+    process_unchild(chld);
     list_del(&chld->g_link);
-    thread_free(chld);
+    process_free(chld);
 
     return 0;
 }
@@ -530,7 +582,12 @@ void sys_sigreturn(void) {
     context_sigreturn();
 }
 
-void thread_signal(struct thread *thr, int signum) {
+void process_signal(struct process *proc, int signum) {
+    // First thread processes all signals
+    // TODO: find first non-finished thread
+    struct thread *thr = proc->first_thread;
+    _assert(thr);
+
     if (thr->sleep_notify.owner) {
         thread_notify_io(&thr->sleep_notify);
         //thr->sleep_notify.owner = NULL;
@@ -543,30 +600,35 @@ void thread_signal(struct thread *thr, int signum) {
             thread_sigenter(signum);
         } else {
             kdebug("Signal will be handled later\n");
-            thread_signal_set(thr, signum);
+            process_signal_set(proc, signum);
 
             sched_queue(thr);
         }
     } else if (thr->cpu >= 0) {
         kdebug("Signal will be handled later (other cpu%d)\n", thr->cpu);
-        thread_signal_set(thr, signum);
+        process_signal_set(proc, signum);
 
         sched_queue(thr);
     } else {
         kdebug("Signal will be handled later (not running)\n");
-        thread_signal_set(thr, signum);
+        process_signal_set(proc, signum);
 
         sched_queue(thr);
     }
 }
 
 int thread_check_signal(struct thread *thr, int ret) {
-    if (thr->sigq) {
+    struct process *proc = thr->proc;
+    if (!proc) {
+        return ret;
+    }
+
+    if (proc->sigq) {
         // Pick one signal to handle at a time
         int signum = 0;
         for (int i = 0; i < 64; ++i) {
-            if (thr->sigq & (1ULL << i)) {
-                thr->sigq &= ~(1ULL << i);
+            if (proc->sigq & (1ULL << i)) {
+                proc->sigq &= ~(1ULL << i);
                 signum = i + 1;
                 break;
             }
@@ -585,18 +647,18 @@ int thread_check_signal(struct thread *thr, int ret) {
 }
 
 int sys_kill(pid_t pid, int signum) {
-    struct thread *thr;
+    struct process *proc;
 
     if (pid > 0) {
-        thr = thread_find(pid);
+        proc = process_find(pid);
     } else if (pid == 0) {
-        thr = thread_self;
+        proc = thread_self->proc;
     } else {
         // Not implemented
-        thr = NULL;
+        proc = NULL;
     }
 
-    if (!thr || thr->state == THREAD_STOPPED) {
+    if (!proc || proc->proc_state == PROC_FINISHED) {
         return -ESRCH;
     }
 
@@ -608,65 +670,59 @@ int sys_kill(pid_t pid, int signum) {
         return -EINVAL;
     }
 
-    if (!thr) {
+    if (!proc) {
         // No such process
         return -ESRCH;
     }
 
-    thread_signal(thr, signum);
+    process_signal(proc, signum);
 
     return 0;
 }
 
 void sys_sigentry(uintptr_t entry) {
-    struct thread *thr = thread_self;
-    _assert(thr);
-
-    thr->signal_entry = entry;
+    thread_self->proc->signal_entry = entry;
 }
 
 pid_t sys_getpid(void) {
-    struct thread *thr = thread_self;
-    _assert(thr);
-    return thr->pid;
+    _assert(thread_self && thread_self->proc);
+    return thread_self->proc->pid;
 }
 
 pid_t sys_getpgid(pid_t pid) {
-    struct thread *thr;
+    struct process *proc;
 
     if (pid == 0) {
-        thr = get_cpu()->thread;
-        _assert(thr);
+        proc = thread_self->proc;
     } else {
-        thr = thread_find(pid);
+        proc = process_find(pid);
     }
 
-    if (!thr) {
+    if (!proc) {
         return -ESRCH;
     }
 
-    return thr->pgid;
+    return proc->pgid;
 }
 
 int sys_setpgid(pid_t pid, pid_t pgrp) {
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
+    struct process *proc = thread_self->proc;
 
     if (pid == 0 && pgrp == 0) {
-        thr->pgid = thr->pid;
+        proc->pgid = proc->pid;
         return 0;
     }
 
-    if (pid == thr->pid) {
-        thr->pgid = pgrp;
+    if (pid == proc->pid) {
+        proc->pgid = pgrp;
         return 0;
     }
     // Find child with pid pid (guess only children can be setpgid'd)
-    struct thread *chld = thread_child(thr, pid);
+    struct process *chld = process_child(proc, pid);
     if (!chld) {
         return -ESRCH;
     }
-    if (chld->pgid != thr->pgid) {
+    if (chld->pgid != proc->pgid) {
         return -EACCES;
     }
     chld->pgid = pgrp;
@@ -675,37 +731,33 @@ int sys_setpgid(pid_t pid, pid_t pgrp) {
 }
 
 int sys_setuid(uid_t uid) {
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
+    struct process *proc = thread_self->proc;
+    _assert(proc);
 
-    if (thr->ioctx.uid != 0) {
+    if (proc->ioctx.uid != 0) {
         return -EACCES;
     }
 
-    thr->ioctx.uid = uid;
+    proc->ioctx.uid = uid;
     return 0;
 }
 
 int sys_setgid(gid_t gid) {
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
+    struct process *proc = thread_self->proc;
+    _assert(proc);
 
-    if (thr->ioctx.gid != 0 && thr->ioctx.uid != 0) {
+    if (proc->ioctx.gid != 0 && proc->ioctx.uid != 0) {
         return -EACCES;
     }
 
-    thr->ioctx.gid = gid;
+    proc->ioctx.gid = gid;
     return 0;
 }
 
 uid_t sys_getuid(void) {
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
-    return thr->ioctx.uid;
+    return thread_self->proc->ioctx.uid;
 }
 
 gid_t sys_getgid(void) {
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
-    return thr->ioctx.gid;
+    return thread_self->proc->ioctx.gid;
 }

@@ -8,6 +8,7 @@
 #include "sys/debug.h"
 #include "sys/heap.h"
 
+static struct process usbd = {0};
 static struct usb_controller *g_hc_list = NULL;
 static struct usb_device *g_usb_devices = NULL;
 
@@ -50,16 +51,16 @@ static void *usb_daemon(void *arg) {
 }
 
 void usb_daemon_start(void) {
-    static struct thread usbd_thread;
     if (!g_hc_list) {
         kinfo("Not starting USB daemon - no HCs\n");
         // No controllers to poll
         return;
     }
 
-    _assert(thread_init(&usbd_thread, (uintptr_t) usb_daemon, NULL, 0) == 0);
-    usbd_thread.pid = thread_alloc_pid(0);
-    sched_queue(&usbd_thread);
+    _assert(process_init_thread(&usbd, (uintptr_t) usb_daemon, NULL, 0) == 0);
+    usbd.pid = process_alloc_pid(0);
+    _assert(usbd.first_thread && usbd.thread_count == 1);
+    sched_queue(usbd.first_thread);
 }
 
 void usb_controller_add(struct usb_controller *hc) {

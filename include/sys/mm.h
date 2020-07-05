@@ -10,7 +10,7 @@
 #include "arch/amd64/mm/mm.h"
 #endif
 
-struct thread;
+struct process;
 
 /// An invalid address analogous to NULL
 #define MM_NADDR                ((uintptr_t) -1)
@@ -22,9 +22,9 @@ struct thread;
 
 mm_space_t mm_space_create(void);
 int mm_space_clone(mm_space_t dst, const mm_space_t src, uint32_t flags);
-int mm_space_fork(struct thread *dst, const struct thread *src, uint32_t flags);
-void mm_space_release(struct thread *thr);
-void mm_space_free(struct thread *thr);
+int mm_space_fork(struct process *dst, const struct process *src, uint32_t flags);
+void mm_space_release(struct process *proc);
+void mm_space_free(struct process *proc);
 
 void mm_describe(const mm_space_t pd);
 

@@ -13,18 +13,22 @@
 #include "sys/debug.h"
 #include "sys/heap.h"
 
+static inline struct ofile *get_fd(int fd) {
+    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+        return NULL;
+    }
+    return thread_self->proc->fds[fd];
+}
+
+static inline struct vfs_ioctx *get_ioctx(void) {
+    return &thread_self->proc->ioctx;
+}
+
 ssize_t sys_read(int fd, void *data, size_t lim) {
     userptr_check(data);
-
-    struct thread *thr = thread_self;
     struct ofile *of;
-    _assert(thr);
 
-    if (fd < 0 || fd >= THREAD_MAX_FDS) {
-        return -EBADF;
-    }
-
-    if ((of = thr->fds[fd]) == NULL) {
+    if ((of = get_fd(fd)) == NULL) {
         return -EBADF;
     }
 
@@ -33,21 +37,14 @@ ssize_t sys_read(int fd, void *data, size_t lim) {
         return -EINVAL;
     }
 
-    return vfs_read(&thr->ioctx, of, data, lim);
+    return vfs_read(get_ioctx(), of, data, lim);
 }
 
 ssize_t sys_write(int fd, const void *data, size_t lim) {
     userptr_check(data);
-
-    struct thread *thr = thread_self;
     struct ofile *of;
-    _assert(thr);
 
-    if (fd < 0 || fd >= THREAD_MAX_FDS) {
-        return -EBADF;
-    }
-
-    if ((of = thr->fds[fd]) == NULL) {
+    if ((of = get_fd(fd)) == NULL) {
         return -EBADF;
     }
 
@@ -56,7 +53,7 @@ ssize_t sys_write(int fd, const void *data, size_t lim) {
         return -EINVAL;
     }
 
-    return vfs_write(&thr->ioctx, of, data, lim);
+    return vfs_write(get_ioctx(), of, data, lim);
 }
 
 int sys_creat(const char *pathname, int mode) {
@@ -66,44 +63,34 @@ int sys_creat(const char *pathname, int mode) {
 
 int sys_mkdir(const char *pathname, int mode) {
     userptr_check(pathname);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
     _assert(pathname);
-    return vfs_mkdir(&thr->ioctx, pathname, mode);
+    return vfs_mkdir(get_ioctx(), pathname, mode);
 }
 
 int sys_unlink(const char *pathname) {
     userptr_check(pathname);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
     _assert(pathname);
-    return vfs_unlink(&thr->ioctx, pathname);
+    return vfs_unlink(get_ioctx(), pathname);
 }
 
 int sys_rmdir(const char *pathname) {
     userptr_check(pathname);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
     _assert(pathname);
-    return vfs_rmdir(&thr->ioctx, pathname);
+    return vfs_rmdir(get_ioctx(), pathname);
 }
 
 int sys_chdir(const char *filename) {
     userptr_check(filename);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
-
-    return vfs_setcwd(&thr->ioctx, filename);
+    return vfs_setcwd(get_ioctx(), filename);
 }
 
 // Kinda incompatible with linux, but who cares as long as it's
 // POSIX on the libc side
 int sys_getcwd(char *buf, size_t lim) {
     userptr_check(buf);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
+    struct vfs_ioctx *ioctx = get_ioctx();
 
-    if (!thr->ioctx.cwd_vnode) {
+    if (!ioctx->cwd_vnode) {
         if (lim < 2) {
             return -1;
         }
@@ -114,7 +101,7 @@ int sys_getcwd(char *buf, size_t lim) {
         return 0;
     } else {
         char tmpbuf[PATH_MAX];
-        vfs_vnode_path(tmpbuf, thr->ioctx.cwd_vnode);
+        vfs_vnode_path(tmpbuf, ioctx->cwd_vnode);
         if (lim <= strlen(tmpbuf)) {
             return -1;
         }
@@ -127,14 +114,13 @@ int sys_getcwd(char *buf, size_t lim) {
 
 int sys_open(const char *filename, int flags, int mode) {
     userptr_check(filename);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
+    struct process *proc = thread_self->proc;
     int fd = -1;
     int res;
 
     // XXX: This should be atomic
     for (int i = 0; i < THREAD_MAX_FDS; ++i) {
-        if (!thr->fds[i]) {
+        if (!proc->fds[i]) {
             fd = i;
             break;
         }
@@ -145,84 +131,69 @@ int sys_open(const char *filename, int flags, int mode) {
 
     struct ofile *ofile = ofile_create();
 
-    if ((res = vfs_open(&thr->ioctx, ofile, filename, flags, mode)) != 0) {
+    if ((res = vfs_open(&proc->ioctx, ofile, filename, flags, mode)) != 0) {
         ofile_destroy(ofile);
         return res;
     }
 
-    thr->fds[fd] = ofile_dup(ofile);
-    _assert(thr->fds[fd]->refcount == 1);
+    proc->fds[fd] = ofile_dup(ofile);
+    _assert(proc->fds[fd]->refcount == 1);
 
     return fd;
 }
 
 void sys_close(int fd) {
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
+    struct process *proc = thread_self->proc;
 
     if (fd < 0 || fd >= THREAD_MAX_FDS) {
         return;
     }
 
-    if (thr->fds[fd] == NULL) {
+    if (proc->fds[fd] == NULL) {
         return;
     }
 
-    ofile_close(&thr->ioctx, thr->fds[fd]);
-    thr->fds[fd] = NULL;
+    ofile_close(&proc->ioctx, proc->fds[fd]);
+    proc->fds[fd] = NULL;
 }
 
 int sys_stat(const char *filename, struct stat *st) {
     userptr_check(filename);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
     _assert(filename);
     _assert(st);
 
-    return vfs_stat(&thr->ioctx, filename, st);
+    return vfs_stat(get_ioctx(), filename, st);
 }
 
 int sys_lstat(const char *filename, struct stat *st) {
     userptr_check(filename);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
     _assert(filename);
     _assert(st);
 
-    return vfs_lstat(&thr->ioctx, filename, st);
+    return vfs_lstat(get_ioctx(), filename, st);
 }
 
 int sys_fstat(int fd, struct stat *st) {
-    struct thread *thr = get_cpu()->thread;
     struct ofile *of;
-    _assert(thr);
     _assert(st);
 
-    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+    if (!(of = get_fd(fd))) {
         return -EBADF;
     }
 
-    if (!(of = thr->fds[fd])) {
-        return -EBADF;
-    }
-
-    return vfs_fstat(&thr->ioctx, of, st);
+    return vfs_fstat(get_ioctx(), of, st);
 }
 
 int sys_access(const char *path, int mode) {
     userptr_check(path);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
     _assert(path);
 
-    return vfs_access(&thr->ioctx, path, mode);
+    return vfs_access(get_ioctx(), path, mode);
 }
 
 int sys_pipe(int *filedes) {
     userptr_check(filedes);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
-
+    struct process *proc = thread_self->proc;
     struct ofile *read_end, *write_end;
     int fd0 = -1, fd1 = -1;
     int res;
@@ -234,7 +205,7 @@ int sys_pipe(int *filedes) {
 
     // XXX: This should be atomic
     for (int i = 0; i < THREAD_MAX_FDS; ++i) {
-        if (!thr->fds[i]) {
+        if (!proc->fds[i]) {
             if (fd0 == -1) {
                 fd0 = i;
             } else {
@@ -247,8 +218,8 @@ int sys_pipe(int *filedes) {
         return -EMFILE;
     }
 
-    thr->fds[fd0] = ofile_dup(read_end);
-    thr->fds[fd1] = ofile_dup(write_end);
+    proc->fds[fd0] = ofile_dup(read_end);
+    proc->fds[fd1] = ofile_dup(write_end);
 
     filedes[0] = fd0;
     filedes[1] = fd1;
@@ -257,12 +228,11 @@ int sys_pipe(int *filedes) {
 }
 
 int sys_dup(int from) {
-    struct thread *thr = thread_self;
-    _assert(thr);
+    struct process *proc = thread_self->proc;
 
     int fd = -1;
     for (int i = 0; i < THREAD_MAX_FDS; ++i) {
-        if (!thr->fds[i]) {
+        if (!proc->fds[i]) {
             fd = i;
             break;
         }
@@ -276,17 +246,17 @@ int sys_dup2(int from, int to) {
         return -EBADF;
     }
 
-    struct thread *thr = thread_self;
-    _assert(thr);
+    // TODO: process_self macro?
+    struct process *proc = thread_self->proc;
 
-    if (!thr->fds[from]) {
+    if (!proc->fds[from]) {
         return -EBADF;
     }
 
     sys_close(to);
-    _assert(!thr->fds[to]);
+    _assert(!proc->fds[to]);
 
-    thr->fds[to] = ofile_dup(thr->fds[from]);
+    proc->fds[to] = ofile_dup(proc->fds[from]);
 
     return to;
 }
@@ -297,32 +267,22 @@ int sys_openpty(int *master, int *slave) {
 
 int sys_chmod(const char *path, mode_t mode) {
     userptr_check(path);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
     _assert(path);
 
-    return vfs_chmod(&thr->ioctx, path, mode);
+    return vfs_chmod(get_ioctx(), path, mode);
 }
 
 int sys_chown(const char *path, uid_t uid, gid_t gid) {
     userptr_check(path);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
     _assert(path);
 
-    return vfs_chown(&thr->ioctx, path, uid, gid);
+    return vfs_chown(get_ioctx(), path, uid, gid);
 }
 
 off_t sys_lseek(int fd, off_t offset, int whence) {
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
     struct ofile *ofile;
 
-    if (fd < 0 || fd >= THREAD_MAX_FDS) {
-        return -EBADF;
-    }
-
-    if ((ofile = thr->fds[fd]) == NULL) {
+    if ((ofile = get_fd(fd)) == NULL) {
         return -EBADF;
     }
 
@@ -331,19 +291,12 @@ off_t sys_lseek(int fd, off_t offset, int whence) {
         return -EINVAL;
     }
 
-    return vfs_lseek(&thr->ioctx, ofile, offset, whence);
+    return vfs_lseek(get_ioctx(), ofile, offset, whence);
 }
 
 int sys_ioctl(int fd, unsigned int cmd, void *arg) {
-    struct thread *thr = get_cpu()->thread;
     struct ofile *of;
-    _assert(thr);
-
-    if (fd < 0 || fd >= THREAD_MAX_FDS) {
-        return -EBADF;
-    }
-
-    if (!(of = thr->fds[fd])) {
+    if (!(of = get_fd(fd))) {
         return -EBADF;
     }
 
@@ -352,40 +305,33 @@ int sys_ioctl(int fd, unsigned int cmd, void *arg) {
         return -EINVAL;
     }
 
-    return vfs_ioctl(&thr->ioctx, of, cmd, arg);
+    return vfs_ioctl(get_ioctx(), of, cmd, arg);
 }
 
 ssize_t sys_readdir(int fd, struct dirent *ent) {
     userptr_check(ent);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
+    struct ofile *of;
 
-    if (fd < 0 || fd >= THREAD_MAX_FDS) {
+    if ((of = get_fd(fd)) == NULL) {
         return -EBADF;
     }
 
-    if (thr->fds[fd] == NULL) {
-        return -EBADF;
-    }
-
-    if (thr->fds[fd]->flags & OF_SOCKET) {
+    if (of->flags & OF_SOCKET) {
         kwarn("Invalid operation on socket\n");
         return -EINVAL;
     }
 
-    return vfs_readdir(&thr->ioctx, thr->fds[fd], ent);
+    return vfs_readdir(get_ioctx(), of, ent);
 }
 
 int sys_mknod(const char *filename, int mode, unsigned int dev) {
     userptr_check(filename);
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
 
     int type = mode & S_IFMT;
     int res;
     struct vnode *node;
 
-    if ((res = vfs_mknod(&thr->ioctx, filename, mode, &node)) != 0) {
+    if ((res = vfs_mknod(get_ioctx(), filename, mode, &node)) != 0) {
         return res;
     }
 
@@ -447,6 +393,8 @@ int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *t
     }
     struct thread *thr = get_cpu()->thread;
     _assert(thr);
+    struct process *proc = thr->proc;
+    _assert(proc);
 
     // Not yet implemented
     _assert(!outp);
@@ -463,7 +411,7 @@ int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *t
     // Check fds
     for (int i = 0; i < n; ++i) {
         if (FD_ISSET(i, &_inp)) {
-            struct ofile *fd = thr->fds[i];
+            struct ofile *fd = proc->fds[i];
 
             if (!sys_select_get_wait(fd)) {
                 // Can't wait on that fd
@@ -481,7 +429,7 @@ int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *t
     list_head_init(&thr->wait_head);
     for (int i = 0; i < n; ++i) {
         if (FD_ISSET(i, &_inp)) {
-            struct ofile *fd = thr->fds[i];
+            struct ofile *fd = proc->fds[i];
             _assert(fd);
 
             struct io_notify *w = sys_select_get_wait(fd);
@@ -503,7 +451,7 @@ int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *t
         // Check if data is available in any of the FDs
         for (int i = 0; i < n; ++i) {
             if (FD_ISSET(i, &_inp)) {
-                struct ofile *fd = thr->fds[i];
+                struct ofile *fd = proc->fds[i];
                 _assert(fd);
 
                 if (sys_select_get_ready(fd)) {

@@ -48,8 +48,7 @@ static size_t procv_strcpy_paged(uintptr_t *phys_pages,
 // argp, envp, auxv
 // TODO: elf auxv
 
-static int procv_setup(struct thread *thr,
-                       const char *const argv[],
+static int procv_setup(const char *const argv[],
                        const char *const envp[],
                        uintptr_t *phys_pages,
                        uintptr_t *vecp,
@@ -119,13 +118,20 @@ static int procv_setup(struct thread *thr,
 int sys_execve(const char *path, const char **argv, const char **envp) {
     struct thread *thr = thread_self;
     _assert(thr);
+    struct process *proc = thr->proc;
+    _assert(proc);
+
+    if (proc->thread_count > 1) {
+        panic("XXX: execve() in multithreaded process\n");
+    }
+
     struct ofile fd = {0};
     struct stat st;
     uintptr_t entry;
     size_t argc;
     int res;
 
-    if ((res = vfs_stat(&thr->ioctx, path, &st)) != 0) {
+    if ((res = vfs_stat(&proc->ioctx, path, &st)) != 0) {
         kerror("execve(%s): %s\n", path, kstrerror(res));
         return res;
     }
@@ -135,9 +141,9 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     if (!e) {
         name = path;
     }
-    size_t name_len = MIN(strlen(name), sizeof(thr->name) - 1);
-    strncpy(thr->name, name, name_len);
-    thr->name[name_len] = 0;
+    size_t name_len = MIN(strlen(name), sizeof(proc->name) - 1);
+    strncpy(proc->name, name, name_len);
+    proc->name[name_len] = 0;
 
     // Copy args
     _assert(argv);
@@ -152,48 +158,49 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     // [2] - full size
     uintptr_t procv_vecp[3];
 
-    if (procv_setup(thr, argv, envp, procv_phys_pages, procv_vecp, &procv_page_count) != 0) {
+    if (procv_setup(argv, envp, procv_phys_pages, procv_vecp, &procv_page_count) != 0) {
         panic("Failed to copy argp/envp to new process\n");
     }
 
-    if ((res = vfs_open(&thr->ioctx, &fd, path, O_RDONLY, 0)) != 0) {
+    if ((res = vfs_open(&proc->ioctx, &fd, path, O_RDONLY, 0)) != 0) {
         kerror("%s: %s\n", path, kstrerror(res));
         return res;
     }
 
-    if (thr->space == mm_kernel) {
+    if (proc->space == mm_kernel) {
         // Have to allocate a new PID for kernel -> userspace transition
-        thr->pid = thread_alloc_pid(1);
-        thr->pgid = thr->pid;
+        proc->pid = process_alloc_pid(1); //thread_alloc_pid(1);
+        proc->pgid = proc->pid;
 
         // Have to remove parent/child relation for transition
-        _assert(!thr->first_child);
-        if (thr->parent) {
+        _assert(!proc->first_child);
+        if (proc->parent) {
             panic("NYI\n");
         }
-        thr->first_child = NULL;
-        thr->next_child = NULL;
-        thr->parent = NULL;
-        thr->sigq = 0;
+        proc->first_child = NULL;
+        proc->next_child = NULL;
+        proc->parent = NULL;
+        proc->sigq = 0;
 
-        thr->space = amd64_mm_pool_alloc();
-        thr->flags = 0;
-        _assert(thr->space);
+        proc->space = amd64_mm_pool_alloc();
+        proc->flags = 0;
+        _assert(proc->space);
 
-        mm_space_clone(thr->space, mm_kernel, MM_CLONE_FLG_KERNEL);
+        mm_space_clone(proc->space, mm_kernel, MM_CLONE_FLG_KERNEL);
 
+        // Setup main thread
         asm volatile ("cli");
         thr->data.fxsave = kmalloc(FXSAVE_REGION);
         _assert(thr->data.fxsave);
 
-        thr->data.cr3 = MM_PHYS(thr->space);
+        thr->data.cr3 = MM_PHYS(proc->space);
         asm volatile ("sti");
     } else {
-        mm_space_release(thr);
+        mm_space_release(proc);
     }
 
-    if ((res = elf_load(thr, &thr->ioctx, &fd, &entry)) != 0) {
-        vfs_close(&thr->ioctx, &fd);
+    if ((res = elf_load(proc, &proc->ioctx, &fd, &entry)) != 0) {
+        vfs_close(&proc->ioctx, &fd);
 
         kerror("elf load failed: %s\n", kstrerror(res));
         sys_exit(-1);
@@ -201,13 +208,13 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
         panic("This code shouldn't run\n");
     }
 
-    vfs_close(&thr->ioctx, &fd);
+    vfs_close(&proc->ioctx, &fd);
 
     // Allocate a virtual address to map argp page
-    uintptr_t procv_virt = vmfind(thr->space, 0x100000, 0xF0000000, procv_page_count);
+    uintptr_t procv_virt = vmfind(proc->space, 0x100000, 0xF0000000, procv_page_count);
     _assert(procv_virt != MM_NADDR);
     for (size_t i = 0; i < procv_page_count; ++i) {
-        _assert(mm_map_single(thr->space,
+        _assert(mm_map_single(proc->space,
                               procv_virt + i * MM_PAGE_SIZE,
                               procv_phys_pages[i],
                               MM_PAGE_USER | MM_PAGE_WRITE,
@@ -226,11 +233,11 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     argv_fixup[procv_vecp[0]] = 0;
     envp_fixup[procv_vecp[1]] = 0;
 
-    thr->signal_entry = 0;
+    proc->signal_entry = 0;
     thr->data.rsp0 = thr->data.rsp0_top;
 
     // Allocate a new user stack
-    uintptr_t ustack = vmalloc(thr->space, 0x100000, 0xF0000000, 4, MM_PAGE_USER | MM_PAGE_WRITE /* | MM_PAGE_NOEXEC */, PU_PRIVATE);
+    uintptr_t ustack = vmalloc(proc->space, 0x100000, 0xF0000000, 4, MM_PAGE_USER | MM_PAGE_WRITE /* | MM_PAGE_NOEXEC */, PU_PRIVATE);
     thr->data.rsp3_base = ustack;
     thr->data.rsp3_size = 4 * MM_PAGE_SIZE;
 

@@ -227,7 +227,7 @@ int mm_space_clone(mm_space_t dst_pml4, const mm_space_t src_pml4, uint32_t flag
     return 0;
 }
 
-int mm_space_fork(struct thread *dst, const struct thread *src, uint32_t flags) {
+int mm_space_fork(struct process *dst, const struct process *src, uint32_t flags) {
     mm_pml4_t dst_pml4 = dst->space;
     const mm_pml4_t src_pml4 = src->space;
 
@@ -312,8 +312,8 @@ int mm_space_fork(struct thread *dst, const struct thread *src, uint32_t flags) 
     return mm_space_clone(dst_pml4, src_pml4, MM_CLONE_FLG_KERNEL & flags);
 }
 
-void mm_space_release(struct thread *thr) {
-    mm_space_t pml4 = thr->space;
+void mm_space_release(struct process *proc) {
+    mm_space_t pml4 = proc->space;
 
     if (pml4 == mm_kernel) {
         panic("???\n");
@@ -368,9 +368,9 @@ void mm_space_release(struct thread *thr) {
     }
 }
 
-void mm_space_free(struct thread *thr) {
-    mm_space_release(thr);
-    amd64_mm_pool_free(thr->space);
+void mm_space_free(struct process *proc) {
+    mm_space_release(proc);
+    amd64_mm_pool_free(proc->space);
 }
 
 void mm_describe(const mm_space_t pml4) {

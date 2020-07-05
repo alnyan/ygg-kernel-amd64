@@ -11,12 +11,13 @@
 #include "sys/heap.h"
 #include "sys/dev.h"
 
-struct thread user_init = {0};
+struct process user_init = {0};
+//struct thread user_init = {0};
 
 static void user_init_func(void *arg) {
     kdebug("Starting user init\n");
 
-    struct vfs_ioctx *ioctx = &thread_self->ioctx;
+    struct vfs_ioctx *ioctx = &thread_self->proc->ioctx;
     struct vnode *root_dev, *tty_dev;
     int res;
     // Mount root
@@ -49,9 +50,9 @@ static void user_init_func(void *arg) {
         panic("Fail\n");
     }
 
-    thread_self->fds[0] = ofile_dup(fd_stdin);
-    thread_self->fds[1] = ofile_dup(fd_stdout);
-    thread_self->fds[2] = ofile_dup(fd_stdout);
+    thread_self->proc->fds[0] = ofile_dup(fd_stdin);
+    thread_self->proc->fds[1] = ofile_dup(fd_stdout);
+    thread_self->proc->fds[2] = ofile_dup(fd_stdout);
 
     _assert(fd_stdin->refcount == 1);
     _assert(fd_stdout->refcount == 2);
@@ -68,7 +69,8 @@ static void user_init_func(void *arg) {
 }
 
 void user_init_start(void) {
-    thread_init(&user_init, (uintptr_t) user_init_func, NULL, 0);
-    user_init.pid = thread_alloc_pid(0);
-    sched_queue(&user_init);
+    process_init_thread(&user_init, (uintptr_t) user_init_func, NULL, 0);
+    user_init.pid = process_alloc_pid(0);
+    _assert(user_init.first_thread);
+    sched_queue(user_init.first_thread);
 }

@@ -351,8 +351,10 @@ static void module_destroy(struct module *mod) {
 
 int sys_module_unload(const char *name) {
     struct thread *thr = thread_self;
+    struct process *proc = thr->proc;
+    _assert(proc);
 
-    if (thr->ioctx.uid != 0) {
+    if (proc->ioctx.uid != 0) {
         return -EACCES;
     }
 
@@ -386,8 +388,10 @@ int sys_module_load(const char *path, const char *params) {
     int res;
     struct ofile fd = {0};
     struct thread *thr = thread_self;
+    struct process *proc = thr->proc;
+    _assert(proc);
 
-    if (thr->ioctx.uid != 0) {
+    if (proc->ioctx.uid != 0) {
         return -EACCES;
     }
 

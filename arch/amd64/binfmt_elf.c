@@ -105,7 +105,7 @@ static int elf_bzero(mm_space_t space, uintptr_t vma_dst, size_t size) {
     return 0;
 }
 
-int elf_load(struct thread *thr, struct vfs_ioctx *ctx, struct ofile *fd, uintptr_t *entry) {
+int elf_load(struct process *proc, struct vfs_ioctx *ctx, struct ofile *fd, uintptr_t *entry) {
     int res;
     ssize_t bread;
     Elf64_Ehdr ehdr;
@@ -136,8 +136,8 @@ int elf_load(struct thread *thr, struct vfs_ioctx *ctx, struct ofile *fd, uintpt
         goto end;
     }
 
-    thr->image_end = 0;
-    thr->brk = 0;
+    proc->image_end = 0;
+    proc->brk = 0;
     //const char *shstrtabd = (const char *) (shdrs[ehdr->e_shstrndx].sh_offset + (uintptr_t) from);
 
     // Load the sections
@@ -165,11 +165,11 @@ int elf_load(struct thread *thr, struct vfs_ioctx *ctx, struct ofile *fd, uintpt
             }
 
             // Map the pages of this section
-            _assert(elf_map_section(thr->space, shdr->sh_addr, shdr->sh_size) == 0);
+            _assert(elf_map_section(proc->space, shdr->sh_addr, shdr->sh_size) == 0);
 
             switch (shdr->sh_type) {
             case SHT_PROGBITS:
-                _assert(elf_load_bytes(thr->space,
+                _assert(elf_load_bytes(proc->space,
                                        ctx,
                                        fd,
                                        shdr->sh_addr,
@@ -177,20 +177,20 @@ int elf_load(struct thread *thr, struct vfs_ioctx *ctx, struct ofile *fd, uintpt
                                        shdr->sh_size) == 0);
                 break;
             case SHT_NOBITS:
-                _assert(elf_bzero(thr->space,
+                _assert(elf_bzero(proc->space,
                                   shdr->sh_addr,
                                   shdr->sh_size) == 0);
                 break;
             }
 
             uintptr_t section_end = shdr->sh_addr + shdr->sh_size;
-            if (section_end > thr->image_end) {
-                thr->image_end = section_end;
+            if (section_end > proc->image_end) {
+                proc->image_end = section_end;
             }
         }
     }
 
-    thr->brk = thr->image_end;
+    proc->brk = proc->image_end;
 
     *entry = ehdr.e_entry;
     res = 0;

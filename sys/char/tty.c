@@ -38,7 +38,7 @@ void tty_data_write(struct chrdev *tty, char c) {
 
     if (tty->tc.c_cc[VINTR] == c) {
         if (tty->tc.c_lflag & ISIG) {
-            thread_signal_pgid(((struct tty_data *) tty->dev_data)->fg_pgid, SIGINT);
+            process_signal_pgid(((struct tty_data *) tty->dev_data)->fg_pgid, SIGINT);
             return;
         } else {
             // Just display ^C

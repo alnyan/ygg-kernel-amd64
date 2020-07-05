@@ -14,20 +14,19 @@
 #include "sys/debug.h"
 
 int sys_mount(const char *dev_name, const char *dir_name, const char *type, unsigned long flags, void *data) {
-    struct thread *thr = get_cpu()->thread;
+    struct process *proc = thread_self->proc;
     struct vnode *dev_node;
     void *dev;
     int res;
-    _assert(thr);
     _assert(dir_name);
 
-    if (thr->ioctx.uid != 0) {
+    if (proc->ioctx.uid != 0) {
         // Only root can do that
         return -EACCES;
     }
 
     if (dev_name) {
-        if ((res = vfs_find(&thr->ioctx, thr->ioctx.cwd_vnode, dev_name, 0, &dev_node)) != 0) {
+        if ((res = vfs_find(&proc->ioctx, proc->ioctx.cwd_vnode, dev_name, 0, &dev_node)) != 0) {
             return res;
         }
 
@@ -41,18 +40,15 @@ int sys_mount(const char *dev_name, const char *dir_name, const char *type, unsi
         dev = NULL;
     }
 
-    return vfs_mount(&thr->ioctx, dir_name, dev, type, (uint32_t) flags, data);
+    return vfs_mount(&proc->ioctx, dir_name, dev, type, (uint32_t) flags, data);
 }
 
 int sys_umount(const char *dir_name) {
-    struct thread *thr = get_cpu()->thread;
-    _assert(thr);
-
-    return vfs_umount(&thr->ioctx, dir_name);
+    return vfs_umount(&thread_self->proc->ioctx, dir_name);
 }
 
 int sys_nanosleep(const struct timespec *req, struct timespec *rem) {
-    struct thread *thr = get_cpu()->thread;
+    struct thread *thr = thread_self;
     _assert(thr);
     uint64_t deadline = req->tv_sec * 1000000000ULL + req->tv_nsec + system_time;
     uint64_t int_time;
@@ -104,10 +100,7 @@ int sys_uname(struct utsname *name) {
 }
 
 int sys_reboot(int magic1, int magic2, unsigned int cmd, void *arg) {
-    struct thread *thr = thread_self;
-    _assert(thr);
-
-    if (thr->ioctx.uid != 0) {
+    if (thread_self->proc->ioctx.uid != 0) {
         return -EACCES;
     }
 

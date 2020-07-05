@@ -15,7 +15,7 @@
 #include "net/packet.h"
 #include "net/if.h"
 
-static struct thread netd_thread = {0};
+//static struct thread netd_thread = {0};
 static struct packet_queue g_rxq;
 
 static void packet_free(struct packet *p);
@@ -24,24 +24,24 @@ static inline void net_handle_packet(struct packet *p) {
     // XXX: Dummy handler until I rewrite networking properly
 }
 
-static void net_daemon(void) {
-    struct packet *p;
-    uintptr_t irq;
-
-    while (1) {
-        if (!g_rxq.head) {
-            // TODO: old code with sleep led to huge delays
-            asm volatile ("sti; hlt");
-            continue;
-        }
-
-        p = packet_queue_pop(&g_rxq);
-        _assert(p);
-        net_handle_packet(p);
-
-        packet_unref(p);
-    }
-}
+//static void net_daemon(void) {
+//    struct packet *p;
+//    uintptr_t irq;
+//
+//    while (1) {
+//        if (!g_rxq.head) {
+//            // TODO: old code with sleep led to huge delays
+//            asm volatile ("sti; hlt");
+//            continue;
+//        }
+//
+//        p = packet_queue_pop(&g_rxq);
+//        _assert(p);
+//        net_handle_packet(p);
+//
+//        packet_unref(p);
+//    }
+//}
 
 static inline struct packet_qh *packet_qh_create(struct packet *p) {
     struct packet_qh *qh = kmalloc(sizeof(struct packet_qh));
@@ -127,7 +127,7 @@ int net_receive(struct netdev *dev, const void *data, size_t len) {
     p->dev = dev;
     packet_ref(p);
 
-    packet_queue_push(&g_rxq, p);
+    //packet_queue_push(&g_rxq, p);
 
     return 0;
 }
@@ -139,7 +139,7 @@ void net_init(void) {
 void net_daemon_start(void) {
     packet_queue_init(&g_rxq);
 
-    _assert(thread_init(&netd_thread, (uintptr_t) net_daemon, NULL, 0) == 0);
-    netd_thread.pid = thread_alloc_pid(0);
-    sched_queue(&netd_thread);
+    //_assert(thread_init(&netd_thread, (uintptr_t) net_daemon, NULL, 0) == 0);
+    //netd_thread.pid = thread_alloc_pid(0);
+    //sched_queue(&netd_thread);
 }

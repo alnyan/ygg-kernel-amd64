@@ -145,123 +145,123 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
     }
 }
 
-#if defined(DEBUG_COUNTERS)
-static void sched_debug_tree(int level, struct thread *thr, int depth) {
-    for (int i = 0; i < depth; ++i) {
-        debugs(level, "  ");
-    }
-
-    if (thr->name[0]) {
-        debugf(level, "%s (", thr->name);
-    }
-    debugf(level, "%d @ %d", thr->pid, thr->cpu);
-    if (thr->name[0]) {
-        debugc(level, ')');
-    }
-    debugc(level, ' ');
-
-    switch (thr->state) {
-    case THREAD_RUNNING:
-        debugs(level, "RUN ");
-        break;
-    case THREAD_READY:
-        debugs(level, "RDY ");
-        break;
-    case THREAD_WAITING:
-        debugs(level, "WAIT");
-        break;
-    case THREAD_STOPPED:
-        debugs(level, "STOP");
-        break;
-    default:
-        debugs(level, "UNKN");
-        break;
-    }
-
-    if (thr->first_child) {
-        debugs(level, " {\n");
-
-        for (struct thread *child = thr->first_child; child; child = child->next_child) {
-            sched_debug_tree(level, child, depth + 1);
-        }
-
-        for (int i = 0; i < depth; ++i) {
-            debugs(level, "  ");
-        }
-        debugs(level, "}\n");
-    } else {
-        debugc(level, '\n');
-    }
-}
-
-void sched_debug_cycle(uint64_t delta_ms) {
-    extern struct thread user_init;
-
-    struct heap_stat st;
-    struct amd64_phys_stat phys_st;
-    struct amd64_pool_stat pool_st;
-
-    for (int cpu = 0; cpu < sched_ncpus; ++cpu) {
-        debugf(DEBUG_DEFAULT, "cpu%d: ", cpu);
-
-        struct thread *head = queue_heads[cpu];
-        if (head) {
-            struct thread *tail = head->sched_prev;
-
-            do {
-                if (head->name[0]) {
-                    debugf(DEBUG_DEFAULT, "%s (", head->name);
-                }
-                debugf(DEBUG_DEFAULT, "%d", head->pid);
-                if (head->name[0]) {
-                    debugc(DEBUG_DEFAULT, ')');
-                }
-
-                if (head == tail) {
-                    break;
-                } else {
-                    debugs(DEBUG_DEFAULT, ", ");
-                }
-                head = head->sched_next;
-            } while (1);
-
-            debugs(DEBUG_DEFAULT, "\n");
-        } else {
-            debugs(DEBUG_DEFAULT, "[idle]\n");
-        }
-    }
-
-    kdebug("--- DEBUG_CYCLE ---\n");
-
-    debugs(DEBUG_DEFAULT, "Process tree:\n");
-    sched_debug_tree(DEBUG_DEFAULT, &user_init, 0);
-
-    heap_stat(heap_global, &st);
-    kdebug("Heap stat:\n");
-    kdebug("Allocated blocks: %u\n", st.alloc_count);
-    kdebug("Used %S, free %S, total %S\n", st.alloc_size, st.free_size, st.total_size);
-
-    amd64_phys_stat(&phys_st);
-    kdebug("Physical memory:\n");
-    kdebug("Used %S (%u), free %S (%u), ceiling %p\n",
-            phys_st.pages_used * 0x1000,
-            phys_st.pages_used,
-            phys_st.pages_free * 0x1000,
-            phys_st.pages_free,
-            phys_st.limit);
-
-    amd64_mm_pool_stat(&pool_st);
-    kdebug("Paging pool:\n");
-    kdebug("Used %S (%u), free %S (%u)\n",
-            pool_st.pages_used * 0x1000,
-            pool_st.pages_used,
-            pool_st.pages_free * 0x1000,
-            pool_st.pages_free);
-
-    kdebug("--- ----------- ---\n");
-}
-#endif
-
+//#if defined(DEBUG_COUNTERS)
+//static void sched_debug_tree(int level, struct thread *thr, int depth) {
+//    for (int i = 0; i < depth; ++i) {
+//        debugs(level, "  ");
+//    }
+//
+//    if (thr->name[0]) {
+//        debugf(level, "%s (", thr->name);
+//    }
+//    debugf(level, "%d @ %d", thr->pid, thr->cpu);
+//    if (thr->name[0]) {
+//        debugc(level, ')');
+//    }
+//    debugc(level, ' ');
+//
+//    switch (thr->state) {
+//    case THREAD_RUNNING:
+//        debugs(level, "RUN ");
+//        break;
+//    case THREAD_READY:
+//        debugs(level, "RDY ");
+//        break;
+//    case THREAD_WAITING:
+//        debugs(level, "WAIT");
+//        break;
+//    case THREAD_STOPPED:
+//        debugs(level, "STOP");
+//        break;
+//    default:
+//        debugs(level, "UNKN");
+//        break;
+//    }
+//
+//    if (thr->first_child) {
+//        debugs(level, " {\n");
+//
+//        for (struct thread *child = thr->first_child; child; child = child->next_child) {
+//            sched_debug_tree(level, child, depth + 1);
+//        }
+//
+//        for (int i = 0; i < depth; ++i) {
+//            debugs(level, "  ");
+//        }
+//        debugs(level, "}\n");
+//    } else {
+//        debugc(level, '\n');
+//    }
+//}
+//
+//void sched_debug_cycle(uint64_t delta_ms) {
+//    extern struct thread user_init;
+//
+//    struct heap_stat st;
+//    struct amd64_phys_stat phys_st;
+//    struct amd64_pool_stat pool_st;
+//
+//    for (int cpu = 0; cpu < sched_ncpus; ++cpu) {
+//        debugf(DEBUG_DEFAULT, "cpu%d: ", cpu);
+//
+//        struct thread *head = queue_heads[cpu];
+//        if (head) {
+//            struct thread *tail = head->sched_prev;
+//
+//            do {
+//                if (head->name[0]) {
+//                    debugf(DEBUG_DEFAULT, "%s (", head->name);
+//                }
+//                debugf(DEBUG_DEFAULT, "%d", head->pid);
+//                if (head->name[0]) {
+//                    debugc(DEBUG_DEFAULT, ')');
+//                }
+//
+//                if (head == tail) {
+//                    break;
+//                } else {
+//                    debugs(DEBUG_DEFAULT, ", ");
+//                }
+//                head = head->sched_next;
+//            } while (1);
+//
+//            debugs(DEBUG_DEFAULT, "\n");
+//        } else {
+//            debugs(DEBUG_DEFAULT, "[idle]\n");
+//        }
+//    }
+//
+//    kdebug("--- DEBUG_CYCLE ---\n");
+//
+//    debugs(DEBUG_DEFAULT, "Process tree:\n");
+//    sched_debug_tree(DEBUG_DEFAULT, &user_init, 0);
+//
+//    heap_stat(heap_global, &st);
+//    kdebug("Heap stat:\n");
+//    kdebug("Allocated blocks: %u\n", st.alloc_count);
+//    kdebug("Used %S, free %S, total %S\n", st.alloc_size, st.free_size, st.total_size);
+//
+//    amd64_phys_stat(&phys_st);
+//    kdebug("Physical memory:\n");
+//    kdebug("Used %S (%u), free %S (%u), ceiling %p\n",
+//            phys_st.pages_used * 0x1000,
+//            phys_st.pages_used,
+//            phys_st.pages_free * 0x1000,
+//            phys_st.pages_free,
+//            phys_st.limit);
+//
+//    amd64_mm_pool_stat(&pool_st);
+//    kdebug("Paging pool:\n");
+//    kdebug("Used %S (%u), free %S (%u)\n",
+//            pool_st.pages_used * 0x1000,
+//            pool_st.pages_used,
+//            pool_st.pages_free * 0x1000,
+//            pool_st.pages_free);
+//
+//    kdebug("--- ----------- ---\n");
+//}
+//#endif
+//
 void yield(void) {
     uintptr_t irq;
     spin_lock_irqsave(&sched_lock, &irq);
@@ -294,14 +294,14 @@ void yield(void) {
 }
 
 void sched_reboot(unsigned int cmd) {
-    struct thread *user_init = thread_find(1);
+    struct process *user_init = process_find(1);
     _assert(user_init);
-    _assert(user_init->state != THREAD_STOPPED);
+    _assert(user_init->proc_state != PROC_FINISHED);
 
     // TODO: maybe send signal to all the programs
-    thread_signal(user_init, SIGTERM);
+    process_signal(user_init, SIGTERM);
 
-    while (user_init->state != THREAD_STOPPED) {
+    while (user_init->proc_state != PROC_FINISHED) {
         yield();
     }
 
@@ -312,7 +312,7 @@ void sched_init(void) {
     for (int i = 0; i < sched_ncpus; ++i) {
         thread_init(&threads_idle[i], (uintptr_t) idle, 0, 0);
         threads_idle[i].cpu = i;
-        threads_idle[i].pid = 0;
+        threads_idle[i].proc = NULL;
     }
 
     sched_ready = 1;

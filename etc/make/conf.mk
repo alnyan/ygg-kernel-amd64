@@ -30,16 +30,15 @@ endif
 CFLAGS+=-D__KERNEL__ \
 		-DKERNEL_VERSION_STR='"$(KERNEL_VERSION_STR)"'
 
-OBJS+=$(O)/sys/ubsan.o \
-	  $(O)/sys/debug.o \
-	  $(O)/sys/string.o \
+OBJS+=$(O)/sys/debug.o \
+	  $(O)/sys/ubsan.o \
 	  $(O)/sys/panic.o \
-	  $(O)/sys/errno.o \
+	  $(O)/sys/string.o \
 	  $(O)/sys/config.o \
 	  $(O)/sys/ctype.o \
-	  $(O)/sys/sched.o \
-	  $(O)/sys/thread.o \
-	  $(O)/sys/execve.o \
+	  $(O)/sys/errno.o \
+	  $(O)/sys/kernel.o \
+	  $(O)/sys/time.o \
 	  $(O)/sys/char/input.o \
 	  $(O)/sys/char/ring.o \
 	  $(O)/sys/char/line.o \
@@ -51,24 +50,26 @@ OBJS+=$(O)/sys/ubsan.o \
 	  $(O)/sys/block/ram.o \
 	  $(O)/sys/block/blk.o \
 	  $(O)/sys/block/cache.o \
-	  $(O)/sys/kernel.o \
+	  $(O)/sys/execve.o \
 	  $(O)/sys/dev.o \
-	  $(O)/sys/time.o \
 	  $(O)/sys/sys_file.o \
 	  $(O)/sys/sys_sys.o \
+	  $(O)/sys/thread.o \
 	  $(O)/sys/snprintf.o \
 	  $(O)/sys/random.o \
 	  $(O)/sys/reboot.o \
 	  $(O)/sys/init.o \
-	  $(O)/sys/font/logo.o \
-	  $(O)/sys/font/psf.o \
-	  $(O)/sys/font/default8x16.o \
 	  $(O)/sys/mem/shmem.o \
 	  $(O)/sys/mem/slab.o \
-	  $(O)/sys/wait.o \
 	  $(O)/sys/console.o \
 	  $(O)/sys/display.o \
+	  $(O)/sys/wait.o \
+	  $(O)/sys/sched.o \
+	  $(O)/sys/font/psf.o \
+	  $(O)/sys/font/logo.o \
+	  $(O)/sys/font/default8x16.o \
 	  $(O)/sys/mod.o
+
 DIRS+=$(O)/sys \
 	  $(O)/sys/char \
 	  $(O)/sys/block \
@@ -81,11 +82,13 @@ OBJS+=$(O)/fs/vfs.o \
 	  $(O)/fs/fs_class.o \
 	  $(O)/fs/ofile.o \
 	  $(O)/fs/node.o \
-	  $(O)/fs/tar.o \
 	  $(O)/fs/sysfs.o \
+	  $(O)/fs/tar.o \
 	  $(O)/fs/ext2/block.o \
 	  $(O)/fs/ext2/ext2.o \
 	  $(O)/fs/ext2/node.o
+
+
 DIRS+=$(O)/fs \
 	  $(O)/fs/ext2
 
@@ -102,15 +105,16 @@ DIRS+=$(O)/drivers/pci \
 	  $(O)/drivers/ata \
 	  $(O)/drivers/usb
 
-OBJS+=$(O)/drivers/net/rtl8139.o
+#OBJS+=$(O)/drivers/net/rtl8139.o
 DIRS+=$(O)/drivers/net
 
-OBJS+=$(O)/sys/sys_net.o \
-	  $(O)/net/net.o \
+OBJS+=$(O)/net/net.o \
 	  $(O)/net/if.o \
 	  $(O)/net/socket.o \
 	  $(O)/net/util.o \
 	  $(O)/net/ports.o
+#$(O)/sys/sys_net.o
+
 DIRS+=$(O)/net
 
 ifeq ($(DEBUG_COUNTERS),1)

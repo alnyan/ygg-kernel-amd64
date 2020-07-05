@@ -16,7 +16,7 @@
 #include "sys/mm.h"
 
 static void *sys_mmap_anon(size_t page_count, int prot, int flags) {
-    struct thread *thr;
+    mm_space_t space;
     uint64_t map_flags = MM_PAGE_USER;
     int map_usage = PU_PRIVATE;
 
@@ -27,10 +27,11 @@ static void *sys_mmap_anon(size_t page_count, int prot, int flags) {
         map_usage = PU_SHARED;
     }
 
-    thr = thread_self;
-    _assert(thr);
+    _assert(thread_self && thread_self->proc);
+    space = thread_self->proc->space;
+    _assert(space);
 
-    uintptr_t virt_base = vmfind(thr->space, 0x100000000, 0x400000000, page_count);
+    uintptr_t virt_base = vmfind(space, 0x100000000, 0x400000000, page_count);
     _assert(virt_base != MM_NADDR);
 
     kdebug("mmaping %u pages at %p\n", page_count, virt_base);
@@ -43,7 +44,7 @@ static void *sys_mmap_anon(size_t page_count, int prot, int flags) {
         _assert(page);
 
         page->flags |= PG_MMAPED;
-        _assert(mm_map_single(thr->space, virt_base + i * MM_PAGE_SIZE, phys, map_flags, map_usage) == 0);
+        _assert(mm_map_single(space, virt_base + i * MM_PAGE_SIZE, phys, map_flags, map_usage) == 0);
     }
 
     return (void *) virt_base;
@@ -61,14 +62,12 @@ void *sys_mmap(void *hint, size_t length, int prot, int flags, int fd, off_t off
         // Anonymous mapping
         return sys_mmap_anon(page_count, prot, flags);
     } else {
-        struct thread *thr = thread_self;
-
         // File/device-backed mapping
         if (fd < 0 || fd >= THREAD_MAX_FDS) {
             return (void *) -EBADF;
         }
 
-        struct ofile *of = thr->fds[fd];
+        struct ofile *of = thread_self->proc->fds[fd];
         if (!of) {
             return (void *) -EBADF;
         }
@@ -126,7 +125,7 @@ int sys_munmap(void *ptr, size_t len) {
 
     for (size_t i = 0; i < len; ++i) {
         uint64_t flags;
-        uintptr_t phys = mm_map_get(thr->space, addr + i * MM_PAGE_SIZE, &flags);
+        uintptr_t phys = mm_map_get(thr->proc->space, addr + i * MM_PAGE_SIZE, &flags);
 
         if (phys == MM_NADDR) {
             continue;
@@ -138,7 +137,7 @@ int sys_munmap(void *ptr, size_t len) {
         // TODO: FIX THIS
         if (page->usage == PU_DEVICE) {
             _assert(page->refcount);
-            _assert(mm_umap_single(thr->space, addr + i * MM_PAGE_SIZE, 1) == phys);
+            _assert(mm_umap_single(thr->proc->space, addr + i * MM_PAGE_SIZE, 1) == phys);
 
             continue;
         }
@@ -148,7 +147,7 @@ int sys_munmap(void *ptr, size_t len) {
         }
 
         _assert(page->refcount);
-        _assert(mm_umap_single(thr->space, addr + i * MM_PAGE_SIZE, 1) == phys);
+        _assert(mm_umap_single(thr->proc->space, addr + i * MM_PAGE_SIZE, 1) == phys);
 
         if (page->usage == PU_SHARED || page->usage == PU_PRIVATE) {
             if (!page->refcount) {
