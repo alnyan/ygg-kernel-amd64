@@ -39,6 +39,7 @@ OBJS+=$(O)/sys/ubsan.o \
 	  $(O)/sys/ctype.o \
 	  $(O)/sys/sched.o \
 	  $(O)/sys/thread.o \
+	  $(O)/sys/execve.o \
 	  $(O)/sys/char/input.o \
 	  $(O)/sys/char/ring.o \
 	  $(O)/sys/char/line.o \
