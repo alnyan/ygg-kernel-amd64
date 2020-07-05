@@ -25,6 +25,7 @@
 #define SYSCALL_NR_READDIR          89
 #define SYSCALL_NR_CHMOD            90
 #define SYSCALL_NR_CHOWN            92
+#define SYSCALL_NR_MKNOD            133
 
 #define SYSCALL_NR_NANOSLEEP        35
 #define SYSCALL_NR_UNAME            63

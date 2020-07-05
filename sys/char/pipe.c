@@ -9,14 +9,18 @@
 
 #define PIPE_RING_SIZE      1024
 
+static int pipe_vnode_open(struct ofile *of, int opt);
 static ssize_t pipe_vnode_write(struct ofile *of, const void *buf, size_t count);
 static ssize_t pipe_vnode_read(struct ofile *of, void *buf, size_t count);
+static int pipe_vnode_stat(struct vnode *vn, struct stat *st);
 static void pipe_vnode_close(struct ofile *of);
 
 static struct vnode_operations pipe_vnode_ops = {
+    .open = pipe_vnode_open,
     .close = pipe_vnode_close,
     .write = pipe_vnode_write,
-    .read = pipe_vnode_read
+    .read = pipe_vnode_read,
+    .stat = pipe_vnode_stat
 };
 
 int pipe_create(struct ofile **_read, struct ofile **_write) {
@@ -47,6 +51,20 @@ int pipe_create(struct ofile **_read, struct ofile **_write) {
 
     *_read = read_end;
     *_write = write_end;
+
+    return 0;
+}
+
+int pipe_fifo_create(struct vnode *nod) {
+    _assert(nod);
+    nod->op = &pipe_vnode_ops;
+    nod->flags |= VN_MEMORY;
+
+    struct ring *pipe_ring = kmalloc(sizeof(struct ring));
+    _assert(pipe_ring);
+    ring_init(pipe_ring, PIPE_RING_SIZE);
+
+    nod->fs_data = pipe_ring;
 
     return 0;
 }
@@ -98,6 +116,42 @@ static void pipe_vnode_close(struct ofile *of) {
     if (of->flags & OF_WRITABLE) {
         ring_signal(of->file.priv_data, RING_SIGNAL_EOF);
     }
+    // TODO: this
     //kfree(((struct ring *) of->file.priv_data)->base);
     //kfree(of->file.priv_data);
+}
+
+static int pipe_vnode_open(struct ofile *of, int opt) {
+    _assert(!(of->flags & OF_SOCKET));
+    _assert(of->file.vnode);
+    // TODO: allow only one reader and many writers
+    of->file.pos = 0;
+    of->file.priv_data = of->file.vnode->fs_data;
+    return 0;
+}
+
+static int pipe_vnode_stat(struct vnode *vn, struct stat *st) {
+    _assert(vn && st);
+    struct ring *pipe_ring = vn->fs_data;
+    _assert(pipe_ring);
+
+    st->st_size = pipe_ring->cap;
+    st->st_blksize = pipe_ring->cap;
+    st->st_blocks = 1;
+
+    st->st_ino = 0;
+
+    st->st_uid = vn->uid;
+    st->st_gid = vn->gid;
+    st->st_mode = vn->mode | S_IFIFO;
+
+    st->st_atime = system_boot_time;
+    st->st_mtime = system_boot_time;
+    st->st_ctime = system_boot_time;
+
+    st->st_nlink = 1;
+    st->st_rdev = 0;
+    st->st_dev = 0;
+
+    return 0;
 }

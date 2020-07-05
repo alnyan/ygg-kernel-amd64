@@ -31,6 +31,7 @@ enum vnode_type {
     VN_BLK,
     VN_CHR,
     VN_LNK,
+    VN_FIFO,
     VN_UNK,
     VN_MNT,
 };
@@ -42,6 +43,8 @@ struct vnode_operations {
     int (*opendir) (struct ofile *fd);
     int (*open) (struct ofile *fd, int opt);
     void (*close) (struct ofile *fd);
+    // TODO: just merge all three?
+    int (*mknod) (struct vnode *at, struct vnode *nod);
     int (*creat) (struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode);
     int (*mkdir) (struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode);
     int (*truncate) (struct vnode *at, size_t size);

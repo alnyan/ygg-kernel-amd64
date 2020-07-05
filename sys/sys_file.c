@@ -387,6 +387,29 @@ ssize_t sys_readdir(int fd, struct dirent *ent) {
     return vfs_readdir(&thr->ioctx, thr->fds[fd], ent);
 }
 
+int sys_mknod(const char *filename, int mode, unsigned int dev) {
+    userptr_check(filename);
+    struct thread *thr = get_cpu()->thread;
+    _assert(thr);
+
+    int type = mode & S_IFMT;
+    int res;
+    struct vnode *node;
+
+    if ((res = vfs_mknod(&thr->ioctx, filename, mode, &node)) != 0) {
+        return res;
+    }
+
+    _assert(node);
+
+    switch (type) {
+    case S_IFIFO:
+        return pipe_fifo_create(node);
+    default:
+        return -EINVAL;
+    }
+}
+
 static int sys_select_get_ready(struct ofile *fd) {
     if (fd->flags & OF_SOCKET) {
         return socket_has_data(&fd->socket);

@@ -66,6 +66,7 @@ static int tarfs_vnode_chmod(struct vnode *node, mode_t mode);
 static int tarfs_vnode_chown(struct vnode *node, uid_t uid, gid_t gid);
 //static int tarfs_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode);
 //static int tarfs_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode);
+static int tarfs_vnode_mknod(struct vnode *at, struct vnode *nod);
 static int tarfs_vnode_truncate(struct vnode *node, size_t length);
 
 static struct vnode_operations _tarfs_vnode_op = {
@@ -77,6 +78,7 @@ static struct vnode_operations _tarfs_vnode_op = {
     .chown = tarfs_vnode_chown,
     .mkdir = NULL, //tarfs_vnode_mkdir,
     .creat = NULL, //tarfs_vnode_creat,
+    .mknod = tarfs_vnode_mknod,
     .write = NULL, //tarfs_vnode_write,
     .truncate = tarfs_vnode_truncate
 };
@@ -458,6 +460,15 @@ static int tarfs_vnode_stat(struct vnode *vn, struct stat *st) {
 //
 //    return 0;
 //}
+
+static int tarfs_vnode_mknod(struct vnode *at, struct vnode *nod) {
+    _assert(at && at->type == VN_DIR && nod);
+    _assert(nod->name[0]);
+
+    vnode_attach(at, nod);
+
+    return 0;
+}
 
 static uintptr_t tarfs_block_addr(struct tar *hdr, uint32_t index) {
     if (index < TAR_DIRECT_BLOCKS) {

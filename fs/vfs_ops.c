@@ -358,6 +358,59 @@ int vfs_unlink(struct vfs_ioctx *ctx, const char *path) {
     return 0;
 }
 
+int vfs_mknod(struct vfs_ioctx *ctx, const char *path, mode_t mode, struct vnode **_nod) {
+    char parent_path[PATH_MAX];
+    const char *filename;
+    int res;
+    struct vnode *at;
+
+    _assert(ctx);
+    _assert(path);
+
+    filename = vfs_path_parent(path, parent_path);
+    if (filename[0] == 0) {
+        return -ENOENT;
+    }
+
+    // Find parent vnode
+    if ((res = vfs_find(ctx, ctx->cwd_vnode, parent_path, 0, &at)) != 0) {
+        return res;
+    }
+
+    // Check permission for writing
+    if ((res = vfs_access_node(ctx, at, W_OK)) != 0) {
+        return res;
+    }
+
+    // TODO: check if such file already exists
+    if (!at->op || !at->op->mknod) {
+        // Assume it's a read-only filesystem
+        return -EROFS;
+    }
+
+    enum vnode_type type;
+    switch (mode & S_IFMT) {
+    case S_IFIFO:
+        type = VN_FIFO;
+        break;
+    default:
+        panic("mknod: unsupported node type\n");
+    }
+    struct vnode *nod = vnode_create(type, filename);
+    nod->mode = mode & VFS_MODE_MASK;
+    nod->uid = ctx->uid;
+    nod->gid = ctx->gid;
+
+    if ((res = at->op->mknod(at, nod)) != 0) {
+        vnode_destroy(nod);
+        return res;
+    }
+
+    *_nod = nod;
+
+    return 0;
+}
+
 int vfs_creat(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
     char parent_path[PATH_MAX];
     const char *filename;
@@ -532,6 +585,7 @@ ssize_t vfs_write(struct vfs_ioctx *ctx, struct ofile *fd, const void *buf, size
 
     switch (node->type) {
     case VN_REG:
+    case VN_FIFO:
         _assert(node->op && node->op->write);
         b = node->op->write(fd, buf, count);
         return b;
@@ -565,6 +619,7 @@ ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t coun
 
     switch (node->type) {
     case VN_REG:
+    case VN_FIFO:
         _assert(node->op && node->op->read);
         b = node->op->read(fd, buf, count);
         return b;
