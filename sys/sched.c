@@ -66,6 +66,9 @@ void sched_queue_to(struct thread *thr, int cpu_no) {
 }
 
 void sched_queue(struct thread *thr) {
+    if (thr->proc && thr->proc->proc_state == PROC_SUSPENDED) {
+        panic("Tried to queue a thread from suspended process\n");
+    }
 #if defined(AMD64_SMP)
     size_t min_queue_size = (size_t) -1;
     int min_queue_index = 0;

@@ -27,6 +27,7 @@ KERNEL_HEADERS="include/user/fcntl.h \
                 include/user/select.h \
                 include/user/module.h \
                 include/user/acpi.h \
+                include/user/wait.h \
                 include/user/reboot.h"
 
 for src_file in $KERNEL_HEADERS; do

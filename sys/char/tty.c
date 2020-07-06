@@ -36,6 +36,15 @@ void tty_data_write(struct chrdev *tty, char c) {
         return;
     }
 
+    if (tty->tc.c_cc[VSUSP] == c) {
+        if (tty->tc.c_lflag & ISIG) {
+            process_signal_pgid(((struct tty_data *) tty->dev_data)->fg_pgid, SIGSTOP);
+            return;
+        } else {
+            tty_putc(tty, '^');
+            tty_putc(tty, 'Z');
+        }
+    }
     if (tty->tc.c_cc[VINTR] == c) {
         if (tty->tc.c_lflag & ISIG) {
             process_signal_pgid(((struct tty_data *) tty->dev_data)->fg_pgid, SIGINT);

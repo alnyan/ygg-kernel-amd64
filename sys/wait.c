@@ -1,8 +1,11 @@
 #include "arch/amd64/hw/timer.h"
+#include "arch/amd64/cpu.h"
+#include "user/errno.h"
 #include "sys/thread.h"
 #include "sys/assert.h"
 #include "sys/sched.h"
 #include "sys/debug.h"
+#include "user/wait.h"
 #include "sys/wait.h"
 
 void thread_wait_io_init(struct io_notify *n) {
@@ -34,9 +37,8 @@ int thread_wait_io(struct thread *t, struct io_notify *n) {
 
         sched_unqueue(t, THREAD_WAITING);
 
-        n->owner = NULL;
-
         // Check if we were interrupted during io wait
+        n->owner = NULL;
         int r = thread_check_signal(t, 0);
         if (r != 0) {
             return r;
@@ -130,3 +132,107 @@ int thread_sleep(struct thread *thr, uint64_t deadline, uint64_t *int_time) {
     //}
 }
 
+static int wait_check_pid(struct process *chld, int flags) {
+    if (chld->proc_state == PROC_FINISHED) {
+        return 0;
+    } else if ((flags & WSTOPPED) && chld->proc_state == PROC_SUSPENDED) {
+        return 0;
+    }
+
+    return -1;
+}
+
+static int wait_check_pgrp(struct process *proc_self, pid_t pgrp, int flags, struct process **chld) {
+    for (struct process *_chld = proc_self->first_child; _chld; _chld = _chld->next_child) {
+        if (_chld->pgid == pgrp) {
+            if (wait_check_pid(_chld, flags) == 0) {
+                *chld = _chld;
+                return 0;
+            }
+        }
+    }
+    return -1;
+}
+
+int sys_waitpid(pid_t pid, int *status, int flags) {
+    struct thread *thr = thread_self;
+    _assert(thr);
+    struct process *proc_self = thr->proc;
+    _assert(proc_self);
+
+    struct process *chld;
+    struct io_notify *notify;
+    int res;
+
+    if (pid > 0) {
+        chld = process_child(proc_self, pid);
+
+        if (!chld) {
+            return -ECHILD;
+        }
+    } else if (pid < -1) {
+        int any_proc = 0;
+        for (struct process *_chld = proc_self->first_child; _chld; _chld = _chld->next_child) {
+            if (_chld->pgid == -pid) {
+                ++any_proc;
+            }
+        }
+        if (!any_proc) {
+            return -ECHILD;
+        }
+    } else {
+        panic("Not implemented: waitpid(%d, ...)\n", pid);
+    }
+
+    while (1) {
+        if (pid > 0) {
+            if (wait_check_pid(chld, flags) == 0) {
+                break;
+            }
+
+            res = thread_wait_io(thr, &chld->pid_notify);
+        } else if (pid < -1) {
+            // Check if anybody in pgrp has changed status
+            if (wait_check_pgrp(proc_self, -pid, flags, &chld) == 0) {
+                _assert(chld);
+                break;
+            }
+
+            // Build wait list
+            for (struct process *_chld = proc_self->first_child; _chld; _chld = _chld->next_child) {
+                if (_chld->pgid == -pid) {
+                    thread_wait_io_add(thr, &_chld->pid_notify);
+                }
+            }
+
+            // Wait for any of pgrp
+            res = thread_wait_io_any(thr, &notify);
+
+            thread_wait_io_clear(thr);
+        }
+
+        if (res < 0) {
+            // Likely interrupted
+            return res;
+        }
+    }
+
+    if (chld->proc_state == PROC_FINISHED) {
+        if (status) {
+            *status = chld->exit_status;
+        }
+
+        // TODO: automatically cleanup threads which don't have
+        //       a parent like PID 1
+        process_unchild(chld);
+        list_del(&chld->g_link);
+        process_free(chld);
+    } else if (chld->proc_state == PROC_SUSPENDED) {
+        if (status) {
+            // WIFSTOPPED
+            *status = 127;
+        }
+    }
+
+    return 0;
+}

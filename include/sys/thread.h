@@ -20,6 +20,7 @@ enum thread_state {
 
 enum process_state {
     PROC_ACTIVE,
+    PROC_SUSPENDED,
     PROC_FINISHED
 };
 
@@ -102,8 +103,14 @@ int process_init_thread(struct process *proc, uintptr_t entry, void *arg, int us
 
 //pid_t thread_alloc_pid(int is_user);
 //void thread_ioctx_fork(struct thread *dst, struct thread *src);
-int thread_init(struct thread *thr, uintptr_t entry, void *arg, int user);
+#define THR_INIT_USER           (1 << 0)
+#define THR_INIT_STACK_SET      (1 << 1)
+int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags);
 //void thread_cleanup(struct thread *thr);
+
+struct process *process_child(struct process *of, pid_t pid);
+void process_unchild(struct process *proc);
+void process_free(struct process *proc);
 
 struct process *process_find(pid_t pid);
 void process_signal(struct process *proc, int signum);

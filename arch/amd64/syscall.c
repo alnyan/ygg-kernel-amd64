@@ -70,6 +70,7 @@ void *syscall_table[256] = {
     [SYSCALL_NRX_SIGENTRY] =        sys_sigentry,
     [SYSCALL_NR_EXECVE] =           sys_execve,
     [SYSCALL_NR_GETPID] =           sys_getpid,
+    [SYSCALL_NR_CLONE] =            sys_clone,
     [SYSCALL_NR_KILL] =             sys_kill,
     [SYSCALL_NR_EXIT] =             sys_exit,
     [SYSCALL_NR_SIGRETURN] =        sys_sigreturn,

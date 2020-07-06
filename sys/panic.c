@@ -1,8 +1,10 @@
 #if defined(AMD64_SMP)
 #include "arch/amd64/smp/ipi.h"
 #include "arch/amd64/smp/smp.h"
-#include "arch/amd64/cpu.h"
 #endif
+#include "arch/amd64/cpu.h"
+#include "sys/thread.h"
+#include "sys/sched.h"
 #include "sys/panic.h"
 #include "sys/debug.h"
 
@@ -13,6 +15,10 @@ void panicf(const char *fmt, ...) {
     asm volatile ("cli");
     va_list args;
     kfatal("--- Panic ---\n");
+
+    if (sched_ready) {
+        kfatal("pid = %d\n", thread_self->proc->pid);
+    }
 
     va_start(args, fmt);
     debugs(DEBUG_FATAL, "\033[41m");

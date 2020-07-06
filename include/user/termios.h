@@ -25,6 +25,7 @@
 enum {
     VEOF = 0,
     VINTR,
+    VSUSP,
     NCCS
 };
 
@@ -35,8 +36,9 @@ enum {
         .c_cflag = 0, \
         .c_lflag = ECHO | ECHONL | ECHOE | ECHOK | ISIG, \
         .c_cc = { \
-            [VEOF] = 4, \
-            [VINTR] = 3, \
+            [VEOF] =    4,  \
+            [VINTR] =   3,  \
+            [VSUSP] =   26, \
         }, \
     }
 
