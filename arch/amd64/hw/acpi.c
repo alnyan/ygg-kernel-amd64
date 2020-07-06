@@ -1,14 +1,26 @@
 #include "arch/amd64/hw/acpi.h"
 #include "arch/amd64/hw/apic.h"
 #include "arch/amd64/hw/rtc.h"
+#include "sys/char/ring.h"
+#include "sys/char/line.h"
+#include "sys/char/chr.h"
 #include "sys/string.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
+#include "user/acpi.h"
+#include "sys/dev.h"
 #include "acpi.h"
 
 struct acpi_madt *acpi_madt = NULL;
 struct acpi_fadt *acpi_fadt = NULL;
 struct acpi_mcfg *acpi_mcfg = NULL;
+
+static struct chrdev _acpi_event_dev = {
+    .dev_data = NULL,
+    .write = NULL,
+    .read = simple_line_read,
+    .ioctl = NULL
+};
 
 static uint8_t checksum(const void *ptr, size_t size) {
     uint8_t v = 0;
@@ -19,7 +31,7 @@ static uint8_t checksum(const void *ptr, size_t size) {
 }
 
 static uint32_t acpi_power_button_handler(void *ctx) {
-    kinfo("Power button was pressed\n");
+    ring_putc(NULL, &_acpi_event_dev.buffer, ACEV_POWER_BUTTON, 0);
     return 0;
 }
 
@@ -161,4 +173,7 @@ void amd64_acpi_init(void) {
     if (ACPI_FAILURE(acpica_init())) {
         panic("Failed to initialize ACPICA\n");
     }
+
+    ring_init(&_acpi_event_dev.buffer, 16);
+    dev_add(DEV_CLASS_CHAR, 0, &_acpi_event_dev, "acpi");
 }
