@@ -105,6 +105,13 @@ static int elf_bzero(mm_space_t space, uintptr_t vma_dst, size_t size) {
     return 0;
 }
 
+int binfmt_is_elf(const char *ident, size_t len) {
+    if (len < 4) {
+        return 0;
+    }
+    return !strncmp(ident, "\x7F""ELF", 4);
+}
+
 int elf_load(struct process *proc, struct vfs_ioctx *ctx, struct ofile *fd, uintptr_t *entry) {
     int res;
     ssize_t bread;

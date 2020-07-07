@@ -120,6 +120,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     _assert(thr);
     struct process *proc = thr->proc;
     _assert(proc);
+    char shebang[128];
 
     if (proc->thread_count > 1) {
         panic("XXX: execve() in multithreaded process\n");
@@ -134,6 +135,47 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     if ((res = vfs_stat(&proc->ioctx, path, &st)) != 0) {
         kerror("execve(%s): %s\n", path, kstrerror(res));
         return res;
+    }
+
+    if ((res = vfs_open(&proc->ioctx, &fd, path, O_RDONLY, 0)) != 0) {
+        kerror("%s: %s\n", path, kstrerror(res));
+        return res;
+    }
+
+    if ((res = vfs_read(&proc->ioctx, &fd, shebang, sizeof(shebang))) <= 0) {
+        kerror("%s: %s\n", path, kstrerror(res));
+        return res;
+    }
+
+    if (!binfmt_is_elf(shebang, res)) {
+        // Try checking for shebang line
+        if (shebang[0] == '#' && shebang[1] == '!') {
+            char *e = strchr(shebang, '\n');
+            if (!e) {
+                vfs_close(&proc->ioctx, &fd);
+                return -EINVAL;
+            }
+            *e = 0;
+
+            int argc;
+            for (argc = 0; argv[argc]; ++argc);
+            // For interpreter
+            ++argc;
+            // Sanity check
+            _assert(argc <= 32);
+            const char *argv_new[argc + 1];
+            argv_new[0] = shebang + 2;
+            for (int i = 1; i < argc; ++i) {
+                argv_new[i] = argv[i - 1];
+            }
+            argv_new[argc] = NULL;
+
+            for (int i = 0; i < argc; ++i) {
+                kdebug("[%d]: %s\n", i, argv_new[i]);
+            }
+
+            return sys_execve(shebang + 2, argv_new, envp);
+        }
     }
 
     const char *e = strrchr(path, '/');
@@ -160,11 +202,6 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
 
     if (procv_setup(argv, envp, procv_phys_pages, procv_vecp, &procv_page_count) != 0) {
         panic("Failed to copy argp/envp to new process\n");
-    }
-
-    if ((res = vfs_open(&proc->ioctx, &fd, path, O_RDONLY, 0)) != 0) {
-        kerror("%s: %s\n", path, kstrerror(res));
-        return res;
     }
 
     if (proc->space == mm_kernel) {
