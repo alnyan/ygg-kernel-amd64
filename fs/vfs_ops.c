@@ -388,6 +388,9 @@ int vfs_mknod(struct vfs_ioctx *ctx, const char *path, mode_t mode, struct vnode
     case S_IFIFO:
         type = VN_FIFO;
         break;
+    case S_IFSOCK:
+        type = VN_SOCK;
+        break;
     default:
         panic("mknod: unsupported node type\n");
     }

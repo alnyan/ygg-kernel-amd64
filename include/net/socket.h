@@ -27,7 +27,13 @@ ssize_t net_recvfrom(struct vfs_ioctx *ioctx,
                      size_t len,
                      struct sockaddr *sa,
                      size_t *salen);
+int net_accept(struct vfs_ioctx *ioctx,
+               struct ofile *fd,
+               struct ofile **fd2,
+               struct sockaddr *sa,
+               size_t *salen);
 int net_bind(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *sa, size_t len);
+int net_connect(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *sa, size_t len);
 int net_setsockopt(struct vfs_ioctx *ioctx, struct ofile *fd, int optname, void *optval, size_t optlen);
 void net_close(struct vfs_ioctx *ioctx, struct ofile *fd);
 

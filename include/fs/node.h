@@ -32,6 +32,7 @@ enum vnode_type {
     VN_CHR,
     VN_LNK,
     VN_FIFO,
+    VN_SOCK,
     VN_UNK,
     VN_MNT,
 };

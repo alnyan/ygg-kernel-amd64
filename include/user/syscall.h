@@ -53,6 +53,8 @@
 #define SYSCALL_NRX_WAITPID         247
 
 #define SYSCALL_NR_SOCKET           41
+#define SYSCALL_NR_CONNECT          42
+#define SYSCALL_NR_ACCEPT           43
 #define SYSCALL_NR_SENDTO           44
 #define SYSCALL_NR_RECVFROM         45
 #define SYSCALL_NR_BIND             49

@@ -29,7 +29,7 @@ void ofile_close(struct vfs_ioctx *ioctx, struct ofile *of) {
     --of->refcount;
     if (of->refcount == 0) {
         if (of->flags & OF_SOCKET) {
-            //net_close(&thr->ioctx, thr->fds[fd]);
+            net_close(ioctx, of);
         } else {
             vfs_close(ioctx, of);
         }

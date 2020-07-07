@@ -112,8 +112,9 @@ OBJS+=$(O)/net/net.o \
 	  $(O)/net/if.o \
 	  $(O)/net/socket.o \
 	  $(O)/net/util.o \
-	  $(O)/net/ports.o
-#$(O)/sys/sys_net.o
+	  $(O)/net/ports.o \
+	  $(O)/net/unix.o \
+	  $(O)/sys/sys_net.o
 
 DIRS+=$(O)/net
 

@@ -89,12 +89,14 @@ void *syscall_table[256] = {
     [SYSCALL_NRX_MODULE_UNLOAD] =   sys_module_unload,
 
     // Network
-//    [SYSCALL_NR_SOCKET] =           sys_socket,
-//    [SYSCALL_NR_SENDTO] =           sys_sendto,
-//    [SYSCALL_NR_RECVFROM] =         sys_recvfrom,
-//    [SYSCALL_NR_BIND] =             sys_bind,
-//    [SYSCALL_NR_SETSOCKOPT] =       sys_setsockopt,
-//    [SYSCALL_NRX_NETCTL] =          sys_netctl,
+    [SYSCALL_NR_SOCKET] =           sys_socket,
+    [SYSCALL_NR_CONNECT] =          sys_connect,
+    [SYSCALL_NR_ACCEPT] =           sys_accept,
+    [SYSCALL_NR_SENDTO] =           sys_sendto,
+    [SYSCALL_NR_RECVFROM] =         sys_recvfrom,
+    [SYSCALL_NR_BIND] =             sys_bind,
+    [SYSCALL_NR_SETSOCKOPT] =       sys_setsockopt,
+    [SYSCALL_NRX_NETCTL] =          sys_netctl,
 
     // Extension
     [SYSCALL_NRX_TRACE] =           sys_debug_trace,

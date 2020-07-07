@@ -97,6 +97,43 @@ ssize_t net_recvfrom(struct vfs_ioctx *ioctx,
     }
 }
 
+int net_connect(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *sa, size_t len) {
+    _assert(fd);
+    _assert(fd->flags & OF_SOCKET);
+    _assert(fd->socket.ioctx == ioctx);
+    _assert(fd->socket.op);
+
+    if (fd->socket.op->connect) {
+        return fd->socket.op->connect(&fd->socket, sa, len);
+    } else {
+        return -EINVAL;
+    }
+}
+
+int net_accept(struct vfs_ioctx *ioctx, struct ofile *fd, struct ofile **res, struct sockaddr *sa, size_t *len) {
+    _assert(fd);
+    _assert(fd->flags & OF_SOCKET);
+    _assert(fd->socket.ioctx == ioctx);
+    _assert(fd->socket.op);
+
+    int ret;
+
+    if (fd->socket.op->accept) {
+        struct ofile *ofile = ofile_create();
+        ofile->flags |= OF_SOCKET;
+
+        if ((ret = fd->socket.op->accept(&fd->socket, &ofile->socket)) != 0) {
+            return ret;
+        }
+
+        *res = ofile;
+
+        return 0;
+    } else {
+        return -EINVAL;
+    }
+}
+
 int net_bind(struct vfs_ioctx *ioctx, struct ofile *fd, struct sockaddr *sa, size_t len) {
     _assert(fd);
     _assert(fd->flags & OF_SOCKET);

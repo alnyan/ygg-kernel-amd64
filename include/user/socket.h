@@ -2,6 +2,10 @@
 #include "sys/types.h"
 
 /* Protocol families */
+#define PF_LOCAL        1
+#define PF_UNIX         PF_LOCAL
+#define AF_UNIX         PF_UNIX
+
 #define PF_INET         2
 #define AF_INET         PF_INET
 
