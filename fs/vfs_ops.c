@@ -185,6 +185,10 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
     _assert(node);
     fd->flags &= ~OF_SOCKET;
 
+    if (node->type == VN_SOCK) {
+        return -ENODEV;
+    }
+
     if (opt & O_DIRECTORY) {
         if (node->type != VN_DIR) {
             return -ENOTDIR;
