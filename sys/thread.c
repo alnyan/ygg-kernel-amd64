@@ -193,6 +193,8 @@ void process_free(struct process *proc) {
         mm_space_free(proc);
     }
 
+    kfree(thr->data.fxsave);
+
     // Free thread itself
     memset(thr, 0, sizeof(struct thread));
     kfree(thr);
