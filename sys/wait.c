@@ -123,13 +123,13 @@ void thread_wait_io_clear(struct thread *t) {
 }
 
 int thread_sleep(struct thread *thr, uint64_t deadline, uint64_t *int_time) {
+    // Cancel previous sleep
+    list_del_init(&thr->sleep_notify.link);
+    thr->sleep_notify.value = 0;
+
     thr->sleep_deadline = deadline;
     timer_add_sleep(thr);
     return thread_wait_io(thr, &thr->sleep_notify);
-    //// Store time when interrupt occured
-    //if (int_time) {
-    //    *int_time = system_time;
-    //}
 }
 
 static int wait_check_pid(struct process *chld, int flags) {

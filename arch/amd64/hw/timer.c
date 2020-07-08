@@ -41,20 +41,19 @@ void timer_add_sleep(struct thread *thr) {
 
 void timer_remove_sleep(struct thread *thr) {
     //if (thr->pid > 0)
-        //kdebug("Removing sleep %d\n", thr->pid);
     uintptr_t irq;
-    struct io_notify *n = &thr->sleep_notify;
-    struct io_notify *it;
+    //struct io_notify *n = &thr->sleep_notify;
+    //struct io_notify *it;
     spin_lock_irqsave(&g_sleep_lock, &irq);
-    list_for_each_entry(it, &g_sleep_head, link) {
-        if (it == n) {
-            list_del_init(&it->link);
-            spin_release_irqrestore(&g_sleep_lock, &irq);
-            return;
-        }
-    }
+    //list_for_each_entry(it, &g_sleep_head, link) {
+    //    if (it == n) {
+    //        list_del_init(&it->link);
+    //        spin_release_irqrestore(&g_sleep_lock, &irq);
+    //        return;
+    //    }
+    //}
+    list_del_init(&thr->sleep_notify.link);
     spin_release_irqrestore(&g_sleep_lock, &irq);
-    panic("No such thread\n");
 }
 
 static uint32_t timer_tick(void *arg) {
@@ -90,6 +89,7 @@ static uint32_t timer_tick(void *arg) {
         struct thread *t = n->owner;
 
         if (!t) {
+            kdebug("Cleaning up ownerless sleep\n");
             list_del_init(iter);
             continue;
         }

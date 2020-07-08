@@ -609,8 +609,6 @@ void process_signal(struct process *proc, int signum) {
 
     if (thr->sleep_notify.owner) {
         thread_notify_io(&thr->sleep_notify);
-        //thr->sleep_notify.owner = NULL;
-        //timer_remove_sleep(thr);
     }
 
     if (thr->cpu == (int) get_cpu()->processor_id) {
