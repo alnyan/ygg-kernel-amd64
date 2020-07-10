@@ -612,14 +612,12 @@ static off_t tarfs_vnode_lseek(struct ofile *fd, off_t offset, int whence) {
         }
 
         fd->file.pos = offset;
-        kdebug("Seek to %p\n", fd->file.pos);
         break;
     case 1:
         if (offset + fd->file.pos > hdr->meta.size) {
             return -EINVAL;
         }
         fd->file.pos += offset;
-        kdebug("Seek to %p\n", fd->file.pos);
         break;
     default:
         panic("Unsupported seek\n");

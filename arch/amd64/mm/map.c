@@ -146,7 +146,7 @@ int mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t
         // Allocate PDPT
         pdpt = (mm_pdpt_t) amd64_mm_pool_alloc();
         assert(pdpt, "PDPT alloc failed\n");
-        kdebug("Allocated PDPT = %p\n", pdpt);
+        //kdebug("Allocated PDPT = %p\n", pdpt);
 
         pml4[pml4i] = MM_PHYS(pdpt) |
                       MM_PAGE_PRESENT |
@@ -160,7 +160,7 @@ int mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t
         // Allocate PD
         pd = (mm_pagedir_t) amd64_mm_pool_alloc();
         assert(pd, "PD alloc failed\n");
-        kdebug("Allocated PD = %p\n", pd);
+        //kdebug("Allocated PD = %p\n", pd);
 
         pdpt[pdpti] = MM_PHYS(pd) |
                       MM_PAGE_PRESENT |
@@ -174,7 +174,7 @@ int mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t
         // Allocate PT
         pt = (mm_pagetab_t) amd64_mm_pool_alloc();
         assert(pt, "PT alloc failed\n");
-        kdebug("Allocated PT = %p\n", pt);
+        //kdebug("Allocated PT = %p\n", pt);
 
         pd[pdi] = MM_PHYS(pt) |
                   MM_PAGE_PRESENT |

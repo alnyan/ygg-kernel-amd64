@@ -270,13 +270,13 @@ static int vfs_find_internal(struct vfs_ioctx *ctx,
     if (!path || !*path) {
         // TODO: if mnt
         *child = at;
-        kdebug("empty hit-final %s\n", at->name);
+        //kdebug("empty hit-final %s\n", at->name);
         return 0;
     }
 
     if (at->type == VN_LNK) {
         if ((err = vfs_link_resolve(ctx, at, &node, link_itself)) != 0) {
-            kdebug("miss: link resolution: %s\n", at->name);
+            //kdebug("miss: link resolution: %s\n", at->name);
             return err;
         } else {
             at = node;
@@ -308,7 +308,7 @@ static int vfs_find_internal(struct vfs_ioctx *ctx,
 
         if (!strcmp(name, ".")) {
             // Refers to this node
-            kdebug(". hit %s\n", at->name);
+            //kdebug(". hit %s\n", at->name);
             if (!child_path || !*child_path) {
                 *child = at;
                 return 0;
@@ -324,7 +324,7 @@ static int vfs_find_internal(struct vfs_ioctx *ctx,
             if (!parent) {
                 parent = at;
             }
-            kdebug(".. hit %s\n", parent->name);
+            //kdebug(".. hit %s\n", parent->name);
             return vfs_find_internal(ctx, parent, child_path, link_itself, child);
         }
 
@@ -332,21 +332,21 @@ static int vfs_find_internal(struct vfs_ioctx *ctx,
     }
 
     if ((err = vfs_lookup_or_load(at, name, &node)) != 0) {
-        kdebug("miss %s in %s\n", name, at->name);
+        //kdebug("miss %s in %s\n", name, at->name);
         return err;
     }
 
     _assert(node);
 
     if (!child_path) {
-        kdebug("hit-final %s\n", name);
+        //kdebug("hit-final %s\n", name);
 
         // TODO: only run link resolution here is asked to
         struct vnode *r = node;
         if (!link_itself) {
             if (r->type == VN_LNK) {
                 if ((err = vfs_link_resolve(ctx, r, &node, 0)) != 0) {
-                    kdebug("miss: link resolution: %s\n", r->name);
+                    //kdebug("miss: link resolution: %s\n", r->name);
                     return err;
                 } else {
                     r = node;
@@ -360,7 +360,7 @@ static int vfs_find_internal(struct vfs_ioctx *ctx,
         *child = r;
         return 0;
     } else {
-        kdebug("hit %s\n", name);
+        //kdebug("hit %s\n", name);
         return vfs_find_internal(ctx, node, child_path, link_itself, child);
     }
 

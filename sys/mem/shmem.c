@@ -34,7 +34,7 @@ static void *sys_mmap_anon(size_t page_count, int prot, int flags) {
     uintptr_t virt_base = vmfind(space, 0x100000000, 0x400000000, page_count);
     _assert(virt_base != MM_NADDR);
 
-    kdebug("mmaping %u pages at %p\n", page_count, virt_base);
+    //kdebug("mmaping %u pages at %p\n", page_count, virt_base);
 
     // Map pages
     for (size_t i = 0; i < page_count; ++i) {
@@ -151,7 +151,7 @@ int sys_munmap(void *ptr, size_t len) {
 
         if (page->usage == PU_SHARED || page->usage == PU_PRIVATE) {
             if (!page->refcount) {
-                kdebug("Free page %p\n", phys);
+                //kdebug("Free page %p\n", phys);
                 mm_phys_free_page(phys);
             }
         } else {

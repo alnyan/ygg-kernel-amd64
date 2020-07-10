@@ -212,7 +212,7 @@ static int ahci_port_ata_cmd(struct ahci_port *port, uint8_t ata, uintptr_t lba,
     size_t nsect = (len + 511) / 512;
     _assert((nsect & ~0xFFFF) == 0);
     size_t prd_count = (len + AHCI_PRD_MAX_SIZE - 1) / AHCI_PRD_MAX_SIZE;
-    kdebug("Command requires %d PRDs\n", prd_count);
+    //kdebug("Command requires %d PRDs\n", prd_count);
 
     // Setup command table entry
     memset(table_entry, 0, sizeof(struct ahci_cmd_table) + sizeof(struct ahci_prd) * prd_count);
@@ -225,7 +225,7 @@ static int ahci_port_ata_cmd(struct ahci_port *port, uint8_t ata, uintptr_t lba,
         table_entry->prdt[i].dba = prd_buf_phys;
         table_entry->prdt[i].dbc = ((prd_size - 1) << 1) | 1;
 
-        kdebug("PRD%d: %S at %p\n", i, prd_size, prd_buf_phys);
+        //kdebug("PRD%d: %S at %p\n", i, prd_size, prd_buf_phys);
 
         if (i == prd_count - 1) {
             // Mark last PRDT entry
@@ -255,7 +255,7 @@ static int ahci_port_ata_cmd(struct ahci_port *port, uint8_t ata, uintptr_t lba,
         fis->lba3 = (lba >> 24) & 0xFF;
         fis->lba4 = (lba >> 32) & 0xFF;
         fis->lba5 = (lba >> 40) & 0xFF;
-        kdebug("nsect = %d\n", nsect);
+        //kdebug("nsect = %d\n", nsect);
         fis->count = nsect & 0xFFFF;
     }
 
@@ -309,7 +309,7 @@ static int ahci_port_atapi_read(struct ahci_port *port, uint64_t lba, void *buf,
     size_t len = nsect * 2048;
     _assert((nsect & ~0xFFFF) == 0);
     size_t prd_count = (len + AHCI_PRD_MAX_SIZE - 1) / AHCI_PRD_MAX_SIZE;
-    kdebug("Command requires %d PRDs\n", prd_count);
+    //kdebug("Command requires %d PRDs\n", prd_count);
 
     // Setup command table entry
     memset(table_entry, 0, sizeof(struct ahci_cmd_table) + sizeof(struct ahci_prd) * prd_count);
@@ -329,7 +329,7 @@ static int ahci_port_atapi_read(struct ahci_port *port, uint64_t lba, void *buf,
         table_entry->prdt[i].dba = prd_buf_phys;
         table_entry->prdt[i].dbc = ((prd_size - 1) << 1) | 1;
 
-        kdebug("PRD%d: %S at %p\n", i, prd_size, prd_buf_phys);
+        //kdebug("PRD%d: %S at %p\n", i, prd_size, prd_buf_phys);
 
         if (i == prd_count - 1) {
             // Mark last PRDT entry
@@ -462,7 +462,7 @@ static ssize_t ahci_blk_write(struct blkdev *blk, const void *buf, size_t off, s
         panic("Misaligned AHCI device write: size of %lu\n", len);
     }
 
-    kdebug("AHCI write %S at %p\n", len, off);
+    //kdebug("AHCI write %S at %p\n", len, off);
     struct ahci_port *port = blk->dev_data;
     _assert(port);
     uintptr_t lba = (off / blk->block_size);
@@ -490,7 +490,7 @@ static ssize_t ahci_blk_read(struct blkdev *blk, void *buf, size_t off, size_t l
         panic("Misaligned AHCI device read: size of %lu\n", len);
     }
 
-    kdebug("AHCI read %S at %p\n", len, off);
+    //kdebug("AHCI read %S at %p\n", len, off);
     struct ahci_port *port = blk->dev_data;
     _assert(port);
     uintptr_t lba = (off / blk->block_size);
