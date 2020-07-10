@@ -234,7 +234,8 @@ int process_init_thread(struct process *proc, uintptr_t entry, void *arg, int us
     proc->first_child = NULL;
     proc->next_child = NULL;
     proc->pgid = -1;
-    proc->pid = -1;
+    proc->pid = process_alloc_pid(user);
+    kdebug("New process #%d with main thread <%p>", proc->pid, main_thread);
 
     proc->sigq = 0;
     proc->proc_state = PROC_ACTIVE;
@@ -277,10 +278,15 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags) {
     uintptr_t stack_pages = mm_phys_alloc_contiguous(2); //amd64_phys_alloc_contiguous(2);
     _assert(stack_pages != MM_NADDR);
 
+    thr->signal_entry = MM_NADDR;
+    thr->signal_stack_base = MM_NADDR;
+    thr->signal_stack_size = 0;
+
     thr->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
     thr->data.rsp0_size = MM_PAGE_SIZE * 2;
     thr->data.rsp0_top = thr->data.rsp0_base + thr->data.rsp0_size;
     thr->flags = (flags & THR_INIT_USER) ? 0 : THREAD_KERNEL;
+    thr->next_thread = NULL;
 
     if (flags & THR_INIT_USER) {
         thr->data.fxsave = kmalloc(FXSAVE_REGION);
@@ -427,7 +433,6 @@ int sys_fork(struct sys_fork_frame *frame) {
     thread_wait_io_init(&dst->pid_notify);
     dst->flags = 0;
     strcpy(dst->name, src->name);
-    dst->signal_entry = src->signal_entry;
     process_ioctx_fork(dst, src);
     dst->parent = src;
     dst->next_child = src->first_child;
@@ -439,6 +444,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst->first_thread = dst_thread;
     dst->thread_count = 1;
     dst->proc_state = PROC_ACTIVE;
+    kdebug("New process #%d with main thread <%p>\n", dst->pid, dst_thread);
 
     // Initialize dst thread
     dst_thread->proc = dst;
@@ -452,9 +458,14 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst_thread->data.rsp0_size = MM_PAGE_SIZE * 2;
     dst_thread->data.rsp0_top = dst_thread->data.rsp0_base + dst_thread->data.rsp0_size;
     dst_thread->flags = 0;
+    dst_thread->next_thread = NULL;
 
     dst_thread->data.rsp3_base = src_thread->data.rsp3_base;
     dst_thread->data.rsp3_size = src_thread->data.rsp3_size;
+
+    dst_thread->signal_entry = src_thread->signal_entry;
+    dst_thread->signal_stack_base = src_thread->signal_stack_base;
+    dst_thread->signal_stack_size = src_thread->signal_stack_size;
 
     dst_thread->data.cr3 = MM_PHYS(space);
 
@@ -554,11 +565,14 @@ void thread_sigenter(int signum) {
 
         return;
     }
-    uintptr_t old_rsp0_top = thr->data.rsp0_top;
-    // XXX: Either use a separate stack or ensure stuff doesn't get overwritten
-    uintptr_t signal_rsp3 = thr->data.rsp3_base + 0x800;
 
-    context_sigenter(thr->proc->signal_entry, signal_rsp3, signum);
+    assert(thr->signal_entry != MM_NADDR, "Thread hasn't set its signal entry!\n");
+    assert(thr->signal_stack_base != MM_NADDR, "Thread hasn't set its signal stack!\n");
+
+    uintptr_t old_rsp0_top = thr->data.rsp0_top;
+    uintptr_t signal_rsp3 = thr->signal_stack_base + thr->signal_stack_size;
+
+    context_sigenter(thr->signal_entry, signal_rsp3, signum);
 
     thr->data.rsp0_top = old_rsp0_top;
 }
@@ -704,7 +718,23 @@ int sys_kill(pid_t pid, int signum) {
 }
 
 void sys_sigentry(uintptr_t entry) {
-    thread_self->proc->signal_entry = entry;
+    thread_self->signal_entry = entry;
+}
+
+int sys_sigaltstack(const struct user_stack *ss, struct user_stack *old_ss) {
+    struct thread *thr = thread_self;
+    _assert(thr);
+
+    if (old_ss) {
+        old_ss->ss_sp = (void *) thr->signal_stack_base;
+        old_ss->ss_size = thr->signal_stack_size;
+    }
+    if (ss) {
+        thr->signal_stack_base = (uintptr_t) ss->ss_sp;
+        thr->signal_stack_size = ss->ss_size;
+    }
+
+    return 0;
 }
 
 pid_t sys_getpid(void) {

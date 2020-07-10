@@ -270,7 +270,10 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     argv_fixup[procv_vecp[0]] = 0;
     envp_fixup[procv_vecp[1]] = 0;
 
-    proc->signal_entry = 0;
+    thr->signal_entry = MM_NADDR;
+    thr->signal_stack_base = MM_NADDR;
+    thr->signal_stack_size = 0;
+
     thr->data.rsp0 = thr->data.rsp0_top;
 
     // Allocate a new user stack

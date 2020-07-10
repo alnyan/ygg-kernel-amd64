@@ -1,4 +1,5 @@
 #pragma once
+#include <sys/types.h>
 
 //#define SIGHUP      1
 //#define SIGINT      2
@@ -56,5 +57,14 @@
 #define SIGUNUSED       31
 
 #define NSIG        32
+
+struct user_stack {
+    void *ss_sp;
+    size_t ss_size;
+};
+
+#if !defined(__KERNEL__)
+typedef struct user_stack stack_t;
+#endif
 
 int kill(int pid, int signum);

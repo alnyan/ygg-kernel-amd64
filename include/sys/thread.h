@@ -51,6 +51,11 @@ struct thread {
     struct process *proc;
     struct thread *next_thread;
 
+    // Signal
+    uintptr_t signal_entry;
+    uintptr_t signal_stack_base;
+    size_t signal_stack_size;
+
     uint32_t flags;
 
     // Scheduler
@@ -80,7 +85,6 @@ struct process {
     struct io_notify pid_notify;
 
     // Signal
-    uintptr_t signal_entry;
     uint64_t sigq;
 
     // State

@@ -1,6 +1,8 @@
 #pragma once
 #include "sys/types.h"
 
+struct user_stack;
+
 int sys_kill(pid_t pid, int signum);
 void sys_exit(int status);
 void sys_sigentry(uintptr_t entry);
@@ -13,6 +15,8 @@ uid_t sys_getuid(void);
 gid_t sys_getgid(void);
 int sys_setuid(uid_t uid);
 int sys_setgid(gid_t gid);
+
+int sys_sigaltstack(const struct user_stack *ss, struct user_stack *old_ss);
 
 int sys_waitpid(pid_t pid, int *status, int flags);
 pid_t sys_getpgid(pid_t pid);
