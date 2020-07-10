@@ -263,6 +263,8 @@ int sys_clone(int (*fn) (void *), void *stack, int flags, void *arg) {
         return res;
     }
 
+    thr->signal_entry = thread_self->signal_entry;
+
     if (thread_self->next_thread) {
         thr->next_thread = thread_self->next_thread;
     }
