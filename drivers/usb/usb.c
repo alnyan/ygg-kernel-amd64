@@ -58,7 +58,6 @@ void usb_daemon_start(void) {
     }
 
     _assert(process_init_thread(&usbd, (uintptr_t) usb_daemon, NULL, 0) == 0);
-    usbd.pid = process_alloc_pid(0);
     _assert(usbd.first_thread && usbd.thread_count == 1);
     sched_queue(usbd.first_thread);
 }

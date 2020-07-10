@@ -70,7 +70,6 @@ static void user_init_func(void *arg) {
 
 void user_init_start(void) {
     process_init_thread(&user_init, (uintptr_t) user_init_func, NULL, 0);
-    user_init.pid = process_alloc_pid(0);
     _assert(user_init.first_thread);
     sched_queue(user_init.first_thread);
 }
