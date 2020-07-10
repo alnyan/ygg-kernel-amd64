@@ -106,34 +106,57 @@ void amd64_exception(struct amd64_exception_frame *frame) {
         asm volatile ("movq %%cr2, %0":"=r"(cr2));
         asm volatile ("movq %%cr3, %0":"=r"(cr3));
 
-        if (do_pfault(frame, cr2, cr3) != 0) {
-            kfatal("Page fault without resolution:\n");
-            kfatal("%%cr3 = %p\n", cr3);
-            if (MM_VIRTUALIZE(cr3) == (uintptr_t) mm_kernel) {
-                kfatal("(Kernel)\n");
-            }
-            kfatal("Fault address: %p\n", cr2);
+        if (do_pfault(frame, cr2, cr3) == 0) {
+            // Exception is resolved
+            return;
+        }
+    }
 
-            if (frame->exc_code & X86_PF_RESVD) {
-                kfatal(" - Page structure has reserved bit set\n");
-            }
-            if (frame->exc_code & X86_PF_EXEC) {
-                kfatal(" - Instruction fetch\n");
-            } else {
-                if (frame->exc_code & X86_PF_WRITE) {
-                    kfatal(" - Write operation\n");
-                } else {
-                    kfatal(" - Read operation\n");
+    if (thread_self) {
+        kfatal("In thread <%p>\n", thread_self);
+        if (thread_self->proc) {
+            struct process *proc = thread_self->proc;
+            kfatal("of process #%d (%s)\n", proc->pid, proc->name);
+
+            if (proc->thread_count > 1) {
+                kfatal("Thread list:\n");
+                for (struct thread *thr = proc->first_thread; thr; thr = thr->next_thread) {
+                    kfatal(" - <%p>\n", thr);
                 }
             }
-            if (!(frame->exc_code & X86_PF_PRESENT)) {
-                kfatal(" - Refers to non-present page\n");
-            }
-            if (frame->exc_code & X86_PF_USER) {
-                kfatal(" - Userspace\n");
-            }
         } else {
-            return;
+            kfatal("of no process\n");
+        }
+    }
+
+    if (frame->exc_no == X86_EXCEPTION_PF) {
+        uintptr_t cr2, cr3;
+        asm volatile ("movq %%cr2, %0":"=r"(cr2));
+        asm volatile ("movq %%cr3, %0":"=r"(cr3));
+        kfatal("Page fault without resolution:\n");
+        kfatal("%%cr3 = %p\n", cr3);
+        if (MM_VIRTUALIZE(cr3) == (uintptr_t) mm_kernel) {
+            kfatal("(Kernel)\n");
+        }
+        kfatal("Fault address: %p\n", cr2);
+
+        if (frame->exc_code & X86_PF_RESVD) {
+            kfatal(" - Page structure has reserved bit set\n");
+        }
+        if (frame->exc_code & X86_PF_EXEC) {
+            kfatal(" - Instruction fetch\n");
+        } else {
+            if (frame->exc_code & X86_PF_WRITE) {
+                kfatal(" - Write operation\n");
+            } else {
+                kfatal(" - Read operation\n");
+            }
+        }
+        if (!(frame->exc_code & X86_PF_PRESENT)) {
+            kfatal(" - Refers to non-present page\n");
+        }
+        if (frame->exc_code & X86_PF_USER) {
+            kfatal(" - Userspace\n");
         }
     }
 
