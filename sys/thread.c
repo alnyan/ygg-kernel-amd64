@@ -584,7 +584,18 @@ __attribute__((noreturn)) void sys_exit(int status) {
     struct process *proc = thr->proc;
 
     if (proc->thread_count != 1) {
-        panic("XXX: exit() in multithread process\n");
+        // Stop the thread
+        kdebug("Thread <%p> exiting\n", thr);
+
+        // Clear pending I/O (if exiting from signal interrupting select())
+        if (!list_empty(&thr->wait_head)) {
+            thread_wait_io_clear(thr);
+        }
+
+        --proc->thread_count;
+
+        sched_unqueue(thr, THREAD_STOPPED);
+        panic("This code shouldn't run\n");
     }
     kdebug("Process %d exited with status %d\n", proc->pid, status);
 
