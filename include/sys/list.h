@@ -23,6 +23,9 @@ struct list_head {
 #define list_next_entry(pos, member) \
 	list_entry((pos)->member.next, typeof(*(pos)), member)
 
+#define list_first_entry(ptr, type, member) \
+	list_entry((ptr)->next, type, member)
+
 #define list_for_each_safe(pos, n, head) \
     for (pos = (head)->next, n = pos->next; pos != (head); \
         pos = n, n = pos->next)

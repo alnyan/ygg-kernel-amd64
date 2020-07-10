@@ -113,6 +113,12 @@ struct process *process_find(pid_t pid) {
     return NULL;
 }
 
+struct thread *process_first_thread(struct process *proc) {
+    _assert(proc);
+    _assert(!list_empty(&proc->thread_list) && proc->thread_count);
+    return list_first_entry(&proc->thread_list, struct thread, thread_link);
+}
+
 struct process *process_child(struct process *of, pid_t pid) {
     for (struct process *proc = of->first_child; proc; proc = proc->next_child) {
         if (proc->pid == pid) {
@@ -175,7 +181,8 @@ void process_free(struct process *proc) {
     process_cleanup(proc);
 
     _assert(proc->proc_state == PROC_FINISHED);
-    struct thread *thr = proc->first_thread;
+    struct thread *thr;
+    thr = list_first_entry(&proc->thread_list, struct thread, thread_link);
     _assert(thr);
 
     // Free kstack
@@ -221,14 +228,14 @@ int process_init_thread(struct process *proc, uintptr_t entry, void *arg, int us
     struct thread *main_thread = kmalloc(sizeof(struct thread));
     _assert(main_thread);
     main_thread->proc = proc;
-    main_thread->next_thread = NULL;
+    list_head_init(&proc->thread_list);
 
     int res = thread_init(main_thread, entry, arg, user ? THR_INIT_USER : 0);
     _assert(res == 0);
 
     process_ioctx_empty(proc);
 
-    proc->first_thread = main_thread;
+    list_add(&main_thread->thread_link, &proc->thread_list);
     proc->thread_count = 1;
     proc->parent = NULL;
     proc->first_child = NULL;
@@ -265,10 +272,7 @@ int sys_clone(int (*fn) (void *), void *stack, int flags, void *arg) {
 
     thr->signal_entry = thread_self->signal_entry;
 
-    if (thread_self->next_thread) {
-        thr->next_thread = thread_self->next_thread;
-    }
-    thread_self->next_thread = thr;
+    list_add(&thr->thread_link, &proc->thread_list);
     ++proc->thread_count;
 
     sched_queue(thr);
@@ -288,7 +292,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags) {
     thr->data.rsp0_size = MM_PAGE_SIZE * 2;
     thr->data.rsp0_top = thr->data.rsp0_base + thr->data.rsp0_size;
     thr->flags = (flags & THR_INIT_USER) ? 0 : THREAD_KERNEL;
-    thr->next_thread = NULL;
+    list_head_init(&thr->thread_link);
 
     if (flags & THR_INIT_USER) {
         thr->data.fxsave = kmalloc(FXSAVE_REGION);
@@ -421,8 +425,15 @@ int sys_fork(struct sys_fork_frame *frame) {
 
     struct process *dst = kmalloc(sizeof(struct process));
     _assert(dst);
+    list_head_init(&dst->thread_list);
     struct thread *dst_thread = kmalloc(sizeof(struct thread));
     _assert(dst_thread);
+    list_head_init(&dst_thread->thread_link);
+
+    // Tie the two together
+    list_add(&dst_thread->thread_link, &dst->thread_list);
+    dst->thread_count = 1;
+    dst_thread->proc = dst;
 
     // Initialize dst process: memory space
     mm_space_t space = amd64_mm_pool_alloc();
@@ -443,14 +454,10 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst->pid = process_alloc_pid(1);
     dst->pgid = src->pgid;
     dst->sigq = 0;
-    dst->first_thread = dst_thread;
-    dst->thread_count = 1;
     dst->proc_state = PROC_ACTIVE;
     kdebug("New process #%d with main thread <%p>\n", dst->pid, dst_thread);
 
     // Initialize dst thread
-    dst_thread->proc = dst;
-
     uintptr_t stack_pages = mm_phys_alloc_contiguous(2); //amd64_phys_alloc_contiguous(2);
     _assert(stack_pages != MM_NADDR);
     list_head_init(&dst_thread->wait_head);
@@ -460,7 +467,6 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst_thread->data.rsp0_size = MM_PAGE_SIZE * 2;
     dst_thread->data.rsp0_top = dst_thread->data.rsp0_base + dst_thread->data.rsp0_size;
     dst_thread->flags = 0;
-    dst_thread->next_thread = NULL;
 
     dst_thread->data.rsp3_base = src_thread->data.rsp3_base;
     dst_thread->data.rsp3_size = src_thread->data.rsp3_size;
@@ -536,7 +542,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst_thread->data.rsp0 = (uintptr_t) stack;
 
     list_add(&dst->g_link, &proc_all_head);
-    sched_queue(dst->first_thread);
+    sched_queue(dst_thread);
 
     return dst->pid;
 }
@@ -620,21 +626,8 @@ void sys_sigreturn(void) {
     context_sigreturn();
 }
 
-void process_signal(struct process *proc, int signum) {
-    // First thread processes all signals
-    // TODO: find first non-finished thread
-    struct thread *thr = proc->first_thread;
-    _assert(thr);
-
-    if (proc->proc_state == PROC_SUSPENDED) {
-        // Can only KILL or CONT suspended process
-        if (signum == SIGCONT) {
-            proc->proc_state = PROC_ACTIVE;
-        }
-        if (signum != SIGKILL && signum != SIGCONT) {
-            return;
-        }
-    }
+static void process_signal_thread(struct thread *thr, int signum) {
+    struct process *proc = thr->proc;
 
     if (thr->sleep_notify.owner) {
         thread_notify_io(&thr->sleep_notify);
@@ -661,6 +654,27 @@ void process_signal(struct process *proc, int signum) {
 
         sched_queue(thr);
     }
+}
+
+void process_signal(struct process *proc, int signum) {
+    if (proc->proc_state == PROC_SUSPENDED) {
+        // Can only KILL or CONT suspended process
+        if (signum == SIGCONT) {
+            proc->proc_state = PROC_ACTIVE;
+        }
+        if (signum != SIGKILL && signum != SIGCONT) {
+            return;
+        }
+    }
+
+    struct thread *thr;
+    list_for_each_entry(thr, &proc->thread_list, thread_link) {
+        if (thr->state != THREAD_STOPPED) {
+            return process_signal_thread(thr, signum);
+        }
+    }
+
+    panic("Failed to deliver the signal\n");
 }
 
 int thread_check_signal(struct thread *thr, int ret) {

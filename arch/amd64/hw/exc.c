@@ -120,7 +120,8 @@ void amd64_exception(struct amd64_exception_frame *frame) {
 
             if (proc->thread_count > 1) {
                 kfatal("Thread list:\n");
-                for (struct thread *thr = proc->first_thread; thr; thr = thr->next_thread) {
+                struct thread *thr;
+                list_for_each_entry(thr, &proc->thread_list, thread_link) {
                     kfatal(" - <%p>\n", thr);
                 }
             }

@@ -49,7 +49,7 @@ struct thread {
     struct io_notify sleep_notify;
 
     struct process *proc;
-    struct thread *next_thread;
+    struct list_head thread_link;
 
     // Signal
     uintptr_t signal_entry;
@@ -71,7 +71,7 @@ struct process {
     int proc_state;
 
     // Threads
-    struct thread *first_thread;
+    struct list_head thread_list;
     size_t thread_count;
 
     // Shared memory
@@ -104,6 +104,8 @@ struct process {
 pid_t process_alloc_pid(int is_user);
 
 int process_init_thread(struct process *proc, uintptr_t entry, void *arg, int user);
+
+struct thread *process_first_thread(struct process *proc);
 
 //pid_t thread_alloc_pid(int is_user);
 //void thread_ioctx_fork(struct thread *dst, struct thread *src);
