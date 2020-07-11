@@ -7,6 +7,7 @@
 #include "sys/thread.h"
 #include "sys/string.h"
 #include "sys/types.h"
+#include "sys/sched.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
 #include "sys/mm.h"
@@ -112,22 +113,8 @@ void amd64_exception(struct amd64_exception_frame *frame) {
         }
     }
 
-    if (thread_self) {
-        kfatal("In thread <%p>\n", thread_self);
-        if (thread_self->proc) {
-            struct process *proc = thread_self->proc;
-            kfatal("of process #%d (%s)\n", proc->pid, proc->name);
-
-            if (proc->thread_count > 1) {
-                kfatal("Thread list:\n");
-                struct thread *thr;
-                list_for_each_entry(thr, &proc->thread_list, thread_link) {
-                    kfatal(" - <%p>\n", thr);
-                }
-            }
-        } else {
-            kfatal("of no process\n");
-        }
+    if (sched_ready) {
+        thread_dump(thread_self);
     }
 
     if (frame->exc_no == X86_EXCEPTION_PF) {

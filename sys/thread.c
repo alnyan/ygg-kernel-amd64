@@ -287,6 +287,8 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags) {
     thr->signal_entry = MM_NADDR;
     thr->signal_stack_base = MM_NADDR;
     thr->signal_stack_size = 0;
+    thr->sched_prev = NULL;
+    thr->sched_next = NULL;
 
     thr->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
     thr->data.rsp0_size = MM_PAGE_SIZE * 2;
@@ -409,6 +411,26 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags) {
     return 0;
 }
 
+void thread_dump(struct thread *thr) {
+    if (thr) {
+        kfatal("In thread <%p>\n", thr);
+        if (thr->proc) {
+            struct process *proc = thr->proc;
+            kfatal("of process #%d (%s)\n", proc->pid, proc->name);
+
+            if (proc->thread_count > 1) {
+                kfatal("Thread list:\n");
+                struct thread *thr;
+                list_for_each_entry(thr, &proc->thread_list, thread_link) {
+                    kfatal(" - <%p>\n", thr);
+                }
+            }
+        } else {
+            kfatal("of no process\n");
+        }
+    }
+}
+
 // TODO: support kthread forking()
 //       (Although I don't really think it's very useful -
 //        threads can just be created by thread_init() and
@@ -462,6 +484,9 @@ int sys_fork(struct sys_fork_frame *frame) {
     _assert(stack_pages != MM_NADDR);
     list_head_init(&dst_thread->wait_head);
     thread_wait_io_init(&dst_thread->sleep_notify);
+
+    dst_thread->sched_prev = NULL;
+    dst_thread->sched_next = NULL;
 
     dst_thread->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
     dst_thread->data.rsp0_size = MM_PAGE_SIZE * 2;

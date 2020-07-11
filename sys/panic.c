@@ -17,7 +17,7 @@ void panicf(const char *fmt, ...) {
     kfatal("--- Panic ---\n");
 
     if (sched_ready) {
-        kfatal("pid = %d\n", thread_self->proc->pid);
+        thread_dump(thread_self);
     }
 
     va_start(args, fmt);

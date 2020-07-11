@@ -41,6 +41,12 @@ static void *idle(void *arg) {
 ////
 
 void sched_queue_to(struct thread *thr, int cpu_no) {
+    // FIXME: if this happens, there's absolutely some logic error -
+    //        I should find out the places where threads are queued
+    //        twice
+    if (thr->sched_prev || thr->sched_next) {
+        return;
+    }
     uintptr_t irq;
     spin_lock_irqsave(&sched_lock, &irq);
     _assert(thr);
@@ -290,6 +296,7 @@ void yield(void) {
         from->state = THREAD_READY;
     }
 
+    _assert(to->state != THREAD_STOPPED);
     to->state = THREAD_RUNNING;
     cpu->thread = to;
 

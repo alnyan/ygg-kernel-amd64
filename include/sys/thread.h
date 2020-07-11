@@ -112,6 +112,7 @@ struct thread *process_first_thread(struct process *proc);
 #define THR_INIT_USER           (1 << 0)
 #define THR_INIT_STACK_SET      (1 << 1)
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags);
+void thread_dump(struct thread *thr);
 //void thread_cleanup(struct thread *thr);
 
 struct process *process_child(struct process *of, pid_t pid);
