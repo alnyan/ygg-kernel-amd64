@@ -565,7 +565,7 @@ static ssize_t tarfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
     _assert(hdr);
 
     if (fd->file.pos >= hdr->meta.size) {
-        return -1;
+        return 0;
     }
 
     size_t can_read = MIN(count, hdr->meta.size - fd->file.pos);
