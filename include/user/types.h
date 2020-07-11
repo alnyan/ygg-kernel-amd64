@@ -18,4 +18,7 @@ typedef uint32_t mode_t;
 typedef uint16_t uid_t;
 typedef uint16_t gid_t;
 
+typedef uint64_t clock_t;
+typedef uint64_t useconds_t;
+
 typedef int32_t pid_t;
