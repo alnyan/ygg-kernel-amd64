@@ -1,3 +1,5 @@
+#include <config.h>
+
 #include "user/syscall.h"
 #include "user/errno.h"
 #include "user/time.h"
@@ -9,7 +11,9 @@
 #include "sys/sys_file.h"
 #include "sys/sys_sys.h"
 #include "sys/sys_proc.h"
+#if defined(ENABLE_NET)
 #include "sys/sys_net.h"
+#endif
 #include "sys/mod.h"
 
 #define MSR_IA32_STAR               0xC0000081
@@ -90,6 +94,7 @@ void *syscall_table[256] = {
     [SYSCALL_NRX_MODULE_LOAD] =     sys_module_load,
     [SYSCALL_NRX_MODULE_UNLOAD] =   sys_module_unload,
 
+#if defined(ENABLE_NET)
     // Network
     [SYSCALL_NR_SOCKET] =           sys_socket,
     [SYSCALL_NR_CONNECT] =          sys_connect,
@@ -99,6 +104,7 @@ void *syscall_table[256] = {
     [SYSCALL_NR_BIND] =             sys_bind,
     [SYSCALL_NR_SETSOCKOPT] =       sys_setsockopt,
     [SYSCALL_NRX_NETCTL] =          sys_netctl,
+#endif
 
     // Extension
     [SYSCALL_NRX_TRACE] =           sys_debug_trace,

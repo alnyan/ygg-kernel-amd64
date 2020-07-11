@@ -1,3 +1,4 @@
+#include <config.h>
 #include "user/errno.h"
 #include "arch/amd64/hw/timer.h"
 #include "arch/amd64/cpu.h"
@@ -346,9 +347,12 @@ int sys_mknod(const char *filename, int mode, unsigned int dev) {
 }
 
 static int sys_select_get_ready(struct ofile *fd) {
+#if defined(ENABLE_NET)
     if (fd->flags & OF_SOCKET) {
         return socket_has_data(&fd->socket);
-    } else {
+    } else
+#endif
+    {
         struct vnode *vn = fd->file.vnode;
         _assert(vn);
 

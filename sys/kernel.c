@@ -1,3 +1,4 @@
+#include <config.h>
 #include "arch/amd64/syscall.h"
 #include "drivers/pci/pci.h"
 #include "drivers/usb/usb.h"
@@ -18,8 +19,8 @@ void _init(void) {
     init_func_t *init_array = (init_func_t *) &_init_start;
 
     // Sanity checks
-    _assert(((uintptr_t) init_array & 0xF) == 0);
-    _assert(((uintptr_t) (&_init_end) & 0xF) == 0);
+    _assert(((uintptr_t) init_array & 0x7) == 0);
+    _assert(((uintptr_t) (&_init_end) & 0x7) == 0);
     size_t count = ((uintptr_t) &_init_end - (uintptr_t) &_init_start) / sizeof(init_func_t);
 
     for (size_t i = 0; i < count; ++i) {
@@ -39,9 +40,11 @@ void main(void) {
     syscall_init();
     sched_init();
 
+#if defined(ENABLE_NET)
     net_init();
-    usb_daemon_start();
     net_daemon_start();
+#endif
+    usb_daemon_start();
     user_init_start();
 
     sched_enter();

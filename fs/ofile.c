@@ -1,3 +1,4 @@
+#include <config.h>
 #include "sys/mem/slab.h"
 #include "sys/assert.h"
 #include "fs/ofile.h"
@@ -28,9 +29,12 @@ void ofile_close(struct vfs_ioctx *ioctx, struct ofile *of) {
     _assert(of->refcount > 0);
     --of->refcount;
     if (of->refcount == 0) {
+#if defined(ENABLE_NET)
         if (of->flags & OF_SOCKET) {
             net_close(ioctx, of);
-        } else {
+        } else
+#endif
+        {
             vfs_close(ioctx, of);
         }
         ofile_destroy(of);

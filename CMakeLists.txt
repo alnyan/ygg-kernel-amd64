@@ -100,15 +100,7 @@ set(SRC arch/amd64/kernel.c
 	    drivers/usb/driver.c
 	    drivers/usb/device.c
 	    drivers/usb/usbkbd.c
-	    drivers/usb/hub.c
-
-        net/net.c
-	    net/if.c
-	    net/socket.c
-	    net/util.c
-	    net/ports.c
-	    net/unix.c
-	    sys/sys_net.c)
+	    drivers/usb/hub.c)
 
 #### CFLAGS and LDFLAGS
 execute_process(COMMAND git describe --always
@@ -151,6 +143,9 @@ set(ASM_OPTIONS "-x assembler-with-cpp")
 set(CMAKE_ASM_FLAGS "${CFLAGS} -D__ASM__")
 #### Options
 # ...
+
+include(etc/cmake/Options.cmake NO_POLICY_SCOPE)
+set(SRC ${SRC} ${OPT_SRC})
 
 #### Dependencies
 include_directories(${CMAKE_CURRENT_BINARY_DIR}
