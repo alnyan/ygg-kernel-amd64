@@ -111,13 +111,18 @@ set(SRC arch/amd64/kernel.c
 	    sys/sys_net.c)
 
 #### CFLAGS and LDFLAGS
+execute_process(COMMAND git describe --always
+                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                OUTPUT_VARIABLE GIT_VERSION)
+
 set(CMAKE_C_FLAGS "${CFLAGS} \
 -ffreestanding \
 -fPIE \
 -fno-plt \
 -fno-pic \
 -DARCH_AMD64 \
--DKERNEL_VERSION_STR=\\\"cmake\\\" \
+-DKERNEL_VERSION_STR=\\\"${GIT_VERSION}\\\" \
 -D__KERNEL__ \
 -mcmodel=large \
 -mno-sse \
