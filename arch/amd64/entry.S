@@ -1,3 +1,5 @@
+#include <config.h>
+
 .section .multiboot
 .set MAGIC,     0xE85250D6
 .set ARCH,      0x0
@@ -7,7 +9,7 @@
 .long MAGIC
 .long ARCH
 .long HDRLEN
-.long CHKSUM
+.long (CHKSUM & 0xFFFFFFFF)
 
 #if defined(VESA_ENABLE)
 // Framebuffer tag

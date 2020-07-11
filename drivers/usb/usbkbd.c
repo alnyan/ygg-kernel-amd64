@@ -149,6 +149,6 @@ static int usb_kbd_init(struct usb_device *dev) {
     return -1;
 }
 
-static __init void usb_kbd_register_driver(void) {
+__init(usb_kbd_register_driver) {
     usb_add_driver(&g_usbkbd);
 }

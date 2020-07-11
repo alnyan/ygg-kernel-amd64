@@ -494,6 +494,6 @@ void pci_usb_uhci_init(struct pci_device *pci_dev) {
     usb_controller_add((struct usb_controller *) hc);
 }
 
-static __init void pci_usb_uhci_register(void) {
+__init(pci_usb_uhci_register) {
     pci_add_class_driver(0x0C0300, pci_usb_uhci_init, "usb_uhci");
 }

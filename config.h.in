@@ -1,0 +1,4 @@
+#pragma once
+
+#define AMD64_KERNEL_STACK      32768
+#define AMD64_MAX_SMP           1

@@ -21,8 +21,13 @@
 #include "sys/string.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
+#include "sys/attr.h"
 #include "sys/elf.h"
 #include "sys/mm.h"
+
+__init(test) {
+    *((uint16_t *) 0xB8000) = 'A' | 0x700;
+}
 
 static uintptr_t multiboot_info_addr;
 static struct multiboot_tag_mmap         *multiboot_tag_mmap;

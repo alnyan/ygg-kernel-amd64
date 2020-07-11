@@ -206,6 +206,6 @@ static int devfs_vnode_stat(struct vnode *node, struct stat *st) {
 
 ////
 
-static void __init devfs_class_init(void) {
+__init(devfs_class_init) {
     fs_class_register(&_devfs);
 }

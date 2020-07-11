@@ -7,7 +7,7 @@ extern char _psf_start;
 extern char _psf_end;
 struct psf_font *font;
 
-static __init void psf_init(void) {
+__init(psf_init) {
     font = (struct psf_font *) &_psf_start;
     if (font->magic != PSF_FONT_MAGIC) {
         panic("Invalid PSF magic\n");

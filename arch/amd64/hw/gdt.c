@@ -1,4 +1,5 @@
 #include "arch/amd64/hw/gdt.h"
+#include <config.h>
 #define GDT_SIZE    7
 
 extern void amd64_gdt_load(void *p);

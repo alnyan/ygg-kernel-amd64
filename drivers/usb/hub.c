@@ -172,6 +172,6 @@ static int usb_hub_init(struct usb_device *dev) {
     return -1;
 }
 
-static __init void usb_hub_register_driver(void) {
+__init(usb_hub_register_driver) {
     usb_add_driver(&g_usb_hub);
 }

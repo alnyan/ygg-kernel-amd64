@@ -660,6 +660,6 @@ static int tarfs_vnode_truncate(struct vnode *node, size_t length) {
 
 //
 
-static __init void tarfs_init(void) {
+__init(tarfs_init) {
     fs_class_register(&_tarfs);
 }

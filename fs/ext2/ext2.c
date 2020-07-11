@@ -139,6 +139,6 @@ static struct vnode *ext2_get_root(struct fs *ext2) {
     return data->root;
 }
 
-static void __init ext2_class_init(void) {
+__init(ext2_class_init) {
     fs_class_register(&g_ext2);
 }

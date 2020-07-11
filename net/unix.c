@@ -367,6 +367,6 @@ static ssize_t unix_conn_recvfrom(struct socket *s,
 
 ////
 
-static __init void unix_class_register(void) {
+__init(unix_class_register) {
     socket_class_register(&unix_socket_class);
 }

@@ -302,6 +302,6 @@ void sysfs_populate(void) {
     sysfs_add_config_endpoint(NULL, "mem", SYSFS_MODE_DEFAULT, 512, NULL, system_mem_getter, NULL);
 }
 
-static void __init sysfs_class_init(void) {
+__init(sysfs_class_init) {
     fs_class_register(&g_sysfs);
 }

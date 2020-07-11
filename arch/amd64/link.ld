@@ -18,6 +18,10 @@ SECTIONS {
 	{
 		*(.multiboot)
 		*(.text)
+        . = ALIGN(0x10);
+        _init_start = .;
+        *(.init)
+        _init_end = .;
 		*(.rodata)
 	}
 

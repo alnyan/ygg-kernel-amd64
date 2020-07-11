@@ -59,7 +59,7 @@ static void slab_init_cache(struct slab_cache *cp, size_t object_size) {
     cp->objects_per_slab -= (bufctl_array_size + cp->object_size - 1) / cp->object_size;
 }
 
-static __init void slab_init_caches(void) {
+__init(slab_init_caches) {
     for (size_t i = 0; i < PREALLOC_COUNT; ++i) {
         kdebug("Initializing predefined cache: %u\n", 1UL << (i + 4));
         slab_init_cache(&predefined_caches[i], 1UL << (i + 4));

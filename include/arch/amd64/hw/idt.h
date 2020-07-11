@@ -1,5 +1,6 @@
 #pragma once
 #include "sys/types.h"
+#include <config.h>
 
 #define IDT_FLG_TASK32      0x5
 #define IDT_FLG_INT16       0x6
