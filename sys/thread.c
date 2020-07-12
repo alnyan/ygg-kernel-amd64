@@ -5,6 +5,7 @@
 #include "sys/binfmt_elf.h"
 #include "sys/sys_proc.h"
 #include "sys/mem/phys.h"
+#include "sys/snprintf.h"
 #include "user/signum.h"
 #include "user/errno.h"
 #include "user/fcntl.h"
@@ -13,6 +14,7 @@
 #include "sys/thread.h"
 #include "sys/sched.h"
 #include "sys/debug.h"
+#include "fs/sysfs.h"
 #include "fs/ofile.h"
 #include "sys/heap.h"
 
@@ -37,6 +39,60 @@ static pid_t last_kernel_pid = 0;
 static pid_t last_user_pid = 0;
 // TODO: MAKE THIS PER-PROCESSOR
 static uint64_t fxsave_buf[FXSAVE_REGION / 8] __attribute__((aligned(16)));
+static struct vnode *g_sysfs_proc_dir;
+
+static int sysfs_proc_name(void *ctx, char *buf, size_t lim) {
+    sysfs_buf_printf(buf, lim, "%s\n", ((struct process *) ctx)->name);
+    return 0;
+}
+
+static int sysfs_proc_ioctx(void *ctx, char *buf, size_t lim) {
+    struct process *proc = ctx;
+    sysfs_buf_printf(buf, lim, "%d:%d\n", proc->ioctx.uid, proc->ioctx.gid);
+    return 0;
+}
+
+static struct vnode *sysfs_proc_self(struct thread *ctx, struct vnode *link) {
+    _assert(ctx && ctx->proc);
+    return ctx->proc->fs_entry;
+}
+
+static void proc_ensure_dir(void) {
+    if (!g_sysfs_proc_dir) {
+        _assert(sysfs_add_dir(NULL, "proc", &g_sysfs_proc_dir) == 0);
+
+        struct vnode *vn = vnode_create(VN_LNK, "self");
+        vn->flags = VN_MEMORY | VN_PER_PROCESS;
+        vn->target_func = sysfs_proc_self;
+        vnode_attach(g_sysfs_proc_dir, vn);
+    }
+}
+
+void proc_add_entry(struct process *proc) {
+    char name[16];
+    _assert(proc && !(proc->flags & THREAD_KERNEL));
+    _assert(proc->pid > 0);
+
+    proc_ensure_dir();
+
+    kdebug("BEGIN ADD ENTRY %d\n", proc->pid);
+    snprintf(name, sizeof(name), "%d", proc->pid);
+    _assert(sysfs_add_dir(g_sysfs_proc_dir, name, &proc->fs_entry) == 0);
+
+    _assert(sysfs_add_config_endpoint(proc->fs_entry, "name", SYSFS_MODE_DEFAULT, 64,
+                                      proc, sysfs_proc_name, NULL) == 0);
+    _assert(sysfs_add_config_endpoint(proc->fs_entry, "ioctx", SYSFS_MODE_DEFAULT, 64,
+                                      proc, sysfs_proc_ioctx, NULL) == 0);
+    kdebug("END ADD ENTRY %d\n", proc->pid);
+}
+
+void proc_del_entry(struct process *proc) {
+    _assert(proc && !(proc->flags & THREAD_KERNEL));
+    _assert(proc->pid > 0);
+    kdebug("BEGIN DEL ENTRY %d\n", proc->pid);
+    sysfs_del_ent(proc->fs_entry);
+    kdebug("END DEL ENTRY %d\n", proc->pid);
+}
 
 void context_save_fpu(struct thread *new, struct thread *old) {
     _assert(old);
@@ -45,7 +101,6 @@ void context_save_fpu(struct thread *new, struct thread *old) {
         memcpy(old->data.fxsave, fxsave_buf, FXSAVE_REGION);
         old->flags |= THREAD_FPU_SAVED;
     }
-
 }
 
 void context_restore_fpu(struct thread *new, struct thread *old) {
@@ -86,8 +141,6 @@ void process_ioctx_fork(struct process *dst, struct process *src) {
     }
 }
 
-
-
 int process_signal_pgid(pid_t pgid, int signum) {
     int ret = 0;
 
@@ -99,7 +152,18 @@ int process_signal_pgid(pid_t pgid, int signum) {
         }
     }
 
-    return ret == 0 ? -1 : ret;
+    return ret == 0 ? -ECHILD : ret;
+}
+
+int process_signal_children(struct process *proc, int signum) {
+    int ret = 0;
+    for (struct process *chld = proc->first_child; chld; chld = chld->next_child) {
+        if (proc->proc_state != PROC_FINISHED) {
+            process_signal(chld, signum);
+            ++ret;
+        }
+    }
+    return ret == 0 ? -ECHILD : 0;
 }
 
 struct process *process_find(pid_t pid) {
@@ -156,6 +220,8 @@ void process_unchild(struct process *proc) {
 
 void process_cleanup(struct process *proc) {
     // Leave only the system context required for hierachy tracking and error code/pid
+    proc_del_entry(proc);
+
     _assert(proc->proc_state == PROC_FINISHED);
     _assert(proc->thread_count == 1);
     proc->flags |= PROC_EMPTY;
@@ -175,6 +241,13 @@ void process_free(struct process *proc) {
     // Make sure all the threads of the process have stopped -
     // only main remains
     _assert(proc->thread_count == 1);
+
+    // Reparent children to #1 if any
+    for (struct process *chld = proc->first_child; chld; chld = chld->next_child) {
+        panic("Not implemented: #%d (%s) has children: #%d (%s)\n",
+              proc->pid, proc->name,
+              chld->pid, chld->name);
+    }
 
     // Sure that no code of this thread will be running anymore -
     // can clean up its stuff
@@ -248,6 +321,9 @@ int process_init_thread(struct process *proc, uintptr_t entry, void *arg, int us
     proc->proc_state = PROC_ACTIVE;
 
     list_add(&proc->g_link, &proc_all_head);
+    if (user) {
+        proc_add_entry(proc);
+    }
 
     return 0;
 }
@@ -441,6 +517,10 @@ int sys_fork(struct sys_fork_frame *frame) {
     struct process *src = src_thread->proc;
     _assert(src);
 
+    if (src->flags & THREAD_KERNEL) {
+        panic("XXX: kthread fork()ing not implemented\n");
+    }
+
     if (src->thread_count != 1) {
         panic("XXX: fork() a multithreaded process\n");
     }
@@ -567,6 +647,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst_thread->data.rsp0 = (uintptr_t) stack;
 
     list_add(&dst->g_link, &proc_all_head);
+    proc_add_entry(dst);
     sched_queue(dst_thread);
 
     return dst->pid;
@@ -739,10 +820,10 @@ int sys_kill(pid_t pid, int signum) {
     } else if (pid == 0) {
         proc = thread_self->proc;
     } else if (pid < -1) {
-        // TODO: check if there's any process in that group
-        process_signal_pgid(-pid, signum);
-
-        return 0;
+        return process_signal_pgid(-pid, signum);
+    } else if (pid == -1) {
+        proc = thread_self->proc;
+        return process_signal_children(proc, signum);
     } else {
         panic("Not implemented\n");
     }

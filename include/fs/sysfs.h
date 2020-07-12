@@ -36,6 +36,8 @@ int sysfs_config_getter(void *ctx, char *buf, size_t lim);
 // ctx: a pointer to an (u)int64_t value
 int sysfs_config_int64_getter(void *ctx, char *buf, size_t lim);
 
+int sysfs_del_ent(struct vnode *dir);
+
 int sysfs_add_dir(struct vnode *at, const char *path, struct vnode **result);
 int sysfs_add_config_endpoint(struct vnode *at, const char *name, mode_t mode, size_t bufsz, void *ctx, cfg_read_func_t read, cfg_write_func_t write);
 void sysfs_populate(void);

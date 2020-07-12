@@ -131,6 +131,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     uintptr_t entry;
     size_t argc;
     int res;
+    int was_kernel = 0;
 
     if ((res = vfs_stat(&proc->ioctx, path, &st)) != 0) {
         kerror("execve(%s): %s\n", path, kstrerror(res));
@@ -205,6 +206,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     }
 
     if (proc->space == mm_kernel) {
+        was_kernel = 1;
         // Have to allocate a new PID for kernel -> userspace transition
         proc->pid = process_alloc_pid(1); //thread_alloc_pid(1);
         proc->pgid = proc->pid;
@@ -280,6 +282,10 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     uintptr_t ustack = vmalloc(proc->space, 0x100000, 0xF0000000, 4, MM_PAGE_USER | MM_PAGE_WRITE /* | MM_PAGE_NOEXEC */, PU_PRIVATE);
     thr->data.rsp3_base = ustack;
     thr->data.rsp3_size = 4 * MM_PAGE_SIZE;
+
+    if (was_kernel) {
+        proc_add_entry(proc);
+    }
 
     // Up to 4095 argc and envc
     _assert(procv_vecp[0] < 4096);

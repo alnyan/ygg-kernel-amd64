@@ -30,6 +30,7 @@ struct vnode *vnode_create(enum vnode_type t, const char *name) {
 
 void vnode_destroy(struct vnode *vn) {
     _assert(vnode_cache);
+    _assert(!vn->open_count);
     slab_free(vnode_cache, vn);
 }
 

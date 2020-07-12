@@ -144,7 +144,7 @@ static int wait_check_pid(struct process *chld, int flags) {
 
 static int wait_check_pgrp(struct process *proc_self, pid_t pgrp, int flags, struct process **chld) {
     for (struct process *_chld = proc_self->first_child; _chld; _chld = _chld->next_child) {
-        if (_chld->pgid == pgrp) {
+        if (pgrp == -1 || _chld->pgid == -pgrp) {
             if (wait_check_pid(_chld, flags) == 0) {
                 *chld = _chld;
                 return 0;
@@ -155,6 +155,7 @@ static int wait_check_pgrp(struct process *proc_self, pid_t pgrp, int flags, str
 }
 
 int sys_waitpid(pid_t pid, int *status, int flags) {
+    pid_t result_pid = -ECHILD;
     struct thread *thr = thread_self;
     _assert(thr);
     struct process *proc_self = thr->proc;
@@ -180,7 +181,7 @@ int sys_waitpid(pid_t pid, int *status, int flags) {
         if (!any_proc) {
             return -ECHILD;
         }
-    } else {
+    } else if (pid != -1) {
         panic("Not implemented: waitpid(%d, ...)\n", pid);
     }
 
@@ -191,16 +192,16 @@ int sys_waitpid(pid_t pid, int *status, int flags) {
             }
 
             res = thread_wait_io(thr, &chld->pid_notify);
-        } else if (pid < -1) {
+        } else if (pid <= -1) {
             // Check if anybody in pgrp has changed status
-            if (wait_check_pgrp(proc_self, -pid, flags, &chld) == 0) {
+            if (wait_check_pgrp(proc_self, pid, flags, &chld) == 0) {
                 _assert(chld);
                 break;
             }
 
             // Build wait list
             for (struct process *_chld = proc_self->first_child; _chld; _chld = _chld->next_child) {
-                if (_chld->pgid == -pid) {
+                if (pid == -1 || _chld->pgid == -pid) {
                     thread_wait_io_add(thr, &_chld->pid_notify);
                 }
             }
@@ -209,6 +210,8 @@ int sys_waitpid(pid_t pid, int *status, int flags) {
             res = thread_wait_io_any(thr, &notify);
 
             thread_wait_io_clear(thr);
+        } else {
+            panic("Shouldn't run\n");
         }
 
         if (res < 0) {
@@ -217,6 +220,7 @@ int sys_waitpid(pid_t pid, int *status, int flags) {
         }
     }
 
+    result_pid = chld->pid;
     if (chld->proc_state == PROC_FINISHED) {
         if (status) {
             *status = chld->exit_status;
@@ -234,5 +238,5 @@ int sys_waitpid(pid_t pid, int *status, int flags) {
         }
     }
 
-    return 0;
+    return result_pid;
 }

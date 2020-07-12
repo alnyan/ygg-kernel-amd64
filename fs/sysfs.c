@@ -146,7 +146,6 @@ static int sysfs_vnode_stat(struct vnode *node, struct stat *st) {
 
 ////
 
-
 int sysfs_config_getter(void *ctx, char *buf, size_t lim) {
     sysfs_buf_puts(buf, lim, ctx);
     sysfs_buf_puts(buf, lim, "\n");
@@ -156,6 +155,33 @@ int sysfs_config_getter(void *ctx, char *buf, size_t lim) {
 int sysfs_config_int64_getter(void *ctx, char *buf, size_t lim) {
     // TODO: long format for snprintf
     sysfs_buf_printf(buf, lim, "%d\n", *(int *) ctx);
+    return 0;
+}
+
+int sysfs_del_ent(struct vnode *ent) {
+    _assert(ent);
+    _assert(ent->parent);
+    vnode_detach(ent);
+
+    switch (ent->type) {
+    case VN_LNK:
+        break;
+    case VN_REG:
+        _assert(ent->op == &g_sysfs_vnode_ops);
+        _assert(ent->fs_data);
+        kfree(ent->fs_data);
+        break;
+    case VN_DIR:
+        while (ent->first_child) {
+            sysfs_del_ent(ent->first_child);
+        }
+        break;
+    default:
+        panic("Unsupported sysfs node type\n");
+        break;
+    }
+
+    vnode_destroy(ent);
     return 0;
 }
 
@@ -172,7 +198,7 @@ int sysfs_add_dir(struct vnode *at, const char *name, struct vnode **res) {
         kdebug("Can't find %s in %s, creating\n", name, at->name);
         tmp = vnode_create(VN_DIR, name);
         tmp->flags |= VN_MEMORY;
-        tmp->op = &g_sysfs_vnode_ops;
+        //tmp->op = &g_sysfs_vnode_ops;
         tmp->mode = S_IXUSR | S_IXGRP | S_IXOTH |
                     S_IRUSR | S_IRGRP | S_IROTH;
 
@@ -214,28 +240,6 @@ int sysfs_add_config_endpoint(struct vnode *at, const char *name, mode_t mode, s
     // TODO: proper check that "at" vnode belongs to sysfs
     _assert(at->flags & VN_MEMORY);
     vnode_attach(at, node);
-
-    return 0;
-}
-
-// TODO: move this to an appropriate place
-#define PROC_PROP_PID           1
-#define PROC_PROP_NAME          2
-
-static int proc_property_getter(void *ctx, char *buf, size_t lim) {
-    uint64_t prop = (uint64_t) ctx;
-    struct process *proc = thread_self->proc;
-    _assert(proc);
-
-    switch (prop) {
-    case PROC_PROP_PID:
-        sysfs_buf_printf(buf, lim, "%d\n", (int) proc->pid);
-        break;
-    case PROC_PROP_NAME:
-        sysfs_buf_puts(buf, lim, proc->name);
-        sysfs_buf_puts(buf, lim, "\n");
-        break;
-    }
 
     return 0;
 }
@@ -294,10 +298,6 @@ void sysfs_populate(void) {
     sysfs_add_config_endpoint(dir, "version", SYSFS_MODE_DEFAULT, sizeof(KERNEL_VERSION_STR) + 1, KERNEL_VERSION_STR, sysfs_config_getter, NULL);
     sysfs_add_config_endpoint(dir, "uptime", SYSFS_MODE_DEFAULT, 32, NULL, system_uptime_getter, NULL);
     sysfs_add_config_endpoint(dir, "modules", SYSFS_MODE_DEFAULT, 512, NULL, mod_list, NULL);
-
-    sysfs_add_dir(NULL, "self", &dir);
-    sysfs_add_config_endpoint(dir, "pid", SYSFS_MODE_DEFAULT, 16, (void *) PROC_PROP_PID, proc_property_getter, NULL);
-    sysfs_add_config_endpoint(dir, "name", SYSFS_MODE_DEFAULT, 128, (void *) PROC_PROP_NAME, proc_property_getter, NULL);
 
     sysfs_add_config_endpoint(NULL, "mem", SYSFS_MODE_DEFAULT, 512, NULL, system_mem_getter, NULL);
 }

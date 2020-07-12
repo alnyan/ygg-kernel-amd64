@@ -87,6 +87,9 @@ struct process {
     // Signal
     uint64_t sigq;
 
+    // procfs
+    struct vnode *fs_entry;
+
     // State
     char name[256];
     uint32_t flags;
@@ -113,7 +116,8 @@ struct thread *process_first_thread(struct process *proc);
 #define THR_INIT_STACK_SET      (1 << 1)
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags);
 void thread_dump(struct thread *thr);
-//void thread_cleanup(struct thread *thr);
+
+void proc_add_entry(struct process *proc);
 
 struct process *process_child(struct process *of, pid_t pid);
 void process_unchild(struct process *proc);
