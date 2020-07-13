@@ -31,6 +31,7 @@ struct console_buffer {
     int esc_mode;
     // Cursor
     uint16_t y, x;
+    uint16_t saved_y, saved_x;
     // Blink
     uint16_t last_blink_y, last_blink_x;
     uint16_t data[0];
@@ -42,6 +43,8 @@ static struct console_buffer *console_buffer_create(uint16_t rows, uint16_t cols
     memsetw(buf->data, ATTR_DEFAULT, rows * cols);
     buf->y = 0;
     buf->x = 0;
+    buf->saved_y = 0;
+    buf->saved_x = 0;
     buf->last_blink_x = 0;
     buf->last_blink_y = 0;
     buf->attr = ATTR_DEFAULT;
@@ -140,6 +143,14 @@ static void process_csi(struct console *con, struct console_buffer *buf) {
             }
         }
         break;
+    case 's':
+        buf->saved_x = buf->x;
+        buf->saved_y = buf->y;
+        break;
+    case 'u':
+        buf->x = buf->saved_x;
+        buf->y = buf->saved_y;
+        break;
     case 'J':
         switch (buf->esc_argv[0]) {
         case 0:
@@ -217,6 +228,8 @@ static void process_csi(struct console *con, struct console_buffer *buf) {
     case 'K':
         // Erase end of line
         memsetw(&buf->data[buf->y * con->width_chars + buf->x], buf->attr, con->width_chars - buf->x);
+        // TODO: allow flushing a single line
+        console_flush(con, buf);
         break;
     default:
         kdebug("\033[31mUnknown CSI sequence: %c\033[0m\n", buf->esc_letter);
