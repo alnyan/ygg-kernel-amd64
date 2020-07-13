@@ -66,5 +66,3 @@ struct user_stack {
 #if !defined(__KERNEL__)
 typedef struct user_stack stack_t;
 #endif
-
-int kill(int pid, int signum);

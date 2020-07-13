@@ -9,7 +9,6 @@ KERNEL_HEADERS="include/user/fcntl.h \
                 include/user/errno.h \
                 include/user/time.h \
                 include/user/dirent.h \
-                include/user/ioctl.h \
                 include/user/stat.h \
                 include/user/statvfs.h \
                 include/user/mount.h \

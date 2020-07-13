@@ -6,6 +6,7 @@
 #include "arch/amd64/cpu.h"
 #include "user/signum.h"
 #include "user/reboot.h"
+#include "sys/reboot.h"
 #include "sys/assert.h"
 #include "sys/thread.h"
 #include "sys/sched.h"

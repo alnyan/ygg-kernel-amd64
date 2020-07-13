@@ -8,7 +8,3 @@ struct utsname {
     char machine[16];
     char domainname[64];
 };
-
-#if !defined(__KERNEL__)
-int uname(struct utsname *buf);
-#endif
