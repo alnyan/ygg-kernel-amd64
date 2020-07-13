@@ -10,7 +10,7 @@ typedef long int __fd_mask;
 //       per-process filedes count
 #define __FD_SETSIZE    64
 
-typedef struct {
+typedef struct fd_set {
     __fd_mask fds_bits[__FD_SETSIZE / __NFDBITS];
 } fd_set;
 
