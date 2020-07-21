@@ -1,23 +1,6 @@
 #pragma once
 #include <sys/types.h>
 
-//#define SIGHUP      1
-//#define SIGINT      2
-//#define SIGQUIT     3
-//#define SIGTRAP     5
-//#define SIGABRT     6
-//#define SIGKILL     9
-//#define SIGUSR1     10
-//#define SIGSEGV     11
-//#define SIGSYS      12
-//#define SIGPIPE     13
-//#define SIGALRM     14
-//#define SIGTERM     15
-//#define SIGSTOP     19
-//#define SIGCHLD     17
-//#define SIGCONT     18
-//#define SIGTTIN     21
-//#define SIGTTOU     22
 #define SIGHUP           1
 #define SIGINT           2
 #define SIGQUIT          3

@@ -189,7 +189,7 @@ int elf_load(struct process *proc, struct vfs_ioctx *ctx, struct ofile *fd, uint
         }
     }
 
-    proc->brk = proc->image_end;
+    proc->brk = (proc->image_end + MM_PAGE_SIZE - 1) & ~MM_PAGE_OFFSET_MASK;
 
     *entry = ehdr.e_entry;
     res = 0;
