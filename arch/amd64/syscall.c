@@ -111,7 +111,7 @@ void *syscall_table[256] = {
 };
 
 int syscall_undefined(uint64_t rax) {
-    kwarn("Undefined syscall: %d\n", rax);
+    panic("TODO: exception signals\n");
     return -ENOSYS;
 }
 
