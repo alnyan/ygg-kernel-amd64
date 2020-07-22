@@ -46,6 +46,16 @@ static int sysfs_proc_name(void *ctx, char *buf, size_t lim) {
     return 0;
 }
 
+static int sysfs_proc_parent(void *ctx, char *buf, size_t lim) {
+    struct process *proc = ctx;
+    if (!proc->parent) {
+        sysfs_buf_printf(buf, lim, "1\n");
+    } else {
+        sysfs_buf_printf(buf, lim, "%d\n", proc->parent->pid);
+    }
+    return 0;
+}
+
 static int sysfs_proc_ioctx(void *ctx, char *buf, size_t lim) {
     struct process *proc = ctx;
     sysfs_buf_printf(buf, lim, "%d:%d\n", proc->ioctx.uid, proc->ioctx.gid);
@@ -81,6 +91,8 @@ void proc_add_entry(struct process *proc) {
 
     _assert(sysfs_add_config_endpoint(proc->fs_entry, "name", SYSFS_MODE_DEFAULT, 64,
                                       proc, sysfs_proc_name, NULL) == 0);
+    _assert(sysfs_add_config_endpoint(proc->fs_entry, "parent", SYSFS_MODE_DEFAULT, 64,
+                                      proc, sysfs_proc_parent, NULL) == 0);
     _assert(sysfs_add_config_endpoint(proc->fs_entry, "ioctx", SYSFS_MODE_DEFAULT, 64,
                                       proc, sysfs_proc_ioctx, NULL) == 0);
     kdebug("END ADD ENTRY %d\n", proc->pid);
@@ -222,6 +234,22 @@ void process_cleanup(struct process *proc) {
     // Leave only the system context required for hierachy tracking and error code/pid
     proc_del_entry(proc);
 
+    // Reparent all children to init (1)
+    struct process *chld = proc->first_child, *chld_next;
+    struct process *init;
+    while (chld) {
+        init = process_find(1);
+        _assert(init);
+
+        chld_next = chld->next_child;
+        chld->parent = init;
+        chld->next_child = init->first_child;
+        init->first_child = chld;
+
+        chld = chld_next;
+    }
+    proc->first_child = NULL;
+
     _assert(proc->proc_state == PROC_FINISHED);
     _assert(proc->thread_count == 1);
     proc->flags |= PROC_EMPTY;
@@ -241,13 +269,6 @@ void process_free(struct process *proc) {
     // Make sure all the threads of the process have stopped -
     // only main remains
     _assert(proc->thread_count == 1);
-
-    // Reparent children to #1 if any
-    for (struct process *chld = proc->first_child; chld; chld = chld->next_child) {
-        panic("Not implemented: #%d (%s) has children: #%d (%s)\n",
-              proc->pid, proc->name,
-              chld->pid, chld->name);
-    }
 
     // Sure that no code of this thread will be running anymore -
     // can clean up its stuff
