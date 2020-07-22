@@ -875,6 +875,17 @@ pid_t sys_getpid(void) {
     return thread_self->proc->pid;
 }
 
+pid_t sys_getppid(void) {
+    _assert(thread_self && thread_self->proc);
+    struct process *proc = thread_self->proc;
+    if (!proc->parent) {
+        _assert(proc->pid == 1);
+        return 1;
+    } else {
+        return proc->parent->pid;
+    }
+}
+
 pid_t sys_getpgid(pid_t pid) {
     struct process *proc;
 

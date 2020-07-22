@@ -82,6 +82,7 @@ void *syscall_table[256] = {
     [SYSCALL_NR_GETPGID] =          sys_getpgid,
     [SYSCALL_NR_SETPGID] =          sys_setpgid,
     [SYSCALL_NR_SIGALTSTACK] =      sys_sigaltstack,
+    [SYSCALL_NR_GETPPID] =          sys_getppid,
 
     // System
     [SYSCALL_NR_SYNC] =             sys_sync,

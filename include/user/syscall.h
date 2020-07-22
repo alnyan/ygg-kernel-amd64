@@ -51,6 +51,7 @@
 #define SYSCALL_NR_SETUID           105
 #define SYSCALL_NR_SETGID           106
 #define SYSCALL_NR_SETPGID          109
+#define SYSCALL_NR_GETPPID          110
 #define SYSCALL_NR_GETPGID          121
 #define SYSCALL_NR_SIGALTSTACK      131
 #define SYSCALL_NRX_WAITPID         247

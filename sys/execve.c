@@ -218,6 +218,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
         }
         proc->first_child = NULL;
         proc->next_child = NULL;
+        // TODO: automatically parent all subsequent processes to init (1)
         proc->parent = NULL;
         proc->sigq = 0;
 
