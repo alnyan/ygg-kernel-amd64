@@ -233,6 +233,10 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
     fd->file.vnode = node;
     fd->flags = 0;
 
+    // Check for any unknown flags
+    if ((opt & ~O_ACCMODE) & ~(O_CLOEXEC)) {
+        panic("Maybe I've forgot to handle this flag? opt = %x\n", opt);
+    }
     switch (opt & O_ACCMODE) {
     case O_RDONLY:
         fd->flags |= OF_READABLE;
@@ -243,6 +247,9 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
     case O_RDWR:
         fd->flags |= OF_READABLE | OF_WRITABLE;
         break;
+    }
+    if (opt & O_CLOEXEC) {
+        fd->flags |= OF_CLOEXEC;
     }
 
     // 1. If file operations struct specifies some non-trivial open()

@@ -12,7 +12,7 @@
 
 // O_EXEC is a special one for opening a node for
 //        execution
-#define O_EXEC      (1 << 2)
+#define O_EXEC          (1 << 2)
 
 #define O_ACCMODE       00000003
 #define O_RDONLY        00000000
@@ -33,4 +33,4 @@
 // #define O_NOFOLLOW      00400000
 // #define O_NOATIME       01000000
 // #define O_CLOEXEC       02000000
-
+#define O_CLOEXEC       (1 << 19)

@@ -249,6 +249,14 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
 
     vfs_close(&proc->ioctx, &fd);
 
+    // Close O_CLOEXEC files
+    for (size_t i = 0; i < THREAD_MAX_FDS; ++i) {
+        if (proc->fds[i] && (proc->fds[i]->flags & OF_CLOEXEC)) {
+            ofile_close(&proc->ioctx, proc->fds[i]);
+            proc->fds[i] = NULL;
+        }
+    }
+
     // Allocate a virtual address to map argp page
     uintptr_t procv_virt = vmfind(proc->space, 0x100000, 0xF0000000, procv_page_count);
     _assert(procv_virt != MM_NADDR);

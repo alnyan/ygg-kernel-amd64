@@ -10,6 +10,7 @@
 #define OF_MEMDIR_DOT       (1 << 4)
 #define OF_MEMDIR_DOTDOT    (1 << 5)
 #define OF_SOCKET           (1 << 6)
+#define OF_CLOEXEC          (1 << 7)
 
 struct vfs_ioctx;
 
