@@ -1,5 +1,6 @@
 #pragma once
 #include "sys/types.h"
+#include "sys/list.h"
 
 struct statvfs;
 struct blkdev;
@@ -15,6 +16,8 @@ struct fs_class {
     int (*init) (struct fs *fs, const char *opt);
     void (*destroy) (struct fs *fs);
     int (*statvfs) (struct fs *fs, struct statvfs *st);
+
+    struct list_head link;
 };
 
 // The actual filesystem instance,
@@ -29,6 +32,8 @@ struct fs {
     void *fs_private;
 
     struct fs_class *cls;
+
+    struct list_head link;
 };
 
 struct fs *fs_create(struct fs_class *cls, struct blkdev *blk, uint32_t flags, const char *opt);
