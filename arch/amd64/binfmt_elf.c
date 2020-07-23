@@ -46,7 +46,7 @@ static int elf_read(struct vfs_ioctx *ctx, struct ofile *fd, off_t pos, void *ds
     }
 
     if ((bread = vfs_read(ctx, fd, dst, count)) != (ssize_t) count) {
-        return bread;
+        panic("TODO: properly handle this case\n");
     }
 
     return 0;

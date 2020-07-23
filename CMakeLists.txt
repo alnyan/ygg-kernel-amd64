@@ -87,7 +87,8 @@ set(SRC arch/amd64/kernel.c
 	    fs/ofile.c
 	    fs/node.c
 	    fs/sysfs.c
-	    fs/tar.c
+	    fs/ram.c
+        fs/ram_tar.c
 	    fs/ext2/block.c
 	    fs/ext2/ext2.c
 	    fs/ext2/node.c
