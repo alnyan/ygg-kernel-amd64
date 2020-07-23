@@ -113,6 +113,10 @@ static inline bool tar_isdir(struct tar_header *hdr) {
     return hdr->typeflag[0] == '5';
 }
 
+static inline bool tar_issym(struct tar_header *hdr) {
+    return hdr->typeflag[0] == '2';
+}
+
 int tar_init(struct fs *ramfs, void *mem_base) {
     size_t off = 0;
     char *bytes;
@@ -191,7 +195,27 @@ int tar_init(struct fs *ramfs, void *mem_base) {
         node->gid = tar_octal(hdr->gid, sizeof(hdr->uid));
         node->mode = tar_octal(hdr->mode, sizeof(hdr->mode)) & VFS_MODE_MASK;
 
-        if (tar_isreg(hdr)) {
+        if (tar_issym(hdr)) {
+            // Fix node type
+            node->type = VN_LNK;
+
+            if (hdr->linkname[0] == '/') {
+                if ((res = tar_mapper_create_path(ramfs->fs_private,
+                                                  hdr->linkname + 1,
+                                                  &node->target,
+                                                  0, 0)) != 0) {
+                    panic("Broken symlink in initrd: '%s' -> '%s'\n", hdr->name, hdr->linkname);
+                }
+            } else {
+                if ((res = tar_mapper_create_path(node,
+                                                  hdr->linkname,
+                                                  &node->target,
+                                                  0, 0)) != 0) {
+                    panic("Broken symlink in initrd: '%s' -> '%s'\n", hdr->name, hdr->linkname);
+                }
+
+            }
+        } else if (tar_isreg(hdr)) {
             file_length = tar_octal(hdr->size, sizeof(hdr->size));
             file_block_count = (511 + file_length) / 512;
 
