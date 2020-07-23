@@ -4,6 +4,7 @@
 #include "sys/char/chr.h"
 #include "sys/char/tty.h"
 #include "sys/assert.h"
+#include "sys/ctype.h"
 #include "sys/debug.h"
 
 ssize_t line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) {
@@ -46,20 +47,36 @@ ssize_t line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) {
             }
         }
 
-        if (c == 0x7F) {
-            if (chr->tc.c_iflag & ICANON) {
+        if (c == 0x17 && chr->tc.c_iflag & ICANON) {
+            // Erase until the beginning of the word
+            // TODO: erase preceding space groups
+            while (rd) {
+                if (rd > 1 && isspace(*(wr - 1))) {
+                    break;
+                }
                 if (chr->tc.c_lflag & ECHOE) {
                     tty_puts(chr, "\033[D \033[D");
                 }
 
-                if (rd) {
-                    --wr;
-                    ++rem;
-                    --rd;
+                --wr;
+                ++rem;
+                --rd;
+            }
+
+            continue;
+        }
+        if (c == 0x7F && chr->tc.c_iflag & ICANON) {
+            if (rd) {
+                if (chr->tc.c_lflag & ECHOE) {
+                    tty_puts(chr, "\033[D \033[D");
                 }
 
-                continue;
+                --wr;
+                ++rem;
+                --rd;
             }
+
+            continue;
         }
 
         *wr++ = c;

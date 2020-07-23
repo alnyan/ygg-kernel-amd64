@@ -68,6 +68,7 @@ void tty_data_write(struct chrdev *tty, char c) {
             ring_signal(&tty->buffer, RING_SIGNAL_RET);
         }
         break;
+    case 0x17:
     case 0x7F:
         ring_signal(&tty->buffer, 0);
         break;

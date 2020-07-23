@@ -80,6 +80,9 @@ void input_key(uint8_t key, uint8_t mods, const char *map0, const char *map1) {
         case 'c':
             console_type(g_keyboard_console, 3);    // ETX
             break;
+        case 'w':
+            console_type(g_keyboard_console, 23);   // ETB
+            break;
         case 'z':
             console_type(g_keyboard_console, 26);   // SUB
             break;
