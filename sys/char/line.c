@@ -46,26 +46,19 @@ ssize_t line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) {
             }
         }
 
-        // TODO: ICANON
-        if (c == '\033') {
-            if (rem >= 2) {
-                *wr++ = '^';
-                *wr++ = '[';
-            }
-            rem -= 2;
-            rd += 2;
-            continue;
-        }
-
-        if (c == '\b' && (chr->tc.c_lflag & ECHOE)) {
+        if (c == '\b') {
             if (rd) {
-                tty_puts(chr, "\033[D \033[D");
+                if (chr->tc.c_lflag & ECHOE) {
+                    tty_puts(chr, "\033[D \033[D");
+                }
 
-                --wr;
-                ++rem;
-                --rd;
+                if (chr->tc.c_iflag & ICANON) {
+                    --wr;
+                    ++rem;
+                    --rd;
+                    continue;
+                }
             }
-            continue;
         }
 
         *wr++ = c;
