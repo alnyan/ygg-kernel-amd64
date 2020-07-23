@@ -254,13 +254,6 @@ void process_cleanup(struct process *proc) {
     _assert(proc->thread_count == 1);
     proc->flags |= PROC_EMPTY;
     kdebug("Cleaning up %d\n", proc->pid);
-    for (size_t i = 0; i < THREAD_MAX_FDS; ++i) {
-        if (proc->fds[i]) {
-            ofile_close(&proc->ioctx, proc->fds[i]);
-            proc->fds[i] = NULL;
-        }
-    }
-
     // Release userspace pages
     mm_space_release(proc);
 }
@@ -735,6 +728,14 @@ __attribute__((noreturn)) void sys_exit(int status) {
     // Clear pending I/O (if exiting from signal interrupting select())
     if (!list_empty(&thr->wait_head)) {
         thread_wait_io_clear(thr);
+    }
+
+    // Close FDs even before being reaped
+    for (size_t i = 0; i < THREAD_MAX_FDS; ++i) {
+        if (proc->fds[i]) {
+            ofile_close(&proc->ioctx, proc->fds[i]);
+            proc->fds[i] = NULL;
+        }
     }
 
     proc->exit_status = status;
