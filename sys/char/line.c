@@ -46,18 +46,19 @@ ssize_t line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) {
             }
         }
 
-        if (c == '\b') {
-            if (rd) {
+        if (c == 0x7F) {
+            if (chr->tc.c_iflag & ICANON) {
                 if (chr->tc.c_lflag & ECHOE) {
                     tty_puts(chr, "\033[D \033[D");
                 }
 
-                if (chr->tc.c_iflag & ICANON) {
+                if (rd) {
                     --wr;
                     ++rem;
                     --rd;
-                    continue;
                 }
+
+                continue;
             }
         }
 

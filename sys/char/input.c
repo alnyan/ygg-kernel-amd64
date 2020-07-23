@@ -55,7 +55,7 @@ void input_key(uint8_t key, uint8_t mods, const char *map0, const char *map1) {
         const char *map = (mods & INPUT_MOD_SHIFT) ? map1 : map0;
         uint8_t c = map[key];
 
-        if (c && c < 0x7F) {
+        if (c && c <= 0x7F) {
             if (mods & INPUT_MOD_CAPS) {
                 if (islower(c)) {
                     c = toupper(c);
