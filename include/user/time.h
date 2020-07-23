@@ -16,7 +16,7 @@ struct timespec {
     long tv_nsec;
 };
 
-typedef uint64_t time_t;
+typedef int64_t time_t;
 
 // TODO: move to kernel header
 #if defined(__KERNEL__)
