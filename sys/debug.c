@@ -122,7 +122,7 @@ int debug_symbol_find(uintptr_t addr, const char **name, uintptr_t *base) {
     return -1;
 }
 
-void debug_backtrace(uintptr_t rbp, int depth, int limit) {
+void debug_backtrace(int level, uintptr_t rbp, int depth, int limit) {
     // Typical layout:
     // rbp + 08 == rip
     // rbp + 00 == rbp_1
@@ -132,7 +132,7 @@ void debug_backtrace(uintptr_t rbp, int depth, int limit) {
     }
 
     if ((rbp & 0xFFFFFF0000000000) != 0xFFFFFF0000000000) {
-        debugs(DEBUG_FATAL, "-- %rbp is not from kernel space\n");
+        debugs(level, "-- %rbp is not from kernel space\n");
         return;
     }
 
@@ -143,17 +143,17 @@ void debug_backtrace(uintptr_t rbp, int depth, int limit) {
     const char *name;
 
     if (debug_symbol_find(rip, &name, &base) == 0) {
-        debugf(DEBUG_FATAL, "%d: %p <%s + %04x>\n", depth, rip, name, rip - base);
+        debugf(level, "%d: %p <%s + %04x>\n", depth, rip, name, rip - base);
     } else {
-        debugf(DEBUG_FATAL, "%d: %p (unknown)\n", depth, rip);
+        debugf(level, "%d: %p (unknown)\n", depth, rip);
     }
 
     if (rbp_next == 0) {
-        debugs(DEBUG_FATAL, "-- End of frame chain\n");
+        debugs(level, "-- End of frame chain\n");
         return;
     }
 
-    debug_backtrace(rbp_next, depth + 1, limit - 1);
+    debug_backtrace(level, rbp_next, depth + 1, limit - 1);
 }
 
 ////

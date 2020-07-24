@@ -26,7 +26,7 @@ void panicf(const char *fmt, ...) {
     va_end(args);
 
     debugs(DEBUG_FATAL, "Call trace:\n");
-    debug_backtrace(rbp, 0, 10);
+    debug_backtrace(DEBUG_FATAL, rbp, 0, 10);
     debugs(DEBUG_FATAL, "\033[0,");
 
     kfatal("--- Panic ---\n");
