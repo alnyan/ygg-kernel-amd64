@@ -119,7 +119,7 @@ int tty_create(struct console *master) {
     return 0;
 }
 
-void tty_putc(struct chrdev *tty, char c) {
+void tty_putc(struct chrdev *tty, int c) {
     struct tty_data *data = tty->dev_data;
     _assert(data);
     _assert(data->master);
@@ -142,7 +142,7 @@ static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t
     _assert(data);
 
     for (size_t i = 0; i < lim; ++i) {
-        console_putc(data->master, tty, ((const char *) buf)[i]);
+        console_putc(data->master, tty, ((const unsigned char *) buf)[i]);
     }
 
     return lim;
