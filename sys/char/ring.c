@@ -96,11 +96,17 @@ int ring_putc(struct thread *ctx, struct ring *ring, char c, int wait) {
     if (wait) {
         int res;
         while (!ring_writable(ring)) {
+            if (ring->flags & RING_SIGNAL_EOF) {
+                return -EPIPE;
+            }
             if ((res = thread_wait_io(ctx, &ring->writer_wait)) != 0) {
                 _assert(res == -EINTR);
                 return res;
             }
         }
+    }
+    if (ring->flags & RING_SIGNAL_EOF) {
+        return -EPIPE;
     }
 
     ring->base[ring->wr] = c;
@@ -122,6 +128,7 @@ int ring_write(struct thread *ctx, struct ring *ring, const void *buf, size_t le
 void ring_signal(struct ring *r, int s) {
     r->flags |= s;
     thread_notify_io(&r->wait);
+    thread_notify_io(&r->writer_wait);
 }
 
 int ring_init(struct ring *r, size_t cap) {

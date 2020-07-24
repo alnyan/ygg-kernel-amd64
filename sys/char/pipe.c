@@ -108,9 +108,7 @@ static ssize_t pipe_vnode_read(struct ofile *of, void *buf, size_t count) {
 
 static void pipe_vnode_close(struct ofile *of) {
     _assert(of && of->file.priv_data);
-    if (of->flags & OF_WRITABLE) {
-        ring_signal(of->file.priv_data, RING_SIGNAL_EOF);
-    }
+    ring_signal(of->file.priv_data, RING_SIGNAL_EOF);
     // TODO: this
     //kfree(((struct ring *) of->file.priv_data)->base);
     //kfree(of->file.priv_data);
