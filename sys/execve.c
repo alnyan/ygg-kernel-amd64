@@ -234,6 +234,8 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
         _assert(thr->data.fxsave);
 
         thr->data.cr3 = MM_PHYS(proc->space);
+        // Switch CR3 to the newly allocated space!
+        asm volatile ("movq %0, %%rax; movq %%rax, %%cr3"::"a"(thr->data.cr3));
         asm volatile ("sti");
     } else {
         mm_space_release(proc);
