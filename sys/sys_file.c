@@ -246,6 +246,9 @@ int sys_dup2(int from, int to) {
     if (from < 0 || to < 0 || from >= THREAD_MAX_FDS || to >= THREAD_MAX_FDS) {
         return -EBADF;
     }
+    if (to == from) {
+        return to;
+    }
 
     // TODO: process_self macro?
     struct process *proc = thread_self->proc;
