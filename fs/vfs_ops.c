@@ -234,8 +234,8 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
     fd->flags = 0;
 
     // Check for any unknown flags
-    if ((opt & ~O_ACCMODE) & ~(O_CLOEXEC)) {
-        panic("Maybe I've forgot to handle this flag? opt = %x\n", opt);
+    if ((opt & ~O_ACCMODE) & ~(O_CLOEXEC | O_CREAT | O_TRUNC)) {
+        panic("Maybe I've forgot to handle this flag? opt = %x\n", opt & ~(O_ACCMODE | O_CLOEXEC));
     }
     switch (opt & O_ACCMODE) {
     case O_RDONLY:

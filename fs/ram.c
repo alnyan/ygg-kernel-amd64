@@ -23,9 +23,12 @@ static struct vnode_operations _ramfs_vnode_op;
 // L0 block pointer is a direct pointer to file data
 // So L0 -> 512 bytes
 // Ln (n > 0) -> 4K bytes
-#define RAM_BLOCKS_L0           16
-#define RAM_BLOCKS_L1           12
+#define RAM_BLOCKS_L0           32
+#define RAM_BLOCKS_L1           24
 #define RAM_BLOCKS_PER_Ln       512
+
+// Maximum achievable blocks at L1
+#define RAM_MAX_L1              (RAM_BLOCKS_L1 * RAM_BLOCKS_PER_Ln)
 
 // BSet block index flags
 #define RAM_BSET_AVAIL          (1 << 0)        // Means the index is available for use (see resize)
@@ -85,36 +88,72 @@ int ram_vnode_bset_resize(struct vnode *vn, size_t size) {
     count = (size + 511) / 512;
 
     if (priv->bpa_cap > count) {
-        panic("TODO: downsize bset\n");
-    }
-
-    for (size_t i = priv->bpa_cap; i < count; ++i) {
-        if (i < RAM_BLOCKS_L0) {
-            // Make sure no block is written beyound capacity
-            _assert(!priv->bpa_l0[i]);
-            index_dst = &priv->bpa_l0[i];
-        } else if (i < (RAM_BLOCKS_L0 + RAM_BLOCKS_L1 * RAM_BLOCKS_PER_Ln)) {
-            l1_index = (i - RAM_BLOCKS_L0) / RAM_BLOCKS_PER_Ln;
-            l0_index = (i - RAM_BLOCKS_L0) % RAM_BLOCKS_PER_Ln;
-
-            // Allocate L1 block, if it hasn't been yet
-            if (!priv->bpa_l1[l1_index]) {
-                blk = mm_phys_alloc_page();
-                _assert(blk != MM_NADDR);
-                priv->bpa_l1[l1_index] = (uintptr_t *) MM_VIRTUALIZE(blk);
-                memset(priv->bpa_l1[l1_index], 0, RAM_BLOCKS_PER_Ln * sizeof(uintptr_t));
+        // Free the blocks
+        for (size_t i = count; i < priv->bpa_cap; ++i) {
+            if (i < RAM_BLOCKS_L0) {
+                blk = priv->bpa_l0[i];
+                priv->bpa_l0[i] = 0;
+            } else if (i < (RAM_BLOCKS_L0 + RAM_BLOCKS_L1 * RAM_BLOCKS_PER_Ln)) {
+                l1_index = (i - RAM_BLOCKS_L0) / RAM_BLOCKS_PER_Ln;
+                l0_index = (i - RAM_BLOCKS_L0) % RAM_BLOCKS_PER_Ln;
+                _assert(priv->bpa_l1[l1_index]);
+                blk = priv->bpa_l1[l1_index][l0_index];
+            } else {
+                panic("Block index too large: %u\n", i);
             }
 
-            index_dst = &(priv->bpa_l1[l1_index][l0_index]);
-        } else {
-            panic("Block index too large: %u\n", i);
+            _assert(blk & RAM_BSET_AVAIL);
+            if (blk & RAM_BSET_ALLOC) {
+                blk &= ~511;
+                mm_phys_free_page(MM_PHYS(blk));
+            }
         }
 
-        // Mark the index as "available for use"
-        *index_dst = RAM_BSET_AVAIL;
+        // Free L1 structures
+        if (priv->bpa_cap > RAM_BLOCKS_L0 && count <= (RAM_BLOCKS_L0 + RAM_BLOCKS_L1 * RAM_BLOCKS_PER_Ln)) {
+            // L1 block count
+            size_t block_index = MIN((priv->bpa_cap - RAM_BLOCKS_L0 + RAM_BLOCKS_PER_Ln - 1) / RAM_BLOCKS_PER_Ln, RAM_BLOCKS_L1);
+            // New L1 count
+            size_t block_start = (count + RAM_BLOCKS_PER_Ln - RAM_BLOCKS_L0 - 1) / RAM_BLOCKS_PER_Ln;
+            _assert(block_start <= block_index);
+
+            for (size_t i = block_start; i < block_index; ++i) {
+                _assert(priv->bpa_l1[l1_index]);
+                mm_phys_free_page(MM_PHYS(priv->bpa_l1[l1_index]));
+                priv->bpa_l1[l1_index] = NULL;
+            }
+        }
+        // TODO: handle L2
+    } else {
+        for (size_t i = priv->bpa_cap; i < count; ++i) {
+            if (i < RAM_BLOCKS_L0) {
+                // Make sure no block is written beyound capacity
+                _assert(!priv->bpa_l0[i]);
+                index_dst = &priv->bpa_l0[i];
+            } else if (i < (RAM_BLOCKS_L0 + RAM_BLOCKS_L1 * RAM_BLOCKS_PER_Ln)) {
+                l1_index = (i - RAM_BLOCKS_L0) / RAM_BLOCKS_PER_Ln;
+                l0_index = (i - RAM_BLOCKS_L0) % RAM_BLOCKS_PER_Ln;
+
+                // Allocate L1 block, if it hasn't been yet
+                if (!priv->bpa_l1[l1_index]) {
+                    blk = mm_phys_alloc_page();
+                    _assert(blk != MM_NADDR);
+                    priv->bpa_l1[l1_index] = (uintptr_t *) MM_VIRTUALIZE(blk);
+                    memset(priv->bpa_l1[l1_index], 0, RAM_BLOCKS_PER_Ln * sizeof(uintptr_t));
+                }
+
+                index_dst = &(priv->bpa_l1[l1_index][l0_index]);
+            } else {
+                panic("Block index too large: %u\n", i);
+            }
+
+            // Mark the index as "available for use"
+            *index_dst = RAM_BSET_AVAIL;
+        }
     }
 
     priv->size = size;
+    priv->bpa_cap = count;
 
     return 0;
 }
@@ -152,7 +191,7 @@ int ram_vnode_bset_set(struct vnode *vn, size_t index, uintptr_t block) {
 
     // TODO: allow calls with NULL block to automatically allocate one
     // Blocks must be aligned
-    _assert(!(block & 511));
+    _assert(!(block & 511) || (block & RAM_BSET_ALLOC));
     // This doesn't mean the index can be reused, just that the index is
     // within capacity limit and is legit
     block |= RAM_BSET_AVAIL;
@@ -182,13 +221,19 @@ int ram_vnode_bset_set(struct vnode *vn, size_t index, uintptr_t block) {
 static int ramfs_vnode_open(struct ofile *of, int opt);
 static int ramfs_vnode_stat(struct vnode *vn, struct stat *st);
 static ssize_t ramfs_vnode_read(struct ofile *of, void *buf, size_t count);
+static ssize_t ramfs_vnode_write(struct ofile *of, const void *buf, size_t count);
 static off_t ramfs_vnode_lseek(struct ofile *of, off_t off, int whence);
+static int ramfs_vnode_creat(struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode);
+static int ramfs_vnode_truncate(struct vnode *at, size_t size);
 
 static struct vnode_operations _ramfs_vnode_op = {
     .open = ramfs_vnode_open,
     .stat = ramfs_vnode_stat,
     .read = ramfs_vnode_read,
+    .write = ramfs_vnode_write,
     .lseek = ramfs_vnode_lseek,
+    .creat = ramfs_vnode_creat,
+    .truncate = ramfs_vnode_truncate,
 };
 
 static int ram_init(struct fs *ramfs, const char *opt) {
@@ -233,7 +278,7 @@ static struct fs_class _ramfs = {
 
 static int ramfs_vnode_open(struct ofile *of, int opt) {
     if (of->flags & OF_WRITABLE) {
-        panic("Not implemented\n");
+        // TODO: check if vnode is locked for write
     }
     return 0;
 }
@@ -250,6 +295,12 @@ static int ramfs_vnode_stat(struct vnode *vn, struct stat *st) {
     switch (vn->type) {
     case VN_REG:
         st->st_mode |= S_IFREG;
+        break;
+    case VN_LNK:
+        st->st_mode |= S_IFLNK;
+        break;
+    case VN_DIR:
+        st->st_mode |= S_IFDIR;
         break;
     default:
         panic("TODO\n");
@@ -295,7 +346,7 @@ static ssize_t ramfs_vnode_read(struct ofile *of, void *buf, size_t count) {
         _assert(can_read);
 
         blk = ram_vnode_bset_get(vn, block_index);
-        _assert(blk != MM_NADDR);
+        _assert(blk & ~511);
 
         // Strip flags from block ptr
         blk &= ~511;
@@ -305,6 +356,62 @@ static ssize_t ramfs_vnode_read(struct ofile *of, void *buf, size_t count) {
         off += can_read;
         rem -= can_read;
         of->file.pos += can_read;
+    }
+
+    return off;
+}
+
+static ssize_t ramfs_vnode_write(struct ofile *of, const void *buf, size_t count) {
+    struct ram_vnode_private *priv;
+    struct vnode *vn;
+    uintptr_t blk;
+    size_t block_offset, block_index;
+    size_t off, can_write;
+    size_t rem;
+
+    _assert(vn = of->file.vnode);
+    _assert(priv = vn->fs_data);
+
+    if (of->file.pos > priv->size) {
+        panic("This shouldn't happen\n");
+    }
+
+    // First grow the file index array
+    if (of->file.pos + count > priv->size) {
+        // Number of last block
+        block_index = (of->file.pos + count + 511) / 512;
+        // Old capacity
+        block_offset = priv->bpa_cap;
+
+        _assert(ram_vnode_bset_resize(vn, of->file.pos + count) == 0);
+
+        for (size_t i = block_offset; i < block_index; ++i) {
+            // TODO: this is suboptimal - 3.5K get wasted
+            blk = mm_phys_alloc_page();
+            _assert(blk != MM_NADDR);
+            blk = MM_VIRTUALIZE(blk) | RAM_BSET_ALLOC;
+            _assert(ram_vnode_bset_set(vn, i, blk) == 0);
+        }
+    }
+
+    rem = count;
+    off = 0;
+    while (rem) {
+        block_index = of->file.pos / 512;
+        block_offset = of->file.pos % 512;
+        can_write = MIN(rem, 512 - block_offset);
+        _assert(can_write);
+
+        blk = ram_vnode_bset_get(vn, block_index);
+        _assert(blk & ~511);
+
+        blk &= ~511;
+
+        memcpy((void *) blk + block_offset, buf + off, can_write);
+
+        off += can_write;
+        rem -= can_write;
+        of->file.pos += can_write;
     }
 
     return off;
@@ -331,6 +438,33 @@ static off_t ramfs_vnode_lseek(struct ofile *of, off_t off, int whence) {
     of->file.pos = off;
 
     return of->file.pos;
+}
+
+static int ramfs_vnode_creat(struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode) {
+    struct vnode *vn = ram_vnode_create(VN_REG, filename);
+    if (!vn) {
+        return -ENOMEM;
+    }
+
+    vn->uid = uid;
+    vn->gid = gid;
+    vn->mode = mode & VFS_MODE_MASK;
+
+    vnode_attach(at, vn);
+
+    return 0;
+}
+
+static int ramfs_vnode_truncate(struct vnode *at, size_t size) {
+    struct ram_vnode_private *priv;
+    _assert(priv = at->fs_data);
+    // TODO: allocate blocks on upward truncation
+    if (size > priv->size) {
+        panic("NYI\n");
+    }
+    _assert(ram_vnode_bset_resize(at, size) == 0);
+
+    return 0;
 }
 
 __init(ramfs_init) {
