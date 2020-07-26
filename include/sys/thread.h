@@ -2,6 +2,7 @@
 #if defined(ARCH_AMD64)
 #include "arch/amd64/asm/asm_thread.h"
 #endif
+#include "user/signum.h"
 #include "sys/wait.h"
 #include "sys/list.h"
 #include "fs/vfs.h"
@@ -29,12 +30,17 @@ enum process_state {
 #define THREAD_FPU_SAVED        (1 << 2)
 #define THREAD_IDLE             (1 << 3)
 
-#define process_signal_clear(thr, signum) \
+#define xxx_signal_clear(thr, signum) \
     (thr)->sigq &= ~(1ULL << ((signum) - 1))
-#define process_signal_set(thr, signum) \
+#define xxx_signal_set(thr, signum) \
     (thr)->sigq |= 1ULL << ((signum) - 1);
-#define process_signal_pending(thr, signum) \
+#define xxx_signal_pending(thr, signum) \
     ((thr)->sigq & (1ULL << ((signum) - 1)))
+
+static inline int signal_is_exception(int signum) {
+    return signum == SIGFPE ||
+           signum == SIGSEGV;
+}
 
 struct process;
 
@@ -55,6 +61,7 @@ struct thread {
     uintptr_t signal_entry;
     uintptr_t signal_stack_base;
     size_t signal_stack_size;
+    uint64_t sigq;
 
     uint32_t flags;
 
@@ -115,7 +122,7 @@ struct thread *process_first_thread(struct process *proc);
 #define THR_INIT_USER           (1 << 0)
 #define THR_INIT_STACK_SET      (1 << 1)
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags);
-void thread_dump(struct thread *thr);
+void thread_dump(int level, struct thread *thr);
 
 void proc_add_entry(struct process *proc);
 
@@ -124,9 +131,11 @@ void process_unchild(struct process *proc);
 void process_free(struct process *proc);
 
 struct process *process_find(pid_t pid);
-void process_signal(struct process *proc, int signum);
 int thread_check_signal(struct thread *thr, int ret);
 void thread_sigenter(int signum);
 int process_signal_pgid(pid_t pgid, int signum);
 
 int thread_sleep(struct thread *thr, uint64_t deadline, uint64_t *int_time);
+
+void process_signal(struct process *proc, int signum);
+void thread_signal(struct thread *thr, int signum);

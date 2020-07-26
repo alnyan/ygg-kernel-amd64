@@ -384,6 +384,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags) {
     thr->data.rsp0_size = MM_PAGE_SIZE * 2;
     thr->data.rsp0_top = thr->data.rsp0_base + thr->data.rsp0_size;
     thr->flags = (flags & THR_INIT_USER) ? 0 : THREAD_KERNEL;
+    thr->sigq = 0;
     list_head_init(&thr->thread_link);
 
     if (flags & THR_INIT_USER) {
@@ -425,7 +426,9 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags) {
         // ss
         *--stack = 0x1B;
         // rsp
-        *--stack = thr->data.rsp3_base + thr->data.rsp3_size;
+        // Subtract a single word, as x86_64 calling conventions expect
+        // the "caller" to place a return address there
+        *--stack = thr->data.rsp3_base + thr->data.rsp3_size - 8;
         // rflags
         *--stack = 0x200;
         // cs
@@ -501,22 +504,22 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags) {
     return 0;
 }
 
-void thread_dump(struct thread *thr) {
+void thread_dump(int level, struct thread *thr) {
     if (thr) {
-        kfatal("In thread <%p>\n", thr);
+        debugf(level, "In thread <%p>\n", thr);
         if (thr->proc) {
             struct process *proc = thr->proc;
-            kfatal("of process #%d (%s)\n", proc->pid, proc->name);
+            debugf(level, "of process #%d (%s)\n", proc->pid, proc->name);
 
             if (proc->thread_count > 1) {
-                kfatal("Thread list:\n");
+                debugf(level, "Thread list:\n");
                 struct thread *thr;
                 list_for_each_entry(thr, &proc->thread_list, thread_link) {
-                    kfatal(" - <%p>\n", thr);
+                    debugf(level, " - <%p>\n", thr);
                 }
             }
         } else {
-            kfatal("of no process\n");
+            debugf(level, "of no process\n");
         }
     }
 }
@@ -586,6 +589,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst_thread->data.rsp0_size = MM_PAGE_SIZE * 2;
     dst_thread->data.rsp0_top = dst_thread->data.rsp0_base + dst_thread->data.rsp0_size;
     dst_thread->flags = 0;
+    dst_thread->sigq = 0;
 
     dst_thread->data.rsp3_base = src_thread->data.rsp3_base;
     dst_thread->data.rsp3_size = src_thread->data.rsp3_size;
@@ -754,37 +758,35 @@ void sys_sigreturn(void) {
     context_sigreturn();
 }
 
-static void process_signal_thread(struct thread *thr, int signum) {
+void thread_signal(struct thread *thr, int signum) {
     struct process *proc = thr->proc;
 
     if (thr->sleep_notify.owner) {
         thread_notify_io(&thr->sleep_notify);
     }
 
-    if (thr->cpu == (int) get_cpu()->processor_id) {
-        if (thr == thread_self) {
-            kdebug("Signal will be handled now\n");
-            thread_sigenter(signum);
-        } else {
-            kdebug("Signal will be handled later\n");
-            process_signal_set(proc, signum);
-
-            sched_queue(thr);
-        }
-    } else if (thr->cpu >= 0) {
-        kdebug("Signal will be handled later (other cpu%d)\n", thr->cpu);
-        process_signal_set(proc, signum);
-
-        sched_queue(thr);
+    if (thr->cpu == (int) get_cpu()->processor_id && thr == thread_self) {
+        kdebug("Signal will be handled now\n");
+        thread_sigenter(signum);
     } else {
-        kdebug("Signal will be handled later (not running)\n");
-        process_signal_set(proc, signum);
+        kdebug("Signal will be handled later\n");
+        if (signal_is_exception(signum)) {
+            // Exceptions will only be handled by this thread
+            xxx_signal_set(thr, signum);
+        } else {
+            // Delegate handling to anybody else
+            xxx_signal_set(proc, signum);
+        }
 
+        // TODO: for process signals, only wakeup a thread if there's no one else to handle it
         sched_queue(thr);
     }
 }
 
 void process_signal(struct process *proc, int signum) {
+    // Check if it's a thread-only signal (exception)
+    _assert(!signal_is_exception(signum));
+
     if (proc->proc_state == PROC_SUSPENDED) {
         // Can only KILL or CONT suspended process
         if (signum == SIGCONT) {
@@ -798,7 +800,7 @@ void process_signal(struct process *proc, int signum) {
     struct thread *thr;
     list_for_each_entry(thr, &proc->thread_list, thread_link) {
         if (thr->state != THREAD_STOPPED) {
-            return process_signal_thread(thr, signum);
+            return thread_signal(thr, signum);
         }
     }
 
@@ -809,6 +811,11 @@ int thread_check_signal(struct thread *thr, int ret) {
     struct process *proc = thr->proc;
     if (!proc) {
         return ret;
+    }
+
+    // Check exceptions first
+    if (thr->sigq) {
+        panic("!!!\n");
     }
 
     if (proc->sigq) {

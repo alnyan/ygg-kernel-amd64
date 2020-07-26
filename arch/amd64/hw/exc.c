@@ -12,7 +12,11 @@
 #include "sys/panic.h"
 #include "sys/mm.h"
 
+#define X86_EXCEPTION_DE        0
+#define X86_EXCEPTION_UD        6
+#define X86_EXCEPTION_GP        13
 #define X86_EXCEPTION_PF        14
+#define X86_EXCEPTION_XF        19
 
 #define X86_PF_EXEC             (1 << 4)
 #define X86_PF_RESVD            (1 << 3)
@@ -101,70 +105,60 @@ int do_pfault(struct amd64_exception_frame *frame, uintptr_t cr2, uintptr_t cr3)
     }
 }
 
-void amd64_exception(struct amd64_exception_frame *frame) {
-    if (frame->exc_no == X86_EXCEPTION_PF) {
-        uintptr_t cr2, cr3;
-        asm volatile ("movq %%cr2, %0":"=r"(cr2));
-        asm volatile ("movq %%cr3, %0":"=r"(cr3));
+static void exc_dump(int level, struct amd64_exception_frame *frame) {
+    uintptr_t cr2, cr3;
 
-        if (do_pfault(frame, cr2, cr3) == 0) {
-            // Exception is resolved
-            return;
-        }
-    }
-
+    debugs(level, "\033[41m");
     if (sched_ready) {
-        thread_dump(thread_self);
+        thread_dump(level, thread_self);
     }
-
     if (frame->exc_no == X86_EXCEPTION_PF) {
-        uintptr_t cr2, cr3;
         asm volatile ("movq %%cr2, %0":"=r"(cr2));
         asm volatile ("movq %%cr3, %0":"=r"(cr3));
-        kfatal("Page fault without resolution:\n");
-        kfatal("%%cr3 = %p\n", cr3);
+        debugf(level, "Page fault without resolution:\n");
+        debugf(level, "%%cr3 = %p\n", cr3);
         if (MM_VIRTUALIZE(cr3) == (uintptr_t) mm_kernel) {
-            kfatal("(Kernel)\n");
+            debugf(level, "(Kernel)\n");
         }
-        kfatal("Fault address: %p\n", cr2);
+        debugf(level, "Fault address: %p\n", cr2);
 
         if (frame->exc_code & X86_PF_RESVD) {
-            kfatal(" - Page structure has reserved bit set\n");
+            debugf(level, " - Page structure has reserved bit set\n");
         }
         if (frame->exc_code & X86_PF_EXEC) {
-            kfatal(" - Instruction fetch\n");
+            debugf(level, " - Instruction fetch\n");
         } else {
             if (frame->exc_code & X86_PF_WRITE) {
-                kfatal(" - Write operation\n");
+                debugf(level, " - Write operation\n");
             } else {
-                kfatal(" - Read operation\n");
+                debugf(level, " - Read operation\n");
             }
         }
         if (!(frame->exc_code & X86_PF_PRESENT)) {
-            kfatal(" - Refers to non-present page\n");
+            debugf(level, " - Refers to non-present page\n");
         }
         if (frame->exc_code & X86_PF_USER) {
-            kfatal(" - Userspace\n");
+            debugf(level, " - Userspace\n");
         }
     }
 
     // Dump frame
-    kfatal("CPU raised exception #%u\n", frame->exc_no);
+    debugf(level, "CPU raised exception #%u\n", frame->exc_no);
 
-    kfatal("%%rax = %p, %%rcx = %p\n", frame->rax, frame->rcx);
-    kfatal("%%rdx = %p, %%rbx = %p\n", frame->rdx, frame->rbx);
-    kfatal("%%rbp = %p\n", frame->rbp);
-    kfatal("%%rsi = %p, %%rdi = %p\n", frame->rsi, frame->rdi);
+    debugf(level, "%%rax = %p, %%rcx = %p\n", frame->rax, frame->rcx);
+    debugf(level, "%%rdx = %p, %%rbx = %p\n", frame->rdx, frame->rbx);
+    debugf(level, "%%rbp = %p\n", frame->rbp);
+    debugf(level, "%%rsi = %p, %%rdi = %p\n", frame->rsi, frame->rdi);
 
-    kfatal("%%r8  = %p, %%r9  = %p\n",  frame->r8,  frame->r9);
-    kfatal("%%r10 = %p, %%r11 = %p\n", frame->r10, frame->r11);
-    kfatal("%%r12 = %p, %%r13 = %p\n", frame->r12, frame->r13);
-    kfatal("%%r14 = %p, %%r15 = %p\n", frame->r14, frame->r15);
+    debugf(level, "%%r8  = %p, %%r9  = %p\n",  frame->r8,  frame->r9);
+    debugf(level, "%%r10 = %p, %%r11 = %p\n", frame->r10, frame->r11);
+    debugf(level, "%%r12 = %p, %%r13 = %p\n", frame->r12, frame->r13);
+    debugf(level, "%%r14 = %p, %%r15 = %p\n", frame->r14, frame->r15);
 
-    kfatal("Execution context:\n");
-    kfatal("%%cs:%%rip = %02x:%p\n", frame->cs, frame->rip);
-    kfatal("%%ss:%%rsp = %02x:%p\n", frame->ss, frame->rsp);
-    kfatal("%%rflags = %08x (IOPL=%u %c%c%c%c%c%c%c %c%c)\n",
+    debugf(level, "Execution context:\n");
+    debugf(level, "%%cs:%%rip = %02x:%p\n", frame->cs, frame->rip);
+    debugf(level, "%%ss:%%rsp = %02x:%p\n", frame->ss, frame->rsp);
+    debugf(level, "%%rflags = %08x (IOPL=%u %c%c%c%c%c%c%c %c%c)\n",
             frame->rflags,
             (frame->rflags >> 12) & 0x3,
             (frame->rflags & X86_FLAGS_CF) ? 'C' : '-',
@@ -179,12 +173,56 @@ void amd64_exception(struct amd64_exception_frame *frame) {
     uintptr_t sym_base;
     const char *sym_name;
     if (debug_symbol_find(frame->rip, &sym_name, &sym_base) == 0) {
-        kfatal("   Backtrace:\n");
-        kfatal("0: %p <%s + %04x>\n", frame->rip, sym_name, frame->rip - sym_base);
+        debugf(level, "   Backtrace:\n");
+        debugf(level, "0: %p <%s + %04x>\n", frame->rip, sym_name, frame->rip - sym_base);
         debug_backtrace(DEBUG_FATAL, frame->rbp, 1, 10);
     } else {
-        kfatal("%rip is in unknown location\n");
+        debugf(level, "%rip is in unknown location\n");
     }
+    debugs(level, "\033[0m");
+}
+
+void amd64_exception(struct amd64_exception_frame *frame) {
+    if (frame->exc_no == X86_EXCEPTION_PF) {
+        uintptr_t cr2, cr3;
+        asm volatile ("movq %%cr2, %0":"=r"(cr2));
+        asm volatile ("movq %%cr3, %0":"=r"(cr3));
+
+        if (do_pfault(frame, cr2, cr3) == 0) {
+            // Exception is resolved
+            return;
+        }
+    }
+
+    uintptr_t cr3;
+    asm volatile ("movq %%cr3, %0":"=r"(cr3));
+
+    // Check if the exception can be resolved by signaling the thread
+    if (frame->cs == 0x23) {
+        _assert(thread_self);
+
+        switch (frame->exc_no) {
+        case X86_EXCEPTION_UD:
+            kerror("SIGILL in %d\n", thread_self->proc->pid);
+            exc_dump(DEBUG_DEFAULT, frame);
+            thread_signal(thread_self, SIGILL);
+            return;
+        case X86_EXCEPTION_DE:
+        case X86_EXCEPTION_XF:
+            kerror("SIGFPE in %d\n", thread_self->proc->pid);
+            exc_dump(DEBUG_DEFAULT, frame);
+            thread_signal(thread_self, SIGFPE);
+            return;
+        case X86_EXCEPTION_GP:
+        case X86_EXCEPTION_PF:
+            kerror("SIGSEGV in %d\n", thread_self->proc->pid);
+            exc_dump(DEBUG_DEFAULT, frame);
+            thread_signal(thread_self, SIGSEGV);
+            return;
+        }
+    }
+
+    exc_dump(DEBUG_FATAL, frame);
 
 #if defined(AMD64_SMP)
     // Send PANIC IPIs to all other CPUs

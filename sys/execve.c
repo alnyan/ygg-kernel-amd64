@@ -302,7 +302,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     _assert(procv_vecp[0] < 4096);
     _assert(procv_vecp[2] < 4096);
     uintptr_t arg = procv_vecp[0] | (procv_vecp[2] << 12) | ((uintptr_t) argv_fixup << 12);
-    context_exec_enter(arg, thr, ustack + 4 * MM_PAGE_SIZE, entry);
+    context_exec_enter(arg, thr, thr->data.rsp3_base + thr->data.rsp3_size - 8, entry);
 
     panic("This code shouldn't run\n");
 }
