@@ -54,6 +54,7 @@ int vfs_mknod(struct vfs_ioctx *ctx, const char *path, mode_t mode, struct vnode
 int vfs_chmod(struct vfs_ioctx *ctx, const char *path, mode_t mode);
 int vfs_chown(struct vfs_ioctx *ctx, const char *path, uid_t uid, gid_t gid);
 int vfs_ioctl(struct vfs_ioctx *ctx, struct ofile *fd, unsigned int cmd, void *arg);
+int vfs_ftruncate(struct vfs_ioctx *ctx, struct vnode *node, off_t length);
 
 int vfs_faccessat(struct vfs_ioctx *ctx, struct vnode *at, const char *path, int accmode, int flags);
 int vfs_fstatat(struct vfs_ioctx *ctx, struct vnode *at, const char *path, struct stat *st, int flags);

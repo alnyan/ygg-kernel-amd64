@@ -542,6 +542,22 @@ int vfs_fstatat(struct vfs_ioctx *ctx, struct vnode *at, const char *path, struc
     return node->op->stat(node, st);
 }
 
+int vfs_ftruncate(struct vfs_ioctx *ctx, struct vnode *node, off_t length) {
+    _assert(ctx);
+    _assert(node);
+
+    if (node->type != VN_REG) {
+        kwarn("truncate() on non-file\n");
+        return -EPERM;
+    }
+
+    if (node->op && node->op->truncate) {
+        return node->op->truncate(node, length);
+    } else {
+        return -ENOSYS;
+    }
+}
+
 ssize_t vfs_write(struct vfs_ioctx *ctx, struct ofile *fd, const void *buf, size_t count) {
     struct vnode *node;
     ssize_t b;

@@ -4,6 +4,8 @@
 
 ssize_t sys_read(int fd, void *data, size_t lim);
 ssize_t sys_write(int fd, const void *data, size_t lim);
+int sys_ftruncate(int fd, off_t length);
+int sys_truncate(const char *filename, off_t length);
 int sys_creat(const char *pathname, int mode);
 int sys_mkdirat(int dfd, const char *pathname, int mode);
 int sys_unlinkat(int dfd, const char *pathname, int flags);

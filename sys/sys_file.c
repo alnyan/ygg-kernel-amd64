@@ -105,6 +105,31 @@ int sys_unlinkat(int dfd, const char *pathname, int flags) {
     return vfs_unlinkat(get_ioctx(), at, pathname, flags);
 }
 
+int sys_truncate(const char *pathname, off_t length) {
+    userptr_check(pathname);
+    struct vnode *node;
+    struct vfs_ioctx *ioctx = get_ioctx();
+    int res;
+
+    if ((res = vfs_find(ioctx, ioctx->cwd_vnode, pathname, 0, &node)) != 0) {
+        return res;
+    }
+
+    return vfs_ftruncate(ioctx, node, length);
+}
+
+int sys_ftruncate(int fd, off_t length) {
+    struct ofile *of = get_fd(fd);
+    if (!of) {
+        return -EBADF;
+    }
+    if (of->flags & OF_SOCKET) {
+        kwarn("truncate() on socket\n");
+        return -EINVAL;
+    }
+    return vfs_ftruncate(get_ioctx(), of->file.vnode, length);
+}
+
 int sys_chdir(const char *filename) {
     userptr_check(filename);
     return vfs_setcwd(get_ioctx(), filename);
