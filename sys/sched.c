@@ -4,6 +4,7 @@
 #include "arch/amd64/hw/irq.h"
 #include "arch/amd64/hw/idt.h"
 #include "arch/amd64/cpu.h"
+#include "sys/block/blk.h"
 #include "user/signum.h"
 #include "user/reboot.h"
 #include "sys/reboot.h"
@@ -315,6 +316,9 @@ void sched_reboot(unsigned int cmd) {
     while (user_init->proc_state != PROC_FINISHED) {
         yield();
     }
+
+    kinfo("Flushing disk cache\n");
+    blk_sync_all();
 
     system_power_cmd(cmd);
 }
