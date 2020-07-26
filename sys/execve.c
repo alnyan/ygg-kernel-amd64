@@ -138,7 +138,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
         return res;
     }
 
-    if ((res = vfs_open(&proc->ioctx, &fd, path, O_RDONLY, 0)) != 0) {
+    if ((res = vfs_openat(&proc->ioctx, &fd, NULL, path, O_RDONLY, 0)) != 0) {
         kerror("%s: %s\n", path, kstrerror(res));
         return res;
     }

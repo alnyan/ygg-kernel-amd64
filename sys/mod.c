@@ -415,7 +415,7 @@ int sys_module_load(const char *path, const char *params) {
 
     kinfo("Load module %s\n", path);
 
-    if ((res = vfs_open(&kernel_ioctx, &fd, path, O_RDONLY, 0)) != 0) {
+    if ((res = vfs_openat(&kernel_ioctx, &fd, NULL, path, O_RDONLY, 0)) != 0) {
         kerror("%s: %s\n", path, kstrerror(res));
         slab_free(module_cache, mod);
         return res;

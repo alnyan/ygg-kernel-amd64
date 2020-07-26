@@ -17,7 +17,9 @@ void panicf(const char *fmt, ...) {
     kfatal("--- Panic ---\n");
 
     if (sched_ready) {
+        debugs(DEBUG_FATAL, "\033[41m");
         thread_dump(DEBUG_FATAL, thread_self);
+        debugs(DEBUG_FATAL, "\033[0m");
     }
 
     va_start(args, fmt);

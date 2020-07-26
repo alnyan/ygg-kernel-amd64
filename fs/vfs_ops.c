@@ -420,7 +420,10 @@ int vfs_mknod(struct vfs_ioctx *ctx, const char *path, mode_t mode, struct vnode
     return 0;
 }
 
-int vfs_creat(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
+int vfs_creatat(struct vfs_ioctx *ctx,
+                struct vnode *vn_at,
+                const char *path,
+                mode_t mode) {
     char parent_path[PATH_MAX];
     const char *filename;
     int res;
@@ -435,7 +438,7 @@ int vfs_creat(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
     }
 
     // Find parent vnode
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, parent_path, 0, &at)) != 0) {
+    if ((res = vfs_find(ctx, vn_at, parent_path, 0, &at)) != 0) {
         return res;
     }
 
@@ -453,7 +456,14 @@ int vfs_creat(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
     return at->op->creat(at, filename, ctx->uid, ctx->gid, mode);
 }
 
-int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int opt, int mode) {
+int vfs_openat(struct vfs_ioctx *ctx,
+               struct ofile *fd,
+               struct vnode *at,
+               const char *path,
+               int opt, int mode) {
+    if (!at) {
+        at = ctx->cwd_vnode;
+    }
     struct vnode *node;
     int res;
 
@@ -461,19 +471,19 @@ int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int opt,
     _assert(fd);
     _assert(path);
 
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 0, &node)) != 0) {
+    if ((res = vfs_find(ctx, at, path, 0, &node)) != 0) {
         if (opt & O_CREAT) {
             if (opt & O_DIRECTORY) {
                 return -EINVAL;
             }
 
             // Try to create a new file
-            if ((res = vfs_creat(ctx, path, mode)) != 0) {
+            if ((res = vfs_creatat(ctx, at, path, mode)) != 0) {
                 return res;
             }
 
             // If creation succeeded, find file again
-            if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 0, &node)) != 0) {
+            if ((res = vfs_find(ctx, at, path, 0, &node)) != 0) {
                 return res;
             }
         } else {

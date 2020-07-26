@@ -14,7 +14,8 @@ int sys_ioctl(int fd, unsigned int cmd, void *arg);
 // Kinda incompatible with linux, but who cares as long as it's
 // POSIX on the libc side
 int sys_getcwd(char *buf, size_t lim);
-int sys_open(const char *filename, int flags, int mode);
+// REMOVED: int sys_open(const char *filename, int flags, int mode);
+int sys_openat(int dfd, const char *filename, int flags, int mode);
 void sys_close(int fd);
 int sys_stat(const char *filename, struct stat *st);
 int sys_fstat(int fd, struct stat *st);

@@ -3,6 +3,7 @@
 #include "user/syscall.h"
 #include "user/errno.h"
 #include "user/time.h"
+#include "sys/sched.h"
 #include "arch/amd64/cpu.h"
 #include "sys/thread.h"
 #include "sys/debug.h"
@@ -40,7 +41,9 @@ void *syscall_table[256] = {
     // I/O
     [SYSCALL_NR_READ] =             sys_read,
     [SYSCALL_NR_WRITE] =            sys_write,
-    [SYSCALL_NR_OPEN] =             sys_open,
+    //[SYSCALL_NR_OPEN] =             sys_open,
+    //SUPERSEDED BY:
+    [SYSCALL_NR_OPENAT] =           sys_openat,
     [SYSCALL_NR_CLOSE] =            sys_close,
     [SYSCALL_NR_STAT] =             sys_stat,
     [SYSCALL_NR_FSTAT] =            sys_fstat,
@@ -112,7 +115,14 @@ void *syscall_table[256] = {
 };
 
 int syscall_undefined(uint64_t rax) {
-    panic("TODO: exception signals\n");
+    debugs(DEBUG_DEFAULT, "\033[41m");
+    if (sched_ready) {
+        thread_dump(DEBUG_DEFAULT, thread_self);
+    }
+    debugf(DEBUG_DEFAULT, "Undefined system call: %d\n", rax);
+    debugs(DEBUG_DEFAULT, "\033[0m");
+    thread_signal(thread_self, SIGSYS);
+    // TODO: more context?
     return -ENOSYS;
 }
 

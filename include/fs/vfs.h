@@ -41,7 +41,11 @@ int vfs_mount(struct vfs_ioctx *ctx, const char *at, void *blk, const char *fs, 
 int vfs_umount(struct vfs_ioctx *ctx, const char *dir_name);
 
 int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, int opt);
-int vfs_open(struct vfs_ioctx *ctx, struct ofile *fd, const char *path, int flags, int mode);
+int vfs_openat(struct vfs_ioctx *ctx,
+               struct ofile *fd,
+               struct vnode *at,
+               const char *path,
+               int flags, int mode);
 void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd);
 int vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd, struct dirent *ent);
 int vfs_unlink(struct vfs_ioctx *ctx, const char *path);

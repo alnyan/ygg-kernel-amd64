@@ -3,6 +3,7 @@
 #include "arch/amd64/hw/timer.h"
 #include "arch/amd64/cpu.h"
 #include "fs/ofile.h"
+#include "user/fcntl.h"
 #include "sys/char/ring.h"
 #include "sys/char/pipe.h"
 #include "sys/char/chr.h"
@@ -113,11 +114,22 @@ int sys_getcwd(char *buf, size_t lim) {
     }
 }
 
-int sys_open(const char *filename, int flags, int mode) {
+int sys_openat(int dfd, const char *filename, int flags, int mode) {
     userptr_check(filename);
     struct process *proc = thread_self->proc;
+    struct vnode *at;
     int fd = -1;
     int res;
+
+    if (dfd == AT_FDCWD) {
+        at = get_ioctx()->cwd_vnode;
+    } else {
+        struct ofile *of = get_fd(dfd);
+        if (of == NULL || !(of->flags & OF_DIRECTORY)) {
+            return -EBADF;
+        }
+        at = of->file.vnode;
+    }
 
     // XXX: This should be atomic
     for (int i = 0; i < THREAD_MAX_FDS; ++i) {
@@ -132,7 +144,7 @@ int sys_open(const char *filename, int flags, int mode) {
 
     struct ofile *ofile = ofile_create();
 
-    if ((res = vfs_open(&proc->ioctx, ofile, filename, flags, mode)) != 0) {
+    if ((res = vfs_openat(&proc->ioctx, ofile, at, filename, flags, mode)) != 0) {
         ofile_destroy(ofile);
         return res;
     }

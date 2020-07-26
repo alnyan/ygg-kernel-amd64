@@ -9,6 +9,7 @@
 #define X_OK        1
 #define F_OK        0
 
+#define AT_FDCWD    (-100)
 
 // O_EXEC is a special one for opening a node for
 //        execution
