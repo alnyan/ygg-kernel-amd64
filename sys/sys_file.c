@@ -80,10 +80,17 @@ int sys_creat(const char *pathname, int mode) {
     return -EINVAL;
 }
 
-int sys_mkdir(const char *pathname, int mode) {
+int sys_mkdirat(int dfd, const char *pathname, int mode) {
     userptr_check(pathname);
     _assert(pathname);
-    return vfs_mkdir(get_ioctx(), pathname, mode);
+    struct vnode *at;
+    int res;
+
+    if ((res = get_at_vnode(dfd, &at, 0)) != 0) {
+        return res;
+    }
+
+    return vfs_mkdirat(get_ioctx(), at, pathname, mode);
 }
 
 int sys_unlink(const char *pathname) {

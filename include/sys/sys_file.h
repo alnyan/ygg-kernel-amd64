@@ -5,25 +5,16 @@
 ssize_t sys_read(int fd, void *data, size_t lim);
 ssize_t sys_write(int fd, const void *data, size_t lim);
 int sys_creat(const char *pathname, int mode);
-int sys_mkdir(const char *pathname, int mode);
+int sys_mkdirat(int dfd, const char *pathname, int mode);
 int sys_unlink(const char *pathname);
 ssize_t sys_readdir(int fd, struct dirent *ent);
 int sys_rmdir(const char *pathname);
 int sys_chdir(const char *filename);
 int sys_ioctl(int fd, unsigned int cmd, void *arg);
-// Kinda incompatible with linux, but who cares as long as it's
-// POSIX on the libc side
 int sys_getcwd(char *buf, size_t lim);
-// REMOVED: int sys_open(const char *filename, int flags, int mode);
 int sys_openat(int dfd, const char *filename, int flags, int mode);
 void sys_close(int fd);
-//int sys_stat(const char *filename, struct stat *st);
-//int sys_fstat(int fd, struct stat *st);
-//int sys_lstat(const char *filename, struct stat *st);
-//SUPERSEDED BY:
 int sys_fstatat(int dfd, const char *pathname, struct stat *st, int flags);
-//int sys_access(const char *path, int mode);
-//SUPERSEDED BY:
 int sys_faccessat(int dfd, const char *pathname, int mode, int flags);
 int sys_pipe(int *filedes);
 int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *tv);

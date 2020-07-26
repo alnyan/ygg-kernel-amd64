@@ -50,17 +50,13 @@ void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd);
 int vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd, struct dirent *ent);
 int vfs_unlink(struct vfs_ioctx *ctx, const char *path);
 int vfs_rmdir(struct vfs_ioctx *ctx, const char *path);
-int vfs_mkdir(struct vfs_ioctx *ctx, const char *path, mode_t mode);
+int vfs_mkdirat(struct vfs_ioctx *ctx, struct vnode *at, const char *path, mode_t mode);
 int vfs_mknod(struct vfs_ioctx *ctx, const char *path, mode_t mode, struct vnode **nod);
 int vfs_chmod(struct vfs_ioctx *ctx, const char *path, mode_t mode);
 int vfs_chown(struct vfs_ioctx *ctx, const char *path, uid_t uid, gid_t gid);
 int vfs_ioctl(struct vfs_ioctx *ctx, struct ofile *fd, unsigned int cmd, void *arg);
 
-//int vfs_access(struct vfs_ioctx *ctx, const char *path, int accmode);
 int vfs_faccessat(struct vfs_ioctx *ctx, struct vnode *at, const char *path, int accmode, int flags);
-//int vfs_fstat(struct vfs_ioctx *ctx, struct ofile *fd, struct stat *st);
-//int vfs_lstat(struct vfs_ioctx *ctx, const char *path, struct stat *st);
-//int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st);
 int vfs_fstatat(struct vfs_ioctx *ctx, struct vnode *at, const char *path, struct stat *st, int flags);
 int vfs_access_check(struct vfs_ioctx *ctx, int desm, mode_t mode, uid_t uid, gid_t gid);
 int vfs_access_node(struct vfs_ioctx *ctx, struct vnode *vn, int mode);

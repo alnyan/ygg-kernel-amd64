@@ -265,11 +265,15 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
     return 0;
 }
 
-int vfs_mkdir(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
+int vfs_mkdirat(struct vfs_ioctx *ctx, struct vnode *rel, const char *path, mode_t mode) {
     char parent_path[PATH_MAX];
     const char *filename;
     int res;
     struct vnode *at;
+
+    if (!rel) {
+        rel = ctx->cwd_vnode;
+    }
 
     _assert(ctx);
     _assert(path);
@@ -280,7 +284,7 @@ int vfs_mkdir(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
     }
 
     // Find parent vnode
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, parent_path, 0, &at)) != 0) {
+    if ((res = vfs_find(ctx, rel, parent_path, 0, &at)) != 0) {
         return res;
     }
 

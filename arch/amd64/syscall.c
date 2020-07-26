@@ -41,21 +41,13 @@ void *syscall_table[256] = {
     // I/O
     [SYSCALL_NR_READ] =             sys_read,
     [SYSCALL_NR_WRITE] =            sys_write,
-    //[SYSCALL_NR_OPEN] =             sys_open,
-    //SUPERSEDED BY:
     [SYSCALL_NR_OPENAT] =           sys_openat,
     [SYSCALL_NR_CLOSE] =            sys_close,
-    //[SYSCALL_NR_STAT] =             sys_stat,
-    //[SYSCALL_NR_FSTAT] =            sys_fstat,
-    //[SYSCALL_NR_LSTAT] =            sys_lstat,
-    //SUPERSEDED BY:
     [SYSCALL_NR_FSTATAT] =          sys_fstatat,
     [SYSCALL_NR_LSEEK] =            sys_lseek,
     [SYSCALL_NR_MMAP] =             sys_mmap,
     [SYSCALL_NR_MUNMAP] =           sys_munmap,
     [SYSCALL_NR_IOCTL] =            sys_ioctl,
-    //[SYSCALL_NR_ACCESS] =           sys_access,
-    //SUPERSEDED BY:
     [SYSCALL_NR_FACCESSAT] =        sys_faccessat,
     [SYSCALL_NR_PIPE] =             sys_pipe,
     [SYSCALL_NR_SELECT] =           sys_select,
@@ -63,7 +55,7 @@ void *syscall_table[256] = {
     [SYSCALL_NR_DUP2] =             sys_dup2,
     [SYSCALL_NR_GETCWD] =           sys_getcwd,
     [SYSCALL_NR_CHDIR] =            sys_chdir,
-    [SYSCALL_NR_MKDIR] =            sys_mkdir,
+    [SYSCALL_NR_MKDIRAT] =          sys_mkdirat,
     [SYSCALL_NR_RMDIR] =            sys_rmdir,
     [SYSCALL_NR_CREAT] =            sys_creat,
     [SYSCALL_NR_UNLINK] =           sys_unlink,

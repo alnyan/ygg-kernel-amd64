@@ -2,22 +2,14 @@
 
 #define SYSCALL_NR_READ             0
 #define SYSCALL_NR_WRITE            1
-// #define SYSCALL_NR_OPEN             2
-// SUPERSEDED BY:
 #define SYSCALL_NR_OPENAT           2
 #define SYSCALL_NR_CLOSE            3
-//#define SYSCALL_NR_STAT             4
-//#define SYSCALL_NR_FSTAT            5
-//#define SYSCALL_NR_LSTAT            6
-//SUPERSEDED BY:
 #define SYSCALL_NR_FSTATAT          4
 #define SYSCALL_NR_LSEEK            8
 #define SYSCALL_NR_MMAP             9
 #define SYSCALL_NR_MUNMAP           11
 #define SYSCALL_NRX_SBRK            12
 #define SYSCALL_NR_IOCTL            16
-//#define SYSCALL_NR_ACCESS           21
-//SUPERSEDED BY:
 #define SYSCALL_NR_FACCESSAT        21
 #define SYSCALL_NR_PIPE             22
 #define SYSCALL_NR_SELECT           23
@@ -25,7 +17,7 @@
 #define SYSCALL_NR_DUP2             33
 #define SYSCALL_NR_GETCWD           79
 #define SYSCALL_NR_CHDIR            80
-#define SYSCALL_NR_MKDIR            83
+#define SYSCALL_NR_MKDIRAT          83
 #define SYSCALL_NR_RMDIR            84
 #define SYSCALL_NR_CREAT            85
 #define SYSCALL_NR_UNLINK           87
