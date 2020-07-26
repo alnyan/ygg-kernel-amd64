@@ -93,16 +93,16 @@ int sys_mkdirat(int dfd, const char *pathname, int mode) {
     return vfs_mkdirat(get_ioctx(), at, pathname, mode);
 }
 
-int sys_unlink(const char *pathname) {
+int sys_unlinkat(int dfd, const char *pathname, int flags) {
     userptr_check(pathname);
-    _assert(pathname);
-    return vfs_unlink(get_ioctx(), pathname);
-}
+    struct vnode *at;
+    int res;
 
-int sys_rmdir(const char *pathname) {
-    userptr_check(pathname);
-    _assert(pathname);
-    return vfs_rmdir(get_ioctx(), pathname);
+    if ((res = get_at_vnode(dfd, &at, 0))) {
+        return res;
+    }
+
+    return vfs_unlinkat(get_ioctx(), at, pathname, flags);
 }
 
 int sys_chdir(const char *filename) {

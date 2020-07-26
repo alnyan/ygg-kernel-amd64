@@ -12,6 +12,7 @@
 #define AT_FDCWD                (-100)
 #define AT_SYMLINK_NOFOLLOW     (1 << 0)
 #define AT_EMPTY_PATH           (1 << 1)
+#define AT_REMOVEDIR            (1 << 2)
 
 // O_EXEC is a special one for opening a node for
 //        execution

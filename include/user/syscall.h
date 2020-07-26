@@ -18,9 +18,8 @@
 #define SYSCALL_NR_GETCWD           79
 #define SYSCALL_NR_CHDIR            80
 #define SYSCALL_NR_MKDIRAT          83
-#define SYSCALL_NR_RMDIR            84
 #define SYSCALL_NR_CREAT            85
-#define SYSCALL_NR_UNLINK           87
+#define SYSCALL_NR_UNLINKAT         87
 #define SYSCALL_NR_READDIR          89
 #define SYSCALL_NR_CHMOD            90
 #define SYSCALL_NR_CHOWN            92

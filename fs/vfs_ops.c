@@ -302,11 +302,15 @@ int vfs_mkdirat(struct vfs_ioctx *ctx, struct vnode *rel, const char *path, mode
     return at->op->mkdir(at, filename, ctx->uid, ctx->gid, mode);
 }
 
-int vfs_rmdir(struct vfs_ioctx *ctx, const char *path) {
+int vfs_unlinkat(struct vfs_ioctx *ctx, struct vnode *at, const char *pathname, int flags) {
     struct vnode *node;
     int res;
 
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 0, &node)) != 0) {
+    if (!at) {
+        at = ctx->cwd_vnode;
+    }
+
+    if ((res = vfs_find(ctx, at, pathname, 1, &node)) != 0) {
         return res;
     }
 
@@ -314,10 +318,6 @@ int vfs_rmdir(struct vfs_ioctx *ctx, const char *path) {
         return -EBUSY;
     }
 
-    if (node->type != VN_DIR) {
-        return -ENOTDIR;
-    }
-
     if (!node->op || !node->op->unlink) {
         return -EROFS;
     }
@@ -326,36 +326,15 @@ int vfs_rmdir(struct vfs_ioctx *ctx, const char *path) {
         return -EBUSY;
     }
 
-    if ((res = node->op->unlink(node)) != 0) {
-        return res;
-    }
-
-    vnode_detach(node);
-    vnode_destroy(node);
-
-    return 0;
-}
-
-int vfs_unlink(struct vfs_ioctx *ctx, const char *path) {
-    struct vnode *node;
-    int res;
-
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 1, &node)) != 0) {
-        return res;
-    }
-
-    if (node->type == VN_DIR || node->type == VN_MNT) {
-        return -EISDIR;
-    }
-
-    if (!node->op || !node->op->unlink) {
-        // Cannot remove the node, assume readonly filesystem
-        return -EROFS;
-    }
-
-    // Check that no one uses the node
-    if (node->open_count) {
-        return -EBUSY;
+    if (flags & AT_REMOVEDIR) {
+        if (node->type != VN_DIR) {
+            return -ENOTDIR;
+        }
+        // TODO: check if directory is empty?
+    } else {
+        if (node->type == VN_DIR) {
+            return -EISDIR;
+        }
     }
 
     if ((res = node->op->unlink(node)) != 0) {
@@ -540,7 +519,6 @@ int vfs_fstatat(struct vfs_ioctx *ctx, struct vnode *at, const char *path, struc
     if (!at) {
         at = ctx->cwd_vnode;
     }
-    kdebug("FSTATAT %s, %s\n", (at ? at->name : "NULL"), path);
 
     if (flags & AT_EMPTY_PATH) {
         node = at;

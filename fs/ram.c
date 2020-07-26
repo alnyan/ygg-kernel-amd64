@@ -226,6 +226,7 @@ static off_t ramfs_vnode_lseek(struct ofile *of, off_t off, int whence);
 static int ramfs_vnode_creat(struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode);
 static int ramfs_vnode_truncate(struct vnode *at, size_t size);
 static int ramfs_vnode_mkdir(struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode);
+static int ramfs_vnode_unlink(struct vnode *node);
 
 static struct vnode_operations _ramfs_vnode_op = {
     .open = ramfs_vnode_open,
@@ -236,6 +237,7 @@ static struct vnode_operations _ramfs_vnode_op = {
     .creat = ramfs_vnode_creat,
     .mkdir = ramfs_vnode_mkdir,
     .truncate = ramfs_vnode_truncate,
+    .unlink = ramfs_vnode_unlink,
 };
 
 static int ram_init(struct fs *ramfs, const char *opt) {
@@ -469,6 +471,28 @@ static int ramfs_vnode_mkdir(struct vnode *at, const char *filename, uid_t uid, 
 
     vnode_attach(at, vn);
 
+    return 0;
+}
+
+static int ramfs_vnode_unlink(struct vnode *node) {
+    int res;
+
+    if (node->type == VN_DIR && node->first_child) {
+        return -EEXIST;
+    }
+
+    if (node->type == VN_REG) {
+        // Free the blocks by truncating the file to zero
+        res = ramfs_vnode_truncate(node, 0);
+        if (res != 0) {
+            return res;
+        }
+    }
+
+    slab_free(ram_vnode_private_cache, node->fs_data);
+    node->fs_data = NULL;
+
+    // VFS will do its job
     return 0;
 }
 
