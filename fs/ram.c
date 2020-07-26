@@ -225,6 +225,7 @@ static ssize_t ramfs_vnode_write(struct ofile *of, const void *buf, size_t count
 static off_t ramfs_vnode_lseek(struct ofile *of, off_t off, int whence);
 static int ramfs_vnode_creat(struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode);
 static int ramfs_vnode_truncate(struct vnode *at, size_t size);
+static int ramfs_vnode_mkdir(struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode);
 
 static struct vnode_operations _ramfs_vnode_op = {
     .open = ramfs_vnode_open,
@@ -233,6 +234,7 @@ static struct vnode_operations _ramfs_vnode_op = {
     .write = ramfs_vnode_write,
     .lseek = ramfs_vnode_lseek,
     .creat = ramfs_vnode_creat,
+    .mkdir = ramfs_vnode_mkdir,
     .truncate = ramfs_vnode_truncate,
 };
 
@@ -442,6 +444,21 @@ static off_t ramfs_vnode_lseek(struct ofile *of, off_t off, int whence) {
 
 static int ramfs_vnode_creat(struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode) {
     struct vnode *vn = ram_vnode_create(VN_REG, filename);
+    if (!vn) {
+        return -ENOMEM;
+    }
+
+    vn->uid = uid;
+    vn->gid = gid;
+    vn->mode = mode & VFS_MODE_MASK;
+
+    vnode_attach(at, vn);
+
+    return 0;
+}
+
+static int ramfs_vnode_mkdir(struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode) {
+    struct vnode *vn = ram_vnode_create(VN_DIR, filename);
     if (!vn) {
         return -ENOMEM;
     }
