@@ -45,14 +45,18 @@ void *syscall_table[256] = {
     //SUPERSEDED BY:
     [SYSCALL_NR_OPENAT] =           sys_openat,
     [SYSCALL_NR_CLOSE] =            sys_close,
-    [SYSCALL_NR_STAT] =             sys_stat,
-    [SYSCALL_NR_FSTAT] =            sys_fstat,
-    [SYSCALL_NR_LSTAT] =            sys_lstat,
+    //[SYSCALL_NR_STAT] =             sys_stat,
+    //[SYSCALL_NR_FSTAT] =            sys_fstat,
+    //[SYSCALL_NR_LSTAT] =            sys_lstat,
+    //SUPERSEDED BY:
+    [SYSCALL_NR_FSTATAT] =          sys_fstatat,
     [SYSCALL_NR_LSEEK] =            sys_lseek,
     [SYSCALL_NR_MMAP] =             sys_mmap,
     [SYSCALL_NR_MUNMAP] =           sys_munmap,
     [SYSCALL_NR_IOCTL] =            sys_ioctl,
-    [SYSCALL_NR_ACCESS] =           sys_access,
+    //[SYSCALL_NR_ACCESS] =           sys_access,
+    //SUPERSEDED BY:
+    [SYSCALL_NR_FACCESSAT] =        sys_faccessat,
     [SYSCALL_NR_PIPE] =             sys_pipe,
     [SYSCALL_NR_SELECT] =           sys_select,
     [SYSCALL_NR_DUP] =              sys_dup,

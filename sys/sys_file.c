@@ -26,6 +26,23 @@ static inline struct vfs_ioctx *get_ioctx(void) {
     return &thread_self->proc->ioctx;
 }
 
+static inline int get_at_vnode(int dfd, struct vnode **at, int flags) {
+    if (dfd == AT_FDCWD) {
+        *at = get_ioctx()->cwd_vnode;
+        return 0;
+    } else {
+        struct ofile *fd = get_fd(dfd);
+        if (!fd) {
+            return -EBADF;
+        }
+        if (!(flags & AT_EMPTY_PATH) && !(fd->flags & OF_DIRECTORY)) {
+            return -ENOTDIR;
+        }
+        *at = fd->file.vnode;
+        return 0;
+    }
+}
+
 ssize_t sys_read(int fd, void *data, size_t lim) {
     userptr_check(data);
     struct ofile *of;
@@ -121,14 +138,8 @@ int sys_openat(int dfd, const char *filename, int flags, int mode) {
     int fd = -1;
     int res;
 
-    if (dfd == AT_FDCWD) {
-        at = get_ioctx()->cwd_vnode;
-    } else {
-        struct ofile *of = get_fd(dfd);
-        if (of == NULL || !(of->flags & OF_DIRECTORY)) {
-            return -EBADF;
-        }
-        at = of->file.vnode;
+    if ((res = get_at_vnode(dfd, &at, 0)) != 0) {
+        return res;
     }
 
     // XXX: This should be atomic
@@ -170,38 +181,33 @@ void sys_close(int fd) {
     proc->fds[fd] = NULL;
 }
 
-int sys_stat(const char *filename, struct stat *st) {
-    userptr_check(filename);
-    _assert(filename);
-    _assert(st);
+int sys_fstatat(int dfd, const char *pathname, struct stat *st, int flags) {
+    if (!(flags & AT_EMPTY_PATH)) {
+        userptr_check(pathname);
+    }
+    userptr_check(st);
 
-    return vfs_stat(get_ioctx(), filename, st);
-}
+    struct vnode *at;
+    int res;
 
-int sys_lstat(const char *filename, struct stat *st) {
-    userptr_check(filename);
-    _assert(filename);
-    _assert(st);
-
-    return vfs_lstat(get_ioctx(), filename, st);
-}
-
-int sys_fstat(int fd, struct stat *st) {
-    struct ofile *of;
-    _assert(st);
-
-    if (!(of = get_fd(fd))) {
-        return -EBADF;
+    if ((res = get_at_vnode(dfd, &at, flags)) != 0) {
+        return res;
     }
 
-    return vfs_fstat(get_ioctx(), of, st);
+    return vfs_fstatat(get_ioctx(), at, pathname, st, flags);
 }
 
-int sys_access(const char *path, int mode) {
-    userptr_check(path);
-    _assert(path);
+int sys_faccessat(int dfd, const char *pathname, int mode, int flags) {
+    userptr_check(pathname);
 
-    return vfs_access(get_ioctx(), path, mode);
+    struct vnode *at;
+    int res;
+
+    if ((res = get_at_vnode(dfd, &at, flags)) != 0) {
+        return res;
+    }
+
+    return vfs_faccessat(get_ioctx(), at, pathname, mode, flags);
 }
 
 int sys_pipe(int *filedes) {

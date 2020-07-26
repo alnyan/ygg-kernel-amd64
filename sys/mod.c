@@ -191,7 +191,7 @@ static int elf_mod_load(struct module *mod, struct vfs_ioctx *ctx, struct ofile 
     int res = 0;
 
     // Load the whole module image into memory
-    if ((res = vfs_fstat(ctx, fd, &st)) != 0) {
+    if ((res = vfs_fstatat(ctx, fd->file.vnode, NULL, &st, AT_EMPTY_PATH)) != 0) {
         return res;
     }
 

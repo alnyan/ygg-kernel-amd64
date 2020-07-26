@@ -17,10 +17,14 @@ int sys_getcwd(char *buf, size_t lim);
 // REMOVED: int sys_open(const char *filename, int flags, int mode);
 int sys_openat(int dfd, const char *filename, int flags, int mode);
 void sys_close(int fd);
-int sys_stat(const char *filename, struct stat *st);
-int sys_fstat(int fd, struct stat *st);
-int sys_lstat(const char *filename, struct stat *st);
-int sys_access(const char *path, int mode);
+//int sys_stat(const char *filename, struct stat *st);
+//int sys_fstat(int fd, struct stat *st);
+//int sys_lstat(const char *filename, struct stat *st);
+//SUPERSEDED BY:
+int sys_fstatat(int dfd, const char *pathname, struct stat *st, int flags);
+//int sys_access(const char *path, int mode);
+//SUPERSEDED BY:
+int sys_faccessat(int dfd, const char *pathname, int mode, int flags);
 int sys_pipe(int *filedes);
 int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *tv);
 int sys_dup(int from);

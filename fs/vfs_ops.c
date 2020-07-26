@@ -508,76 +508,52 @@ void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd) {
     }
 }
 
-int vfs_access(struct vfs_ioctx *ctx, const char *path, int accmode) {
-    struct vnode *node;
-    int res;
-
+int vfs_faccessat(struct vfs_ioctx *ctx, struct vnode *at, const char *path, int mode, int flags) {
     _assert(ctx);
     _assert(path);
 
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 0, &node)) != 0) {
+    struct vnode *node;
+    int res;
+
+    if ((res = vfs_find(ctx, at, path, flags & AT_SYMLINK_NOFOLLOW, &node)) != 0) {
         return res;
     }
 
-    if (accmode == F_OK) {
-        // Just test that file exists
+    if (mode == F_OK) {
         return 0;
     }
 
-    return vfs_access_node(ctx, node, accmode);
+    return vfs_access_node(ctx, node, mode);
 }
 
-int vfs_fstat(struct vfs_ioctx *ctx, struct ofile *fd, struct stat *st) {
-    int res;
-
-    _assert(ctx);
-    _assert(fd);
-    _assert(!(fd->flags & OF_SOCKET));
-    _assert(st);
-
-    struct vnode *node = fd->file.vnode;
-
-    _assert(node);
-
-    if (!node->op || !node->op->stat) {
-        return -EINVAL;
-    }
-
-    return node->op->stat(node, st);
-}
-
-int vfs_lstat(struct vfs_ioctx *ctx, const char *path, struct stat *st) {
+int vfs_fstatat(struct vfs_ioctx *ctx, struct vnode *at, const char *path, struct stat *st, int flags) {
     struct vnode *node;
     int res;
 
     _assert(ctx);
-    _assert(path);
     _assert(st);
 
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 1, &node)) != 0) {
-        return res;
+    if (!at) {
+        at = ctx->cwd_vnode;
+    }
+    kdebug("FSTATAT %s, %s\n", (at ? at->name : "NULL"), path);
+
+    if (flags & AT_EMPTY_PATH) {
+        node = at;
+
+        if (!node) {
+            panic("TODO: implement this (use root)\n");
+        }
+    } else {
+        _assert(path);
+
+        if ((res = vfs_find(ctx, at, path, flags & AT_SYMLINK_NOFOLLOW, &node)) != 0) {
+            return res;
+        }
     }
 
     if (!node->op || !node->op->stat) {
-        return -EINVAL;
-    }
-
-    return node->op->stat(node, st);
-}
-
-int vfs_stat(struct vfs_ioctx *ctx, const char *path, struct stat *st) {
-    struct vnode *node;
-    int res;
-
-    _assert(ctx);
-    _assert(path);
-    _assert(st);
-
-    if ((res = vfs_find(ctx, ctx->cwd_vnode, path, 0, &node)) != 0) {
-        return res;
-    }
-
-    if (!node->op || !node->op->stat) {
+        kerror("stat() not implemented for node\n");
         return -EINVAL;
     }
 

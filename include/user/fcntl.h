@@ -9,7 +9,9 @@
 #define X_OK        1
 #define F_OK        0
 
-#define AT_FDCWD    (-100)
+#define AT_FDCWD                (-100)
+#define AT_SYMLINK_NOFOLLOW     (1 << 0)
+#define AT_EMPTY_PATH           (1 << 1)
 
 // O_EXEC is a special one for opening a node for
 //        execution

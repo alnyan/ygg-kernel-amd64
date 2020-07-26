@@ -133,7 +133,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     int res;
     int was_kernel = 0;
 
-    if ((res = vfs_stat(&proc->ioctx, path, &st)) != 0) {
+    if ((res = vfs_fstatat(&proc->ioctx, NULL, path, &st, 0)) != 0) {
         kerror("execve(%s): %s\n", path, kstrerror(res));
         return res;
     }
