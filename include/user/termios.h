@@ -32,10 +32,10 @@ enum {
 
 #define TERMIOS_DEFAULT \
     { \
-        .c_iflag = ICANON, \
+        .c_iflag = 0, \
         .c_oflag = OPOST, \
         .c_cflag = 0, \
-        .c_lflag = ECHO | ECHONL | ECHOE | ECHOK | ISIG, \
+        .c_lflag = ECHO | ECHONL | ECHOE | ECHOK | ISIG | ICANON, \
         .c_cc = { \
             [VEOF] =    4,  \
             [VINTR] =   3,  \
