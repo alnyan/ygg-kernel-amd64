@@ -76,6 +76,15 @@ static const char ps2_key_table_1[128] = {
     [0x7F] = 0
 };
 
+static const char ps2_e0_trans[128] = {
+    [0x47] = INPUT_KEY_HOME,
+    [0x48] = INPUT_KEY_UP,
+    [0x4B] = INPUT_KEY_LEFT,
+    [0x4D] = INPUT_KEY_RIGHT,
+    [0x4F] = INPUT_KEY_END,
+    [0x50] = INPUT_KEY_DOWN,
+};
+
 uint32_t ps2_irq_keyboard(void *ctx) {
     uint8_t st = inb(0x64);
 
@@ -88,19 +97,11 @@ uint32_t ps2_irq_keyboard(void *ctx) {
     if (key == 0xE0) {
         key = inb(0x60);
 
-        switch (key) {
-        case 0x48:
-            input_scan(INPUT_KEY_UP);
-            break;
-        case 0x50:
-            input_scan(INPUT_KEY_DOWN);
-            break;
-        case 0x4B:
-            input_scan(INPUT_KEY_LEFT);
-            break;
-        case 0x4D:
-            input_scan(INPUT_KEY_RIGHT);
-            break;
+        if (key < 128) {
+            key = ps2_e0_trans[key];
+            if (key) {
+                input_scan(key);
+            }
         }
 
         return IRQ_HANDLED;

@@ -24,11 +24,6 @@ ssize_t line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) {
         return 0;
     }
 
-    if (!(chr->tc.c_iflag & ICANON)) {
-        // Just spit out data as soon as it's available
-        return simple_line_read(chr, buf, pos, lim);
-    }
-
     // NO ICANON YET
     // TODO: pass this through for non-canonical mode
     while (rem) {
@@ -47,7 +42,7 @@ ssize_t line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) {
             }
         }
 
-        if (c == 0x17 && chr->tc.c_iflag & ICANON) {
+        if (c == 0x17 && chr->tc.c_lflag & ICANON) {
             // Erase until the beginning of the word
             // TODO: erase preceding space groups
             while (rd) {
@@ -65,7 +60,7 @@ ssize_t line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) {
 
             continue;
         }
-        if (c == 0x7F && chr->tc.c_iflag & ICANON) {
+        if (c == 0x7F && chr->tc.c_lflag & ICANON) {
             if (rd) {
                 if (chr->tc.c_lflag & ECHOE) {
                     tty_puts(chr, "\033[D \033[D");
@@ -117,10 +112,6 @@ ssize_t simple_line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) 
         --rem;
         ++wr;
         ++rd;
-    }
-
-    if (rd == 0) {
-        return -1;
     }
 
     return rd;

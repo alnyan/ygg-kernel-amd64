@@ -31,12 +31,10 @@ void input_scan(uint8_t c) {
     case INPUT_KEY_HOME:
         console_type(g_keyboard_console, '\033');
         console_type(g_keyboard_console, '[');
-        console_type(g_keyboard_console, '[');
         console_type(g_keyboard_console, 'H');
         break;
     case INPUT_KEY_END:
         console_type(g_keyboard_console, '\033');
-        console_type(g_keyboard_console, '[');
         console_type(g_keyboard_console, '[');
         console_type(g_keyboard_console, 'F');
         break;

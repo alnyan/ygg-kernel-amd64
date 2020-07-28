@@ -413,7 +413,7 @@ static int sys_select_get_ready(struct ofile *fd) {
         case VN_CHR: {
                 struct chrdev *chr = vn->dev;
                 _assert(chr);
-                if (chr->type == CHRDEV_TTY && (chr->tc.c_iflag & ICANON)) {
+                if (chr->type == CHRDEV_TTY && (chr->tc.c_lflag & ICANON)) {
                     return (chr->buffer.flags & (RING_SIGNAL_RET | RING_SIGNAL_EOF | RING_SIGNAL_BRK));
                 } else {
                     return !!ring_readable(&chr->buffer);
