@@ -143,7 +143,6 @@ int tar_init(struct fs *ramfs, void *mem_base) {
         hdr = (struct tar_header *) bytes;
 
         // Create node
-        kdebug("Create node for `%s`\n", hdr->name);
         if ((res = tar_mapper_create_path(ramfs->fs_private,
                                           hdr->name,
                                           &node,

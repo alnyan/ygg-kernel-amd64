@@ -430,16 +430,20 @@ static off_t ramfs_vnode_lseek(struct ofile *of, off_t off, int whence) {
 
     priv = vn->fs_data;
 
-    if (whence != SEEK_SET) {
-        // TODO: TODO
-        panic("TODO\n");
+    switch (whence) {
+    case SEEK_SET:
+        if ((size_t) off > priv->size) {
+            return (off_t) -ESPIPE;
+        }
+        of->file.pos = off;
+        break;
+    case SEEK_CUR:
+        if ((off + (ssize_t) of->file.pos) < 0 || (size_t) (off + of->file.pos) > priv->size) {
+            return (off_t) -ESPIPE;
+        }
+        of->file.pos += off;
+        break;
     }
-
-    if ((size_t) off > priv->size) {
-        panic("!!!\n");
-    }
-
-    of->file.pos = off;
 
     return of->file.pos;
 }
