@@ -5,6 +5,8 @@ ACPICA_SRC_DIR=$(shell find arch/amd64/acpica -type d)
 ACPICA_DIR=$(ACPICA_SRC_DIR:%=$(O)/%)
 ACPICA_OBJ=$(ACPICA_SRC:%.c=$(O)/%.o)
 
+KERNEL_USER_HDR=$(shell find include/user -type f -name "*.h")
+
 KERNEL_OBJ=$(O)/arch/amd64/entry.o \
 		   $(O)/arch/amd64/kernel.o \
 		   $(O)/arch/amd64/acpi_osl_mem.o \
