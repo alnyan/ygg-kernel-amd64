@@ -3,5 +3,11 @@
 #define AMD64_KERNEL_STACK      32768
 #define AMD64_MAX_SMP           1
 
-#cmakedefine ENABLE_NET
-#cmakedefine ENABLE_UNIX
+//#define SLAB_TRACE_ALLOC        1
+#undef SLAB_TRACE_ALLOC
+//#define HEAP_TRACE              1
+#undef HEAP_TRACE
+
+// TODO:
+//#cmakedefine ENABLE_NET
+//#cmakedefine ENABLE_UNIX

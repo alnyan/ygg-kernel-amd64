@@ -3,9 +3,9 @@
  * @brief Kernel heap memory managament functions
  */
 #pragma once
+#include <config.h>
 #include "sys/types.h"
 
-#define HEAP_TRACE 1
 #define HEAP_TRACE_ALLOC        1
 #define HEAP_TRACE_FREE         2
 

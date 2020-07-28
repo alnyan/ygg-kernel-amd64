@@ -1,4 +1,5 @@
 #pragma once
+#include <config.h>
 #include "sys/types.h"
 
 struct slab_stat {
@@ -13,7 +14,6 @@ struct slab_cache *slab_cache_get(size_t obj_size);
 
 void slab_stat(struct slab_stat *st);
 
-#define SLAB_TRACE_ALLOC        1
 #if defined(SLAB_TRACE_ALLOC)
 #define slab_calloc(cp)     slab_calloc_trace(__FILE__, __LINE__, cp)
 #define slab_free(cp, ptr)  slab_free_trace(__FILE__, __LINE__, cp, ptr)
