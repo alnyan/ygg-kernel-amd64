@@ -5,6 +5,7 @@
 #pragma once
 #include "sys/types.h"
 
+#define HEAP_TRACE 1
 #define HEAP_TRACE_ALLOC        1
 #define HEAP_TRACE_FREE         2
 
@@ -15,30 +16,27 @@ struct heap_stat {
     size_t total_size;
 };
 
-/**
- * @brief Common kernel heap alloc
- * @see heap_alloc
- */
+#if defined(HEAP_TRACE)
 #define kmalloc(sz)     ({ \
         void *p = heap_alloc(heap_global, sz); \
         heap_trace(HEAP_TRACE_ALLOC, __FILE__, __func__, __LINE__, p, sz); \
         p; \
     })
 
-/**
- * @brief Common kernel heap free
- * @see heal_free
- */
 #define kfree(p)        heap_trace(HEAP_TRACE_FREE, __FILE__, __func__, __LINE__, p, 0); \
                         heap_free(heap_global, p)
+
+void heap_trace(int type, const char *file, const char *func, int line, void *ptr, size_t count);
+#else
+#define kmalloc(sz)     heap_alloc(heap_global, sz)
+#define kfree(p)        heap_free(heap_global, p)
+#endif
 
 /// Opaque type for kernel heap usage
 typedef struct kernel_heap heap_t;
 
 /// Implementations provide at least global heap
 extern heap_t *heap_global;
-
-void heap_trace(int type, const char *file, const char *func, int line, void *ptr, size_t count);
 
 /**
  * @brief Allocate `count' bytes

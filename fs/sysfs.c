@@ -195,7 +195,6 @@ int sysfs_add_dir(struct vnode *at, const char *name, struct vnode **res) {
     _assert(at->flags & VN_MEMORY);
 
     if (vnode_lookup_child(at, name, &tmp) != 0) {
-        kdebug("Can't find %s in %s, creating\n", name, at->name);
         tmp = vnode_create(VN_DIR, name);
         tmp->flags |= VN_MEMORY;
         //tmp->op = &g_sysfs_vnode_ops;
