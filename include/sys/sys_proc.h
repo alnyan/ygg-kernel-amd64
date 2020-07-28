@@ -19,6 +19,8 @@ int sys_setgid(gid_t gid);
 
 int sys_sigaltstack(const struct user_stack *ss, struct user_stack *old_ss);
 
+void sys_yield(void);
+
 int sys_waitpid(pid_t pid, int *status, int flags);
 pid_t sys_getpgid(pid_t pid);
 int sys_setpgid(pid_t pid, pid_t pgrp);

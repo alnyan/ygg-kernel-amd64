@@ -85,7 +85,6 @@ void proc_add_entry(struct process *proc) {
 
     proc_ensure_dir();
 
-    kdebug("BEGIN ADD ENTRY %d\n", proc->pid);
     snprintf(name, sizeof(name), "%d", proc->pid);
     _assert(sysfs_add_dir(g_sysfs_proc_dir, name, &proc->fs_entry) == 0);
 
@@ -95,15 +94,12 @@ void proc_add_entry(struct process *proc) {
                                       proc, sysfs_proc_parent, NULL) == 0);
     _assert(sysfs_add_config_endpoint(proc->fs_entry, "ioctx", SYSFS_MODE_DEFAULT, 64,
                                       proc, sysfs_proc_ioctx, NULL) == 0);
-    kdebug("END ADD ENTRY %d\n", proc->pid);
 }
 
 void proc_del_entry(struct process *proc) {
     _assert(proc && !(proc->flags & THREAD_KERNEL));
     _assert(proc->pid > 0);
-    kdebug("BEGIN DEL ENTRY %d\n", proc->pid);
     sysfs_del_ent(proc->fs_entry);
-    kdebug("END DEL ENTRY %d\n", proc->pid);
 }
 
 void context_save_fpu(struct thread *new, struct thread *old) {
@@ -752,6 +748,10 @@ __attribute__((noreturn)) void sys_exit(int status) {
     proc->proc_state = PROC_FINISHED;
     sched_unqueue(thr, THREAD_STOPPED);
     panic("This code shouldn't run\n");
+}
+
+void sys_yield(void) {
+    yield();
 }
 
 void sys_sigreturn(void) {

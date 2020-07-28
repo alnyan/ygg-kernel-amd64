@@ -73,6 +73,7 @@ void *syscall_table[256] = {
     // Process control
     [SYSCALL_NRX_SIGENTRY] =        sys_sigentry,
     [SYSCALL_NR_EXECVE] =           sys_execve,
+    [SYSCALL_NR_YIELD] =            sys_yield,
     [SYSCALL_NR_GETPID] =           sys_getpid,
     [SYSCALL_NR_CLONE] =            sys_clone,
     [SYSCALL_NR_KILL] =             sys_kill,
