@@ -22,6 +22,7 @@ heap_t *heap_global = &amd64_global_heap;
 
 static spin_t heap_lock = 0;
 
+#if defined(HEAP_TRACE)
 void heap_trace(int type, const char *file, const char *func, int line, void *ptr, size_t count) {
     if (type == HEAP_TRACE_ALLOC) {
         // Don't want fucktons of ACPI crap
@@ -35,6 +36,7 @@ void heap_trace(int type, const char *file, const char *func, int line, void *pt
         }
     }
 }
+#endif
 
 void heap_stat(heap_t *heap, struct heap_stat *st) {
     uintptr_t irq;
