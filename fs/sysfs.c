@@ -55,6 +55,7 @@ static void sysfs_ensure_root(void) {
         g_sysfs_root = vnode_create(VN_DIR, NULL);
         g_sysfs_root->flags |= VN_MEMORY;
         g_sysfs_root->mode = 0755;
+        g_sysfs_root->op = &g_sysfs_vnode_ops;
     }
 }
 
@@ -98,9 +99,10 @@ static int sysfs_vnode_open(struct ofile *fd, int opt) {
 }
 
 static void sysfs_vnode_close(struct ofile *fd) {
-    _assert(fd->file.priv_data);
-    kfree(fd->file.priv_data);
-    fd->file.priv_data = 0;
+    if (fd->file.priv_data) {
+        kfree(fd->file.priv_data);
+        fd->file.priv_data = 0;
+    }
 }
 
 static ssize_t sysfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
@@ -197,7 +199,7 @@ int sysfs_add_dir(struct vnode *at, const char *name, struct vnode **res) {
     if (vnode_lookup_child(at, name, &tmp) != 0) {
         tmp = vnode_create(VN_DIR, name);
         tmp->flags |= VN_MEMORY;
-        //tmp->op = &g_sysfs_vnode_ops;
+        tmp->op = &g_sysfs_vnode_ops;
         tmp->mode = S_IXUSR | S_IXGRP | S_IXOTH |
                     S_IRUSR | S_IRGRP | S_IROTH;
 
