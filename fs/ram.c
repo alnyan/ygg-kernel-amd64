@@ -63,7 +63,7 @@ struct vnode *ram_vnode_create(enum vnode_type t, const char *filename) {
         return NULL;
     }
 
-    if (t == VN_REG) {
+    if (t == VN_REG || t == VN_LNK) {
         // No need to setup, everything is zeroed by calloc
         priv = slab_calloc(ram_vnode_private_cache);
         _assert(priv);
@@ -498,7 +498,7 @@ static int ramfs_vnode_unlink(struct vnode *node) {
     }
 
     if (node->fs_data) {
-        _assert(node->type == VN_REG);
+        _assert(node->type == VN_REG || node->type == VN_LNK);
         slab_free(ram_vnode_private_cache, node->fs_data);
     }
     node->fs_data = NULL;

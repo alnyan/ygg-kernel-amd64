@@ -1,3 +1,4 @@
+#include "sys/mem/phys.h"
 #include "fs/ram_tar.h"
 #include "user/errno.h"
 #include "sys/string.h"
@@ -6,6 +7,7 @@
 #include "fs/node.h"
 #include "fs/vfs.h"
 #include "fs/ram.h"
+#include "sys/mm.h"
 #include "fs/fs.h"
 
 #include <stdbool.h>
@@ -67,7 +69,7 @@ static const char *path_element(const char *path, char *element) {
 static int tar_mapper_create_path(struct vnode *root,
                                   const char *path,
                                   struct vnode **res,
-                                  int dir,
+                                  enum vnode_type type,
                                   int create) {
     char name[NODE_MAXLEN];
     const char *child_path = path;
@@ -85,7 +87,7 @@ static int tar_mapper_create_path(struct vnode *root,
             if (!create) {
                 return -ENOENT;
             }
-            new_node = ram_vnode_create(dir ? VN_DIR : VN_REG, name);
+            new_node = ram_vnode_create(type, name);
             if (!new_node) {
                 return -ENOMEM;
             }
@@ -105,22 +107,30 @@ static int tar_mapper_create_path(struct vnode *root,
     return 0;
 }
 
-static inline bool tar_isreg(struct tar_header *hdr) {
-    return hdr->typeflag[0] == '0' || hdr->typeflag[0] == 0;
-}
+static enum vnode_type tar_type(struct tar_header *hdr) {
+    enum vnode_type vn_type = VN_UNK;
+    switch (hdr->typeflag[0]) {
+    case 0:
+    case '0':
+        vn_type = VN_REG;
+        break;
+    case '2':
+        vn_type = VN_LNK;
+        break;
+    case '5':
+        vn_type = VN_DIR;
+        break;
+    }
 
-static inline bool tar_isdir(struct tar_header *hdr) {
-    return hdr->typeflag[0] == '5';
-}
-
-static inline bool tar_issym(struct tar_header *hdr) {
-    return hdr->typeflag[0] == '2';
+    _assert(vn_type != VN_UNK);
+    return vn_type;
 }
 
 int tar_init(struct fs *ramfs, void *mem_base) {
     size_t off = 0;
     char *bytes;
     struct tar_header *hdr;
+    enum vnode_type type;
     struct vnode *node;
     bool prev_zero = 0;
     ssize_t res;
@@ -141,17 +151,18 @@ int tar_init(struct fs *ramfs, void *mem_base) {
         }
 
         hdr = (struct tar_header *) bytes;
+        type = tar_type(hdr);
 
         // Create node
         if ((res = tar_mapper_create_path(ramfs->fs_private,
                                           hdr->name,
                                           &node,
-                                          tar_isdir(hdr),
+                                          type,
                                           1)) != 0) {
             return res;
         }
 
-        if (tar_isreg(hdr)) {
+        if (type == VN_REG) {
             file_length = tar_octal(hdr->size, sizeof(hdr->size));
             off += 512 + ((511 + file_length) & ~511);
         } else {
@@ -177,6 +188,7 @@ int tar_init(struct fs *ramfs, void *mem_base) {
         }
 
         hdr = (struct tar_header *) bytes;
+        type = tar_type(hdr);
 
         // TODO: a function dedicated to looking up the node by its path
         //       might want something like vfs_find here, but it requires
@@ -184,8 +196,7 @@ int tar_init(struct fs *ramfs, void *mem_base) {
         if ((res = tar_mapper_create_path(ramfs->fs_private,
                                           hdr->name,
                                           &node,
-                                          tar_isdir(hdr),
-                                          0)) != 0) {
+                                          0, 0)) != 0) {
             return res;
         }
 
@@ -194,9 +205,15 @@ int tar_init(struct fs *ramfs, void *mem_base) {
         node->gid = tar_octal(hdr->gid, sizeof(hdr->uid));
         node->mode = tar_octal(hdr->mode, sizeof(hdr->mode)) & VFS_MODE_MASK;
 
-        if (tar_issym(hdr)) {
-            // Fix node type
-            node->type = VN_LNK;
+        if (type == VN_LNK) {
+            file_length = strlen(hdr->linkname);
+            uintptr_t blk = mm_phys_alloc_page();
+            _assert(blk != MM_NADDR);
+            if ((res = ram_vnode_bset_resize(node, file_length)) != 0) {
+                panic("Failed to resize file\n");
+            }
+            _assert(ram_vnode_bset_set(node, 0, MM_VIRTUALIZE(blk)) == 0);
+            strcpy((void *) MM_VIRTUALIZE(blk), hdr->linkname);
 
             if (hdr->linkname[0] == '/') {
                 if ((res = tar_mapper_create_path(ramfs->fs_private,
@@ -214,7 +231,7 @@ int tar_init(struct fs *ramfs, void *mem_base) {
                 }
 
             }
-        } else if (tar_isreg(hdr)) {
+        } else if (type == VN_REG) {
             file_length = tar_octal(hdr->size, sizeof(hdr->size));
             file_block_count = (511 + file_length) / 512;
 
