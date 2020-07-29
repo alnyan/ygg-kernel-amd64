@@ -1,6 +1,8 @@
 #include "arch/amd64/hw/rs232.h"
 #include "arch/amd64/hw/irq.h"
 #include "arch/amd64/hw/io.h"
+#include "sys/char/tty.h"
+#include "sys/assert.h"
 #include "sys/debug.h"
 
 #define RS232_DTR       0
@@ -28,6 +30,19 @@
 #define RS232_LSR_TEMT  64
 #define RS232_LSR_ERR   128
 
+uint32_t rs232_avail = 0;
+
+static int tty_serial_putc(void *ctx, int ch) {
+    rs232_send((uintptr_t) ctx, ch);
+    return 0;
+}
+
+static struct tty_serial tty_com1 = {
+    .ctx = (void *) RS232_COM1,
+    .tty = NULL,
+    .putc = tty_serial_putc
+};
+
 void rs232_send(uint16_t port, char c) {
     while (!(inb(port + RS232_LSR) & RS232_LSR_THRE)) {
     }
@@ -42,9 +57,20 @@ static uint32_t rs232_irq(void *ctx) {
     while ((s = inb(port + RS232_LSR)) & RS232_LSR_DR) {
         has_data = 1;
         uint8_t c = inb(port);
+
+        if (port == RS232_COM1 && tty_com1.tty) {
+            tty_data_write(tty_com1.tty, c);
+        }
     }
 
     return has_data ? IRQ_HANDLED : IRQ_UNHANDLED;
+}
+
+void rs232_add_tty(int n) {
+    // No other implemented yet
+    _assert(n == 0);
+
+    tty_create_serial(&tty_com1);
 }
 
 void rs232_init(uint16_t port) {
@@ -64,6 +90,12 @@ void rs232_init(uint16_t port) {
 
     // Enable receive interrupts
     outb(port + RS232_IER, RS232_IER_RCE);
+
+    switch (port) {
+    case RS232_COM1:
+        rs232_avail |= (1 << 0);
+        break;
+    }
 
     irq_add_leg_handler(IRQ_LEG_COM1_3, rs232_irq, (void *) RS232_COM1);
 }

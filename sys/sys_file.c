@@ -413,11 +413,13 @@ static int sys_select_get_ready(struct ofile *fd) {
         case VN_CHR: {
                 struct chrdev *chr = vn->dev;
                 _assert(chr);
+                int r;
                 if (chr->type == CHRDEV_TTY && (chr->tc.c_lflag & ICANON)) {
-                    return (chr->buffer.flags & (RING_SIGNAL_RET | RING_SIGNAL_EOF | RING_SIGNAL_BRK));
+                    r = (chr->buffer.flags & (RING_SIGNAL_RET | RING_SIGNAL_EOF | RING_SIGNAL_BRK));
                 } else {
-                    return !!ring_readable(&chr->buffer);
+                    r = !!ring_readable(&chr->buffer);
                 }
+                return r;
             }
         default:
             panic("Not implemented\n");
@@ -496,16 +498,13 @@ int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *t
         }
     }
 
-    thr->sleep_deadline = deadline;
-    thread_wait_io_add(thr, &thr->sleep_notify);
-    timer_add_sleep(thr);
-
     struct io_notify *result;
     int ready = 0;
 
     while (1) {
         res = 0;
         // Check if data is available in any of the FDs
+        thread_wait_io_clear(thr);
         for (int i = 0; i < n; ++i) {
             if (FD_ISSET(i, &_inp)) {
                 struct ofile *fd = proc->fds[i];
@@ -518,6 +517,10 @@ int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *t
                     timer_remove_sleep(thr);
                     break;
                 }
+                struct io_notify *w = sys_select_get_wait(fd);
+                _assert(w);
+
+                thread_wait_io_add(thr, w);
             }
         }
 
@@ -525,13 +528,19 @@ int sys_select(int n, fd_set *inp, fd_set *outp, fd_set *excp, struct timeval *t
             break;
         }
 
+        if (deadline != (uint64_t) -1) {
+            thr->sleep_deadline = deadline;
+            thread_wait_io_add(thr, &thr->sleep_notify);
+            timer_add_sleep(thr);
+        }
+
         // Perform a wait for any single event
         res = thread_wait_io_any(thr, &result);
         ready = 1;
+        timer_remove_sleep(thr);
 
         if (res < 0) {
             // Likely interrupted
-            //timer_remove_sleep(thr);
             break;
         }
 

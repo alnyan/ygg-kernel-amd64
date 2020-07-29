@@ -94,7 +94,7 @@ int thread_wait_io_any(struct thread *thr, struct io_notify **r_n) {
 
         if (n) {
             // Found ready descriptor
-            n->value = 0;
+            --n->value;
             spin_release_irqrestore(&it->lock, &irq);
             *r_n = n;
 

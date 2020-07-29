@@ -22,15 +22,23 @@
 #include "sys/dev.h"
 #include "sys/mm.h"
 
+#define TTY_BUF_SIZE        128
+
 static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t lim);
 static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg);
 
 static const struct termios default_termios = TERMIOS_DEFAULT;
+static char last_tty_n = '0';
+static char last_ttys_n = '0';
 
 void tty_data_write(struct chrdev *tty, char c) {
     _assert(tty && tty->type == CHRDEV_TTY);
 
-    if ((tty->tc.c_iflag & ICANON) && (tty->tc.c_cc[VEOF] == c)) {
+    if (c == '\r' && (tty->tc.c_iflag & ICRNL)) {
+        c = '\n';
+    }
+
+    if ((tty->tc.c_lflag & ICANON) && (tty->tc.c_cc[VEOF] == c)) {
         // EOF
         ring_signal(&tty->buffer, RING_SIGNAL_EOF);
         return;
@@ -63,7 +71,7 @@ void tty_data_write(struct chrdev *tty, char c) {
         if (tty->tc.c_lflag & ECHONL) {
             tty_putc(tty, c);
         }
-        if (tty->tc.c_iflag & ICANON) {
+        if (tty->tc.c_lflag & ICANON) {
             // Trigger line flush
             ring_signal(&tty->buffer, RING_SIGNAL_RET);
         }
@@ -73,7 +81,7 @@ void tty_data_write(struct chrdev *tty, char c) {
         ring_signal(&tty->buffer, 0);
         break;
     case '\033':
-        if ((tty->tc.c_lflag & ECHO) && (tty->tc.c_iflag & ICANON)) {
+        if ((tty->tc.c_lflag & ECHO) && (tty->tc.c_lflag & ICANON)) {
             tty_puts(tty, "^[");
         }
         break;
@@ -109,12 +117,45 @@ int tty_create(struct console *master) {
     tty->ioctl = tty_ioctl;
     tty->read = line_read;
     tty->dev_data = data;
+    data->has_console = 1;
 
-    ring_init(&tty->buffer, 16);
+    ring_init(&tty->buffer, TTY_BUF_SIZE);
 
     console_attach(master, tty);
 
-    dev_add(DEV_CLASS_CHAR, DEV_CHAR_TTY, tty, "tty0");
+    char name[5] = "ttyX";
+    name[3] = last_tty_n++;
+    dev_add(DEV_CLASS_CHAR, DEV_CHAR_TTY, tty, name);
+
+    return 0;
+}
+
+int tty_create_serial(struct tty_serial *ser) {
+    struct chrdev *tty = kmalloc(sizeof(struct chrdev));
+    _assert(tty);
+
+    struct tty_data *data = kmalloc(sizeof(struct tty_data));
+    _assert(data);
+
+    data->fg_pgid = 1;
+    list_head_init(&data->list);
+
+    tty->type = CHRDEV_TTY;
+    memcpy(&tty->tc, &default_termios, sizeof(struct termios));
+    tty->tc.c_iflag |= ICRNL;
+    tty->write = tty_write;
+    tty->ioctl = tty_ioctl;
+    tty->read = line_read;
+    tty->dev_data = data;
+    data->has_console = 0;
+    data->serial = ser;
+    data->serial->tty = tty;
+
+    ring_init(&tty->buffer, TTY_BUF_SIZE);
+
+    char name[6] = "ttySX";
+    name[4] = last_ttys_n++;
+    dev_add(DEV_CLASS_CHAR, DEV_CHAR_TTY, tty, name);
 
     return 0;
 }
@@ -122,9 +163,14 @@ int tty_create(struct console *master) {
 void tty_putc(struct chrdev *tty, int c) {
     struct tty_data *data = tty->dev_data;
     _assert(data);
-    _assert(data->master);
 
-    console_putc(data->master, tty, c);
+    if (data->has_console) {
+        _assert(data->master);
+        console_putc(data->master, tty, c);
+    } else {
+        _assert(data->serial);
+        data->serial->putc(data->serial->ctx, c);
+    }
 }
 
 static struct vnode *tty_link_getter(struct thread *ctx, struct vnode *link) {
@@ -142,7 +188,13 @@ static ssize_t tty_write(struct chrdev *tty, const void *buf, size_t pos, size_t
     _assert(data);
 
     for (size_t i = 0; i < lim; ++i) {
-        console_putc(data->master, tty, ((const unsigned char *) buf)[i]);
+        if (data->has_console) {
+            _assert(data->master);
+            console_putc(data->master, tty, ((const unsigned char *) buf)[i]);
+        } else {
+            _assert(data->serial);
+            data->serial->putc(data->serial->ctx, ((const unsigned char *) buf)[i]);
+        }
     }
 
     return lim;

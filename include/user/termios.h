@@ -7,7 +7,7 @@
 #define TIOCGWINSZ      0x5413
 
 // Input flags
-#define ICANON          (1 << 1)
+#define ICRNL           (1 << 0)
 
 // Output flags
 #define OPOST           (1 << 0)
@@ -17,6 +17,7 @@
 
 // Control flags
 #define ISIG            (1 << 0)
+#define ICANON          (1 << 1)
 #define ECHO            (1 << 4)        // Echo input characters
 #define ECHOE           (1 << 5)        // if ICANON, ERASE erases prec. character,
                                         //            WERASE erases prec. word

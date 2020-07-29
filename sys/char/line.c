@@ -78,7 +78,8 @@ ssize_t line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) {
         ++rd;
         --rem;
 
-        if (c == '\n') {
+        // I hope the following doesn't break lmao
+        if (c == '\n' || (!ring_readable(r) && !(chr->tc.c_lflag & ICANON))) {
             break;
         }
     }

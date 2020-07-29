@@ -123,6 +123,10 @@ void kernel_early_init(void) {
 
     amd64_mm_init();
 
+    if (rs232_avail & (1 << 0)) {
+        rs232_add_tty(0);
+    }
+
     console_init_default();
 
     ps2_register_device();
