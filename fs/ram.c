@@ -63,9 +63,13 @@ struct vnode *ram_vnode_create(enum vnode_type t, const char *filename) {
         return NULL;
     }
 
-    // No need to setup, everything is zeroed by calloc
-    priv = slab_calloc(ram_vnode_private_cache);
-    _assert(priv);
+    if (t == VN_REG) {
+        // No need to setup, everything is zeroed by calloc
+        priv = slab_calloc(ram_vnode_private_cache);
+        _assert(priv);
+    } else {
+        priv = NULL;
+    }
 
     vn->fs = NULL;
     vn->op = &_ramfs_vnode_op;
@@ -289,9 +293,6 @@ static int ramfs_vnode_open(struct ofile *of, int opt) {
 
 static int ramfs_vnode_stat(struct vnode *vn, struct stat *st) {
     struct ram_vnode_private *priv;
-    _assert(vn->fs_data);
-
-    priv = vn->fs_data;
 
     memset(st, 0, sizeof(struct stat));
     // TODO: appropriate masks
@@ -312,6 +313,9 @@ static int ramfs_vnode_stat(struct vnode *vn, struct stat *st) {
     st->st_uid = vn->uid;
     st->st_gid = vn->gid;
     if (vn->type == VN_REG) {
+        _assert(vn->fs_data);
+        priv = vn->fs_data;
+
         st->st_size = priv->size;
         st->st_blocks = priv->bpa_cap;
     } else {
@@ -493,7 +497,10 @@ static int ramfs_vnode_unlink(struct vnode *node) {
         }
     }
 
-    slab_free(ram_vnode_private_cache, node->fs_data);
+    if (node->fs_data) {
+        _assert(node->type == VN_REG);
+        slab_free(ram_vnode_private_cache, node->fs_data);
+    }
     node->fs_data = NULL;
 
     // VFS will do its job
