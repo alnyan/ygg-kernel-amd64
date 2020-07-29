@@ -104,6 +104,39 @@ int binfmt_is_elf(const char *ident, size_t len) {
     return !strncmp(ident, "\x7F""ELF", 4);
 }
 
+int elf_is_dynamic(struct vfs_ioctx *ioctx, struct ofile *fd, int *is_dynamic) {
+    Elf64_Ehdr ehdr;
+    Elf64_Phdr phdr;
+    int res;
+
+    *is_dynamic = 0;
+
+    if ((res = elf_read(ioctx, fd, 0, &ehdr, sizeof(Elf64_Ehdr))) != 0) {
+        return res;
+    }
+
+    if (ehdr.e_ident[EI_CLASS] != ELFCLASS64) {
+        return -ENOEXEC;
+    }
+
+    for (size_t i = 0; i < ehdr.e_phnum; ++i) {
+        if ((res = elf_read(ioctx,
+                            fd,
+                            ehdr.e_phoff + i * ehdr.e_phentsize,
+                            &phdr,
+                            ehdr.e_phentsize)) != 0) {
+            return res;
+        }
+
+        if (phdr.p_type == PT_DYNAMIC) {
+            *is_dynamic = 1;
+            break;
+        }
+    }
+
+    return 0;
+}
+
 int elf_load(struct process *proc, struct vfs_ioctx *ctx, struct ofile *fd, uintptr_t *entry) {
     int res;
     ssize_t bread;

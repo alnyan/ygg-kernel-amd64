@@ -171,11 +171,31 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
             }
             argv_new[argc] = NULL;
 
-            for (int i = 0; i < argc; ++i) {
-                kdebug("[%d]: %s\n", i, argv_new[i]);
-            }
-
             return sys_execve(shebang + 2, argv_new, envp);
+        }
+    } else {
+        int is_dynamic = 0;
+        if ((res = elf_is_dynamic(&proc->ioctx, &fd, &is_dynamic)) != 0) {
+            kerror("%s: %s\n", path, kstrerror(res));
+            vfs_close(&proc->ioctx, &fd);
+            return -EINVAL;
+        }
+
+        if (is_dynamic) {
+            vfs_close(&proc->ioctx, &fd);
+
+            int argc;
+            for (argc = 0; argv[argc]; ++argc);
+
+            const char *argv_new[argc + 3];
+            argv_new[0] = "/lib/ld";
+            argv_new[1] = path;
+            for (int i = 0; i < argc; ++i) {
+                argv_new[i + 2] = argv[i];
+            }
+            argv_new[argc + 2] = NULL;
+
+            return sys_execve(argv_new[0], argv_new, envp);
         }
     }
 
