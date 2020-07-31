@@ -72,11 +72,14 @@ void input_key(uint8_t key, uint8_t mods, const char *map0, const char *map1) {
         char c = map0[key];
 
         switch (c) {
+        case 'c':
+            console_type(g_keyboard_console, 3);    // ETX
+            break;
         case 'd':
             console_type(g_keyboard_console, 4);    // EOT
             break;
-        case 'c':
-            console_type(g_keyboard_console, 3);    // ETX
+        case 'l':
+            console_type(g_keyboard_console, 12);   // FF
             break;
         case 'w':
             console_type(g_keyboard_console, 23);   // ETB

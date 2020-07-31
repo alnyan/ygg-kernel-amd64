@@ -80,6 +80,12 @@ void tty_data_write(struct chrdev *tty, char c) {
     case 0x7F:
         ring_signal(&tty->buffer, 0);
         break;
+    case 0x0C:
+        if (tty->tc.c_lflag & ECHO) {
+            tty_putc(tty, '^');
+            tty_putc(tty, 'L');
+        }
+        break;
     case '\033':
         if ((tty->tc.c_lflag & ECHO) && (tty->tc.c_lflag & ICANON)) {
             tty_puts(tty, "^[");
