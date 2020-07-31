@@ -673,7 +673,13 @@ int vfs_chmod(struct vfs_ioctx *ctx, const char *path, mode_t mode) {
     }
 
     if (!node->op || !node->op->chmod) {
-        return -EINVAL;
+        if (node->flags & VN_MEMORY) {
+            node->mode &= ~VFS_MODE_MASK;
+            node->mode |= mode & VFS_MODE_MASK;
+            return 0;
+        } else {
+            return -EINVAL;
+        }
     }
 
     if ((res = node->op->chmod(node, mode)) != 0) {
@@ -699,11 +705,13 @@ int vfs_chown(struct vfs_ioctx *ctx, const char *path, uid_t uid, gid_t gid) {
     }
 
     if (!node->op || !node->op->chown) {
-        return -EINVAL;
-    }
-
-    if ((res = node->op->chown(node, uid, gid)) != 0) {
-        return res;
+        if (!(node->flags & VN_MEMORY)) {
+            return -EINVAL;
+        }
+    } else {
+        if ((res = node->op->chown(node, uid, gid)) != 0) {
+            return res;
+        }
     }
 
     node->uid = uid;
