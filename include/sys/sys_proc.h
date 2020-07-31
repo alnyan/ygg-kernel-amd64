@@ -11,6 +11,7 @@ int sys_clone(int (*entry) (void *), void *stack, int flags, void *arg);
 int sys_execve(const char *path, const char **argp, const char **envp);
 pid_t sys_getpid(void);
 pid_t sys_getppid(void);
+pid_t sys_setsid(void);
 
 uid_t sys_getuid(void);
 gid_t sys_getgid(void);

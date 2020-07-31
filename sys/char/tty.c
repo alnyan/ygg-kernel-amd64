@@ -174,9 +174,13 @@ void tty_putc(struct chrdev *tty, int c) {
 }
 
 static struct vnode *tty_link_getter(struct thread *ctx, struct vnode *link) {
-    struct vnode *res;
-    dev_find(DEV_CLASS_CHAR, "tty0", &res);
-    return res;
+    struct process *proc;
+
+    if (!(proc = ctx->proc)) {
+        return NULL;
+    }
+
+    return proc->ctty;
 }
 
 void tty_init(void) {
@@ -209,10 +213,15 @@ static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg) {
         {
             _assert(arg);
             struct winsize *winsz = arg;
-            _assert(data->master);
+            if (data->has_console) {
+                _assert(data->master);
 
-            winsz->ws_col = data->master->width_chars;
-            winsz->ws_row = data->master->height_chars;
+                winsz->ws_col = data->master->width_chars;
+                winsz->ws_row = data->master->height_chars;
+            } else {
+                winsz->ws_col = 80;
+                winsz->ws_row = 25;
+            }
         }
         return 0;
     case TCGETS:

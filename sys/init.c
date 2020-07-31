@@ -57,6 +57,8 @@ static void user_init_func(void *arg) {
     _assert(fd_stdin->refcount == 1);
     _assert(fd_stdout->refcount == 2);
 
+    thread_self->proc->ctty = tty_dev;
+
     const char *argp[] = {
         "/init", NULL
     };

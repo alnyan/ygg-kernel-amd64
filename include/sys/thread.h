@@ -94,8 +94,9 @@ struct process {
     // Signal
     uint64_t sigq;
 
-    // procfs
+    // Filesystem-stuff
     struct vnode *fs_entry;
+    struct vnode *ctty;
 
     // State
     char name[256];

@@ -325,6 +325,7 @@ int process_init_thread(struct process *proc, uintptr_t entry, void *arg, int us
     proc->next_child = NULL;
     proc->pgid = -1;
     proc->pid = process_alloc_pid(user);
+    proc->ctty = NULL;
     kdebug("New process #%d with main thread <%p>", proc->pid, main_thread);
 
     proc->sigq = 0;
@@ -570,6 +571,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst->pgid = src->pgid;
     dst->sigq = 0;
     dst->proc_state = PROC_ACTIVE;
+    dst->ctty = src->ctty;
     kdebug("New process #%d with main thread <%p>\n", dst->pid, dst_thread);
 
     // Initialize dst thread
@@ -723,7 +725,7 @@ __attribute__((noreturn)) void sys_exit(int status) {
         sched_unqueue(thr, THREAD_STOPPED);
         panic("This code shouldn't run\n");
     }
-    kdebug("Process %d exited with status %d\n", proc->pid, status);
+    kdebug("Process #%d (%s) exited with status %d\n", proc->pid, proc->name, status);
 
     // Clear pending I/O (if exiting from signal interrupting select())
     if (!list_empty(&thr->wait_head)) {
@@ -986,4 +988,26 @@ uid_t sys_getuid(void) {
 
 gid_t sys_getgid(void) {
     return thread_self->proc->ioctx.gid;
+}
+
+pid_t sys_setsid(void) {
+    struct process *proc = thread_self->proc;
+    _assert(proc);
+    if (proc->ctty) {
+        // Close current tty filedes
+        for (size_t i = 0; i < THREAD_MAX_FDS; ++i) {
+            if (proc->fds[i] && !(proc->fds[i]->flags & OF_SOCKET)) {
+                if (proc->fds[i]->file.vnode == proc->ctty) {
+                    kdebug("setsid: detaching fd %d from #%d (%s)\n", i, proc->pid, proc->name);
+                    ofile_close(&proc->ioctx, proc->fds[i]);
+                    proc->fds[i] = NULL;
+                }
+            }
+        }
+        proc->ctty = NULL;
+    } else {
+        kdebug("setsid: #%d (%s) didn't have a tty\n", proc->pid, proc->name);
+    }
+
+    return proc->pid;
 }

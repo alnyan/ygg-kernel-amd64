@@ -195,6 +195,18 @@ int sys_openat(int dfd, const char *filename, int flags, int mode) {
     proc->fds[fd] = ofile_dup(ofile);
     _assert(proc->fds[fd]->refcount == 1);
 
+    // Set controlling terminal if none present and TTY is opened
+    // TODO: O_NOCTTY
+    if (!proc->ctty && !(ofile->flags & OF_SOCKET)) {
+        struct vnode *node = ofile->file.vnode;
+        _assert(node);
+
+        if (node->type == VN_CHR && ((struct chrdev *) node->dev)->type == CHRDEV_TTY) {
+            kdebug("Setting controlling terminal for #%d (%s)\n", proc->pid, proc->name);
+            proc->ctty = node;
+        }
+    }
+
     return fd;
 }
 
