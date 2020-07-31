@@ -231,6 +231,8 @@ static int ramfs_vnode_creat(struct vnode *at, const char *filename, uid_t uid, 
 static int ramfs_vnode_truncate(struct vnode *at, size_t size);
 static int ramfs_vnode_mkdir(struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode);
 static int ramfs_vnode_unlink(struct vnode *node);
+static int ramfs_vnode_chown(struct vnode *node, uid_t uid, gid_t gid);
+static int ramfs_vnode_chmod(struct vnode *node, mode_t mode);
 
 static struct vnode_operations _ramfs_vnode_op = {
     .open = ramfs_vnode_open,
@@ -242,6 +244,8 @@ static struct vnode_operations _ramfs_vnode_op = {
     .mkdir = ramfs_vnode_mkdir,
     .truncate = ramfs_vnode_truncate,
     .unlink = ramfs_vnode_unlink,
+    .chown = ramfs_vnode_chown,
+    .chmod = ramfs_vnode_chmod
 };
 
 static int ram_init(struct fs *ramfs, const char *opt) {
@@ -516,6 +520,22 @@ static int ramfs_vnode_truncate(struct vnode *at, size_t size) {
     }
     _assert(ram_vnode_bset_resize(at, size) == 0);
 
+    return 0;
+}
+
+static int ramfs_vnode_chown(struct vnode *node, uid_t uid, gid_t gid) {
+    node->uid = uid;
+    node->gid = gid;
+    return 0;
+}
+
+static int ramfs_vnode_chmod(struct vnode *node, mode_t mode) {
+    if (node->type == VN_LNK) {
+        // Ignore
+        return 0;
+    }
+    node->mode &= ~VFS_MODE_MASK;
+    node->mode |= mode & VFS_MODE_MASK;
     return 0;
 }
 
