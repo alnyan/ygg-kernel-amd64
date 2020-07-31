@@ -166,8 +166,9 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
             _assert(argc <= 32);
             const char *argv_new[argc + 1];
             argv_new[0] = shebang + 2;
+            argv_new[1] = path;
             for (int i = 1; i < argc; ++i) {
-                argv_new[i] = argv[i - 1];
+                argv_new[i + 1] = argv[i];
             }
             argv_new[argc] = NULL;
 
