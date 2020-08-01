@@ -15,7 +15,7 @@
 #include "fs/node.h"
 #include "sys/mm.h"
 
-static void *sys_mmap_anon(size_t page_count, int prot, int flags) {
+static void *sys_mmap_anon(void *hint, size_t page_count, int prot, int flags) {
     mm_space_t space;
     uint64_t map_flags = MM_PAGE_USER;
     int map_usage = PU_PRIVATE;
@@ -31,10 +31,30 @@ static void *sys_mmap_anon(size_t page_count, int prot, int flags) {
     space = thread_self->proc->space;
     _assert(space);
 
-    uintptr_t virt_base = vmfind(space, 0x100000000, 0x400000000, page_count);
-    _assert(virt_base != MM_NADDR);
+    uintptr_t virt_base;
 
-    //kdebug("mmaping %u pages at %p\n", page_count, virt_base);
+    if (flags & MAP_FIXED) {
+        virt_base = (uintptr_t) hint;
+
+        // Treat hint as an exact address
+        if (virt_base == 0 || (virt_base & MM_PAGE_OFFSET_MASK)) {
+            return (void *) -EINVAL;
+        }
+
+        // TODO: check for hint + page_count * PAGE_SIZE overflow
+        // Check that any of the pages in that range are already taken
+        for (size_t i = 0; i < page_count; ++i) {
+            if (mm_map_get(space, virt_base + i * MM_PAGE_SIZE, 0) != MM_NADDR) {
+                return (void *) -EINVAL;
+            }
+        }
+        // Good to proceed
+    } else {
+        virt_base = vmfind(space, 0x100000000, 0x400000000, page_count);
+        _assert(virt_base != MM_NADDR);
+    }
+
+    kdebug("mmaping %u pages at %p\n", page_count, virt_base);
 
     // Map pages
     for (size_t i = 0; i < page_count; ++i) {
@@ -60,7 +80,7 @@ void *sys_mmap(void *hint, size_t length, int prot, int flags, int fd, off_t off
 
     if (flags & MAP_ANONYMOUS) {
         // Anonymous mapping
-        return sys_mmap_anon(page_count, prot, flags);
+        return sys_mmap_anon(hint, page_count, prot, flags);
     } else {
         // File/device-backed mapping
         if (fd < 0 || fd >= THREAD_MAX_FDS) {
