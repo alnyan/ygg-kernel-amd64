@@ -16,6 +16,8 @@
 #define MAX(x, y) ((x) > (y) ? (x) : (y))
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
+int atoi(const char *str);
+
 void *memcpy(void *restrict dst, const void *restrict src, size_t cnt);
 uint64_t *memcpyq(uint64_t *restrict dst, const uint64_t *restrict src, size_t cnt);
 void *memmove(void *dst, const void *src, size_t cnt);

@@ -1,4 +1,14 @@
 #include "sys/string.h"
+#include "sys/ctype.h"
+
+int atoi(const char *str) {
+    int res = 0;
+    while (isdigit(*str)) {
+        res *= 10;
+        res += (*str++) - '0';
+    }
+    return res;
+}
 
 char *strcat(char *dst, const char *src) {
     size_t l = strlen(dst);
