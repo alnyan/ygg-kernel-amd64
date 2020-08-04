@@ -7,4 +7,5 @@
 struct ioc_vmode {
     uint32_t width;
     uint32_t height;
+    size_t pitch, bpp;
 };

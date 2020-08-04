@@ -69,12 +69,12 @@ void blk_sync_all(void) {
     }
 }
 
-void *blk_mmap(struct blkdev *blk, struct ofile *of, void *hint, size_t length, int flags) {
+int blk_mmap(struct blkdev *blk, uintptr_t base, size_t page_count, int prot, int flags) {
     _assert(blk);
     if (blk->mmap) {
-        return blk->mmap(blk, of, hint, length, flags);
+        return blk->mmap(blk, base, page_count, prot, flags);
     } else {
-        return (void *) -EINVAL;
+        return -EINVAL;
     }
 }
 

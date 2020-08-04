@@ -18,7 +18,8 @@ struct blkdev {
     ssize_t (*read) (struct blkdev *blk, void *buf, size_t off, size_t count);
     ssize_t (*write) (struct blkdev *blk, const void *buf, size_t off, size_t count);
     int (*ioctl) (struct blkdev *blk, unsigned long req, void *ptr);
-    void *(*mmap) (struct blkdev *blk, struct ofile *fd, void *hint, size_t length, int flags);
+
+    int (*mmap)(struct blkdev *blk, uintptr_t base, size_t page_count, int prot, int flags);
 
     void (*destroy) (struct blkdev *blk);
 };
@@ -29,7 +30,7 @@ void blk_sync(struct blkdev *blk);
 int blk_page_sync(struct blkdev *blk, uintptr_t address, uintptr_t page);
 void blk_sync_all(void);
 
-void *blk_mmap(struct blkdev *blk, struct ofile *fd, void *hint, size_t length, int flags);
+int blk_mmap(struct blkdev *blk, uintptr_t base, size_t page_count, int prot, int flags);
 ssize_t blk_read(struct blkdev *blk, void *buf, size_t off, size_t count);
 ssize_t blk_write(struct blkdev *blk, const void *buf, size_t off, size_t count);
 int blk_ioctl(struct blkdev *blk, unsigned long req, void *ptr);

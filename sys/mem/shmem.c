@@ -15,8 +15,7 @@
 #include "fs/node.h"
 #include "sys/mm.h"
 
-static void *sys_mmap_anon(void *hint, size_t page_count, int prot, int flags) {
-    mm_space_t space;
+static int sys_mmap_anon(mm_space_t space, uintptr_t base, size_t page_count, int prot, int flags) {
     uint64_t map_flags = MM_PAGE_USER;
     int map_usage = PU_PRIVATE;
 
@@ -27,35 +26,6 @@ static void *sys_mmap_anon(void *hint, size_t page_count, int prot, int flags) {
         map_usage = PU_SHARED;
     }
 
-    _assert(thread_self && thread_self->proc);
-    space = thread_self->proc->space;
-    _assert(space);
-
-    uintptr_t virt_base;
-
-    if (flags & MAP_FIXED) {
-        virt_base = (uintptr_t) hint;
-
-        // Treat hint as an exact address
-        if (virt_base == 0 || (virt_base & MM_PAGE_OFFSET_MASK)) {
-            return (void *) -EINVAL;
-        }
-
-        // TODO: check for hint + page_count * PAGE_SIZE overflow
-        // Check that any of the pages in that range are already taken
-        for (size_t i = 0; i < page_count; ++i) {
-            if (mm_map_get(space, virt_base + i * MM_PAGE_SIZE, 0) != MM_NADDR) {
-                return (void *) -EINVAL;
-            }
-        }
-        // Good to proceed
-    } else {
-        virt_base = vmfind(space, 0x100000000, 0x400000000, page_count);
-        _assert(virt_base != MM_NADDR);
-    }
-
-    kdebug("mmaping %u pages at %p\n", page_count, virt_base);
-
     // Map pages
     for (size_t i = 0; i < page_count; ++i) {
         uintptr_t phys = mm_phys_alloc_page();
@@ -64,23 +34,67 @@ static void *sys_mmap_anon(void *hint, size_t page_count, int prot, int flags) {
         _assert(page);
 
         page->flags |= PG_MMAPED;
-        _assert(mm_map_single(space, virt_base + i * MM_PAGE_SIZE, phys, map_flags, map_usage) == 0);
+        _assert(mm_map_single(space, base + i * MM_PAGE_SIZE, phys, map_flags, map_usage) == 0);
     }
 
-    return (void *) virt_base;
+    return 0;
+}
+
+static uintptr_t mmap_findmem(mm_space_t space, void *hint, size_t page_count, int flags) {
+    uintptr_t virt_base;
+
+    if (flags & MAP_FIXED) {
+        virt_base = (uintptr_t) hint;
+
+        // Treat hint as an exact address
+        if (virt_base == 0 || (virt_base & MM_PAGE_OFFSET_MASK)) {
+            return MM_NADDR;
+        }
+
+        // TODO: check for hint + page_count * PAGE_SIZE overflow
+        // Check that any of the pages in that range are already taken
+        for (size_t i = 0; i < page_count; ++i) {
+            if (mm_map_get(space, virt_base + i * MM_PAGE_SIZE, 0) != MM_NADDR) {
+                return MM_NADDR;
+            }
+        }
+        // Good to proceed
+    } else {
+        virt_base = vmfind(space, 0x100000000, 0x400000000, page_count);
+        _assert(virt_base != MM_NADDR);
+    }
+
+    return virt_base;
 }
 
 void *sys_mmap(void *hint, size_t length, int prot, int flags, int fd, off_t off) {
     size_t page_count;
+    mm_space_t space;
+    uintptr_t base;
+    long res;
+
+    _assert(thread_self && thread_self->proc);
+    space = thread_self->proc->space;
+    _assert(space);
 
     if (length & MM_PAGE_OFFSET_MASK) {
         return (void *) -EINVAL;
     }
     page_count = length / MM_PAGE_SIZE;
 
+    // Allocate the virtual pages first
+    base = mmap_findmem(space, hint, page_count, flags);
+
+    if (base == MM_NADDR) {
+        return (void *) -ENOMEM;
+    }
+
     if (flags & MAP_ANONYMOUS) {
         // Anonymous mapping
-        return sys_mmap_anon(hint, page_count, prot, flags);
+        if ((res = sys_mmap_anon(space, base, page_count, prot, flags)) != 0) {
+            return (void *) res;
+        }
+        return (void *) base;
     } else {
         // File/device-backed mapping
         if (fd < 0 || fd >= THREAD_MAX_FDS) {
@@ -103,13 +117,10 @@ void *sys_mmap(void *hint, size_t length, int prot, int flags, int fd, off_t off
         case VN_BLK:
             {
                 struct blkdev *blk = vn->dev;
-                _assert(blk);
-
-                if (!blk->mmap) {
-                    return (void *) -EINVAL;
+                if ((res = blk_mmap(blk, base, page_count, prot, flags)) != 0) {
+                    return (void *) res;
                 }
-
-                return blk->mmap(blk, of, hint, length, flags);
+                return (void *) base;
             }
         default:
             return (void *) -EINVAL;

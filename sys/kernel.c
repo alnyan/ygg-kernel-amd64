@@ -4,6 +4,7 @@
 #include "drivers/usb/usb.h"
 #include "sys/char/tty.h"
 #include "sys/console.h"
+#include "sys/display.h"
 #include "sys/assert.h"
 #include "sys/sched.h"
 #include "sys/panic.h"
@@ -34,6 +35,8 @@ void main(void) {
 
     vfs_init();
     tty_init();
+
+    display_postinit();
 
     sysfs_populate();
 
