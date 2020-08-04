@@ -441,7 +441,9 @@ static int sys_select_get_ready(struct ofile *fd) {
 
 static struct io_notify *sys_select_get_wait(struct ofile *fd) {
     if (fd->flags & OF_SOCKET) {
-        return &fd->socket.rx_notify;
+        struct io_notify *res = socket_get_rx_notify(&fd->socket);
+        _assert(res);
+        return res;
     } else {
         struct vnode *vn = fd->file.vnode;
         _assert(vn);

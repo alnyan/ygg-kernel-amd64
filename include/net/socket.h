@@ -10,7 +10,7 @@ struct netdev;
 struct socket {
     struct sockops *op;
     struct vfs_ioctx *ioctx;
-    struct io_notify rx_notify;
+    //struct io_notify rx_notify;
     void *data;
 };
 
@@ -38,3 +38,4 @@ int net_setsockopt(struct vfs_ioctx *ioctx, struct ofile *fd, int optname, void 
 void net_close(struct vfs_ioctx *ioctx, struct ofile *fd);
 
 int socket_has_data(struct socket *sock);
+struct io_notify *socket_get_rx_notify(struct socket *sock);

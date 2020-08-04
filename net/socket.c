@@ -18,6 +18,11 @@ int socket_has_data(struct socket *sock) {
     return !!sock->op->count_pending(sock);
 }
 
+struct io_notify *socket_get_rx_notify(struct socket *sock) {
+    _assert(sock->op && sock->op->get_rx_notify);
+    return sock->op->get_rx_notify(sock);
+}
+
 int net_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type, int proto) {
     struct socket_class *cls, *iter;
 
@@ -44,7 +49,6 @@ int net_open(struct vfs_ioctx *ioctx, struct ofile *fd, int dom, int type, int p
     fd->flags = OF_SOCKET;
     fd->socket.ioctx = ioctx;
     fd->socket.op = cls->ops;
-    thread_wait_io_init(&fd->socket.rx_notify);
 
     return cls->ops->open(&fd->socket);
 }

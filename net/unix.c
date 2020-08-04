@@ -32,6 +32,8 @@ static ssize_t unix_socket_sendto(struct socket *s,
 static ssize_t unix_socket_recvfrom(struct socket *s,
                                     void *buf, size_t lim,
                                     struct sockaddr *dst, size_t *salen);
+static int unix_socket_count_pending(struct socket *s);
+static struct io_notify *unix_socket_get_rx_notify(struct socket *s);
 
 static struct sockops unix_socket_ops = {
     .open =     unix_socket_open,
@@ -44,6 +46,9 @@ static struct sockops unix_socket_ops = {
     .connect =  unix_socket_connect,
 
     .accept =   unix_socket_accept,
+
+    .count_pending = unix_socket_count_pending,
+    .get_rx_notify = unix_socket_get_rx_notify,
 };
 static struct socket_class unix_socket_class = {
     .name =     "unix",
@@ -60,11 +65,16 @@ static ssize_t unix_conn_recvfrom(struct socket *s,
                                   void *buf, size_t lim,
                                   struct sockaddr *dst, size_t *salen);
 static void unix_conn_close(struct socket *s);
+static int unix_conn_count_pending(struct socket *sock);
+static struct io_notify *unix_conn_get_rx_notify(struct socket *sock);
 
 static struct sockops unix_conn_ops = {
     .sendto =   unix_conn_sendto,
     .recvfrom = unix_conn_recvfrom,
-    .close =    unix_conn_close
+    .close =    unix_conn_close,
+
+    .count_pending = unix_conn_count_pending,
+    .get_rx_notify = unix_conn_get_rx_notify,
 };
 
 ////
@@ -130,6 +140,7 @@ static void unix_socket_close(struct socket *sock) {
         _assert(vn);
         vn->fs_data = NULL;
     } else {
+        kdebug("Closing non-server socket\n");
         // Hangup connection
         if (data->remote) {
             struct unix_conn *conn = data->remote;
@@ -155,6 +166,28 @@ static void unix_socket_close(struct socket *sock) {
     kfree(data);
 }
 
+static int unix_socket_count_pending(struct socket *sock) {
+    struct unix_socket *data = sock->data;
+    _assert(data);
+
+    if (data->type == 1) {
+        return !!data->remote;
+    } else {
+        panic("TODO\n");
+    }
+}
+
+static struct io_notify *unix_socket_get_rx_notify(struct socket *sock) {
+    struct unix_socket *data = sock->data;
+    _assert(data);
+
+    if (data->type == 1) {
+        return &data->client_notify;
+    } else {
+        panic("TODO\n");
+    }
+}
+
 static void unix_conn_close(struct socket *s) {
     struct unix_conn *conn = s->data;
     _assert(conn);
@@ -166,7 +199,7 @@ static void unix_conn_close(struct socket *s) {
         conn->state = STATE_TERMINATED;
         // Send EOF to remote
         _assert(conn->client);
-        ring_signal(&conn->server_tx, RING_SIGNAL_EOF);
+        ring_signal(&conn->server_tx, RING_SIGNAL_EOF | RING_SIGNAL_RET);
         conn->server = NULL;
     }
 
@@ -179,6 +212,24 @@ static void unix_conn_close(struct socket *s) {
         kfree(conn);
     }
 }
+
+static int unix_conn_count_pending(struct socket *sock) {
+    struct unix_conn *conn = sock->data;
+    _assert(conn);
+
+    if (conn->state != STATE_ESTABLISHED) {
+        return 1;
+    }
+
+    return ring_readable(&conn->client_tx);
+}
+
+static struct io_notify *unix_conn_get_rx_notify(struct socket *sock) {
+    struct unix_conn *conn = sock->data;
+    _assert(conn);
+    return &conn->client_tx.wait;
+}
+
 
 static int unix_socket_bind(struct socket *sock, struct sockaddr *sa, size_t len) {
     if (sa->sa_family != AF_UNIX) {
@@ -258,7 +309,7 @@ static int unix_socket_accept(struct socket *serv, struct socket *client) {
     _assert(data_serv);
 
     // Wait for incoming connection attempts
-    _assert(!(data_serv->remote));
+    //_assert(!(data_serv->remote));
     while (!(conn = data_serv->remote)) {
         thread_wait_io(thread_self, &data_serv->client_notify);
     }

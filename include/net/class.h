@@ -2,6 +2,7 @@
 #include "sys/types.h"
 #include "sys/list.h"
 
+struct io_notify;
 struct sockaddr;
 struct socket;
 
@@ -18,6 +19,7 @@ struct sockops {
     int (*accept) (struct socket *, struct socket *);
 
     int (*count_pending) (struct socket *);
+    struct io_notify *(*get_rx_notify) (struct socket *);
 };
 
 struct socket_class {
