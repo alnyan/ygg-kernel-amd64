@@ -14,6 +14,7 @@
 #include "fs/fs.h"
 #include "sys/mod.h"
 #include "sys/debug.h"
+#include "sys/config.h"
 #include "sys/heap.h"
 #include "sys/attr.h"
 
@@ -22,7 +23,11 @@ static struct vnode *sysfs_get_root(struct fs *fs);
 static int sysfs_vnode_open(struct ofile *fd, int opt);
 static void sysfs_vnode_close(struct ofile *fd);
 static ssize_t sysfs_vnode_read(struct ofile *fd, void *buf, size_t count);
+static ssize_t sysfs_vnode_write(struct ofile *fd, const void *buf, size_t count);
 static int sysfs_vnode_stat(struct vnode *node, struct stat *st);
+static int sysfs_vnode_truncate(struct vnode *node, size_t size) {
+    return 0;
+}
 
 struct sysfs_config_endpoint {
     size_t bufsz;
@@ -44,8 +49,9 @@ static struct vnode_operations g_sysfs_vnode_ops = {
     .open = sysfs_vnode_open,
     .close = sysfs_vnode_close,
     .read = sysfs_vnode_read,
-    .write = NULL,
+    .write = sysfs_vnode_write,
     .stat = sysfs_vnode_stat,
+    .truncate = sysfs_vnode_truncate
 };
 
 ////
@@ -72,14 +78,28 @@ static struct vnode *sysfs_get_root(struct fs *fs) {
 ////
 
 static int sysfs_vnode_open(struct ofile *fd, int opt) {
-    if ((opt & O_ACCMODE) != O_RDONLY) {
-        return -1;
-    }
-
     _assert(fd->file.vnode);
     struct sysfs_config_endpoint *endp = fd->file.vnode->fs_data;
     int res;
     _assert(endp);
+
+    switch (opt & O_ACCMODE) {
+    case O_WRONLY:
+        if (!endp->write) {
+            return -EPERM;
+        }
+        break;
+    case O_RDONLY:
+        if (!endp->read) {
+            return -EPERM;
+        }
+        break;
+    case O_RDWR:
+        if (!endp->read || !endp->write) {
+            return -EPERM;
+        }
+        break;
+    }
 
     fd->file.priv_data = kmalloc(endp->bufsz);
     if (!fd->file.priv_data) {
@@ -121,6 +141,32 @@ static ssize_t sysfs_vnode_read(struct ofile *fd, void *buf, size_t count) {
     fd->file.pos += r;
 
     return r;
+}
+
+static ssize_t sysfs_vnode_write(struct ofile *fd, const void *buf, size_t count) {
+    _assert(fd);
+    _assert(fd->file.vnode);
+    struct sysfs_config_endpoint *endp = fd->file.vnode->fs_data;
+    // TODO: use count
+    size_t len = strlen(buf);
+    int res;
+    _assert(endp);
+
+    if (!endp->write) {
+        return -EPERM;
+    }
+
+    if (len >= endp->bufsz) {
+        return -ENOMEM;
+    }
+
+    if ((res = endp->write(endp->ctx, buf)) != 0) {
+        return res;
+    }
+
+    strcpy(fd->file.priv_data, buf);
+
+    return len;
 }
 
 static int sysfs_vnode_stat(struct vnode *node, struct stat *st) {
@@ -292,6 +338,34 @@ static int system_mem_getter(void *ctx, char *buf, size_t lim) {
     return 0;
 }
 
+static int debug_config_get(void *ctx, char *buf, size_t lim) {
+    if (!strcmp(ctx, "serial")) {
+        sysfs_buf_printf(buf, lim, "%u\n", kernel_config[CFG_DEBUG] & 0xFF);
+        return 0;
+    } else if (!strcmp(ctx, "display")) {
+        sysfs_buf_printf(buf, lim, "%u\n", (kernel_config[CFG_DEBUG] >> 8) & 0xFF);
+        return 0;
+    } else {
+        return -EINVAL;
+    }
+}
+
+static int debug_config_set(void *ctx, const char *buf) {
+    // TODO: length param to setters
+    int level = atoi(buf);
+    if (!strcmp(ctx, "serial")) {
+        kernel_config[CFG_DEBUG] &= ~0xFF;
+        kernel_config[CFG_DEBUG] |= level & 0xFF;
+        return 0;
+    } else if (!strcmp(ctx, "display")) {
+        kernel_config[CFG_DEBUG] &= ~0xFF00;
+        kernel_config[CFG_DEBUG] |= (level & 0xFF) << 8;
+        return 0;
+    } else {
+        return -EINVAL;
+    }
+}
+
 void sysfs_populate(void) {
     struct vnode *dir;
     sysfs_add_dir(NULL, "kernel", &dir);
@@ -299,8 +373,11 @@ void sysfs_populate(void) {
     sysfs_add_config_endpoint(dir, "version", SYSFS_MODE_DEFAULT, sizeof(KERNEL_VERSION_STR) + 1, KERNEL_VERSION_STR, sysfs_config_getter, NULL);
     sysfs_add_config_endpoint(dir, "uptime", SYSFS_MODE_DEFAULT, 32, NULL, system_uptime_getter, NULL);
     sysfs_add_config_endpoint(dir, "modules", SYSFS_MODE_DEFAULT, 512, NULL, mod_list, NULL);
+    sysfs_add_config_endpoint(dir, "debug_serial", SYSFS_MODE_DEFAULT, 32, "serial", debug_config_get, debug_config_set);
+    sysfs_add_config_endpoint(dir, "debug_display", SYSFS_MODE_DEFAULT, 32, "display", debug_config_get, debug_config_set);
 
     sysfs_add_config_endpoint(NULL, "mem", SYSFS_MODE_DEFAULT, 512, NULL, system_mem_getter, NULL);
+
 }
 
 __init(sysfs_class_init) {
