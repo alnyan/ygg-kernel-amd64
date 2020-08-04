@@ -228,6 +228,7 @@ static ssize_t ramfs_vnode_read(struct ofile *of, void *buf, size_t count);
 static ssize_t ramfs_vnode_write(struct ofile *of, const void *buf, size_t count);
 static off_t ramfs_vnode_lseek(struct ofile *of, off_t off, int whence);
 static int ramfs_vnode_creat(struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode);
+static int ramfs_vnode_mknod(struct vnode *at, struct vnode *node);
 static int ramfs_vnode_truncate(struct vnode *at, size_t size);
 static int ramfs_vnode_mkdir(struct vnode *at, const char *filename, uid_t uid, gid_t gid, mode_t mode);
 static int ramfs_vnode_unlink(struct vnode *node);
@@ -239,6 +240,7 @@ static struct vnode_operations _ramfs_vnode_op = {
     .write = ramfs_vnode_write,
     .lseek = ramfs_vnode_lseek,
     .creat = ramfs_vnode_creat,
+    .mknod = ramfs_vnode_mknod,
     .mkdir = ramfs_vnode_mkdir,
     .truncate = ramfs_vnode_truncate,
     .unlink = ramfs_vnode_unlink,
@@ -306,6 +308,9 @@ static int ramfs_vnode_stat(struct vnode *vn, struct stat *st) {
         break;
     case VN_DIR:
         st->st_mode |= S_IFDIR;
+        break;
+    case VN_SOCK:
+        st->st_mode |= S_IFSOCK;
         break;
     default:
         panic("TODO\n");
@@ -463,6 +468,16 @@ static int ramfs_vnode_creat(struct vnode *at, const char *filename, uid_t uid, 
     vn->mode = mode & VFS_MODE_MASK;
 
     vnode_attach(at, vn);
+
+    return 0;
+}
+
+static int ramfs_vnode_mknod(struct vnode *at, struct vnode *node) {
+    _assert(at && at->type == VN_DIR);
+    _assert(node);
+
+    node->op = &_ramfs_vnode_op;
+    vnode_attach(at, node);
 
     return 0;
 }
