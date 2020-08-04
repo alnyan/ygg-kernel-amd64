@@ -106,7 +106,14 @@ KERNEL_OBJ=$(O)/arch/amd64/entry.o \
 		   $(O)/drivers/usb/driver.o \
 		   $(O)/drivers/usb/device.o \
 		   $(O)/drivers/usb/usbkbd.o \
-		   $(O)/drivers/usb/hub.o
+		   $(O)/drivers/usb/hub.o \
+		   $(O)/arch/amd64/hw/vesa.o \
+		   $(O)/net/if.o \
+		   $(O)/net/net.o \
+		   $(O)/net/socket.o \
+		   $(O)/net/unix.o \
+		   $(O)/sys/sys_net.o
+
 KERNEL_LDS=arch/amd64/link.ld
 KERNEL_HDR=$(shell find include -type f -name "*.h")
 
@@ -122,6 +129,7 @@ DIRS+=$(O)/arch/amd64/hw \
 	  $(O)/sys/char \
 	  $(O)/sys/mem \
 	  $(O)/sys/font \
+	  $(O)/net \
 	  $(O)/include \
 	  $(ACPICA_DIR)
 
@@ -148,7 +156,13 @@ KERNEL_CFLAGS=-Iinclude \
 			  -Wno-unused \
 			  -O0 \
 			  -ggdb \
-			  -Werror
+			  -Werror \
+			  -DENABLE_UNIX=1 \
+			  -DENABLE_NET=1 \
+			  -DVESA_ENABLE=1 \
+			  -DVESA_WIDTH=640 \
+			  -DVESA_HEIGHT=480 \
+			  -DVESA_DEPTH=32
 KERNEL_LDFLAGS=-nostdlib \
 			   -fPIE \
 			   -fno-plt \
