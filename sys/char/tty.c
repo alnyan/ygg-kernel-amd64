@@ -235,7 +235,7 @@ static int tty_ioctl(struct chrdev *tty, unsigned int cmd, void *arg) {
         return 0;
     case TCSETS:
         memcpy(&tty->tc, arg, sizeof(struct termios));
-        if (tty->tc.c_iflag & ICANON) {
+        if (tty->tc.c_lflag & ICANON) {
             tty->buffer.flags &= ~RING_RAW;
         } else {
             tty->buffer.flags |= RING_RAW;
