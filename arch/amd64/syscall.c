@@ -23,18 +23,15 @@
 
 extern void syscall_entry(void);
 
-static void sys_debug_trace(const char *fmt, ...) {
+static void sys_debug_trace(const char *msg, size_t lim) {
     struct thread *thr = thread_self;
     _assert(thr);
     struct process *proc = thr->proc;
     _assert(proc);
 
-    va_list args;
-    userptr_check(fmt);
-    debugf(DEBUG_DEFAULT, "[%2u] ", proc->pid);
-    va_start(args, fmt);
-    debugfv(DEBUG_DEFAULT, fmt, args);
-    va_end(args);
+    for (size_t i = 0; i < lim && msg[i]; ++i) {
+        debugc(DEBUG_DEFAULT, msg[i]);
+    }
 }
 
 void *syscall_table[256] = {
@@ -85,6 +82,10 @@ void *syscall_table[256] = {
     [SYSCALL_NR_SETSID] =           sys_setsid,
     [SYSCALL_NR_SIGALTSTACK] =      sys_sigaltstack,
     [SYSCALL_NR_GETPPID] =          sys_getppid,
+
+    // Shared memory
+    [SYSCALL_NR_SHMGET] =           sys_shmget,
+    [SYSCALL_NR_SHMAT] =            sys_shmat,
 
     // System
     [SYSCALL_NR_SYNC] =             sys_sync,
