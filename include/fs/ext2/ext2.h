@@ -31,6 +31,7 @@
 
 #define EXT2_DIRECT_BLOCKS      12
 
+struct slab_cache;
 struct vnode;
 
 struct ext2_superblock {
@@ -126,6 +127,7 @@ struct ext2_data {
 
     struct vnode *root;
     struct ext2_inode *root_inode;
+    struct slab_cache *inode_cache;
 
     uint32_t flags;
     uint32_t block_size;

@@ -9,6 +9,7 @@
 #include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
+#include "sys/mem/slab.h"
 #include "sys/panic.h"
 #include "sys/string.h"
 #include "user/errno.h"
@@ -84,7 +85,7 @@ static int ext2_vnode_find(struct vnode *at, const char *name, struct vnode **re
                         // Just return if no entry needs to be loaded
                         return 0;
                     }
-                    struct ext2_inode *res_inode = kmalloc(data->inode_size);
+                    struct ext2_inode *res_inode = slab_calloc(data->inode_cache);
                     _assert(res_inode);
                     struct vnode *node = vnode_create(VN_DIR, name);
 
@@ -426,7 +427,7 @@ static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t
         panic("Not a directory\n");
     }
 
-    struct ext2_inode *inode = kmalloc(data->inode_size);
+    struct ext2_inode *inode = slab_calloc(data->inode_cache);
     if (!inode) {
         panic("Failed to allocate (host) an inode\n");
     }
@@ -435,8 +436,6 @@ static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t
     if (!ino) {
         panic("Failed to allocate (disk) an inode\n");
     }
-
-    memset(inode, 0, data->inode_size);
 
     inode->mtime = time();
     inode->atime = inode->mtime;
@@ -469,7 +468,7 @@ static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t
         panic("Not a directory\n");
     }
 
-    struct ext2_inode *inode = kmalloc(data->inode_size);
+    struct ext2_inode *inode = slab_calloc(data->inode_cache);
     if (!inode) {
         panic("Failed to allocate (host) an inode\n");
     }
@@ -478,8 +477,6 @@ static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t
     if (!ino) {
         panic("Failed to allocate (disk) an inode\n");
     }
-
-    memset(inode, 0, data->inode_size);
 
     inode->mtime = time();
     inode->atime = inode->mtime;

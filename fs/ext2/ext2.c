@@ -1,15 +1,16 @@
 #include "fs/ext2/block.h"
-#include "fs/ext2/node.h"
 #include "fs/ext2/ext2.h"
-#include "user/errno.h"
-#include "fs/node.h"
-#include "sys/string.h"
-#include "sys/assert.h"
-#include "sys/debug.h"
+#include "fs/ext2/node.h"
 #include "fs/fs.h"
-#include "sys/heap.h"
+#include "fs/node.h"
+#include "sys/assert.h"
 #include "sys/attr.h"
 #include "sys/block/blk.h"
+#include "sys/debug.h"
+#include "sys/heap.h"
+#include "sys/mem/slab.h"
+#include "sys/string.h"
+#include "user/errno.h"
 #include "user/mount.h"
 
 static int ext2_init(struct fs *ext2, const char *opt);
@@ -72,6 +73,13 @@ static int ext2_init(struct fs *ext2, const char *opt) {
         data->inode_size = 128;
     }
 
+    // Create a slab cache for inode objects
+    data->inode_cache = slab_cache_get(data->inode_size);
+    if (!data->inode_cache) {
+        // TODO: error handling
+        panic("Failed to allocate a slab cache of size %d for inodes\n", data->inode_size);
+    }
+
     data->inodes_per_block = data->block_size / data->inode_size;
     data->blkgrp_inode_blocks = data->sb.block_group_inodes / data->inodes_per_block;
 
@@ -97,7 +105,7 @@ static int ext2_init(struct fs *ext2, const char *opt) {
         }
     }
 
-    data->root_inode = kmalloc(data->inode_size);
+    data->root_inode = slab_calloc(data->inode_cache);
     _assert(data->root_inode);
     data->root = vnode_create(VN_DIR, NULL);
     _assert(data->root);
