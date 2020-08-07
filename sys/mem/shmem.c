@@ -15,6 +15,16 @@
 #include "fs/node.h"
 #include "sys/mm.h"
 
+// TODO: access control and stuff
+struct shm_chunk {
+    int id;
+    struct list_head link;
+    size_t page_count;
+    uintptr_t pages[];
+};
+
+static LIST_HEAD(g_shm_chunks);
+
 static int sys_mmap_anon(mm_space_t space, uintptr_t base, size_t page_count, int prot, int flags) {
     uint64_t map_flags = MM_PAGE_USER;
     int map_usage = PU_PRIVATE;
@@ -191,4 +201,58 @@ int sys_munmap(void *ptr, size_t len) {
     }
 
     return 0;
+}
+
+int sys_shmget(size_t size, int flags) {
+    static int shmid = 0;
+    size = (size + MM_PAGE_SIZE - 1) / MM_PAGE_SIZE;
+
+    struct shm_chunk *chunk = kmalloc(sizeof(struct shm_chunk) + size * sizeof(uintptr_t));
+    _assert(chunk);
+
+    chunk->page_count = size;
+    chunk->id = ++shmid;
+    list_head_init(&chunk->link);
+
+    for (size_t i = 0; i < size; ++i) {
+        chunk->pages[i] = mm_phys_alloc_page();
+        _assert(chunk->pages[i] != MM_NADDR);
+    }
+
+    list_add(&chunk->link, &g_shm_chunks);
+
+    return chunk->id;
+}
+
+void *sys_shmat(int id, const void *hint, int flags) {
+    uintptr_t virt_base;
+    mm_space_t space;
+    struct shm_chunk *chunk, *iter;
+
+    chunk = NULL;
+    list_for_each_entry(iter, &g_shm_chunks, link) {
+        if (iter->id == id) {
+            chunk = iter;
+            break;
+        }
+    }
+    if (!chunk) {
+        return (void *) -ENOENT;
+    }
+
+    space = thread_self->proc->space;
+
+    // TODO: use hint
+    virt_base = vmfind(space, 0x100000000, 0x400000000, chunk->page_count);
+    _assert(virt_base != MM_NADDR);
+
+    for (size_t i = 0; i < chunk->page_count; ++i) {
+        mm_map_single(space,
+                      virt_base + i * MM_PAGE_SIZE,
+                      chunk->pages[i],
+                      MM_PAGE_WRITE | MM_PAGE_USER,
+                      PU_SHARED);
+    }
+
+    return (void *) virt_base;
 }

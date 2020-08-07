@@ -27,6 +27,10 @@
 #define SYSCALL_NR_CHOWN            92
 #define SYSCALL_NR_MKNOD            133
 
+#define SYSCALL_NR_SHMGET           113
+#define SYSCALL_NR_SHMAT            114
+#define SYSCALL_NR_SHMDT            115
+
 #define SYSCALL_NR_NANOSLEEP        35
 #define SYSCALL_NR_UNAME            63
 #define SYSCALL_NR_GETTIMEOFDAY     96
