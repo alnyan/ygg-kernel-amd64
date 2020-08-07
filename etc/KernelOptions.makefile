@@ -1,4 +1,6 @@
+ifneq (,$(wildcard ./Kernel.config))
 include Kernel.config
+endif
 
 ifeq ($(ENABLE_UNIX),1)
 KERNEL_DEF+=-DENABLE_UNIX=1

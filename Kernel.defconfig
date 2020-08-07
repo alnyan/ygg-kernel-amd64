@@ -1,0 +1,4 @@
+# vi: ft=make :
+ENABLE_UNIX=0
+ENABLE_NET=0
+ENABLE_VESA=0

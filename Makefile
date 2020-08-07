@@ -1,7 +1,16 @@
 export CC=$(CROSS_COMPILE)gcc
 export O?=build
 
-all: mkdirs $(O)/kernel
+all: chkconfig mkdirs $(O)/kernel
+
+chkconfig:
+	@[ -f Kernel.config ] || { \
+		echo "Kernel.config is not present. Run 'make defconfig' to make one" >&2; \
+		exit 1; \
+	}
+
+defconfig: Kernel.defconfig
+	cp $< Kernel.config
 
 clean:
 	rm -rf $(O)
