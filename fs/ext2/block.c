@@ -79,8 +79,7 @@ int ext2_read_inode(struct fs *fs, struct ext2_inode *inode, uint32_t ino) {
 
 int ext2_write_inode(struct fs *fs, struct ext2_inode *inode, uint32_t ino) {
     // Automatically update inode times
-    inode->mtime = time();
-    inode->atime = inode->mtime;
+    inode->atime = time();
 
     struct ext2_data *data = fs->fs_private;
     _assert(data);

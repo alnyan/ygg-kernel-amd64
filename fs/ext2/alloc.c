@@ -5,6 +5,64 @@
 #include "sys/debug.h"
 #include "fs/fs.h"
 
+uint32_t ext2_alloc_inode(struct fs *fs, struct ext2_data *data, int is_dir) {
+    union {
+        char bytes[data->block_size];
+        uint64_t bitmap[data->block_size / sizeof(uint64_t)];
+    } buf;
+    struct ext2_blkgrp_desc *bgd;
+    uint32_t ino = 0, offset;
+    uint32_t group = 0;
+
+    for (uint32_t i = 0; i < data->bgdt_entry_count; ++i) {
+        bgd = &data->bgdt[i];
+        if (!bgd->free_inodes) {
+            continue;
+        }
+
+        ext2_read_block(fs, buf.bytes, bgd->inode_bitmap_no);
+
+        for (size_t j = 0; j < data->sb.block_group_blocks; ++j) {
+            // "j" is block number inside the "i" group
+            if (!(buf.bitmap[j / 64] & (1ULL << (j % 64)))) {
+                ino = i * data->sb.block_group_inodes + j + 1;
+                group = i;
+                offset = j;
+                break;
+            }
+        }
+    }
+
+    if (!ino) {
+        return 0;
+    }
+
+    kdebug("Allocated inode: %d\n", ino);
+
+    bgd = &data->bgdt[group];
+    buf.bitmap[offset / 64] |= 1ULL << (offset % 64);
+    if (ext2_write_block(fs, buf.bytes, bgd->inode_bitmap_no) != 0) {
+        panic("Failed to write BGDT bitmap block back\n");
+    }
+
+    // Write modified BGD back
+    --bgd->free_inodes;
+    if (is_dir) {
+        ++bgd->directory_count;
+    }
+    size_t bgd_block_number = (group * sizeof(struct ext2_blkgrp_desc)) / data->block_size;
+    if (ext2_write_block(fs, ((void *) data->bgdt) + bgd_block_number * data->block_size, bgd_block_number + 2) != 0) {
+        panic("EEEE\n");
+    }
+
+    --data->sb.free_inodes;
+    if (ext2_write_superblock(fs) != 0) {
+        panic("REEE\n");
+    }
+
+    return ino;
+}
+
 // TODO: what if BGD has more than single-block block bitmap
 uint32_t ext2_alloc_block(struct fs *fs, struct ext2_data *data) {
     union {
@@ -18,7 +76,6 @@ uint32_t ext2_alloc_block(struct fs *fs, struct ext2_data *data) {
     for (uint32_t i = 0; i < data->bgdt_entry_count; ++i) {
         // "i" is a block group index
         bgd = &data->bgdt[i];
-        uint32_t last_bitmap_block = 0;
 
         if (!bgd->free_blocks) {
             continue;
@@ -43,11 +100,12 @@ uint32_t ext2_alloc_block(struct fs *fs, struct ext2_data *data) {
 
     // Write modified bitmap block back
     bgd = &data->bgdt[group];
-    uint32_t bitmap_block_index = (offset / (data->block_size * 8)) + bgd->block_bitmap_no;
-    buf.bitmap[offset % (data->block_size * 8) / 64] |= 1ULL << (offset % 64);
-    if (ext2_write_block(fs, buf.bytes, bitmap_block_index) != 0) {
+    buf.bitmap[offset / 64] |= 1ULL << (offset % 64);
+    if (ext2_write_block(fs, buf.bytes, bgd->block_bitmap_no) != 0) {
         panic("Failed to write BGDT bitmap block back\n");
     }
+
+    kdebug("Alloc block %d\n", block);
 
     // Write modified BGD back
     --bgd->free_blocks;

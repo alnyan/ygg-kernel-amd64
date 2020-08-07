@@ -1,17 +1,18 @@
-#include "fs/ext2/block.h"
 #include "fs/ext2/alloc.h"
-#include "fs/ext2/node.h"
+#include "fs/ext2/block.h"
+#include "fs/ext2/dir.h"
 #include "fs/ext2/ext2.h"
-#include "user/fcntl.h"
-#include "user/errno.h"
-#include "fs/ofile.h"
-#include "fs/node.h"
-#include "sys/string.h"
-#include "sys/assert.h"
+#include "fs/ext2/node.h"
 #include "fs/fs.h"
-#include "sys/panic.h"
+#include "fs/node.h"
+#include "fs/ofile.h"
+#include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/heap.h"
+#include "sys/panic.h"
+#include "sys/string.h"
+#include "user/errno.h"
+#include "user/fcntl.h"
 
 static int ext2_vnode_find(struct vnode *at, const char *name, struct vnode **res);
 static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count);
@@ -23,6 +24,8 @@ static int ext2_vnode_chown(struct vnode *node, uid_t new_uid, gid_t new_gid);
 static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent);
 static int ext2_vnode_stat(struct vnode *at, struct stat *st);
 static int ext2_vnode_truncate(struct vnode *at, size_t new_size);
+static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode);
+static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode);
 
 ////
 
@@ -36,6 +39,8 @@ struct vnode_operations g_ext2_vnode_ops = {
     .chmod = ext2_vnode_chmod,
     .chown = ext2_vnode_chown,
 
+    .creat = ext2_vnode_creat,
+    .mkdir = ext2_vnode_mkdir,
     .open = ext2_vnode_open,
     .read = ext2_vnode_read,
     .write = ext2_vnode_write,
@@ -47,7 +52,6 @@ struct vnode_operations g_ext2_vnode_ops = {
 static int ext2_vnode_find(struct vnode *at, const char *name, struct vnode **result) {
     _assert(at && at->type == VN_DIR);
     _assert(name);
-    _assert(result);
     struct ext2_inode *at_inode = at->fs_data;
     _assert(at_inode);
     struct fs *ext2 = at->fs;
@@ -76,6 +80,10 @@ static int ext2_vnode_find(struct vnode *at, const char *name, struct vnode **re
             if (dirent->ino && (dirent->name_length_low == name_length)) {
                 if (!strncmp(dirent->name, name, name_length)) {
                     // Found the dirent
+                    if (!result) {
+                        // Just return if no entry needs to be loaded
+                        return 0;
+                    }
                     struct ext2_inode *res_inode = kmalloc(data->inode_size);
                     _assert(res_inode);
                     struct vnode *node = vnode_create(VN_DIR, name);
@@ -205,21 +213,8 @@ static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent) {
 
     uint32_t name_length = dirent->name_length_low;
     ent->d_type = DT_UNKNOWN;
-    if (data->sb.required_features & EXT2_REQ_ENT_TYPE) {
-        switch (dirent->type_indicator) {
-        case 1:
-            ent->d_type = DT_REG;
-            break;
-        case 2:
-            ent->d_type = DT_DIR;
-            break;
-        case 7:
-            ent->d_type = DT_LNK;
-            break;
-        default:
-            panic("Unsupported dirent type: %u\n", dirent->type_indicator);
-        }
-    } else {
+    // Even if provided that hint, just ignore it. stat() should be sufficient
+    if (!(data->sb.required_features & EXT2_REQ_ENT_TYPE)) {
         name_length += (uint16_t) dirent->name_length_high << 8;
     }
     strncpy(ent->d_name, dirent->name, name_length);
@@ -414,3 +409,96 @@ static int ext2_vnode_chown(struct vnode *node, uid_t new_uid, gid_t new_gid) {
     return 0;
 }
 
+static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode) {
+    _assert(at);
+    struct ext2_inode *at_inode = at->fs_data;
+    _assert(at_inode);
+    struct fs *ext2 = at->fs;
+    _assert(ext2);
+    struct ext2_data *data = ext2->fs_private;
+    _assert(data);
+
+    if (ext2_vnode_find(at, name, NULL) == 0) {
+        return -EEXIST;
+    }
+
+    if ((at_inode->mode & 0xF000) != EXT2_IFDIR) {
+        panic("Not a directory\n");
+    }
+
+    struct ext2_inode *inode = kmalloc(data->inode_size);
+    if (!inode) {
+        panic("Failed to allocate (host) an inode\n");
+    }
+
+    uint32_t ino = ext2_alloc_inode(ext2, data, 0);
+    if (!ino) {
+        panic("Failed to allocate (disk) an inode\n");
+    }
+
+    memset(inode, 0, data->inode_size);
+
+    inode->mtime = time();
+    inode->atime = inode->mtime;
+    inode->ctime = inode->mtime;
+    inode->uid = uid;
+    inode->gid = gid;
+    inode->mode = (mode & 0xFFF) | EXT2_IFREG;
+    inode->hard_links = 1;
+
+    _assert(ext2_dir_insert_inode(ext2, at_inode, at->ino, name, ino, VN_REG) == 0);
+    _assert(ext2_write_inode(ext2, inode, ino) == 0);
+
+    return 0;
+}
+
+static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode) {
+    _assert(at);
+    struct ext2_inode *at_inode = at->fs_data;
+    _assert(at_inode);
+    struct fs *ext2 = at->fs;
+    _assert(ext2);
+    struct ext2_data *data = ext2->fs_private;
+    _assert(data);
+
+    if (ext2_vnode_find(at, name, NULL) == 0) {
+        return -EEXIST;
+    }
+
+    if ((at_inode->mode & 0xF000) != EXT2_IFDIR) {
+        panic("Not a directory\n");
+    }
+
+    struct ext2_inode *inode = kmalloc(data->inode_size);
+    if (!inode) {
+        panic("Failed to allocate (host) an inode\n");
+    }
+
+    uint32_t ino = ext2_alloc_inode(ext2, data, 1);
+    if (!ino) {
+        panic("Failed to allocate (disk) an inode\n");
+    }
+
+    memset(inode, 0, data->inode_size);
+
+    inode->mtime = time();
+    inode->atime = inode->mtime;
+    inode->ctime = inode->mtime;
+    inode->uid = uid;
+    inode->gid = gid;
+    inode->mode = (mode & 0xFFF) | EXT2_IFDIR;
+    inode->hard_links = 2; // "." and parent dirent
+
+    // Setup the first block for this inode
+    _assert(ext2_dir_insert_inode(ext2, inode, ino, ".", ino, VN_DIR) == 0);
+    _assert(ext2_dir_insert_inode(ext2, inode, ino, "..", at->ino, VN_DIR) == 0);
+
+    // Insert to parent
+    _assert(ext2_dir_insert_inode(ext2, at_inode, at->ino, name, ino, VN_DIR) == 0);
+    _assert(ext2_write_inode(ext2, inode, ino) == 0);
+    // ".." points to the parent, so increment its refcount
+    ++at_inode->hard_links;
+    _assert(ext2_write_inode(ext2, at_inode, at->ino) == 0);
+
+    return 0;
+}
