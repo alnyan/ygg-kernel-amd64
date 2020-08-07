@@ -1,4 +1,5 @@
 #include "fs/ext2/block.h"
+#include "fs/ext2/alloc.h"
 #include "fs/ext2/node.h"
 #include "fs/ext2/ext2.h"
 #include "user/fcntl.h"
@@ -14,12 +15,14 @@
 
 static int ext2_vnode_find(struct vnode *at, const char *name, struct vnode **res);
 static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count);
+static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count);
 static int ext2_vnode_open(struct ofile *fd, int opt);
 static int ext2_vnode_opendir(struct ofile *fd);
 static int ext2_vnode_chmod(struct vnode *vn, mode_t new_mode);
 static int ext2_vnode_chown(struct vnode *node, uid_t new_uid, gid_t new_gid);
 static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent);
 static int ext2_vnode_stat(struct vnode *at, struct stat *st);
+static int ext2_vnode_truncate(struct vnode *at, size_t new_size);
 
 ////
 
@@ -35,6 +38,8 @@ struct vnode_operations g_ext2_vnode_ops = {
 
     .open = ext2_vnode_open,
     .read = ext2_vnode_read,
+    .write = ext2_vnode_write,
+    .truncate = ext2_vnode_truncate
 };
 
 ////
@@ -99,10 +104,6 @@ static int ext2_vnode_open(struct ofile *fd, int opt) {
     if ((opt & O_APPEND) && (opt & O_ACCMODE) == O_RDONLY) {
         // Impossible, I guess
         return -EINVAL;
-    }
-    if ((opt & O_ACCMODE) != O_RDONLY) {
-        // Not implemented
-        return -EROFS;
     }
     _assert(!(opt & O_DIRECTORY));
 
@@ -232,45 +233,6 @@ static ssize_t ext2_vnode_readdir(struct ofile *fd, struct dirent *ent) {
     return ent->d_reclen;
 }
 
-static int ext2_vnode_chmod(struct vnode *node, mode_t new_mode) {
-    _assert(node);
-    struct ext2_inode *inode = node->fs_data;
-    _assert(inode);
-    struct fs *ext2 = node->fs;
-    _assert(ext2);
-
-    // Only rewrite inode if something really changed
-    if ((inode->mode & 0xFFF) != (new_mode & 0xFFF)) {
-        // chmod() only updates file mode, don't touch file type
-        inode->mode &= ~0xFFF;
-        inode->mode |= new_mode & 0xFFF;
-        node->mode = new_mode & 0xFFF;
-
-        return ext2_write_inode(ext2, inode, node->ino);
-    }
-
-    return 0;
-}
-
-static int ext2_vnode_chown(struct vnode *node, uid_t new_uid, gid_t new_gid) {
-    _assert(node);
-    struct ext2_inode *inode = node->fs_data;
-    _assert(inode);
-    struct fs *ext2 = node->fs;
-    _assert(ext2);
-
-    if (new_uid != inode->uid || new_gid != inode->gid) {
-        inode->uid = new_uid;
-        inode->gid = new_gid;
-        node->uid = new_uid;
-        node->gid = new_gid;
-
-        return ext2_write_inode(ext2, inode, node->ino);
-    }
-
-    return 0;
-}
-
 static int ext2_vnode_stat(struct vnode *node, struct stat *st) {
     _assert(node && st);
     struct ext2_inode *inode = node->fs_data;
@@ -326,5 +288,129 @@ void ext2_inode_to_vnode(struct vnode *vnode, struct ext2_inode *inode, uint32_t
     default:
         panic("Unsupported inode type: %04x\n", inode->mode & 0xF000);
     }
+}
+
+// Mutation operations
+static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count) {
+    _assert(fd);
+    _assert(buf);
+    struct vnode *node = fd->file.vnode;
+    _assert(node);
+    struct ext2_inode *inode = node->fs_data;
+    _assert(inode);
+    struct fs *ext2 = node->fs;
+    _assert(ext2);
+    struct ext2_data *data = ext2->fs_private;
+    _assert(data);
+    int res;
+
+    // TODO
+    _assert(!inode->size_upper);
+
+    if (fd->file.pos > inode->size_lower) {
+        return 0;
+    }
+
+    char block_buf[1024];
+    size_t req_size = MAX(fd->file.pos + count, inode->size_lower);
+    uint32_t block_index;
+    uint32_t block_offset;
+    uint32_t can_write;
+    size_t rem = count;
+    size_t off = 0;
+
+    if ((res = ext2_file_resize(ext2, node->ino, inode, req_size)) != 0) {
+        return res;
+    }
+
+    while (rem) {
+        block_index = fd->file.pos / data->block_size;
+        block_offset = fd->file.pos % data->block_size;
+        can_write = MIN(rem, data->block_size - block_offset);
+        _assert(can_write);
+
+        if (can_write != data->block_size) {
+            if (ext2_read_inode_block(ext2, inode, block_buf, block_index) != 0) {
+                panic("PANIC\n");
+            }
+
+            memcpy(block_buf + block_offset, buf + off, can_write);
+
+            if (ext2_write_inode_block(ext2, inode, block_buf, block_index) != 0) {
+                panic("PANIC\n");
+            }
+        } else {
+            if (ext2_write_inode_block(ext2, inode, buf + off, block_index) != 0) {
+                panic("PANIC\n");
+            }
+        }
+
+        rem -= can_write;
+        off += can_write;
+        fd->file.pos += can_write;
+    }
+
+    if ((res = ext2_write_inode(ext2, inode, node->ino)) != 0) {
+        return res;
+    }
+
+    return off;
+}
+
+static int ext2_vnode_truncate(struct vnode *node, size_t new_size) {
+    _assert(node);
+    struct ext2_inode *inode = node->fs_data;
+    struct fs *ext2 = node->fs;
+    _assert(ext2);
+    int res;
+
+    if (node->type != VN_REG) {
+        return -EPERM;
+    }
+
+    if ((res = ext2_file_resize(ext2, node->ino, inode, new_size)) != 0) {
+        return res;
+    }
+
+    return ext2_write_inode(ext2, inode, node->ino);
+}
+
+static int ext2_vnode_chmod(struct vnode *node, mode_t new_mode) {
+    _assert(node);
+    struct ext2_inode *inode = node->fs_data;
+    _assert(inode);
+    struct fs *ext2 = node->fs;
+    _assert(ext2);
+
+    // Only rewrite inode if something really changed
+    if ((inode->mode & 0xFFF) != (new_mode & 0xFFF)) {
+        // chmod() only updates file mode, don't touch file type
+        inode->mode &= ~0xFFF;
+        inode->mode |= new_mode & 0xFFF;
+        node->mode = new_mode & 0xFFF;
+
+        return ext2_write_inode(ext2, inode, node->ino);
+    }
+
+    return 0;
+}
+
+static int ext2_vnode_chown(struct vnode *node, uid_t new_uid, gid_t new_gid) {
+    _assert(node);
+    struct ext2_inode *inode = node->fs_data;
+    _assert(inode);
+    struct fs *ext2 = node->fs;
+    _assert(ext2);
+
+    if (new_uid != inode->uid || new_gid != inode->gid) {
+        inode->uid = new_uid;
+        inode->gid = new_gid;
+        node->uid = new_uid;
+        node->gid = new_gid;
+
+        return ext2_write_inode(ext2, inode, node->ino);
+    }
+
+    return 0;
 }
 

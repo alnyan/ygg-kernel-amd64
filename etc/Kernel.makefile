@@ -97,6 +97,7 @@ KERNEL_OBJ=$(O)/arch/amd64/entry.o \
 		   $(O)/fs/ram.o \
 		   $(O)/fs/ram_tar.o \
 		   $(O)/fs/ext2/block.o \
+		   $(O)/fs/ext2/alloc.o \
 		   $(O)/fs/ext2/ext2.o \
 		   $(O)/fs/ext2/node.o \
 		   $(O)/drivers/pci/pci.o \

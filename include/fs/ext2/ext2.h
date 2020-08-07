@@ -29,6 +29,8 @@
 #define EXT2_IFLNK              0xA000
 #define EXT2_IFSOCK             0xC000
 
+#define EXT2_DIRECT_BLOCKS      12
+
 struct vnode;
 
 struct ext2_superblock {
@@ -101,7 +103,7 @@ struct ext2_inode {
     uint32_t sector_count;
     uint32_t flags;
     uint32_t os_val1;
-    uint32_t direct_blocks[12];
+    uint32_t direct_blocks[EXT2_DIRECT_BLOCKS];
     uint32_t indirect_block_l1;
     uint32_t indirect_block_l2;
     uint32_t indirect_block_l3;

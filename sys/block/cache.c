@@ -172,7 +172,6 @@ static void block_cache_page_release(struct block_cache *cache, uintptr_t addres
         _assert(blk_page_sync(cache->blk, address * cache->page_size, page & LRU_PAGE_MASK) == 0);
     }
     mm_phys_free_page(page & LRU_PAGE_MASK);
-    //amd64_phys_free(page & LRU_PAGE_MASK);
 }
 
 static uintptr_t block_cache_page_alloc(struct block_cache *cache) {
@@ -180,7 +179,6 @@ static uintptr_t block_cache_page_alloc(struct block_cache *cache) {
     _assert(cache->page_size == MM_PAGE_SIZE);
     kdebug("Block cache: allocate page\n");
     return mm_phys_alloc_page();
-    //return amd64_phys_alloc_page();
 }
 
 void block_cache_mark_dirty(struct block_cache *cache, uintptr_t address) {
