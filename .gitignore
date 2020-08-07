@@ -7,3 +7,4 @@ config
 test.img
 eth_*
 doc/_build
+Kernel.config
