@@ -116,7 +116,7 @@ void *sys_mmap(void *hint, size_t length, int prot, int flags, int fd, off_t off
             return (void *) -EBADF;
         }
 
-        if (of->flags & OF_SOCKET) {
+        if (ofile_is_socket(of)) {
             return (void *) -EINVAL;
         }
 

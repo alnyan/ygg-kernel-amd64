@@ -996,7 +996,7 @@ pid_t sys_setsid(void) {
     if (proc->ctty) {
         // Close current tty filedes
         for (size_t i = 0; i < THREAD_MAX_FDS; ++i) {
-            if (proc->fds[i] && !(proc->fds[i]->flags & OF_SOCKET)) {
+            if (proc->fds[i] && !ofile_is_socket(proc->fds[i])) {
                 if (proc->fds[i]->file.vnode == proc->ctty) {
                     kdebug("setsid: detaching fd %d from #%d (%s)\n", i, proc->pid, proc->name);
                     ofile_close(&proc->ioctx, proc->fds[i]);

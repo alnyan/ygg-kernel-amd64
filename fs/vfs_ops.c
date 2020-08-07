@@ -59,7 +59,7 @@ static const char *vfs_path_parent(const char *input, char *dst) {
 static int vfs_opendir(struct vfs_ioctx *ctx, struct ofile *fd) {
     _assert(ctx);
     _assert(fd);
-    _assert(!(fd->flags & OF_SOCKET));
+    _assert(!ofile_is_socket(fd));
 
     struct vnode *node = fd->file.vnode;
 
@@ -97,7 +97,7 @@ static int vfs_opendir(struct vfs_ioctx *ctx, struct ofile *fd) {
 int vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd, struct dirent *ent) {
     _assert(ctx);
     _assert(fd);
-    _assert(!(fd->flags & OF_SOCKET));
+    _assert(!ofile_is_socket(fd));
 
     if (!(fd->flags & OF_DIRECTORY)) {
         return -ENOTDIR;
@@ -183,7 +183,10 @@ int vfs_open_vnode(struct vfs_ioctx *ctx, struct ofile *fd, struct vnode *node, 
     _assert(ctx);
     _assert(fd);
     _assert(node);
+#if defined(ENABLE_NET)
+    // ??
     fd->flags &= ~OF_SOCKET;
+#endif
 
     if (node->type == VN_SOCK) {
         return -ENODEV;
@@ -480,7 +483,7 @@ int vfs_openat(struct vfs_ioctx *ctx,
 void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd) {
     _assert(ctx);
     _assert(fd);
-    _assert(!(fd->flags & OF_SOCKET));
+    _assert(!ofile_is_socket(fd));
     _assert(!(fd->refcount));
     _assert(fd->file.vnode);
 
@@ -563,7 +566,7 @@ ssize_t vfs_write(struct vfs_ioctx *ctx, struct ofile *fd, const void *buf, size
     ssize_t b;
 
     _assert(fd);
-    _assert(!(fd->flags & OF_SOCKET));
+    _assert(!ofile_is_socket(fd));
 
     if (!(fd->flags & OF_WRITABLE) || (fd->flags & OF_DIRECTORY)) {
         return -EINVAL;
@@ -601,7 +604,7 @@ ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t coun
     }
 
     _assert(fd);
-    _assert(!(fd->flags & OF_SOCKET));
+    _assert(!ofile_is_socket(fd));
 
     node = fd->file.vnode;
 
@@ -635,12 +638,12 @@ ssize_t vfs_read(struct vfs_ioctx *ctx, struct ofile *fd, void *buf, size_t coun
 
 off_t vfs_lseek(struct vfs_ioctx *ctx, struct ofile *fd, off_t offset, int whence) {
     _assert(fd);
-    _assert(!(fd->flags & OF_SOCKET));
+    _assert(!ofile_is_socket(fd));
     struct vnode *node = fd->file.vnode;
     _assert(node);
 
     if (node->type != VN_REG) {
-        return -EINVAL;
+        return -ESPIPE;
     }
 
     if (!node->op || !node->op->lseek) {
@@ -723,7 +726,7 @@ int vfs_chown(struct vfs_ioctx *ctx, const char *path, uid_t uid, gid_t gid) {
 int vfs_ioctl(struct vfs_ioctx *ctx, struct ofile *fd, unsigned int cmd, void *arg) {
     _assert(ctx);
     _assert(fd);
-    _assert(!(fd->flags & OF_SOCKET));
+    _assert(!ofile_is_socket(fd));
     struct vnode *node = fd->file.vnode;
     _assert(node);
 

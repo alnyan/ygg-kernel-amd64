@@ -51,7 +51,7 @@ ssize_t sys_read(int fd, void *data, size_t lim) {
         return -EBADF;
     }
 
-    if (of->flags & OF_SOCKET) {
+    if (ofile_is_socket(of)) {
         kwarn("Invalid operation on socket\n");
         return -EINVAL;
     }
@@ -67,7 +67,7 @@ ssize_t sys_write(int fd, const void *data, size_t lim) {
         return -EBADF;
     }
 
-    if (of->flags & OF_SOCKET) {
+    if (ofile_is_socket(of)) {
         kwarn("Invalid operation on socket\n");
         return -EINVAL;
     }
@@ -123,7 +123,7 @@ int sys_ftruncate(int fd, off_t length) {
     if (!of) {
         return -EBADF;
     }
-    if (of->flags & OF_SOCKET) {
+    if (ofile_is_socket(of)) {
         kwarn("truncate() on socket\n");
         return -EINVAL;
     }
@@ -197,7 +197,7 @@ int sys_openat(int dfd, const char *filename, int flags, int mode) {
 
     // Set controlling terminal if none present and TTY is opened
     // TODO: O_NOCTTY
-    if (!proc->ctty && !(ofile->flags & OF_SOCKET)) {
+    if (!proc->ctty && !ofile_is_socket(ofile)) {
         struct vnode *node = ofile->file.vnode;
         _assert(node);
 
@@ -352,7 +352,7 @@ off_t sys_lseek(int fd, off_t offset, int whence) {
         return -EBADF;
     }
 
-    if (ofile->flags & OF_SOCKET) {
+    if (ofile_is_socket(ofile)) {
         kwarn("Invalid operation on socket\n");
         return -EINVAL;
     }
@@ -366,7 +366,7 @@ int sys_ioctl(int fd, unsigned int cmd, void *arg) {
         return -EBADF;
     }
 
-    if (of->flags & OF_SOCKET) {
+    if (ofile_is_socket(of)) {
         kwarn("Invalid operation on socket\n");
         return -EINVAL;
     }
@@ -382,7 +382,7 @@ ssize_t sys_readdir(int fd, struct dirent *ent) {
         return -EBADF;
     }
 
-    if (of->flags & OF_SOCKET) {
+    if (ofile_is_socket(of)) {
         kwarn("Invalid operation on socket\n");
         return -EINVAL;
     }
@@ -413,7 +413,7 @@ int sys_mknod(const char *filename, int mode, unsigned int dev) {
 
 static int sys_select_get_ready(struct ofile *fd) {
 #if defined(ENABLE_NET)
-    if (fd->flags & OF_SOCKET) {
+    if (ofile_is_socket(fd)) {
         return socket_has_data(&fd->socket);
     } else
 #endif
@@ -440,11 +440,14 @@ static int sys_select_get_ready(struct ofile *fd) {
 }
 
 static struct io_notify *sys_select_get_wait(struct ofile *fd) {
-    if (fd->flags & OF_SOCKET) {
+#if defined(ENABLE_NET)
+    if (ofile_is_socket(fd)) {
         struct io_notify *res = socket_get_rx_notify(&fd->socket);
         _assert(res);
         return res;
-    } else {
+    } else
+#endif
+    {
         struct vnode *vn = fd->file.vnode;
         _assert(vn);
 

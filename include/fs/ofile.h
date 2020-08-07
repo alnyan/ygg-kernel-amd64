@@ -9,7 +9,6 @@
 #define OF_MEMDIR           (1 << 3)
 #define OF_MEMDIR_DOT       (1 << 4)
 #define OF_MEMDIR_DOTDOT    (1 << 5)
-#define OF_SOCKET           (1 << 6)
 #define OF_CLOEXEC          (1 << 7)
 
 struct vfs_ioctx;
@@ -26,6 +25,16 @@ struct ofile {
         struct socket socket;
     };
 };
+
+#if defined(ENABLE_NET)
+#define OF_SOCKET                   (1 << 6)
+
+static inline int ofile_is_socket(struct ofile *of) {
+    return !!(of->flags & OF_SOCKET);
+}
+#else
+#define ofile_is_socket(of)         0
+#endif
 
 struct ofile *ofile_create(void);
 struct ofile *ofile_dup(struct ofile *of);

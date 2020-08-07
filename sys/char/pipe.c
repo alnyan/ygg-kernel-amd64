@@ -115,7 +115,6 @@ static void pipe_vnode_close(struct ofile *of) {
 }
 
 static int pipe_vnode_open(struct ofile *of, int opt) {
-    _assert(!(of->flags & OF_SOCKET));
     _assert(of->file.vnode);
     // TODO: allow only one reader and many writers
     of->file.pos = 0;

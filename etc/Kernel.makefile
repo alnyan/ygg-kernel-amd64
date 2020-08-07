@@ -7,6 +7,7 @@ ACPICA_OBJ=$(ACPICA_SRC:%.c=$(O)/%.o)
 
 KERNEL_USER_HDR=$(shell find include/user -type f -name "*.h")
 
+KERNEL_DEF=
 KERNEL_OBJ=$(O)/arch/amd64/entry.o \
 		   $(O)/arch/amd64/kernel.o \
 		   $(O)/arch/amd64/acpi_osl_mem.o \
@@ -107,12 +108,6 @@ KERNEL_OBJ=$(O)/arch/amd64/entry.o \
 		   $(O)/drivers/usb/device.o \
 		   $(O)/drivers/usb/usbkbd.o \
 		   $(O)/drivers/usb/hub.o \
-		   $(O)/arch/amd64/hw/vesa.o \
-		   $(O)/net/if.o \
-		   $(O)/net/net.o \
-		   $(O)/net/socket.o \
-		   $(O)/net/unix.o \
-		   $(O)/sys/sys_net.o
 
 KERNEL_LDS=arch/amd64/link.ld
 KERNEL_HDR=$(shell find include -type f -name "*.h")
@@ -133,8 +128,11 @@ DIRS+=$(O)/arch/amd64/hw \
 	  $(O)/include \
 	  $(ACPICA_DIR)
 
+include etc/KernelOptions.makefile
+
 ### Compiler
 
+KERNEL_GIT_VERSION=$(shell git describe --always --tags)
 KERNEL_CFLAGS=-Iinclude \
 			  -Iinclude/arch/amd64/acpica \
 			  -I$(O)/include \
@@ -143,7 +141,7 @@ KERNEL_CFLAGS=-Iinclude \
 			  -fno-plt \
 			  -fno-pic \
 			  -DARCH_AMD64 \
-			  -DKERNEL_VERSION_STR=\"testing\" \
+			  -DKERNEL_VERSION_STR=\"$(KERNEL_GIT_VERSION)\" \
 			  -D__KERNEL__ \
 			  -mcmodel=large \
 			  -mno-sse \
@@ -156,13 +154,7 @@ KERNEL_CFLAGS=-Iinclude \
 			  -Wno-unused \
 			  -O0 \
 			  -ggdb \
-			  -Werror \
-			  -DENABLE_UNIX=1 \
-			  -DENABLE_NET=1 \
-			  -DVESA_ENABLE=1 \
-			  -DVESA_WIDTH=640 \
-			  -DVESA_HEIGHT=480 \
-			  -DVESA_DEPTH=32
+			  -Werror $(KERNEL_DEF)
 KERNEL_LDFLAGS=-nostdlib \
 			   -fPIE \
 			   -fno-plt \
@@ -182,11 +174,11 @@ $(O)/include/config.h: config.h.in
 	@echo " CONFIG $@"
 	@cp $< $@
 
-$(O)/%.o: %.c $(O)/include/config.h $(KERNEL_HDR)
+$(O)/%.o: %.c $(O)/include/config.h $(KERNEL_HDR) Kernel.config
 	@echo " CC  $@"
 	@$(CC) $(KERNEL_CFLAGS) -c -o $@ $<
 
-$(O)/%.o: %.S $(O)/include/config.h $(KERNEL_HDR)
+$(O)/%.o: %.S $(O)/include/config.h $(KERNEL_HDR) Kernel.config
 	@echo " AS  $@"
 	@$(CC) $(KERNEL_CFLAGS) -D__ASM__ -c -o $@ $<
 
