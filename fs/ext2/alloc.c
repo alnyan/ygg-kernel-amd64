@@ -22,7 +22,7 @@ uint32_t ext2_alloc_inode(struct fs *fs, struct ext2_data *data, int is_dir) {
 
         ext2_read_block(fs, buf.bytes, bgd->inode_bitmap_no);
 
-        for (size_t j = 0; j < data->sb.block_group_blocks; ++j) {
+        for (size_t j = 0; j < data->sb.block_group_inodes; ++j) {
             // "j" is block number inside the "i" group
             if (!(buf.bitmap[j / 64] & (1ULL << (j % 64)))) {
                 ino = i * data->sb.block_group_inodes + j + 1;
@@ -122,6 +122,49 @@ uint32_t ext2_alloc_block(struct fs *fs, struct ext2_data *data) {
     return block;
 }
 
+void ext2_free_inode(struct fs *fs, struct ext2_data *data, uint32_t ino, int is_dir) {
+    struct ext2_blkgrp_desc *bgd;
+    union {
+        char bytes[data->block_size];
+        uint64_t bitmap[data->block_size / sizeof(uint64_t)];
+    } buf;
+    if (!ino) {
+        panic("Invalid inode number\n");
+    }
+
+    --ino;
+    uint32_t offset = ino % data->sb.block_group_inodes;
+    uint32_t group = ino / data->sb.block_group_inodes;
+
+    bgd = &data->bgdt[group];
+    // Read bitmap
+    if (ext2_read_block(fs, buf.bytes, bgd->inode_bitmap_no) != 0) {
+        panic("Failed to read inode bitmap\n");
+    }
+
+    buf.bitmap[offset / 64] &= ~(1ULL << (offset % 64));
+
+    // Write bitmap back
+    if (ext2_write_block(fs, buf.bytes, bgd->inode_bitmap_no) != 0) {
+        panic("Failed to write inode bitmap\n");
+    }
+
+    // Write modified BGD back
+    ++bgd->free_inodes;
+    if (is_dir) {
+        --bgd->directory_count;
+    }
+    size_t bgd_block_number = (group * sizeof(struct ext2_blkgrp_desc)) / data->block_size;
+    if (ext2_write_block(fs, ((void *) data->bgdt) + bgd_block_number * data->block_size, bgd_block_number + 2) != 0) {
+        panic("EEEE\n");
+    }
+
+    ++data->sb.free_inodes;
+    if (ext2_write_superblock(fs) != 0) {
+        panic("REEE\n");
+    }
+}
+
 void ext2_free_block(struct fs *fs, struct ext2_data *data, uint32_t blk) {
     struct ext2_blkgrp_desc *bgd;
     union {
@@ -189,6 +232,7 @@ int ext2_file_resize(struct fs *ext2, uint32_t ino, struct ext2_inode *inode, si
             uint32_t block = ext2_inode_get_index(ext2, inode, index);
             _assert(block);
             ext2_inode_set_index(ext2, inode, ino, index, 0);
+            ext2_free_block(ext2, data, block);
         }
 
         if (old_block_count > EXT2_DIRECT_BLOCKS && block_count <= EXT2_DIRECT_BLOCKS + p) {

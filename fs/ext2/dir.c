@@ -7,6 +7,7 @@
 #include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/string.h"
+#include "user/errno.h"
 
 int ext2_dir_insert_inode(struct fs *ext2,
                           struct ext2_inode *at_inode,
@@ -102,4 +103,61 @@ int ext2_dir_insert_inode(struct fs *ext2,
     }
 
     return 0;
+}
+
+int ext2_dir_del_inode(struct fs *ext2, struct ext2_inode *at_inode, uint32_t at_ino, struct vnode *vn) {
+    size_t offset;
+    struct ext2_data *data = ext2->fs_private;
+    size_t block_count = at_inode->size_lower / data->block_size;
+    char buf[data->block_size];
+    struct ext2_dirent *prev, *next;
+
+    for (size_t i = 0; i < block_count; ++i) {
+        offset = 0;
+        prev = NULL;
+
+        _assert(ext2_read_inode_block(ext2, at_inode, buf, i) == 0);
+
+        while (offset < data->block_size) {
+            struct ext2_dirent *ent = (struct ext2_dirent *) &buf[offset];
+
+            if (ent->ino == vn->ino) {
+                _assert(!strncmp(ent->name, vn->name, ent->name_length_low));
+
+                ent->ino = 0;
+
+                // TODO: Free directory blocks when the last block entry
+                //       is removed
+                // TODO: would be better to just "lshift" all the following
+                //       entries to reduce fragmentation
+                if (ent->ent_size == data->block_size) {
+                    kinfo("TODO: free directory blocks\n");
+                    return ext2_write_inode_block(ext2, at_inode, buf, i);
+                }
+
+                if (prev) {
+                    prev->ent_size += ent->ent_size;
+                    return ext2_write_inode_block(ext2, at_inode, buf, i);
+                } else {
+                    _assert(!offset);
+                    _assert(ent->ent_size < data->block_size);
+
+                    next = (struct ext2_dirent *) &buf[offset + ent->ent_size];
+                    size_t old = ent->ent_size;
+                    size_t tot = ent->ent_size + next->ent_size;
+                    size_t len = next->ent_size;
+
+                    memmove(ent, next, len);
+
+                    ent->ent_size = tot;
+                    return ext2_write_inode_block(ext2, at_inode, buf, i);
+                }
+            }
+
+            prev = ent;
+            offset += ent->ent_size;
+        }
+    }
+
+    return -ENOENT;
 }

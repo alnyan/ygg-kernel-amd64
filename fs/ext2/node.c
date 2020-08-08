@@ -27,6 +27,7 @@ static int ext2_vnode_stat(struct vnode *at, struct stat *st);
 static int ext2_vnode_truncate(struct vnode *at, size_t new_size);
 static int ext2_vnode_creat(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode);
 static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t gid, mode_t mode);
+static int ext2_vnode_unlink(struct vnode *node);
 
 ////
 
@@ -42,6 +43,8 @@ struct vnode_operations g_ext2_vnode_ops = {
 
     .creat = ext2_vnode_creat,
     .mkdir = ext2_vnode_mkdir,
+    .unlink = ext2_vnode_unlink,
+
     .open = ext2_vnode_open,
     .read = ext2_vnode_read,
     .write = ext2_vnode_write,
@@ -346,6 +349,8 @@ static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count)
         fd->file.pos += can_write;
     }
 
+    inode->mtime = time();
+
     if ((res = ext2_write_inode(ext2, inode, node->ino)) != 0) {
         return res;
     }
@@ -368,6 +373,8 @@ static int ext2_vnode_truncate(struct vnode *node, size_t new_size) {
         return res;
     }
 
+    inode->mtime = time();
+
     return ext2_write_inode(ext2, inode, node->ino);
 }
 
@@ -383,6 +390,7 @@ static int ext2_vnode_chmod(struct vnode *node, mode_t new_mode) {
         // chmod() only updates file mode, don't touch file type
         inode->mode &= ~0xFFF;
         inode->mode |= new_mode & 0xFFF;
+        inode->mtime = time();
         node->mode = new_mode & 0xFFF;
 
         return ext2_write_inode(ext2, inode, node->ino);
@@ -401,6 +409,7 @@ static int ext2_vnode_chown(struct vnode *node, uid_t new_uid, gid_t new_gid) {
     if (new_uid != inode->uid || new_gid != inode->gid) {
         inode->uid = new_uid;
         inode->gid = new_gid;
+        inode->mtime = time();
         node->uid = new_uid;
         node->gid = new_gid;
 
@@ -496,6 +505,51 @@ static int ext2_vnode_mkdir(struct vnode *at, const char *name, uid_t uid, gid_t
     // ".." points to the parent, so increment its refcount
     ++at_inode->hard_links;
     _assert(ext2_write_inode(ext2, at_inode, at->ino) == 0);
+
+    return 0;
+}
+
+static int ext2_vnode_unlink(struct vnode *vn) {
+    if (vn->ino == 2) {
+        // Cannot remove root node
+        return -EPERM;
+    }
+
+    struct vnode *at = vn->parent;
+    _assert(at);
+    struct fs *ext2 = vn->fs;
+    _assert(ext2);
+    struct ext2_data *data = ext2->fs_private;
+    _assert(data);
+
+    struct ext2_inode *at_inode = at->fs_data;
+    struct ext2_inode *inode = vn->fs_data;
+    _assert(at_inode && inode);
+
+    if (ext2_vnode_find(at, vn->name, NULL) != 0) {
+        return -ENOENT;
+    }
+
+    _assert(ext2_dir_del_inode(ext2, at_inode, at->ino, vn) == 0);
+
+    if ((inode->mode & 0xF000) == EXT2_IFDIR) {
+        // `vn`s ".." points to `at`, so decrement refcount
+        --at_inode->hard_links;
+        _assert(ext2_write_inode(ext2, at_inode, at->ino) == 0);
+    }
+
+    // Resize the inode to zero to free its blocks
+    _assert(ext2_file_resize(ext2, vn->ino, inode, 0) == 0);
+
+    inode->hard_links = 0;
+
+    // Mark it as "deleted" (?)
+    inode->dtime = time();
+
+    _assert(ext2_write_inode(ext2, inode, vn->ino) == 0);
+
+    // Free the inode
+    ext2_free_inode(ext2, data, vn->ino, vn->type == VN_DIR);
 
     return 0;
 }
