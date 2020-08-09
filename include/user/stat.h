@@ -5,8 +5,10 @@
 #pragma once
 #if defined(__KERNEL__)
 #include "sys/types.h"
+#include "user/time.h"
 #else
 #include <ygg/types.h>
+#include <ygg/time.h>
 #endif
 
 #define S_IFMT          0170000
@@ -56,7 +58,7 @@ struct stat {
     uint32_t st_size;
     uint32_t st_blksize;
     uint32_t st_blocks;
-    uint32_t st_atime;
-    uint32_t st_mtime;
-    uint32_t st_ctime;
+    time_t st_atime;
+    time_t st_mtime;
+    time_t st_ctime;
 };

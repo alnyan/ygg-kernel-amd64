@@ -38,9 +38,12 @@
 #define ENOSYS          38
 #define ELOOP           40
 
+#define EOVERFLOW       75
 #define EADDRINUSE      98
 #define ECONNRESET      104
 #define ECONNREFUSED    111
+
+#define ENOTSUP         9926
 
 #if defined(__KERNEL__)
 const char *kstrerror(int e);
