@@ -38,12 +38,6 @@
 #define kfatal(f, ...)      debugf(DEBUG_FATAL,     "\033[41m" DEBUG_BASE_FMT f "\033[0m", DEBUG_BASE_ARGS, ##__VA_ARGS__)
 #define kprint(l, f, ...)   debugf(l,               DEBUG_BASE_FMT f, DEBUG_BASE_ARGS, ##__VA_ARGS__)
 
-struct multiboot_tag_elf_sections;
-
-void debug_symbol_table_set(uintptr_t symtab, uintptr_t strtab, size_t symtab_size, size_t strtab_size);
-void debug_symbol_table_multiboot2(struct multiboot_tag_elf_sections *tag);
-int debug_symbol_find(uintptr_t addr, const char **name, uintptr_t *base);
-int debug_symbol_find_by_name(const char *name, uintptr_t *value);
 void debug_backtrace(int level, uintptr_t rbp, int depth, int limit);
 
 void fmtsiz(char *buf, size_t sz);

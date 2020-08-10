@@ -10,6 +10,7 @@
 #include "sys/sched.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
+#include "sys/syms.h"
 #include "sys/mm.h"
 
 #define X86_EXCEPTION_DE        0
@@ -172,7 +173,7 @@ static void exc_dump(int level, struct amd64_exception_frame *frame) {
             (frame->rflags & X86_FLAGS_TF) ? 'T' : '-');
     uintptr_t sym_base;
     const char *sym_name;
-    if (debug_symbol_find(frame->rip, &sym_name, &sym_base) == 0) {
+    if (ksym_find_location(frame->rip, &sym_name, &sym_base) == 0) {
         debugf(level, "   Backtrace:\n");
         debugf(level, "0: %p <%s + %04x>\n", frame->rip, sym_name, frame->rip - sym_base);
         debug_backtrace(DEBUG_FATAL, frame->rbp, 1, 10);

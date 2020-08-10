@@ -6,7 +6,7 @@
 #include "sys/attr.h"
 #include "sys/spin.h"
 #include "sys/config.h"
-#include "sys/elf.h"
+#include "sys/syms.h"
 #include "sys/assert.h"
 #include "sys/mm.h"
 
@@ -16,111 +16,6 @@
 #include "arch/amd64/hw/rs232.h"
 #include "arch/amd64/hw/con.h"
 #endif
-
-////
-
-static uintptr_t g_symtab_ptr = 0;
-static uintptr_t g_strtab_ptr = 0;
-static size_t g_symtab_size = 0;
-static size_t g_strtab_size = 0;
-
-// Multiboot2-loaded sections are misaligned for some reason
-void debug_symbol_table_multiboot2(struct multiboot_tag_elf_sections *tag) {
-    kinfo("Loading kernel symbols\n");
-    kinfo("%u section headers:\n", tag->num);
-    size_t string_section_offset = tag->shndx * tag->entsize;
-    Elf64_Shdr *string_section_hdr = (Elf64_Shdr *) &tag->sections[string_section_offset];
-    const char *shstrtab = (const char *) MM_VIRTUALIZE(realigned(string_section_hdr, sh_addr));
-
-    Elf64_Shdr *symtab_shdr = NULL, *strtab_shdr = NULL;
-
-    for (size_t i = 0; i < tag->num; ++i) {
-        Elf64_Shdr *shdr = (Elf64_Shdr *) &tag->sections[i * tag->entsize];
-        const char *name = &shstrtab[realigned(shdr, sh_name)];
-
-        switch (realigned(shdr, sh_type)) {
-        case SHT_SYMTAB:
-            if (symtab_shdr) {
-                panic("Kernel image has 2+ symbol tables\n");
-            }
-            symtab_shdr = shdr;
-            break;
-        case SHT_STRTAB:
-            if (strcmp(name, ".strtab")) {
-                break;
-            }
-            if (strtab_shdr) {
-                panic("kernel image has 2+ string tables\n");
-            }
-            strtab_shdr = shdr;
-            break;
-        default:
-            break;
-        }
-    }
-
-    if (symtab_shdr && strtab_shdr) {
-        uintptr_t symtab_ptr = MM_VIRTUALIZE(realigned(symtab_shdr, sh_addr));
-        uintptr_t strtab_ptr = MM_VIRTUALIZE(realigned(strtab_shdr, sh_addr));
-
-        debug_symbol_table_set(symtab_ptr,
-                               strtab_ptr,
-                               realigned(symtab_shdr, sh_size),
-                               realigned(strtab_shdr, sh_size));
-    }
-}
-
-void debug_symbol_table_set(uintptr_t s0, uintptr_t s1, size_t z0, size_t z1) {
-    g_symtab_ptr = s0;
-    g_symtab_size = z0;
-    g_strtab_ptr = s1;
-    g_strtab_size = z1;
-}
-
-int debug_symbol_find_by_name(const char *name, uintptr_t *value) {
-    _assert(g_symtab_ptr && g_strtab_ptr);
-    Elf64_Sym *symtab = (Elf64_Sym *) g_symtab_ptr;
-    for (size_t i = 0; i < g_symtab_size / sizeof(Elf64_Sym); ++i) {
-        Elf64_Sym *sym = &symtab[i];
-        if (sym->st_name < g_strtab_size) {
-            const char *r_name = (const char *) g_strtab_ptr + sym->st_name;
-
-            if (!strcmp(r_name, name)) {
-                *value = sym->st_value;
-                return 0;
-            }
-        }
-    }
-
-    return -1;
-}
-
-int debug_symbol_find(uintptr_t addr, const char **name, uintptr_t *base) {
-    if (g_symtab_ptr && g_strtab_ptr) {
-        size_t offset = 0;
-        Elf64_Sym *sym;
-
-        while (offset < g_symtab_size) {
-            sym = (Elf64_Sym *) (g_symtab_ptr + offset);
-
-            if (ELF_ST_TYPE(sym->st_info) == STT_FUNC) {
-                if (sym->st_value <= addr && sym->st_value + sym->st_size >= addr) {
-                    *base = sym->st_value;
-                    if (sym->st_name < g_strtab_size) {
-                        *name = (const char *) (g_strtab_ptr + sym->st_name);
-                    } else {
-                        *name = "<invalid>";
-                    }
-                    return 0;
-                }
-            }
-
-            offset += sizeof(Elf64_Sym);
-        }
-    }
-
-    return -1;
-}
 
 void debug_backtrace(int level, uintptr_t rbp, int depth, int limit) {
     // Typical layout:
@@ -142,7 +37,7 @@ void debug_backtrace(int level, uintptr_t rbp, int depth, int limit) {
     uintptr_t base;
     const char *name;
 
-    if (debug_symbol_find(rip, &name, &base) == 0) {
+    if (ksym_find_location(rip, &name, &base) == 0) {
         debugf(level, "%d: %p <%s + %04x>\n", depth, rip, name, rip - base);
     } else {
         debugf(level, "%d: %p (unknown)\n", depth, rip);

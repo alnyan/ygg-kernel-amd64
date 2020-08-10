@@ -5,6 +5,7 @@
 #include "sys/assert.h"
 #include "sys/debug.h"
 #include "sys/elf.h"
+#include "user/module.h"
 #include "sys/mem/phys.h"
 #include "sys/mem/slab.h"
 #include "sys/mem/vmalloc.h"
@@ -12,6 +13,8 @@
 #include "sys/string.h"
 #include "sys/thread.h"
 #include "sys/panic.h"
+#include "sys/syms.h"
+#include "sys/hash.h"
 #include "user/errno.h"
 #include "user/fcntl.h"
 
@@ -38,6 +41,9 @@ struct object {
 
     struct object_image image;
 
+    // Symbol values
+    struct hash export;
+
     // In-memory object
     uintptr_t object_base;
     size_t object_page_count;
@@ -45,15 +51,49 @@ struct object {
     // PLT and GOT
     void *gotplt;
     size_t gotplt_size;
+
+    struct list_head link;
 };
 
 static struct slab_cache *g_object_cache;
+static LIST_HEAD(g_module_list);
+
+static int mod_sym_lookup(const char *name, void **value) {
+    struct object *mod;
+    struct hash_pair *pair;
+
+    list_for_each_entry(mod, &g_module_list, link) {
+        pair = hash_lookup(&mod->export, name);
+        if (pair) {
+            *value = pair->value;
+            return 0;
+        }
+    }
+    return -1;
+}
+
+static int mod_loaded(const char *name) {
+    struct object *mod;
+    list_for_each_entry(mod, &g_module_list, link) {
+        //kinfo("STRCMP %s, %s\n", mod->module_desc->name, name);
+        if (!strcmp(mod->module_desc->name, name)) {
+            return 1;
+        }
+    }
+    return 0;
+}
 
 static struct object *object_create(void) {
     if (!g_object_cache) {
         g_object_cache = slab_cache_get(sizeof(struct object));
     }
-    return slab_calloc(g_object_cache);
+    struct object *r = slab_calloc(g_object_cache);
+    if (!r) {
+        return NULL;
+    }
+    _assert(shash_init(&r->export, 16) == 0);
+    list_head_init(&r->link);
+    return r;
 }
 
 static void object_free(struct object *obj) {
@@ -155,6 +195,25 @@ static int object_reloc(struct object *obj) {
         _assert(mm_map_single(mm_kernel, (uintptr_t) plt + i, page_phys, MM_PAGE_WRITE, 0) == 0);
     }
 
+    // Export global symbols
+    shdr = obj->image.sh_symtab;
+    for (size_t i = 0; i < shdr->sh_size / shdr->sh_entsize; ++i) {
+        Elf64_Sym *sym = obj->image.base + shdr->sh_offset + i * shdr->sh_entsize;
+        Elf64_Word type = ELF64_ST_TYPE(sym->st_info);
+        Elf64_Word bind = ELF64_ST_BIND(sym->st_info);
+        Elf64_Shdr *sym_section;
+
+        if (bind == STB_GLOBAL && type != STT_SECTION) {
+            name = &obj->image.symstrtab[sym->st_name];
+            if (sym->st_shndx != SHN_UNDEF && sym->st_shndx != SHN_COMMON) {
+                sym_section = object_shdr(obj, sym->st_shndx);
+                void *value = (void *) (sym_section->sh_addr + obj->object_base + sym->st_value);
+
+                _assert(hash_insert(&obj->export, name, value) == 0);
+            }
+        }
+    }
+
     // Find relocation sections
     for (size_t i = 0; i < ehdr->e_shnum; ++i) {
         shdr = object_shdr(obj, i);
@@ -180,8 +239,19 @@ static int object_reloc(struct object *obj) {
                             // symbol
                             name = &obj->image.symstrtab[sym->st_name];
 
-                            if (debug_symbol_find_by_name(name, &value) != 0) {
-                                panic("Undefined reference to %s\n", name);
+                            // 1. Try to lookup kernel symbol
+                            sym = ksym_lookup(name);
+                            if (!sym) {
+                                // 2. Try to lookup symbol in other modules
+                                void *r;
+
+                                if (mod_sym_lookup(name, &r) != 0) {
+                                    panic("Undefined reference to %s\n", name);
+                                }
+
+                                value = (uintptr_t) r;
+                            } else {
+                                value = sym->st_value;
                             }
                             kdebug("Resolved %s: %p\n", name, value);
                         } else if (sym->st_shndx == SHN_COMMON) {
@@ -334,7 +404,8 @@ static int object_extract_info(struct object *obj) {
 
         if (type == STT_FUNC || type == STT_OBJECT || type == STT_NOTYPE) {
             name = &obj->image.symstrtab[sym->st_name];
-            void *value = (void *) (sym->st_value + obj->object_base);
+            Elf64_Shdr *sym_shdr = object_shdr(obj, sym->st_shndx);
+            void *value = (void *) (sym->st_value + obj->object_base + sym_shdr->sh_addr);
 
             if (!strcmp(name, SYM_MOD_ENTER)) {
                 obj->module_enter = value;
@@ -444,6 +515,49 @@ static int object_load(struct object *obj) {
     return 0;
 }
 
+static int object_check_deps(struct object *obj) {
+    Elf64_Ehdr *ehdr;
+    Elf64_Shdr *shdr;
+    const char *shstrtab, *name;
+    char depname[64];
+    const char *p, *e;
+
+    ehdr = obj->image.base;
+    shstrtab = obj->image.base + object_shdr(obj, ehdr->e_shstrndx)->sh_offset;
+
+    for (size_t i = 0; i < ehdr->e_shnum; ++i) {
+        shdr = object_shdr(obj, i);
+        name = &shstrtab[shdr->sh_name];
+
+        if (!strcmp(name, ".deps")) {
+            p = obj->image.base + shdr->sh_offset;
+            while (1) {
+                e = strchr(p, ',');
+                if (e) {
+                    _assert((size_t) (e - p) < sizeof(depname));
+                    strncpy(depname, p, e - p);
+                    depname[e - p] = 0;
+                } else {
+                    _assert(strlen(p) < sizeof(depname));
+                    strcpy(depname, p);
+                }
+
+                if (!mod_loaded(depname)) {
+                    kwarn("unresolved dependency: %s\n", depname);
+                    return -ENOENT;
+                }
+
+                if (!e) {
+                    break;
+                }
+                p = e + 1;
+            }
+        }
+    }
+
+    return 0;
+}
+
 int sys_module_unload(const char *name) {
     return -ENOSYS;
 }
@@ -476,11 +590,16 @@ int sys_module_load(const char *_path, const char *params) {
     asm volatile ("movq %0, %%cr3"::"r"(cr3):"memory");
     asm volatile ("cli");
 
+    if ((res = object_check_deps(obj)) != 0) {
+        goto cleanup;
+    }
+
     if ((res = object_load(obj)) != 0) {
         goto cleanup;
     }
 
     object_finalize_load(obj);
+    list_add(&obj->link, &g_module_list);
 
     debug_dump(DEBUG_DEFAULT, (void *) (obj->object_base + 0x1d), 64);
 

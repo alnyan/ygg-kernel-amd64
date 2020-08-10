@@ -87,6 +87,8 @@ KERNEL_OBJ=$(O)/arch/amd64/entry.o \
 		   $(O)/sys/font/logo.o \
 		   $(O)/sys/font/default8x16.psfu.o \
 		   $(O)/sys/mod.o \
+		   $(O)/sys/hash.o \
+		   $(O)/sys/syms.o \
 		   $(O)/fs/vfs.o \
 		   $(O)/fs/vfs_ops.o \
 		   $(O)/fs/vfs_access.o \

@@ -12,3 +12,6 @@ struct module_desc {
         .name = _name,                  \
         .version = _version,            \
     }
+
+#define MODULE_DEPS                     \
+    static const char __mod_deps[] __attribute__((section(".deps,\"\",@progbits //"),used))

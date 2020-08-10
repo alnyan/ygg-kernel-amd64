@@ -21,13 +21,10 @@
 #include "sys/string.h"
 #include "sys/debug.h"
 #include "sys/panic.h"
+#include "sys/syms.h"
 #include "sys/attr.h"
 #include "sys/elf.h"
 #include "sys/mm.h"
-
-__init(test) {
-    *((uint16_t *) 0xB8000) = 'A' | 0x700;
-}
 
 static uintptr_t multiboot_info_addr;
 static struct multiboot_tag_mmap         *multiboot_tag_mmap;
@@ -102,10 +99,6 @@ void kernel_early_init(void) {
 
     cpuid_init();
 
-    if (multiboot_tag_sections) {
-        debug_symbol_table_multiboot2(multiboot_tag_sections);
-    }
-
     if (multiboot_tag_cmdline) {
         // Set kernel command line
         kinfo("Provided command line: \"%s\"\n", multiboot_tag_cmdline->string);
@@ -122,6 +115,10 @@ void kernel_early_init(void) {
     amd64_idt_init(0);
 
     amd64_mm_init();
+
+    if (multiboot_tag_sections) {
+        ksym_set_multiboot2(multiboot_tag_sections);
+    }
 
     if (rs232_avail & (1 << 0)) {
         rs232_add_tty(0);
