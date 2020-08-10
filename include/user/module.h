@@ -5,7 +5,7 @@ struct module_desc {
     int version;
 };
 
-#define MODULE_ENTRY                    _mod_entry
+#define MODULE_ENTER                    _mod_enter
 #define MODULE_EXIT                     _mod_exit
 #define MODULE_DESC(_name, _version)    \
     struct module_desc _mod_desc = {    \

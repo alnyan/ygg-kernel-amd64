@@ -80,8 +80,6 @@ static void proc_ensure_dir(void) {
 
 void proc_add_entry(struct process *proc) {
     char name[16];
-    _assert(proc && !(proc->flags & THREAD_KERNEL));
-    _assert(proc->pid > 0);
 
     proc_ensure_dir();
 
@@ -90,15 +88,15 @@ void proc_add_entry(struct process *proc) {
 
     _assert(sysfs_add_config_endpoint(proc->fs_entry, "name", SYSFS_MODE_DEFAULT, 64,
                                       proc, sysfs_proc_name, NULL) == 0);
-    _assert(sysfs_add_config_endpoint(proc->fs_entry, "parent", SYSFS_MODE_DEFAULT, 64,
-                                      proc, sysfs_proc_parent, NULL) == 0);
-    _assert(sysfs_add_config_endpoint(proc->fs_entry, "ioctx", SYSFS_MODE_DEFAULT, 64,
-                                      proc, sysfs_proc_ioctx, NULL) == 0);
+    if (proc->pid > 0) {
+        _assert(sysfs_add_config_endpoint(proc->fs_entry, "parent", SYSFS_MODE_DEFAULT, 64,
+                                          proc, sysfs_proc_parent, NULL) == 0);
+        _assert(sysfs_add_config_endpoint(proc->fs_entry, "ioctx", SYSFS_MODE_DEFAULT, 64,
+                                          proc, sysfs_proc_ioctx, NULL) == 0);
+    }
 }
 
 void proc_del_entry(struct process *proc) {
-    _assert(proc && !(proc->flags & THREAD_KERNEL));
-    _assert(proc->pid > 0);
     sysfs_del_ent(proc->fs_entry);
 }
 
@@ -326,15 +324,14 @@ int process_init_thread(struct process *proc, uintptr_t entry, void *arg, int us
     proc->pgid = -1;
     proc->pid = process_alloc_pid(user);
     proc->ctty = NULL;
-    kdebug("New process #%d with main thread <%p>", proc->pid, main_thread);
+    kdebug("New process #%d with main thread <%p>\n", proc->pid, main_thread);
 
     proc->sigq = 0;
     proc->proc_state = PROC_ACTIVE;
 
     list_add(&proc->g_link, &proc_all_head);
-    if (user) {
-        proc_add_entry(proc);
-    }
+
+    proc_add_entry(proc);
 
     return 0;
 }

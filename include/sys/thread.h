@@ -126,6 +126,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags);
 void thread_dump(int level, struct thread *thr);
 
 void proc_add_entry(struct process *proc);
+void proc_del_entry(struct process *proc);
 
 struct process *process_child(struct process *of, pid_t pid);
 void process_unchild(struct process *proc);

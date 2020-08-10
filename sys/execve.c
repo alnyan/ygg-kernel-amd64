@@ -227,6 +227,8 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     }
 
     if (proc->space == mm_kernel) {
+        proc_del_entry(proc);
+
         was_kernel = 1;
         // Have to allocate a new PID for kernel -> userspace transition
         proc->pid = process_alloc_pid(1); //thread_alloc_pid(1);
