@@ -1,7 +1,6 @@
 #include <config.h>
 #include "user/errno.h"
 #include "arch/amd64/hw/timer.h"
-#include "arch/amd64/cpu.h"
 #include "fs/ofile.h"
 #include "user/fcntl.h"
 #include "sys/char/ring.h"

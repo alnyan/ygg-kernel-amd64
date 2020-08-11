@@ -1,6 +1,5 @@
 #include "user/fcntl.h"
 #include "user/errno.h"
-#include "arch/amd64/cpu.h"
 #include "arch/amd64/mm/phys.h"
 #include "arch/amd64/mm/pool.h"
 #include "fs/sysfs.h"

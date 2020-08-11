@@ -1,5 +1,4 @@
 #include "sys/mem/vmalloc.h"
-#include "arch/amd64/cpu.h"
 #include "sys/mem/shmem.h"
 #include "sys/block/blk.h"
 #include "sys/mem/phys.h"

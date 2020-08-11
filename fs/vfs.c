@@ -1,6 +1,6 @@
-#include "arch/amd64/cpu.h"
 #include "user/fcntl.h"
 #include "user/errno.h"
+#include "sys/thread.h"
 #include "sys/block/blk.h"
 #include "fs/node.h"
 #include "sys/heap.h"

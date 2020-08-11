@@ -1,7 +1,6 @@
 #include "drivers/usb/device.h"
 #include "drivers/usb/driver.h"
 #include "drivers/usb/usb.h"
-#include "arch/amd64/cpu.h"
 #include "sys/thread.h"
 #include "sys/assert.h"
 #include "sys/sched.h"

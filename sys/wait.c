@@ -1,5 +1,4 @@
 #include "arch/amd64/hw/timer.h"
-#include "arch/amd64/cpu.h"
 #include "user/errno.h"
 #include "sys/thread.h"
 #include "sys/assert.h"

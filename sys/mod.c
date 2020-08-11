@@ -1,4 +1,3 @@
-#include "arch/amd64/cpu.h"
 #include "fs/ofile.h"
 #include "fs/sysfs.h"
 #include "fs/vfs.h"

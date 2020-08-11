@@ -1,7 +1,6 @@
 #include "arch/amd64/mm/pool.h"
 #include "arch/amd64/context.h"
 #include "sys/mem/vmalloc.h"
-#include "arch/amd64/cpu.h"
 #include "sys/binfmt_elf.h"
 #include "sys/sys_proc.h"
 #include "sys/mem/phys.h"
@@ -289,6 +288,22 @@ void process_free(struct process *proc) {
     // Free the process
     memset(proc, 0, sizeof(struct process));
     kfree(proc);
+}
+
+struct process *task_start(void *entry, void *arg, int flags) {
+    struct process *proc = kmalloc(sizeof(struct process));
+    if (!proc) {
+        return NULL;
+    }
+
+    if (process_init_thread(proc, (uintptr_t) entry, arg, 0) != 0) {
+        kfree(proc);
+        return NULL;
+    }
+
+    sched_queue(process_first_thread(proc));
+
+    return proc;
 }
 
 int process_init_thread(struct process *proc, uintptr_t entry, void *arg, int user) {

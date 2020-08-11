@@ -1,4 +1,3 @@
-#include "arch/amd64/cpu.h"
 #include "sys/char/ring.h"
 #include "user/socket.h"
 #include "user/errno.h"

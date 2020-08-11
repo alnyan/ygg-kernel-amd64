@@ -1,6 +1,6 @@
-#include "arch/amd64/cpu.h"
 #include "sys/char/pipe.h"
 #include "sys/char/ring.h"
+#include "sys/thread.h"
 #include "user/errno.h"
 #include "sys/assert.h"
 #include "sys/debug.h"

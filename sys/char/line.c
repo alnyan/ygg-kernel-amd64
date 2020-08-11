@@ -1,14 +1,14 @@
-#include "arch/amd64/cpu.h"
 #include "sys/char/ring.h"
 #include "sys/char/line.h"
 #include "sys/char/chr.h"
 #include "sys/char/tty.h"
+#include "sys/thread.h"
 #include "sys/assert.h"
 #include "sys/ctype.h"
 #include "sys/debug.h"
 
 ssize_t line_read(struct chrdev *chr, void *buf, size_t pos, size_t lim) {
-    struct thread *thr = get_cpu()->thread;
+    struct thread *thr = thread_self;
     _assert(chr->type == CHRDEV_TTY);
     struct ring *r = &chr->buffer;
 

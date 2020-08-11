@@ -1,4 +1,3 @@
-#include "arch/amd64/cpu.h"
 #include "sys/sys_net.h"
 #include "sys/assert.h"
 #include "sys/thread.h"

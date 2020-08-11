@@ -2,7 +2,6 @@
 #include "user/reboot.h"
 #include "user/errno.h"
 #include "user/time.h"
-#include "arch/amd64/cpu.h"
 #include "sys/sys_sys.h"
 #include "sys/block/blk.h"
 #include "fs/node.h"

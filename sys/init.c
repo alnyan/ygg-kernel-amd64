@@ -1,6 +1,5 @@
 #include "user/fcntl.h"
 #include "user/errno.h"
-#include "arch/amd64/cpu.h"
 #include "sys/sys_proc.h"
 #include "fs/ofile.h"
 #include "sys/thread.h"

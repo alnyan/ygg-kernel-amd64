@@ -1,6 +1,7 @@
 #pragma once
 #if defined(ARCH_AMD64)
 #include "arch/amd64/asm/asm_thread.h"
+#include "arch/amd64/cpu.h"
 #endif
 #include "user/signum.h"
 #include "sys/wait.h"
@@ -118,8 +119,6 @@ int process_init_thread(struct process *proc, uintptr_t entry, void *arg, int us
 
 struct thread *process_first_thread(struct process *proc);
 
-//pid_t thread_alloc_pid(int is_user);
-//void thread_ioctx_fork(struct thread *dst, struct thread *src);
 #define THR_INIT_USER           (1 << 0)
 #define THR_INIT_STACK_SET      (1 << 1)
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags);
@@ -141,3 +140,5 @@ int thread_sleep(struct thread *thr, uint64_t deadline, uint64_t *int_time);
 
 void process_signal(struct process *proc, int signum);
 void thread_signal(struct thread *thr, int signum);
+
+struct process *task_start(void *entry, void *arg, int flags);

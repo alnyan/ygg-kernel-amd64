@@ -2,7 +2,6 @@
 #include "arch/amd64/context.h"
 #include "arch/amd64/mm/map.h"
 #include "sys/mem/vmalloc.h"
-#include "arch/amd64/cpu.h"
 #include "sys/binfmt_elf.h"
 #include "sys/sys_proc.h"
 #include "sys/mem/phys.h"

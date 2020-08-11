@@ -2,7 +2,6 @@
 #include "arch/amd64/smp/ipi.h"
 #include "arch/amd64/smp/smp.h"
 #endif
-#include "arch/amd64/cpu.h"
 #include "sys/thread.h"
 #include "sys/sched.h"
 #include "sys/panic.h"
