@@ -2,6 +2,7 @@
 #include "fs/sysfs.h"
 #include "fs/vfs.h"
 #include "sys/assert.h"
+#include "sys/snprintf.h"
 #include "sys/debug.h"
 #include "sys/elf.h"
 #include "user/module.h"
@@ -74,7 +75,6 @@ static int mod_sym_lookup(const char *name, void **value) {
 static int mod_loaded(const char *name) {
     struct object *mod;
     list_for_each_entry(mod, &g_module_list, link) {
-        //kinfo("STRCMP %s, %s\n", mod->module_desc->name, name);
         if (!strcmp(mod->module_desc->name, name)) {
             return 1;
         }
@@ -557,8 +557,43 @@ static int object_check_deps(struct object *obj) {
     return 0;
 }
 
-int sys_module_unload(const char *name) {
-    return -ENOSYS;
+int sys_module_unload(const char *_name) {
+    // TODO: check dependencies
+    uintptr_t cr3_old, cr3;
+    cr3 = MM_PHYS(mm_kernel);
+    char name[64];
+
+    _assert(strlen(_name) < sizeof(name));
+    strcpy(name, _name);
+
+    asm volatile ("movq %%cr3, %0":"=r"(cr3_old)::"memory");
+    asm volatile ("cli");
+    asm volatile ("movq %0, %%cr3"::"r"(cr3):"memory");
+
+    struct object *mod = NULL, *it;
+    list_for_each_entry(it, &g_module_list, link) {
+        if (!strcmp(it->module_desc->name, name)) {
+            mod = it;
+            break;
+        }
+    }
+
+    if (!mod) {
+        kdebug("No module with name \"%s\"\n", name);
+        asm volatile ("movq %0, %%cr3"::"r"(cr3_old):"memory");
+        return -ENOENT;
+    }
+
+    if (mod->module_exit) {
+        mod->module_exit();
+    }
+
+    asm volatile ("movq %0, %%cr3"::"r"(cr3_old):"memory");
+
+    kdebug("Module %s unloaded\n", name);
+    object_free(mod);
+
+    return 0;
 }
 
 int sys_module_load(const char *_path, const char *params) {
@@ -586,8 +621,8 @@ int sys_module_load(const char *_path, const char *params) {
         goto cleanup;
     }
 
-    asm volatile ("movq %0, %%cr3"::"r"(cr3):"memory");
     asm volatile ("cli");
+    asm volatile ("movq %0, %%cr3"::"r"(cr3):"memory");
 
     if ((res = object_check_deps(obj)) != 0) {
         goto cleanup;
@@ -616,5 +651,16 @@ cleanup:
 }
 
 int mod_list(void *ctx, char *buf, size_t lim) {
-    return -ENOSYS;
+    struct object *mod;
+    list_for_each_entry(mod, &g_module_list, link) {
+        uintptr_t phys = mm_map_get(mm_kernel, (uintptr_t) mod->module_desc, NULL);
+        const char *name = "???";
+        if (phys != MM_NADDR) {
+            struct module_desc *desc = (struct module_desc *) MM_VIRTUALIZE(phys);
+            name = desc->name;
+        }
+        sysfs_buf_printf(buf, lim, "%s %u %p\n", name, mod->object_page_count, mod->object_base);
+    }
+
+    return 0;
 }
