@@ -55,7 +55,7 @@ struct stat {
     uid_t st_uid;
     gid_t st_gid;
     uint32_t st_rdev;
-    uint32_t st_size;
+    off_t st_size;
     uint32_t st_blksize;
     uint32_t st_blocks;
     time_t st_atime;
