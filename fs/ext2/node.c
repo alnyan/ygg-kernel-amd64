@@ -18,6 +18,7 @@
 static int ext2_vnode_find(struct vnode *at, const char *name, struct vnode **res);
 static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count);
 static ssize_t ext2_vnode_write(struct ofile *fd, const void *buf, size_t count);
+static off_t ext2_vnode_lseek(struct ofile *fd, off_t pos, int whence);
 static int ext2_vnode_open(struct ofile *fd, int opt);
 static int ext2_vnode_opendir(struct ofile *fd);
 static int ext2_vnode_chmod(struct vnode *vn, mode_t new_mode);
@@ -48,7 +49,8 @@ struct vnode_operations g_ext2_vnode_ops = {
     .open = ext2_vnode_open,
     .read = ext2_vnode_read,
     .write = ext2_vnode_write,
-    .truncate = ext2_vnode_truncate
+    .truncate = ext2_vnode_truncate,
+    .lseek = ext2_vnode_lseek,
 };
 
 ////
@@ -166,6 +168,33 @@ static ssize_t ext2_vnode_read(struct ofile *fd, void *buf, size_t count) {
     }
 
     return bread;
+}
+
+static off_t ext2_vnode_lseek(struct ofile *fd, off_t pos, int whence) {
+    off_t calc;
+    struct vnode *node = fd->file.vnode;
+    _assert(node);
+    struct ext2_inode *inode = node->fs_data;
+    _assert(inode);
+
+    switch (whence) {
+    case SEEK_SET:
+        calc = pos;
+        break;
+    case SEEK_CUR:
+        calc = pos + fd->file.pos;
+        break;
+    default:
+        panic("Invalid seek whence: %d\n", whence);
+    }
+
+    if (calc < 0 || calc >= inode->size_lower) {
+        return (off_t) -ESPIPE;
+    }
+
+    fd->file.pos = calc;
+
+    return fd->file.pos;
 }
 
 static int ext2_vnode_opendir(struct ofile *fd) {

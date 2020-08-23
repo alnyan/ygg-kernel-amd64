@@ -126,21 +126,40 @@ uint32_t ext2_inode_get_index(struct fs *ext2, struct ext2_inode *inode, uint32_
     _assert(data);
 
     uint32_t p = data->block_size / sizeof(uint32_t);
-    uint32_t a, b, c, d, e, f, g;
     uint32_t ptrs[p];
 
     if (index < EXT2_DIRECT_BLOCKS) {
         return inode->direct_blocks[index];
-    } else if (index < EXT2_DIRECT_BLOCKS + p) {
+    }
+
+    // Fits in L1?
+    index -= EXT2_DIRECT_BLOCKS;
+    if (index < p) {
         if (!inode->indirect_block_l1) {
-            panic("Read beyond end of file\n");
+            panic("Read beyond end of file (L1.1)\n");
         }
 
         _assert(ext2_read_block(ext2, ptrs, inode->indirect_block_l1) == 0);
-        return ptrs[index - EXT2_DIRECT_BLOCKS];
-    } else {
-        panic("TODO L2+\n");
+        return ptrs[index];
     }
+
+    // Fits in L2?
+    index -= p;
+    if (index < p * p) {
+        uint32_t index_l1 = index / p;
+        uint32_t index_l0 = index % p;
+        if (!inode->indirect_block_l2) {
+            panic("Read beyond end of the file (L2.2)\n");
+        }
+        _assert(ext2_read_block(ext2, ptrs, inode->indirect_block_l2) == 0);
+        if (!ptrs[index_l1]) {
+            panic("Read beyond end of the file (L2.1)\n");
+        }
+        _assert(ext2_read_block(ext2, ptrs, ptrs[index_l1]) == 0);
+        return ptrs[index_l0];
+    }
+
+    panic("TODO: L3 support\n");
 }
 
 int ext2_inode_set_index(struct fs *ext2, struct ext2_inode *inode, uint32_t ino, uint32_t index, uint32_t value) {
