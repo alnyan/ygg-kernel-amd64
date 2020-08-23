@@ -26,42 +26,6 @@ no_match:
     return MM_NADDR;
 }
 
-uintptr_t vmalloc(mm_space_t pml4, uintptr_t from, uintptr_t to, size_t npages, uint64_t flags, int usage) {
-    uintptr_t addr = vmfind(pml4, from, to, npages);
-    uintptr_t virt_page, phys_page;
-    uint64_t rflags = flags & (MM_PAGE_USER | MM_PAGE_WRITE | MM_PAGE_NOEXEC);
-
-    if (addr == MM_NADDR) {
-        return MM_NADDR;
-    }
-
-    for (size_t i = 0; i < npages; ++i) {
-        virt_page = addr + i * MM_PAGE_SIZE;
-        phys_page = mm_phys_alloc_page();
-
-        // Allocation of physical page failed, clean up
-        if (phys_page == MM_NADDR) {
-            // Unmap previously allocated pages
-            for (size_t j = 0; j < i; ++j) {
-                virt_page = addr + j * MM_PAGE_SIZE;
-                // Deallocate physical pages that've already been mapped
-                // We've mapped only 4KiB pages, so expect to unmap only
-                // 4KiB pages
-                assert((phys_page = mm_umap_single(pml4, virt_page, 1)) != MM_NADDR,
-                        "Failed to deallocate page when cleaning up botched alloc: %p\n", virt_page);
-
-                mm_phys_free_page(phys_page);
-            }
-            return MM_NADDR;
-        }
-
-        // Succeeded, map the page
-        assert(mm_map_single(pml4, virt_page, phys_page, rflags, usage) == 0, "Failed to map page: %p\n", virt_page);
-    }
-
-    return addr;
-}
-
 void vmfree(mm_space_t pml4, uintptr_t addr, size_t npages) {
     uintptr_t phys;
     for (size_t i = 0; i < npages; ++i) {

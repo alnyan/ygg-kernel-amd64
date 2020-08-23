@@ -167,8 +167,8 @@ static void block_cache_queue_erase(struct block_cache *cache, struct lru_node *
 }
 
 static void block_cache_page_release(struct block_cache *cache, uintptr_t address, uintptr_t page) {
-    kdebug("Block cache: release page %p\n", page & LRU_PAGE_MASK);
     if (page & LRU_PAGE_DIRTY) {
+        kdebug("Block cache: write page %p\n", page & LRU_PAGE_MASK);
         _assert(blk_page_sync(cache->blk, address * cache->page_size, page & LRU_PAGE_MASK) == 0);
     }
     mm_phys_free_page(page & LRU_PAGE_MASK);
@@ -177,8 +177,7 @@ static void block_cache_page_release(struct block_cache *cache, uintptr_t addres
 static uintptr_t block_cache_page_alloc(struct block_cache *cache) {
     // Other sizes are not supported
     _assert(cache->page_size == MM_PAGE_SIZE);
-    kdebug("Block cache: allocate page\n");
-    return mm_phys_alloc_page();
+    return mm_phys_alloc_page(PU_CACHE);
 }
 
 void block_cache_mark_dirty(struct block_cache *cache, uintptr_t address) {

@@ -13,6 +13,7 @@ _kernel_base_phys = 0x400000;
 
 SECTIONS {
 	. = _kernel_base_phys + _kernel_base;
+    _kernel_start = .;
 
 	.text ALIGN(4K) : AT(ADDR(.text) - _kernel_base)
 	{

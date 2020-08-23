@@ -6,7 +6,6 @@
 #include "arch/amd64/mm/mm.h"
 #include "sys/panic.h"
 #include "sys/heap.h"
-#include "arch/amd64/mm/pool.h"
 #include "arch/amd64/mm/phys.h"
 #include "sys/mem/phys.h"
 #include "sys/mm.h"
@@ -30,10 +29,8 @@ void amd64_mm_init(void) {
     kdebug("Memory manager init\n");
 
     mm_kernel = &kernel_pd_res[5 * 512];
-    // Create a pool located right after kernel image
-    amd64_mm_pool_init((uintptr_t) &_kernel_end, MM_POOL_SIZE);
 
-    uintptr_t heap_base_phys = mm_phys_alloc_contiguous(KERNEL_HEAP >> 12);
+    uintptr_t heap_base_phys = mm_phys_alloc_contiguous(KERNEL_HEAP >> 12, PU_KERNEL);
     assert(heap_base_phys != MM_NADDR, "Could not allocate %S of memory for kernel heap\n", KERNEL_HEAP);
     kdebug("Setting up kernel heap of %S @ %p\n", KERNEL_HEAP, heap_base_phys);
     amd64_heap_init(heap_global, heap_base_phys, KERNEL_HEAP);

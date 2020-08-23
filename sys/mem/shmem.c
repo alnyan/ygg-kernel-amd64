@@ -37,13 +37,13 @@ static int sys_mmap_anon(mm_space_t space, uintptr_t base, size_t page_count, in
 
     // Map pages
     for (size_t i = 0; i < page_count; ++i) {
-        uintptr_t phys = mm_phys_alloc_page();
+        uintptr_t phys = mm_phys_alloc_page(map_usage);
         _assert(phys != MM_NADDR);
         struct page *page = PHYS2PAGE(phys);
         _assert(page);
 
         page->flags |= PG_MMAPED;
-        _assert(mm_map_single(space, base + i * MM_PAGE_SIZE, phys, map_flags, map_usage) == 0);
+        _assert(mm_map_single(space, base + i * MM_PAGE_SIZE, phys, map_flags) == 0);
     }
 
     return 0;
@@ -214,7 +214,7 @@ int sys_shmget(size_t size, int flags) {
     list_head_init(&chunk->link);
 
     for (size_t i = 0; i < size; ++i) {
-        chunk->pages[i] = mm_phys_alloc_page();
+        chunk->pages[i] = mm_phys_alloc_page(PU_SHARED);
         _assert(chunk->pages[i] != MM_NADDR);
     }
 
@@ -246,11 +246,11 @@ void *sys_shmat(int id, const void *hint, int flags) {
     _assert(virt_base != MM_NADDR);
 
     for (size_t i = 0; i < chunk->page_count; ++i) {
+        _assert(PHYS2PAGE(chunk->pages[i])->usage == PU_SHARED);
         mm_map_single(space,
                       virt_base + i * MM_PAGE_SIZE,
                       chunk->pages[i],
-                      MM_PAGE_WRITE | MM_PAGE_USER,
-                      PU_SHARED);
+                      MM_PAGE_WRITE | MM_PAGE_USER);
     }
 
     return (void *) virt_base;

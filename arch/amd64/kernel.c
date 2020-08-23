@@ -14,6 +14,7 @@
 #include "arch/amd64/mm/mm.h"
 #include "arch/amd64/fpu.h"
 #include "sys/block/ram.h"
+#include "sys/mem/phys.h"
 #include "sys/console.h"
 #include "sys/config.h"
 #include "sys/kernel.h"
@@ -26,12 +27,27 @@
 #include "sys/elf.h"
 #include "sys/mm.h"
 
+extern char _kernel_start, _kernel_end;
+
 static uintptr_t multiboot_info_addr;
-static struct multiboot_tag_mmap         *multiboot_tag_mmap;
-static struct multiboot_tag_module       *multiboot_tag_initrd_module;
-static struct multiboot_tag_elf_sections *multiboot_tag_sections;
-static struct multiboot_tag_string       *multiboot_tag_cmdline;
-static struct multiboot_tag_framebuffer  *multiboot_tag_framebuffer;
+static struct multiboot_tag_mmap            *multiboot_tag_mmap;
+static struct multiboot_tag_module          *multiboot_tag_initrd_module;
+static struct multiboot_tag_elf_sections    *multiboot_tag_sections;
+static struct multiboot_tag_string          *multiboot_tag_cmdline;
+static struct multiboot_tag_framebuffer     *multiboot_tag_framebuffer;
+
+// Descriptors for reserved physical memory regions
+static struct mm_phys_reserved              phys_reserve_initrd;
+static struct mm_phys_reserved              phys_reserve_kernel = {
+    // TODO: use _kernel_start instead of this
+    // I was kinda lazy to add an additional reserved region for
+    // multiboot stuff, so I simplified things a bit:
+    // multiboot is known (don't know if it's a standard) to place
+    // its structures below the kernel, so if I reserve pages below the
+    // kernel, nothing should be overwritten
+    .begin = 0,
+    .end = MM_PHYS(&_kernel_end)
+};
 
 extern struct {
     uint32_t eax, ebx;
@@ -108,6 +124,17 @@ void kernel_early_init(void) {
     // Reinitialize RS232 properly
     rs232_init(RS232_COM1);
     ps2_init();
+
+    // Before anything is allocated, reserve:
+    // 1. initrd pages
+    // 2. multiboot tag pages
+    mm_phys_reserve(&phys_reserve_kernel);
+
+    if (multiboot_tag_initrd_module) {
+        phys_reserve_initrd.begin = multiboot_tag_initrd_module->mod_start & ~0xFFF;
+        phys_reserve_initrd.end = (multiboot_tag_initrd_module->mod_end + 0xFFF) & ~0xFFF;
+        mm_phys_reserve(&phys_reserve_initrd);
+    }
 
     amd64_phys_memory_map(multiboot_tag_mmap);
 

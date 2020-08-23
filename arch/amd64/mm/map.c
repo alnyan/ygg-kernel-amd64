@@ -129,7 +129,7 @@ uintptr_t mm_umap_single(mm_space_t pml4, uintptr_t vaddr, uint32_t size) {
     return old;
 }
 
-int mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t flags, int usage) {
+int mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t flags) {
     virt_addr = AMD64_MM_STRIPSX(virt_addr);
     // TODO: support page sizes other than 4KiB
     // (Though I can't think of any reason to use it)
@@ -199,7 +199,6 @@ int mm_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint64_t
     struct page *pg = PHYS2PAGE(phys);
     _assert(pg);
     ++pg->refcount;
-    pg->usage = usage;
 
     pt[pti] = (phys & MM_PAGE_MASK) |
               (flags & MM_PTE_FLAGS_MASK) |

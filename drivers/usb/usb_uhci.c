@@ -120,9 +120,9 @@ static struct uhci_qh *uhci_alloc_qh(struct uhci *hc) {
 }
 
 static void uhci_data_init(struct uhci *data, uint32_t bar4) {
-    uintptr_t frame_list_page = mm_phys_alloc_contiguous(2);
+    uintptr_t frame_list_page = mm_phys_alloc_contiguous(2, PU_KERNEL);
     _assert(frame_list_page != MM_NADDR && frame_list_page < 0x100000000);
-    uintptr_t pool_page = mm_phys_alloc_page();
+    uintptr_t pool_page = mm_phys_alloc_page(PU_KERNEL);
     _assert(pool_page != MM_NADDR && pool_page < 0x100000000);
 
     data->iobase = bar4 & ~3;

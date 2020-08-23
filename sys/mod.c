@@ -150,9 +150,9 @@ static int object_section_load(struct object *obj, Elf64_Shdr *shdr) {
         // Get or map physical page
         if (mm_map_get(mm_kernel, page, &page_phys) == MM_NADDR) {
             kdebug("MAP OBJECT PAGE %p\n", page);
-            page_phys = mm_phys_alloc_page();
+            page_phys = mm_phys_alloc_page(PU_KERNEL);
             _assert(page_phys != MM_NADDR);
-            _assert(mm_map_single(mm_kernel, page, page_phys, MM_PAGE_WRITE, 0) == 0);
+            _assert(mm_map_single(mm_kernel, page, page_phys, MM_PAGE_WRITE) == 0);
         }
     }
 
@@ -189,9 +189,9 @@ static int object_reloc(struct object *obj) {
     uint8_t *plt = obj->gotplt;
     _assert(!(((uintptr_t) plt) & 0xFFF));
     for (size_t i = 0; i < obj->gotplt_size; i += MM_PAGE_SIZE) {
-        uintptr_t page_phys = mm_phys_alloc_page();
+        uintptr_t page_phys = mm_phys_alloc_page(PU_KERNEL);
         _assert(mm_map_get(mm_kernel, (uintptr_t) plt + i, NULL) == MM_NADDR);
-        _assert(mm_map_single(mm_kernel, (uintptr_t) plt + i, page_phys, MM_PAGE_WRITE, 0) == 0);
+        _assert(mm_map_single(mm_kernel, (uintptr_t) plt + i, page_phys, MM_PAGE_WRITE) == 0);
     }
 
     // Export global symbols

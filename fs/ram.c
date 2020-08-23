@@ -140,7 +140,7 @@ int ram_vnode_bset_resize(struct vnode *vn, size_t size) {
 
                 // Allocate L1 block, if it hasn't been yet
                 if (!priv->bpa_l1[l1_index]) {
-                    blk = mm_phys_alloc_page();
+                    blk = mm_phys_alloc_page(PU_KERNEL);
                     _assert(blk != MM_NADDR);
                     priv->bpa_l1[l1_index] = (uintptr_t *) MM_VIRTUALIZE(blk);
                     memset(priv->bpa_l1[l1_index], 0, RAM_BLOCKS_PER_Ln * sizeof(uintptr_t));
@@ -400,7 +400,7 @@ static ssize_t ramfs_vnode_write(struct ofile *of, const void *buf, size_t count
 
         for (size_t i = block_offset; i < block_index; ++i) {
             // TODO: this is suboptimal - 3.5K get wasted
-            blk = mm_phys_alloc_page();
+            blk = mm_phys_alloc_page(PU_KERNEL);
             _assert(blk != MM_NADDR);
             blk = MM_VIRTUALIZE(blk) | RAM_BSET_ALLOC;
             _assert(ram_vnode_bset_set(vn, i, blk) == 0);
@@ -433,6 +433,7 @@ static ssize_t ramfs_vnode_write(struct ofile *of, const void *buf, size_t count
 static off_t ramfs_vnode_lseek(struct ofile *of, off_t off, int whence) {
     struct ram_vnode_private *priv;
     struct vnode *vn;
+    int res;
 
     vn = of->file.vnode;
     _assert(vn->fs_data);
@@ -442,7 +443,9 @@ static off_t ramfs_vnode_lseek(struct ofile *of, off_t off, int whence) {
     switch (whence) {
     case SEEK_SET:
         if ((size_t) off > priv->size) {
-            return (off_t) -ESPIPE;
+            if ((res = ramfs_vnode_truncate(of->file.vnode, off)) < 0) {
+                return res;
+            }
         }
         of->file.pos = off;
         break;
@@ -506,9 +509,9 @@ static int ramfs_vnode_unlink(struct vnode *node) {
 
     if (node->type == VN_REG) {
         // Free the blocks by truncating the file to zero
-        res = ramfs_vnode_truncate(node, 0);
+        //res = ramfs_vnode_truncate(node, 0);
         if (res != 0) {
-            return res;
+            //return res;
         }
     }
 
@@ -525,11 +528,34 @@ static int ramfs_vnode_unlink(struct vnode *node) {
 static int ramfs_vnode_truncate(struct vnode *at, size_t size) {
     struct ram_vnode_private *priv;
     _assert(priv = at->fs_data);
+
     // TODO: allocate blocks on upward truncation
     if (size > priv->size) {
-        panic("NYI\n");
+        kdebug("Truncate up: %s\n", at->name);
+        uintptr_t blk;
+        size_t block_index, block_offset;
+        struct vnode *vn = at;
+
+        // Number of last block
+        block_index = (size + 511) / 512;
+        // Old capacity
+        block_offset = priv->bpa_cap;
+
+        _assert(ram_vnode_bset_resize(vn, size) == 0);
+
+        for (size_t i = block_offset; i < block_index; ++i) {
+            // TODO: this is suboptimal - 3.5K get wasted
+            blk = mm_phys_alloc_page(PU_KERNEL);
+            _assert(blk != MM_NADDR);
+            blk = MM_VIRTUALIZE(blk) | RAM_BSET_ALLOC;
+            _assert(ram_vnode_bset_set(vn, i, blk) == 0);
+        }
+
+        return 0;
+    } else if (size < priv->size) {
+        kdebug("Truncate down: %s\n", at->name);
+        _assert(ram_vnode_bset_resize(at, size) == 0);
     }
-    _assert(ram_vnode_bset_resize(at, size) == 0);
 
     return 0;
 }

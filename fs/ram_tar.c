@@ -207,7 +207,7 @@ int tar_init(struct fs *ramfs, void *mem_base) {
 
         if (type == VN_LNK) {
             file_length = strlen(hdr->linkname);
-            uintptr_t blk = mm_phys_alloc_page();
+            uintptr_t blk = mm_phys_alloc_page(PU_KERNEL);
             _assert(blk != MM_NADDR);
             if ((res = ram_vnode_bset_resize(node, file_length)) != 0) {
                 panic("Failed to resize file\n");

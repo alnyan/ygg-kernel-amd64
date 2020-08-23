@@ -380,7 +380,7 @@ int sys_clone(int (*fn) (void *), void *stack, int flags, void *arg) {
 }
 
 int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags) {
-    uintptr_t stack_pages = mm_phys_alloc_contiguous(2); //amd64_phys_alloc_contiguous(2);
+    uintptr_t stack_pages = mm_phys_alloc_contiguous(THREAD_KSTACK_PAGES, PU_KERNEL);
     _assert(stack_pages != MM_NADDR);
 
     thr->signal_entry = MM_NADDR;
@@ -390,7 +390,7 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags) {
     thr->sched_next = NULL;
 
     thr->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
-    thr->data.rsp0_size = MM_PAGE_SIZE * 2;
+    thr->data.rsp0_size = MM_PAGE_SIZE * THREAD_KSTACK_PAGES;
     thr->data.rsp0_top = thr->data.rsp0_base + thr->data.rsp0_size;
     thr->flags = (flags & THR_INIT_USER) ? 0 : THREAD_KERNEL;
     thr->sigq = 0;
@@ -421,9 +421,15 @@ int thread_init(struct thread *thr, uintptr_t entry, void *arg, int flags) {
         uintptr_t ustack_base;
         if (!(flags & THR_INIT_STACK_SET)) {
             // Allocate thread user stack
-            ustack_base = vmalloc(space, 0x1000000, 0xF0000000, 4, MM_PAGE_WRITE | MM_PAGE_USER, PU_PRIVATE);
+            ustack_base = vmfind(space, THREAD_USTACK_BEGIN, THREAD_USTACK_END, THREAD_USTACK_PAGES);
+            _assert(ustack_base != MM_NADDR);
+            for (size_t i = 0; i < THREAD_USTACK_PAGES; ++i) {
+                uintptr_t phys = mm_phys_alloc_page(PU_PRIVATE);
+                _assert(phys != MM_NADDR);
+                mm_map_single(space, ustack_base + i * MM_PAGE_SIZE, phys, MM_PAGE_WRITE | MM_PAGE_USER);
+            }
             thr->data.rsp3_base = ustack_base;
-            thr->data.rsp3_size = MM_PAGE_SIZE * 4;
+            thr->data.rsp3_size = MM_PAGE_SIZE * THREAD_USTACK_PAGES;
         }
     }
 
@@ -587,7 +593,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     kdebug("New process #%d with main thread <%p>\n", dst->pid, dst_thread);
 
     // Initialize dst thread
-    uintptr_t stack_pages = mm_phys_alloc_contiguous(2); //amd64_phys_alloc_contiguous(2);
+    uintptr_t stack_pages = mm_phys_alloc_contiguous(THREAD_KSTACK_PAGES, PU_KERNEL);
     _assert(stack_pages != MM_NADDR);
     list_head_init(&dst_thread->wait_head);
     thread_wait_io_init(&dst_thread->sleep_notify);
@@ -596,7 +602,7 @@ int sys_fork(struct sys_fork_frame *frame) {
     dst_thread->sched_next = NULL;
 
     dst_thread->data.rsp0_base = MM_VIRTUALIZE(stack_pages);
-    dst_thread->data.rsp0_size = MM_PAGE_SIZE * 2;
+    dst_thread->data.rsp0_size = MM_PAGE_SIZE * THREAD_KSTACK_PAGES;
     dst_thread->data.rsp0_top = dst_thread->data.rsp0_base + dst_thread->data.rsp0_size;
     dst_thread->flags = 0;
     dst_thread->sigq = 0;

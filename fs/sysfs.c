@@ -1,6 +1,5 @@
 #include "user/fcntl.h"
 #include "user/errno.h"
-#include "arch/amd64/mm/phys.h"
 #include "arch/amd64/mm/pool.h"
 #include "fs/sysfs.h"
 #include "sys/snprintf.h"
@@ -10,6 +9,7 @@
 #include "sys/string.h"
 #include "sys/thread.h"
 #include "sys/mem/slab.h"
+#include "sys/mem/phys.h"
 #include "fs/fs.h"
 #include "sys/mod.h"
 #include "sys/debug.h"
@@ -308,23 +308,21 @@ static int system_uptime_getter(void *ctx, char *buf, size_t lim) {
 }
 
 static int system_mem_getter(void *ctx, char *buf, size_t lim) {
-    struct amd64_phys_stat phys_st;
+    struct mm_phys_stat phys_st;
     struct heap_stat heap_st;
-    struct amd64_pool_stat pool_st;
     struct slab_stat slab_st;
 
     slab_stat(&slab_st);
-    amd64_phys_stat(&phys_st);
-    amd64_mm_pool_stat(&pool_st);
+    mm_phys_stat(&phys_st);
     heap_stat(heap_global, &heap_st);
 
-    sysfs_buf_printf(buf, lim, "PhysTotal:      %u kB\n", phys_st.limit / 1024);
+    sysfs_buf_printf(buf, lim, "PhysTotal:      %u kB\n", phys_st.pages_total * 4);
     sysfs_buf_printf(buf, lim, "PhysFree:       %u kB\n", phys_st.pages_free * 4);
-    sysfs_buf_printf(buf, lim, "PhysUsed:       %u kB\n", phys_st.pages_used * 4);
-
-    sysfs_buf_printf(buf, lim, "PoolTotal:      %u kB\n", MM_POOL_SIZE / 1024);
-    sysfs_buf_printf(buf, lim, "PoolFree:       %u kB\n", pool_st.pages_free * 4);
-    sysfs_buf_printf(buf, lim, "PoolUsed:       %u kB\n", pool_st.pages_used * 4);
+    sysfs_buf_printf(buf, lim, "UsedKernel:     %u kB\n", phys_st.pages_used_kernel * 4);
+    sysfs_buf_printf(buf, lim, "UsedUser:       %u kB\n", phys_st.pages_used_user * 4);
+    sysfs_buf_printf(buf, lim, "UsedShared:     %u kB\n", phys_st.pages_used_shared * 4);
+    sysfs_buf_printf(buf, lim, "UsedPaging:     %u kB\n", phys_st.pages_used_paging * 4);
+    sysfs_buf_printf(buf, lim, "UsedCache:      %u kB\n", phys_st.pages_used_cache * 4);
 
     sysfs_buf_printf(buf, lim, "HeapTotal:      %u kB\n", heap_st.total_size / 1024);
     sysfs_buf_printf(buf, lim, "HeapFree:       %u kB\n", heap_st.free_size / 1024);

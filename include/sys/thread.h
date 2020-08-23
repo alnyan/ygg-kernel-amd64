@@ -11,6 +11,11 @@
 
 #define THREAD_MAX_FDS          16
 
+#define THREAD_KSTACK_PAGES     4
+#define THREAD_USTACK_PAGES     8
+#define THREAD_USTACK_BEGIN     0x10000000
+#define THREAD_USTACK_END       0xF0000000
+
 struct ofile;
 
 enum thread_state {

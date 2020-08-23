@@ -80,7 +80,7 @@ static int display_blk_mmap(struct blkdev *blk, uintptr_t base, size_t page_coun
         mm_map_single(proc->space,
                       base + i * MM_PAGE_SIZE,
                       phys + i * MM_PAGE_SIZE,
-                      pf | MM_PAGE_USER, PU_DEVICE);
+                      pf | MM_PAGE_USER);
     }
 
     return 0;

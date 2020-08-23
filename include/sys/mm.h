@@ -28,7 +28,7 @@ void mm_space_free(struct process *proc);
 
 void mm_describe(const mm_space_t pd);
 
-int mm_map_single(mm_space_t pd, uintptr_t virt_page, uintptr_t phys_page, uint64_t flags, int usage);
+int mm_map_single(mm_space_t pd, uintptr_t virt_page, uintptr_t phys_page, uint64_t flags);
 uintptr_t mm_umap_single(mm_space_t pd, uintptr_t virt_page, uint32_t size);
 uintptr_t mm_map_get(mm_space_t pd, uintptr_t virt, uint64_t *rflags);
 

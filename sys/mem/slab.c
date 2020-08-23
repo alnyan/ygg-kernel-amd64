@@ -81,7 +81,7 @@ struct slab_cache *slab_cache_get(size_t size) {
 ////
 
 static struct slab *slab_create(struct slab_cache *cp) {
-    uintptr_t page_phys = mm_phys_alloc_page();
+    uintptr_t page_phys = mm_phys_alloc_page(PU_KERNEL);
 
     if (page_phys == MM_NADDR) {
         return NULL;

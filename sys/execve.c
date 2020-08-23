@@ -92,7 +92,7 @@ static int procv_setup(const char *const argv[],
 
     *procv_page_count = page_count;
     for (size_t i = 0; i < page_count; ++i) {
-        phys_pages[i] = mm_phys_alloc_page();
+        phys_pages[i] = mm_phys_alloc_page(PU_PRIVATE);
         _assert(phys_pages[i] != MM_NADDR);
     }
 
@@ -289,8 +289,7 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
         _assert(mm_map_single(proc->space,
                               procv_virt + i * MM_PAGE_SIZE,
                               procv_phys_pages[i],
-                              MM_PAGE_USER | MM_PAGE_WRITE,
-                              PU_PRIVATE) == 0);
+                              MM_PAGE_USER | MM_PAGE_WRITE) == 0);
     }
     uintptr_t *argv_fixup = (uintptr_t *) procv_virt;
     uintptr_t *envp_fixup = (uintptr_t *) procv_virt + procv_vecp[0] + 1;
@@ -312,9 +311,16 @@ int sys_execve(const char *path, const char **argv, const char **envp) {
     thr->data.rsp0 = thr->data.rsp0_top;
 
     // Allocate a new user stack
-    uintptr_t ustack = vmalloc(proc->space, 0x100000, 0xF0000000, 4, MM_PAGE_USER | MM_PAGE_WRITE /* | MM_PAGE_NOEXEC */, PU_PRIVATE);
+    uintptr_t ustack = vmfind(proc->space, THREAD_USTACK_BEGIN, THREAD_USTACK_END, THREAD_USTACK_PAGES);
+    _assert(ustack != MM_NADDR);
+    for (size_t i = 0; i < THREAD_USTACK_PAGES; ++i) {
+        uintptr_t phys = mm_phys_alloc_page(PU_PRIVATE);
+        _assert(phys != MM_NADDR);
+        mm_map_single(proc->space, ustack + i * MM_PAGE_SIZE, phys, MM_PAGE_WRITE | MM_PAGE_USER);
+    }
+
     thr->data.rsp3_base = ustack;
-    thr->data.rsp3_size = 4 * MM_PAGE_SIZE;
+    thr->data.rsp3_size = MM_PAGE_SIZE * THREAD_USTACK_PAGES;
 
     if (was_kernel) {
         proc_add_entry(proc);

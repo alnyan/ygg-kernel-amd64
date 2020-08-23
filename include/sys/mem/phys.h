@@ -4,6 +4,7 @@
  */
 #pragma once
 #include "sys/types.h"
+#include "sys/list.h"
 
 extern struct page *mm_pages;
 
@@ -23,22 +24,43 @@ struct page {
         PU_SHARED,              // Shared memory mapping
         PU_DEVICE,              // Possibly shared device mapping
         PU_KERNEL,              // Not a userspace page
+        PU_PAGING,              // Paging structures
+        PU_CACHE,
+        _PU_COUNT
     } usage;
     size_t refcount;
 };
+
+struct mm_phys_reserved {
+    uintptr_t begin, end;
+    struct list_head link;
+};
+
+struct mm_phys_stat {
+    size_t pages_total;
+    size_t pages_free;
+    size_t pages_used_kernel;
+    size_t pages_used_user;
+    size_t pages_used_shared;
+    size_t pages_used_paging;
+    size_t pages_used_cache;
+};
+
+void mm_phys_reserve(struct mm_phys_reserved *res);
+void mm_phys_stat(struct mm_phys_stat *st);
 
 /**
  * @brief Allocate a single physical memory region of MM_PAGE_SIZE bytes
  * @return MM_NADDR on failure, a page-aligned physical address otherwise
  */
-uintptr_t mm_phys_alloc_page(void);
+uintptr_t mm_phys_alloc_page(enum page_usage pu);
 
 /**
  * @brief Allocates a contiguous physical memory region of MM_PAGE_SIZE * \p count bytes
  * @param count Size of the region in pages
  * @return MM_NADDR on failure, a page-aligned physical address otherwise
  */
-uintptr_t mm_phys_alloc_contiguous(size_t count);
+uintptr_t mm_phys_alloc_contiguous(size_t count, enum page_usage pu);
 
 /**
  * @brief Free a physical page

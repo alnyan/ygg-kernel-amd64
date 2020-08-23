@@ -27,9 +27,9 @@ static int elf_map_section(mm_space_t space, uintptr_t vma_dst, size_t size) {
         // TODO: access flags (e.g. is section writable?)
         if ((page_phys = mm_map_get(space, page_aligned + i * MM_PAGE_SIZE, NULL)) == MM_NADDR) {
             // Allocation needed
-            assert((page_phys = mm_phys_alloc_page()) != MM_NADDR,
+            assert((page_phys = mm_phys_alloc_page(PU_PRIVATE)) != MM_NADDR,
                     "Failed to allocate memory\n");
-            assert(mm_map_single(space, page_aligned + i * MM_PAGE_SIZE, page_phys, MM_PAGE_USER | MM_PAGE_WRITE, PU_PRIVATE) == 0,
+            assert(mm_map_single(space, page_aligned + i * MM_PAGE_SIZE, page_phys, MM_PAGE_USER | MM_PAGE_WRITE) == 0,
                     "Failed to map memory\n");
         }
     }

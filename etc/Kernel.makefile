@@ -38,7 +38,6 @@ KERNEL_OBJ=$(O)/arch/amd64/entry.o \
 		   $(O)/arch/amd64/mm/map.o \
 		   $(O)/arch/amd64/mm/phys.o \
 		   $(O)/arch/amd64/mm/vmalloc.o \
-		   $(O)/arch/amd64/mm/pool.o \
 		   $(O)/arch/amd64/hw/ps2.o \
 		   $(O)/arch/amd64/hw/irq.o \
 		   $(O)/arch/amd64/hw/rtc.o \
