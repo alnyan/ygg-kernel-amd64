@@ -50,9 +50,33 @@ amd64_idt_load:
 .global amd64_irq_msi0
 amd64_irq_msi0:
     cli
+    swapgs_if_needed
 
+    pushq %r11
+    pushq %r10
+    pushq %r9
+    pushq %r8
+    pushq %rcx
+    pushq %rdx
+    pushq %rsi
+    pushq %rdi
     pushq %rax
     irq_eoi_lapic 0
-    popq %rax
 
+    movq $0, %rdi
+    call amd64_msi_handle
+
+    irq_eoi_lapic 0
+
+    popq %rax
+    popq %rdi
+    popq %rsi
+    popq %rdx
+    popq %rcx
+    popq %r8
+    popq %r9
+    popq %r10
+    popq %r11
+
+    swapgs_if_needed
     iretq
