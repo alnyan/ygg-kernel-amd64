@@ -122,9 +122,9 @@ int ram_vnode_bset_resize(struct vnode *vn, size_t size) {
             _assert(block_start <= block_index);
 
             for (size_t i = block_start; i < block_index; ++i) {
-                _assert(priv->bpa_l1[l1_index]);
-                mm_phys_free_page(MM_PHYS(priv->bpa_l1[l1_index]));
-                priv->bpa_l1[l1_index] = NULL;
+                _assert(priv->bpa_l1[i]);
+                mm_phys_free_page(MM_PHYS(priv->bpa_l1[i]));
+                priv->bpa_l1[i] = NULL;
             }
         }
         // TODO: handle L2

@@ -25,3 +25,4 @@ int sys_chmod(const char *path, mode_t mode);
 int sys_chown(const char *path, uid_t uid, gid_t gid);
 off_t sys_lseek(int fd, off_t offset, int whence);
 int sys_mknod(const char *filename, int mode, unsigned int dev);
+ssize_t sys_readlinkat(int dfd, const char *restrict pathname, char *restrict buf, size_t lim);

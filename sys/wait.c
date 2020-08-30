@@ -160,7 +160,7 @@ int sys_waitpid(pid_t pid, int *status, int flags) {
     struct process *proc_self = thr->proc;
     _assert(proc_self);
 
-    struct process *chld;
+    struct process *chld = NULL;
     struct io_notify *notify;
     int res;
 

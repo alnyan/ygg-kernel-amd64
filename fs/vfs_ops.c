@@ -545,6 +545,38 @@ int vfs_fstatat(struct vfs_ioctx *ctx, struct vnode *at, const char *path, struc
     return node->op->stat(node, st);
 }
 
+ssize_t vfs_readlinkat(struct vfs_ioctx *ctx,
+                       struct vnode *at,
+                       const char *restrict pathname,
+                       char *restrict buf,
+                       size_t lim) {
+    struct vnode *node;
+    int res;
+
+    _assert(pathname);
+    _assert(ctx);
+    _assert(buf);
+
+    if (!at) {
+        at = ctx->cwd_vnode;
+    }
+
+    if ((res = vfs_find(ctx, at, pathname, AT_SYMLINK_NOFOLLOW, &node)) != 0) {
+        return res;
+    }
+
+    if (node->type != VN_LNK) {
+        return -EINVAL;
+    }
+
+    if (!node->op || !node->op->readlink) {
+        kerror("readlink() not implemented for node\n");
+        return -EINVAL;
+    }
+
+    return node->op->readlink(node, buf, lim);
+}
+
 int vfs_ftruncate(struct vfs_ioctx *ctx, struct vnode *node, off_t length) {
     _assert(ctx);
     _assert(node);

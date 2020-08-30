@@ -46,6 +46,11 @@ int vfs_openat(struct vfs_ioctx *ctx,
                struct vnode *at,
                const char *path,
                int flags, int mode);
+ssize_t vfs_readlinkat(struct vfs_ioctx *ctx,
+                       struct vnode *at,
+                       const char *restrict pathname,
+                       char *restrict buf,
+                       size_t lim);
 void vfs_close(struct vfs_ioctx *ctx, struct ofile *fd);
 int vfs_readdir(struct vfs_ioctx *ctx, struct ofile *fd, struct dirent *ent);
 int vfs_unlinkat(struct vfs_ioctx *ctx, struct vnode *at, const char *pathname, int flags);

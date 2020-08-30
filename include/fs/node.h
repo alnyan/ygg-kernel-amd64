@@ -57,7 +57,7 @@ struct vnode_operations {
     int (*chmod) (struct vnode *node, mode_t mode);
     int (*chown) (struct vnode *node, uid_t uid, gid_t gid);
 
-    int (*readlink) (struct vnode *at, char *buf, size_t lim);
+    ssize_t (*readlink) (struct vnode *at, char *buf, size_t lim);
 
     ssize_t (*read) (struct ofile *fd, void *buf, size_t count);
     ssize_t (*write) (struct ofile *fd, const void *buf, size_t count);

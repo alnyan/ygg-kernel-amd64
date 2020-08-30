@@ -253,6 +253,20 @@ int sys_faccessat(int dfd, const char *pathname, int mode, int flags) {
     return vfs_faccessat(get_ioctx(), at, pathname, mode, flags);
 }
 
+ssize_t sys_readlinkat(int dfd, const char *restrict pathname, char *restrict buf, size_t lim) {
+    userptr_check(pathname);
+    userptr_check(buf);
+
+    struct vnode *at;
+    int res;
+
+    if ((res = get_at_vnode(dfd, &at, 0)) != 0) {
+        return res;
+    }
+
+    return vfs_readlinkat(get_ioctx(), at, pathname, buf, lim);
+}
+
 int sys_pipe(int *filedes) {
     userptr_check(filedes);
     struct process *proc = thread_self->proc;

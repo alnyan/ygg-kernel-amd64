@@ -59,6 +59,7 @@ void *syscall_table[256] = {
     [SYSCALL_NR_UNLINKAT] =         sys_unlinkat,
     [SYSCALL_NR_READDIR] =          sys_readdir,
     [SYSCALL_NR_CHMOD] =            sys_chmod,
+    [SYSCALL_NR_READLINKAT] =       sys_readlinkat,
     [SYSCALL_NR_CHOWN] =            sys_chown,
     [SYSCALL_NR_MKNOD] =            sys_mknod,
 
