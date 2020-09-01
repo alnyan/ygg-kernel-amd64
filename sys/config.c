@@ -15,7 +15,6 @@ static const struct __kernel_cmdline_pair {
 } kernel_cmdline_pairs[] = {
     { "root",       CFG_ROOT,       VALUE_STRING },
     { "init",       CFG_INIT,       VALUE_STRING },
-    { "rdinit",     CFG_RDINIT,     VALUE_STRING },
     { "console",    CFG_CONSOLE,    VALUE_STRING },
     { "debug",      CFG_DEBUG,      VALUE_NUMBER },
 };
@@ -26,7 +25,6 @@ uintptr_t kernel_config[__CFG_SIZE] = {
     0,
     [CFG_ROOT] = (uintptr_t) "ram0",
     [CFG_INIT] = (uintptr_t) "/init",
-    [CFG_RDINIT] = (uintptr_t) "/init",
     [CFG_CONSOLE] = (uintptr_t) "tty0",
     [CFG_DEBUG] = DEBUG_ALL_SERIAL |
                   DEBUG_DISP(DEBUG_INFO) |

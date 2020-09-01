@@ -5,6 +5,7 @@
 #include "sys/thread.h"
 #include "sys/assert.h"
 #include "fs/vfs.h"
+#include "sys/config.h"
 #include "sys/debug.h"
 #include "sys/sched.h"
 #include "sys/heap.h"
@@ -59,7 +60,7 @@ static void user_init_func(void *arg) {
     thread_self->proc->ctty = tty_dev;
 
     const char *argp[] = {
-        "/init", NULL
+        (const char *) kernel_config[CFG_INIT], NULL
     };
     // &argp[1] - just an empty envp
     sys_execve(argp[0], argp, &argp[1]);

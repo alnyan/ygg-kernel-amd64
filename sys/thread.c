@@ -130,6 +130,7 @@ pid_t process_alloc_pid(int is_user) {
 static void process_ioctx_empty(struct process *proc) {
     memset(&proc->ioctx, 0, sizeof(struct vfs_ioctx));
     memset(proc->fds, 0, sizeof(proc->fds));
+    proc->ioctx.umask = 0022;
 }
 
 void process_ioctx_fork(struct process *dst, struct process *src) {
@@ -138,6 +139,7 @@ void process_ioctx_fork(struct process *dst, struct process *src) {
     dst->ioctx.cwd_vnode = src->ioctx.cwd_vnode;
     dst->ioctx.gid = src->ioctx.gid;
     dst->ioctx.uid = src->ioctx.uid;
+    dst->ioctx.umask = src->ioctx.umask;
 
     for (int i = 0; i < THREAD_MAX_FDS; ++i) {
         if (src->fds[i]) {

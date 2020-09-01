@@ -20,6 +20,7 @@ struct stat;
 struct vfs_ioctx {
     // Process' current working directory
     struct vnode *cwd_vnode;
+    mode_t umask;
     uid_t uid;
     gid_t gid;
 };

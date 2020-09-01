@@ -302,7 +302,7 @@ int vfs_mkdirat(struct vfs_ioctx *ctx, struct vnode *rel, const char *path, mode
         return -EROFS;
     }
 
-    return at->op->mkdir(at, filename, ctx->uid, ctx->gid, mode);
+    return at->op->mkdir(at, filename, ctx->uid, ctx->gid, mode & ~ctx->umask);
 }
 
 int vfs_unlinkat(struct vfs_ioctx *ctx, struct vnode *at, const char *pathname, int flags) {
@@ -392,7 +392,7 @@ int vfs_mknod(struct vfs_ioctx *ctx, const char *path, mode_t mode, struct vnode
         panic("mknod: unsupported node type\n");
     }
     struct vnode *nod = vnode_create(type, filename);
-    nod->mode = mode & VFS_MODE_MASK;
+    nod->mode = mode & VFS_MODE_MASK & ~ctx->umask;
     nod->uid = ctx->uid;
     nod->gid = ctx->gid;
 
@@ -439,7 +439,7 @@ int vfs_creatat(struct vfs_ioctx *ctx,
         return -EROFS;
     }
 
-    return at->op->creat(at, filename, ctx->uid, ctx->gid, mode);
+    return at->op->creat(at, filename, ctx->uid, ctx->gid, mode & ~ctx->umask);
 }
 
 int vfs_openat(struct vfs_ioctx *ctx,
