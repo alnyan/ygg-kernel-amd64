@@ -100,7 +100,10 @@ struct acpi_fadt {
     //...
 } __attribute__((packed));
 
+extern struct acpi_rsdp_ext *acpi_rsdp;
 extern struct acpi_madt *acpi_madt;
 extern struct acpi_mcfg *acpi_mcfg;
 
+void amd64_acpi_set_rsdp(uintptr_t addr);
+void amd64_acpi_set_rsdp2(uintptr_t addr);
 void amd64_acpi_init(void);

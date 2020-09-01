@@ -11,6 +11,9 @@
 #include "sys/dev.h"
 #include "acpi.h"
 
+static uintptr_t early_rsdp, early_rsdp_v2;
+
+struct acpi_rsdp_ext *acpi_rsdp = NULL;
 struct acpi_madt *acpi_madt = NULL;
 struct acpi_fadt *acpi_fadt = NULL;
 struct acpi_mcfg *acpi_mcfg = NULL;
@@ -51,12 +54,12 @@ static ACPI_STATUS acpica_init(void) {
     args.Pointer = &arg1;
 
     if (ACPI_FAILURE(ret = AcpiInitializeSubsystem())) {
-        kerror("ACPI INIT failure %s\n", AcpiFormatException(ret));
+        kerror("AcpiInitializeSubsystem: %s\n", AcpiFormatException(ret));
         return ret;
     }
 
     if (ACPI_FAILURE(ret = AcpiInitializeTables(NULL, 0, FALSE))) {
-        kerror("ACPI INIT failure %s\n", AcpiFormatException(ret));
+        kerror("AcpiInitializeTables: %s\n", AcpiFormatException(ret));
         return ret;
     }
 
@@ -93,32 +96,51 @@ static ACPI_STATUS acpica_init(void) {
     return AE_OK;
 }
 
-void amd64_acpi_init(void) {
-    struct acpi_rsdp_ext *rsdp = NULL;
-    struct acpi_rsdt *rsdt;
-    acpi_madt = NULL;
+void amd64_acpi_set_rsdp(uintptr_t addr) {
+    early_rsdp = addr;
+}
 
-    for (size_t i = 0xFFFFFF0000000000 + 0x000E0000; i < 0xFFFFFF0000000000 + 0x000FFFFF - 8; ++i) {
-        if (!strncmp((const char *) i, "RSD PTR ", 8)) {
-            rsdp = (struct acpi_rsdp_ext *) i;
-            break;
+void amd64_acpi_set_rsdp2(uintptr_t addr) {
+    early_rsdp_v2 = addr;
+}
+
+static uintptr_t locate_rsdp(void) {
+    // TODO: support rsdpv2
+    if (early_rsdp) {
+        if (checksum((void *) early_rsdp, sizeof(struct acpi_rsdp)) != 0) {
+            kwarn("Provided RSDP has invalid checksum, falling back to scan method\n");
+        } else {
+            return early_rsdp;
         }
     }
 
-    if (!rsdp) {
-        kdebug("Failed to find rsdp\n");
-        while (1);
+    for (size_t i = 0xFFFFFF0000000000 + 0x000E0000; i < 0xFFFFFF0000000000 + 0x000FFFFF - 8; ++i) {
+        if (!strncmp((const char *) i, "RSD PTR ", 8)) {
+            return i;
+        }
     }
 
-    kdebug("Found RSDP: %p\n", rsdp);
+    return 0;
+}
 
-    if (checksum(rsdp, sizeof(struct acpi_rsdp)) != 0) {
+void amd64_acpi_init(void) {
+    struct acpi_rsdt *rsdt;
+    acpi_madt = NULL;
+
+    acpi_rsdp = (struct acpi_rsdp_ext *) locate_rsdp();
+
+    if (!acpi_rsdp) {
+        panic("Failed to find RSDP\n");
+    }
+
+    kdebug("Found RSDP: %p\n", acpi_rsdp);
+    if (checksum(acpi_rsdp, sizeof(struct acpi_rsdp)) != 0) {
         kdebug("RSDP is invalid\n");
         while (1);
     }
 
-    kdebug("RSDP revision %d\n", rsdp->rsdp.rev);
-    rsdt = (struct  acpi_rsdt *) (0xFFFFFF0000000000 + rsdp->rsdp.rsdt_address);
+    kdebug("RSDP revision %d\n", acpi_rsdp->rsdp.rev);
+    rsdt = (struct acpi_rsdt *) (0xFFFFFF0000000000 + acpi_rsdp->rsdp.rsdt_address);
     kdebug("RSDT: %p\n", rsdt);
 
     if (checksum(rsdt, rsdt->hdr.length) != 0) {

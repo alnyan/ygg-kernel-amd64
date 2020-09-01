@@ -1,3 +1,4 @@
+#include "arch/amd64/hw/acpi.h"
 #include "acpi.h"
 
 ACPI_STATUS AcpiOsPredefinedOverride(const ACPI_PREDEFINED_NAMES *InitVal, ACPI_STRING *NewVal) {
@@ -16,8 +17,5 @@ ACPI_STATUS AcpiOsPhysicalTableOverride(ACPI_TABLE_HEADER *ExistingTable, ACPI_P
 }
 
 ACPI_PHYSICAL_ADDRESS AcpiOsGetRootPointer(void) {
-    ACPI_PHYSICAL_ADDRESS Ret;
-	Ret = 0;
-	AcpiFindRootPointer(&Ret);
-	return Ret;
+	return (ACPI_PHYSICAL_ADDRESS) acpi_rsdp - 0xFFFFFF0000000000;
 }
