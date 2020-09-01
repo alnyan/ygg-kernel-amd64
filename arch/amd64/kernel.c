@@ -78,6 +78,12 @@ void kernel_early_init(void) {
         }
 
         switch (tag->type) {
+        case MULTIBOOT_TAG_TYPE_ACPI_OLD:
+            amd64_acpi_set_rsdp((uintptr_t) tag + 8);
+            break;
+        case MULTIBOOT_TAG_TYPE_ACPI_NEW:
+            amd64_acpi_set_rsdp2((uintptr_t) tag + 8);
+            break;
         case MULTIBOOT_TAG_TYPE_CMDLINE:
             multiboot_tag_cmdline = (struct multiboot_tag_string *) tag;
             break;
