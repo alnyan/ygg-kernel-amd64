@@ -61,8 +61,17 @@ static int sysfs_proc_ioctx(void *ctx, char *buf, size_t lim) {
     return 0;
 }
 
-static struct vnode *sysfs_proc_self(struct thread *ctx, struct vnode *link) {
+static struct vnode *sysfs_proc_self(struct thread *ctx, struct vnode *link, char *buf, size_t lim) {
     _assert(ctx && ctx->proc);
+    struct vnode *res = ctx->proc->fs_entry;
+
+    if (buf && strlen(res->name) < lim) {
+        if (strlen(res->name) < lim) {
+            strcpy(buf, res->name);
+        } else {
+            return NULL;
+        }
+    }
     return ctx->proc->fs_entry;
 }
 

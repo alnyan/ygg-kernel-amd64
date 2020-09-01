@@ -192,7 +192,7 @@ static int vfs_link_resolve_internal(struct vfs_ioctx *ctx,
     if (lnk->flags & VN_PER_PROCESS) {
         _assert(lnk->target_func);
         // TODO: pass it as an argument instead of ioctx
-        target = lnk->target_func(thread_self, lnk);
+        target = lnk->target_func(thread_self, lnk, NULL, 0);
     } else {
         target = lnk->target;
     }

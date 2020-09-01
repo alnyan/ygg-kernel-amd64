@@ -175,11 +175,23 @@ void tty_putc(struct chrdev *tty, int c) {
     }
 }
 
-static struct vnode *tty_link_getter(struct thread *ctx, struct vnode *link) {
+static struct vnode *tty_link_getter(struct thread *ctx, struct vnode *link, char *buf, size_t len) {
     struct process *proc;
 
     if (!(proc = ctx->proc)) {
         return NULL;
+    }
+
+    if (buf) {
+        if (proc->ctty) {
+            if (strlen(proc->ctty->name) < len) {
+                strcpy(buf, proc->ctty->name);
+            } else {
+                return NULL;
+            }
+        } else {
+            buf[0] = 0;
+        }
     }
 
     return proc->ctty;

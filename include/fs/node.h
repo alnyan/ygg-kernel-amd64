@@ -23,7 +23,7 @@ struct thread;
 struct vnode;
 struct fs;
 
-typedef struct vnode *(*vnode_link_getter_t) (struct thread *, struct vnode *);
+typedef struct vnode *(*vnode_link_getter_t) (struct thread *, struct vnode *, char *, size_t);
 
 enum vnode_type {
     VN_REG,

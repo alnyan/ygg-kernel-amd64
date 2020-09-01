@@ -4,6 +4,7 @@
 #include "sys/char/chr.h"
 #include "fs/ofile.h"
 #include "fs/node.h"
+#include "sys/thread.h"
 #include "fs/vfs.h"
 #include "sys/string.h"
 #include "sys/assert.h"
@@ -570,6 +571,14 @@ ssize_t vfs_readlinkat(struct vfs_ioctx *ctx,
     }
 
     if (!node->op || !node->op->readlink) {
+        if ((node->flags & VN_PER_PROCESS) && node->target_func) {
+            if (node->target_func(thread_self, node, buf, lim) != NULL) {
+                return 0;
+            } else {
+                return -EINVAL;
+            }
+        }
+
         kerror("readlink() not implemented for node\n");
         return -EINVAL;
     }
