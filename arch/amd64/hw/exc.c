@@ -57,7 +57,9 @@ int do_pfault(struct amd64_exception_frame *frame, uintptr_t cr2, uintptr_t cr3)
         return -1;
     }
 
-    if (frame->cs == 0x23 && cr2 < KERNEL_VIRT_BASE) {
+    if (cr2 < KERNEL_VIRT_BASE) {
+        // TODO: was that user CS check necessary?
+
         // Userspace fault
         uint64_t flags;
         uintptr_t phys = mm_map_get(space, cr2 & MM_PAGE_MASK, &flags);
@@ -122,6 +124,17 @@ static void exc_dump(int level, struct amd64_exception_frame *frame) {
             debugf(level, "(Kernel)\n");
         }
         debugf(level, "Fault address: %p\n", cr2);
+
+        uintptr_t phys = mm_map_get((mm_space_t) MM_VIRTUALIZE(cr3), cr2 & MM_PAGE_MASK, NULL);
+        if (phys == MM_NADDR) {
+            debugf(level, "Has no physical address (non-present?)\n");
+        } else {
+            debugf(level, "Refers to phys %p\n", phys);
+
+            struct page *page = PHYS2PAGE(phys);
+            kdebug("  Refcount: %u\n", page->refcount);
+            kdebug("  Usage: %u\n", page->usage);
+        }
 
         if (frame->exc_code & X86_PF_RESVD) {
             debugf(level, " - Page structure has reserved bit set\n");
