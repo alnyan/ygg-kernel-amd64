@@ -16,14 +16,16 @@ struct display *vesa_get_display(void) {
 }
 
 // Initialize early (pre-PCI) framebuffer
-void vesa_init(struct multiboot_tag_framebuffer *tag) {
-    if (tag->common.framebuffer_type == 1) {
+void vesa_init(struct boot_video_info *info) {
+    if (info->width && info->height) {
+        // If these fields are set, framebuffer is available
         display_vesa_fb.flags = DISP_GRAPHIC | DISP_LFB;
-        display_vesa_fb.width_pixels = tag->common.framebuffer_width;
-        display_vesa_fb.height_pixels = tag->common.framebuffer_height;
-        display_vesa_fb.bpp = tag->common.framebuffer_bpp;
-        display_vesa_fb.pitch = tag->common.framebuffer_pitch;
-        display_vesa_fb.framebuffer = MM_VIRTUALIZE(tag->common.framebuffer_addr);
+        display_vesa_fb.width_pixels = info->width;
+        display_vesa_fb.height_pixels = info->height;
+        display_vesa_fb.pitch = info->pitch;
+        display_vesa_fb.bpp = info->bpp;
+        display_vesa_fb.framebuffer = MM_VIRTUALIZE(info->framebuffer_phys);
+
         list_head_init(&display_vesa_fb.list);
 
         display_add(&display_vesa_fb);

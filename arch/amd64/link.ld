@@ -2,7 +2,7 @@
  * amd64 kernel linker script
  */
 
-ENTRY(_entry64)
+ENTRY(_entry_common)
 
 _kernel_base = 0xFFFFFF0000000000;
 /*
@@ -31,6 +31,10 @@ SECTIONS {
 		*(.data)
         *(.data.rel.local)
 	}
+
+    .data.boot : AT(ADDR(.data.boot) - _kernel_base) {
+        *(.data.boot)
+    }
 
 	.bss ALIGN(4K) : AT(ADDR(.bss) - _kernel_base)
 	{

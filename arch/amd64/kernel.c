@@ -29,14 +29,15 @@
 
 extern char _kernel_start, _kernel_end;
 
-static uintptr_t multiboot_info_addr;
-static struct multiboot_tag_mmap            *multiboot_tag_mmap;
-static struct multiboot_tag_module          *multiboot_tag_initrd_module;
-static struct multiboot_tag_elf_sections    *multiboot_tag_sections;
-static struct multiboot_tag_string          *multiboot_tag_cmdline;
-static struct multiboot_tag_framebuffer     *multiboot_tag_framebuffer;
+//static struct multiboot_tag_mmap            *multiboot_tag_mmap;
+//static struct multiboot_tag_elf_sections    *multiboot_tag_sections;
+static uintptr_t initrd_phys_start;
+static size_t initrd_size;
+
+static struct boot_video_info boot_video_info = {0};
 
 // Descriptors for reserved physical memory regions
+static struct mm_phys_memory_map            phys_memory_map;
 static struct mm_phys_reserved              phys_reserve_initrd;
 static struct mm_phys_reserved              phys_reserve_kernel = {
     // TODO: use _kernel_start instead of this
@@ -49,17 +50,20 @@ static struct mm_phys_reserved              phys_reserve_kernel = {
     .end = MM_PHYS(&_kernel_end)
 };
 
-extern struct {
-    uint32_t eax, ebx;
-} __attribute__((packed)) multiboot_registers;
-
 static void amd64_make_random_seed(void) {
     random_init(15267 + system_time);
 }
 
-void kernel_early_init(void) {
-    // Allows early output
-    amd64_console_init();
+static void entry_multiboot(void) {
+    extern struct {
+        uint32_t eax, ebx;
+    } __attribute__((packed)) multiboot_registers;
+
+    uintptr_t multiboot_info_addr;
+    struct multiboot_tag_framebuffer *multiboot_tag_framebuffer = NULL;
+    struct multiboot_tag_module *multiboot_tag_initrd_module = NULL;
+    struct multiboot_tag_string *multiboot_tag_cmdline = NULL;
+    struct multiboot_tag_mmap *multiboot_tag_mmap = NULL;
 
     // Check Multiboot2 signature
     if (multiboot_registers.eax != MULTIBOOT2_BOOTLOADER_MAGIC) {
@@ -78,18 +82,12 @@ void kernel_early_init(void) {
         }
 
         switch (tag->type) {
-        case MULTIBOOT_TAG_TYPE_ACPI_OLD:
-            amd64_acpi_set_rsdp((uintptr_t) tag + 8);
-            break;
-        case MULTIBOOT_TAG_TYPE_ACPI_NEW:
-            amd64_acpi_set_rsdp2((uintptr_t) tag + 8);
-            break;
         case MULTIBOOT_TAG_TYPE_CMDLINE:
             multiboot_tag_cmdline = (struct multiboot_tag_string *) tag;
             break;
-        case MULTIBOOT_TAG_TYPE_ELF_SECTIONS:
-            multiboot_tag_sections = (struct multiboot_tag_elf_sections *) tag;
-            break;
+        //case MULTIBOOT_TAG_TYPE_ELF_SECTIONS:
+        //    multiboot_tag_sections = (struct multiboot_tag_elf_sections *) tag;
+        //    break;
         case MULTIBOOT_TAG_TYPE_MMAP:
             multiboot_tag_mmap = (struct multiboot_tag_mmap *) tag;
             break;
@@ -107,25 +105,127 @@ void kernel_early_init(void) {
         offset += (tag->size + 7) & ~7;
     }
 
-    // Console can only be initialized after memory buffers can be allocated
-#if defined(VESA_ENABLE)
-    if (multiboot_tag_framebuffer) {
-        // Early display init
-        vesa_init(multiboot_tag_framebuffer);
-    }
-#endif
-
-    if (!multiboot_tag_mmap) {
-        panic("Multiboot2 loader provided no memory map\n");
-    }
-
-    cpuid_init();
-
     if (multiboot_tag_cmdline) {
         // Set kernel command line
         kinfo("Provided command line: \"%s\"\n", multiboot_tag_cmdline->string);
         kernel_set_cmdline(multiboot_tag_cmdline->string);
     }
+
+    if (!multiboot_tag_mmap) {
+        panic("Multiboot2 provided no memory map\n");
+    }
+
+    if (multiboot_tag_initrd_module) {
+        initrd_phys_start = multiboot_tag_initrd_module->mod_start;
+        initrd_size = multiboot_tag_initrd_module->mod_end -
+                      multiboot_tag_initrd_module->mod_start;
+    }
+
+    if (multiboot_tag_framebuffer) {
+        struct multiboot_tag_framebuffer_common *info = &multiboot_tag_framebuffer->common;
+
+        if (info->framebuffer_type == 1) {
+            boot_video_info.width = info->framebuffer_width;
+            boot_video_info.height = info->framebuffer_height;
+            boot_video_info.bpp = info->framebuffer_bpp;
+            boot_video_info.pitch = info->framebuffer_pitch;
+            boot_video_info.framebuffer_phys = info->framebuffer_addr;
+        }
+    }
+
+    phys_memory_map.format = MM_PHYS_MMAP_FMT_MULTIBOOT2;
+    phys_memory_map.address = multiboot_tag_mmap->entries;
+    phys_memory_map.entry_size = multiboot_tag_mmap->entry_size;
+    // TODO: I'm not really sure here
+    phys_memory_map.entry_count = (multiboot_tag_mmap->size -
+        offsetof(struct multiboot_tag_mmap, entries)) / multiboot_tag_mmap->entry_size;
+}
+
+// TODO: move this header
+#define BOOT_KERNEL_MAGIC           0xA197A9B007B007UL
+#define BOOT_LOADER_MAGIC           0x700B700B9A791AUL
+
+#define VIDEO_FORMAT_RGB32          0
+#define VIDEO_FORMAT_BGR32          1
+
+#if !defined(__ASM__)
+struct boot_struct {
+    uint64_t kernel_magic;          // R
+    uint64_t loader_magic;          // W
+
+    uint64_t memory_map_base;       // W
+    uint32_t memory_map_size;       // W
+    uint32_t memory_map_entsize;    // W
+
+    // Video mode settings
+    uint32_t video_width;           // RW
+    uint32_t video_height;          // RW
+    uint32_t video_format;          // RW
+    uint32_t __pad0;                // --
+    uint64_t video_framebuffer;     // W
+    uint64_t video_pitch;           // W
+
+    uint64_t elf_symtab_hdr;        // W
+    uint64_t elf_symtab_data;       // W
+    uint64_t elf_strtab_hdr;        // W
+    uint64_t elf_strtab_data;       // W
+
+    uint64_t initrd_base;           // W
+    uint64_t initrd_size;           // W
+
+    uint64_t rsdp;                  // W
+
+    char cmdline[256];              // W
+} __attribute__((packed));
+#endif
+
+static void entry_yboot(void) {
+    extern struct boot_struct yboot_data;
+
+    if (yboot_data.memory_map_base == 0) {
+        panic("No memory map available\n");
+    }
+
+    if (yboot_data.rsdp == 0) {
+        kwarn("Booted from UEFI and no RSDP was provided, will likely result in error\n");
+    } else {
+        amd64_acpi_set_rsdp(MM_VIRTUALIZE(yboot_data.rsdp));
+    }
+
+    kinfo("Provided command line: \"%s\"\n", yboot_data.cmdline);
+    kernel_set_cmdline(yboot_data.cmdline);
+
+    if (yboot_data.video_framebuffer) {
+        boot_video_info.width = yboot_data.video_width;
+        boot_video_info.height = yboot_data.video_height;
+        boot_video_info.bpp = 32;
+        boot_video_info.pitch = yboot_data.video_pitch;
+        boot_video_info.framebuffer_phys = yboot_data.video_framebuffer;
+    }
+
+    phys_memory_map.format = MM_PHYS_MMAP_FMT_YBOOT;
+    phys_memory_map.address = (void *) MM_VIRTUALIZE(yboot_data.memory_map_base);
+    phys_memory_map.entry_size = yboot_data.memory_map_entsize;
+    phys_memory_map.entry_count = yboot_data.memory_map_size / yboot_data.memory_map_entsize;
+}
+
+void kernel_early_init(uint64_t entry_method) {
+    // Allows early output
+    amd64_console_init();
+
+    switch (entry_method) {
+    case 0:
+        entry_multiboot();
+        break;
+    case 1:
+        entry_yboot();
+        break;
+    default:
+        panic("Unknown boot method: something's broken\n");
+        break;
+    }
+
+    cpuid_init();
 
     // Reinitialize RS232 properly
     rs232_init(RS232_COM1);
@@ -136,22 +236,24 @@ void kernel_early_init(void) {
     // 2. multiboot tag pages
     mm_phys_reserve(&phys_reserve_kernel);
 
-    if (multiboot_tag_initrd_module) {
-        phys_reserve_initrd.begin = multiboot_tag_initrd_module->mod_start & ~0xFFF;
-        phys_reserve_initrd.end = (multiboot_tag_initrd_module->mod_end + 0xFFF) & ~0xFFF;
+    if (initrd_phys_start) {
+        phys_reserve_initrd.begin = initrd_phys_start & ~0xFFF;
+        phys_reserve_initrd.end = (initrd_phys_start + initrd_size + 0xFFF) & ~0xFFF;
         mm_phys_reserve(&phys_reserve_initrd);
     }
 
-    amd64_phys_memory_map(multiboot_tag_mmap);
+    amd64_phys_memory_map(&phys_memory_map);
 
     amd64_gdt_init();
     amd64_idt_init(0);
 
     amd64_mm_init();
 
-    if (multiboot_tag_sections) {
-        ksym_set_multiboot2(multiboot_tag_sections);
-    }
+    vesa_init(&boot_video_info);
+
+    //if (multiboot_tag_sections) {
+    //    ksym_set_multiboot2(multiboot_tag_sections);
+    //}
 
     if (rs232_avail & (1 << 0)) {
         rs232_add_tty(0);
@@ -166,9 +268,9 @@ void kernel_early_init(void) {
     // Print kernel version now
     kinfo("yggdrasil " KERNEL_VERSION_STR "\n");
 
-    if (!multiboot_tag_sections) {
-        kwarn("No ELF sections provided, module loading is unavailable\n");
-    }
+    //if (!multiboot_tag_sections) {
+    //    kwarn("No ELF sections provided, module loading is unavailable\n");
+    //}
 
     amd64_apic_init();
     rtc_init();
@@ -180,10 +282,9 @@ void kernel_early_init(void) {
         t.tm_year, t.tm_mon, t.tm_mday,
         t.tm_hour, t.tm_min, t.tm_sec);
 
-    if (multiboot_tag_initrd_module) {
+    if (initrd_phys_start) {
         // Create ram0 block device
-        ramblk_init(MM_VIRTUALIZE(multiboot_tag_initrd_module->mod_start),
-                    multiboot_tag_initrd_module->mod_end - multiboot_tag_initrd_module->mod_start);
+        ramblk_init(MM_VIRTUALIZE(initrd_phys_start), initrd_size);
     }
 
     amd64_make_random_seed();
@@ -195,7 +296,7 @@ void kernel_early_init(void) {
 #endif
 }
 
-void kernel_main(void) {
-    kernel_early_init();
+void kernel_main(uint64_t entry_method) {
+    kernel_early_init(entry_method);
     main();
 }

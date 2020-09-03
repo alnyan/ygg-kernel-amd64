@@ -13,6 +13,14 @@
 // Reserve 1MiB at bottom
 #define LOW_BOUND                   0x100000
 
+#define MMAP_KIND_RESERVED          0
+#define MMAP_KIND_USABLE            1
+#define MMAP_KIND_UNKNOWN           2
+struct mmap_iter {
+    const struct mm_phys_memory_map *map;
+    size_t position, limit;
+};
+
 struct page *mm_pages = NULL;
 static size_t _total_pages, _pages_free;
 static size_t _alloc_pages[_PU_COUNT];
@@ -29,6 +37,111 @@ static int is_reserved(uintptr_t addr) {
     }
 
     return 0;
+}
+
+// EFI memory map
+struct efi_mmap_entry {
+    uint32_t type;
+    uintptr_t physical_start;
+    uintptr_t virtual_start;
+    uint64_t number_of_pages;
+    uint64_t attribute;
+};
+
+enum efi_mmap_type {
+    efi_reserved_memory_type,
+    efi_loader_code,
+    efi_loader_data,
+    efi_boot_services_code,
+    efi_boot_services_data,
+    efi_runtime_services_code,
+    efi_runtime_services_data,
+    efi_conventional_memory,
+    efi_unusable_memory,
+    efi_acpi_reclaim_memory,
+    efi_acpi_memory_nvs,
+    efi_memory_mapped_io,
+    efi_memory_mapped_io_portspace,
+    efi_pal_code,
+    efi_persistent_memory,
+    efi_max_memory_type
+};
+
+static void mmap_iter_init(const struct mm_phys_memory_map *mmap,
+                           struct mmap_iter *iter) {
+    _assert(mmap->format == MM_PHYS_MMAP_FMT_YBOOT ||
+            mmap->format == MM_PHYS_MMAP_FMT_MULTIBOOT2);
+    iter->map = mmap;
+    iter->limit = mmap->entry_count;
+    iter->position = 0;
+}
+
+static int mmap_iter_next(struct mmap_iter *iter,
+                          int *kind,
+                          uintptr_t *base,
+                          size_t *size) {
+    const struct mm_phys_memory_map *map;
+
+    map = iter->map;
+    _assert(map);
+
+    if (iter->position == iter->limit) {
+        return 0;
+    }
+
+    switch (map->format) {
+    case MM_PHYS_MMAP_FMT_YBOOT:
+        {
+            struct efi_mmap_entry *ent;
+            ent = map->address + iter->position * map->entry_size;
+
+            *base = ent->physical_start;
+            *size = ent->number_of_pages * 0x1000;
+            switch (ent->type) {
+            case efi_loader_code:
+            case efi_loader_data:
+            case efi_boot_services_code:
+            case efi_boot_services_data:
+            case efi_runtime_services_code:
+            case efi_runtime_services_data:
+            case efi_conventional_memory:
+                *kind = MMAP_KIND_USABLE;
+                break;
+            case efi_pal_code:
+            case efi_persistent_memory:
+            case efi_reserved_memory_type:
+            case efi_unusable_memory:
+            case efi_acpi_reclaim_memory:
+            case efi_acpi_memory_nvs:
+            case efi_memory_mapped_io_portspace:
+            case efi_memory_mapped_io:
+                *kind = MMAP_KIND_RESERVED;
+                break;
+            default:
+                panic("Unknown ent type: %02x\n", ent->type);
+            }
+        }
+        break;
+    case MM_PHYS_MMAP_FMT_MULTIBOOT2:
+        {
+            struct multiboot_mmap_entry *ent;
+            ent = map->address + iter->position * map->entry_size;
+
+            *base = ent->addr;
+            *size = ent->len;
+            if (ent->type == MULTIBOOT_MEMORY_AVAILABLE) {
+                *kind = MMAP_KIND_USABLE;
+            } else {
+                *kind = MMAP_KIND_RESERVED;
+            }
+        }
+        break;
+    default:
+        panic("Impossible\n");
+    }
+
+    ++iter->position;
+    return 1;
 }
 
 void mm_phys_reserve(struct mm_phys_reserved *res) {
@@ -139,16 +252,22 @@ fail:
     return MM_NADDR;
 }
 
-static uintptr_t place_mm_pages(const struct multiboot_tag_mmap *mmap, size_t req_count) {
-    size_t item_offset = offsetof(struct multiboot_tag_mmap, entries);
+static uintptr_t place_mm_pages(const struct mm_phys_memory_map *mmap, size_t req_count) {
+    struct mmap_iter iter;
+    size_t item_offset;
+    uintptr_t base;
+    size_t size;
+    int kind;
 
-    while (item_offset < mmap->size) {
-        const struct multiboot_mmap_entry *entry =
-            (const struct multiboot_mmap_entry *) ((uintptr_t) mmap + item_offset);
-        uintptr_t page_aligned_begin = (entry->addr + 0xFFF) & ~0xFFF;
-        uintptr_t page_aligned_end = (entry->addr + entry->len) & ~0xFFF;
+    mmap_iter_init(mmap, &iter);
+    // TODO: merge two consecutive entries into a single address block
+    while (mmap_iter_next(&iter, &kind, &base, &size)) {
+        uintptr_t page_aligned_begin = (base + 0xFFF) & ~0xFFF;
+        uintptr_t page_aligned_end = (base + size) & ~0xFFF;
 
-        if (entry->type == 1 && page_aligned_end > page_aligned_begin) {
+        kdebug("Region: %p .. %p\n", page_aligned_begin, page_aligned_end);
+
+        if (kind == MMAP_KIND_USABLE && page_aligned_end > page_aligned_begin) {
             // Something like mm_phys_alloc_contiguous does, but
             // we don't yet have it obviously
             size_t collected = 0;
@@ -170,14 +289,17 @@ static uintptr_t place_mm_pages(const struct multiboot_tag_mmap *mmap, size_t re
                 }
             }
         }
-
-        item_offset += mmap->entry_size;
     }
 
     return MM_NADDR;
 }
 
-void amd64_phys_memory_map(const struct multiboot_tag_mmap *mmap) {
+void amd64_phys_memory_map(const struct mm_phys_memory_map *mmap) {
+    struct mmap_iter iter;
+    uintptr_t base;
+    size_t size;
+    int kind;
+
     // Allocate space for mm_pages array
     size_t mm_pages_req_count = (PHYS_MAX_PAGES * sizeof(struct page) + 0xFFF) >> 12;
     uintptr_t mm_pages_addr = place_mm_pages(mmap, mm_pages_req_count);
@@ -186,6 +308,7 @@ void amd64_phys_memory_map(const struct multiboot_tag_mmap *mmap) {
     kdebug("Placing mm_pages (%u) at %p\n", mm_pages_req_count, mm_pages_addr);
     phys_reserve_mm_pages.begin = mm_pages_addr;
     phys_reserve_mm_pages.end = mm_pages_addr + mm_pages_req_count * MM_PAGE_SIZE;
+    // TODO: also reserve memory map itself before screwing with it?
     mm_phys_reserve(&phys_reserve_mm_pages);
 
     mm_pages = (struct page *) MM_VIRTUALIZE(mm_pages_addr);
@@ -196,19 +319,15 @@ void amd64_phys_memory_map(const struct multiboot_tag_mmap *mmap) {
 
     kdebug("Memory map @ %p\n", mmap);
 
-    size_t item_offset = offsetof(struct multiboot_tag_mmap, entries);
-
     _total_pages = 0;
+    mmap_iter_init(mmap, &iter);
 
     // Collect usable physical memory information
-    while (item_offset < mmap->size) {
-        //const multiboot_memory_map_t *entry = (const multiboot_memory_map_t *) (curr_item);
-        const struct multiboot_mmap_entry *entry =
-            (const struct multiboot_mmap_entry *) ((uintptr_t) mmap + item_offset);
-        uintptr_t page_aligned_begin = (entry->addr + 0xFFF) & ~0xFFF;
-        uintptr_t page_aligned_end = (entry->addr + entry->len) & ~0xFFF;
+    while (mmap_iter_next(&iter, &kind, &base, &size)) {
+        uintptr_t page_aligned_begin = (base + 0xFFF) & ~0xFFF;
+        uintptr_t page_aligned_end = (base + size) & ~0xFFF;
 
-        if (entry->type == 1 && page_aligned_end > page_aligned_begin) {
+        if (kind == MMAP_KIND_USABLE && page_aligned_end > page_aligned_begin) {
             kdebug("+++ %S @ %p\n", page_aligned_end - page_aligned_begin, page_aligned_begin);
 
             for (uintptr_t addr = page_aligned_begin; addr < page_aligned_end; addr += 0x1000) {
@@ -223,8 +342,6 @@ void amd64_phys_memory_map(const struct multiboot_tag_mmap *mmap) {
                 }
             }
         }
-
-        item_offset += mmap->entry_size;
     }
 
     _pages_free = _total_pages;

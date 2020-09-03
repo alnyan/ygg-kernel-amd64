@@ -1,5 +1,6 @@
 #include <config.h>
 
+// TODO: optional multiboot2 support
 .section .multiboot
 .set MAGIC,     0xE85250D6
 .set ARCH,      0x0
@@ -28,9 +29,9 @@
 // Args:
 // %rdi - Address of loader's information struct
 .section .text
-.type _entry64, %function
-.global _entry64
-_entry64:
+.global _entry_multiboot
+.type _entry_multiboot, %function
+_entry_multiboot:
 .code32
     cli
     // Store multiboot info before doing anything
@@ -44,50 +45,11 @@ _entry64:
     or $((1 << 5) | (1 << 4)), %eax
     mov %eax, %cr4
 
-    // Clear kernel page structs
-    leal (kernel_pd_res - 0xFFFFFF0000000000), %edi
-    movl %edi, %ebx
-    movl $0x1800, %ecx
-    xorl %eax, %eax
-    cld
-    rep stosl
-
-    // Setup PDs
-    movl %ebx, %edi
-    xorl %ecx, %ecx
+    // Prepare paging structures
+    leal 1f - 0xFFFFFF0000000000, %ebp
+    leal boot_prepare_paging_32 - 0xFFFFFF0000000000, %eax
+    jmp *%eax
 1:
-    // PD[i] = (i << 21) | write | present | huge
-    movl %ecx, %edx
-    shl $21, %edx
-    orl $((1 << 7) | (1 << 0) | (1 << 1)), %edx
-    movl %edx, (%edi, %ecx, 8)
-
-    incl %ecx
-    cmpl $(512 * 4), %ecx
-    jne 1b
-
-    // Setup PDPT
-    addl $(4096 * 4), %edi
-    xorl %ecx, %ecx
-2:
-    // edi[ecx++] <- (ebx += 0x1000) | (1 << 0) | (1 << 1)
-    movl %ebx, %edx
-    orl $((1 << 0) | (1 << 1)), %edx
-    movl %edx, (%edi, %ecx, 8)
-    addl $0x1000, %ebx
-
-    incl %ecx
-    cmpl $4, %ecx
-    jne 2b
-
-    // Setup PML4
-    // %edi - PDPT
-    movl %edi, %ebx
-    addl $0x1000, %edi
-    orl $((1 << 0) | (1 << 1)), %ebx
-    movl %ebx, (%edi)
-    movl %ebx, 4080(%edi)
-
     // Load PML4 into CR3
     movl %edi, %cr3
 
@@ -115,23 +77,10 @@ _entry64:
     mov %ax, %ss
 
 .code64
-    // Full 64-bit now
-    leaq kernel_stacks_bottom(%rip), %rsp
-    addq $AMD64_KERNEL_STACK, %rsp
-
-    movq %rdi, %rbx
-    call _init
-    movq %rbx, %rdi
-
-    xorq %rbp, %rbp
-    pushq %rbp
-    call kernel_main
-
-1:
-    cli
-    hlt
-    jmp 1b
-.size _entry64, . - _entry64
+    // Boot method 0
+    mov $0, %rdi
+    jmp kernel_pre_entry
+.size _entry_multiboot, . - _entry_multiboot
 
 .code32
 .align 16
@@ -145,19 +94,9 @@ gdtr64:
     .short gdt_end64 - gdt64 - 1
     .long gdt64 - 0xFFFFFF0000000000
 
-// Entrypoint for AP bootstrap code
-.global kernel_stacks_top
-.global multiboot_registers
-
 .section .bss
+.global multiboot_registers
 multiboot_registers:
     // %eax - Magic
     // %ebx - Multiboot2 struct phys addr
     .skip 8
-kernel_stacks_bottom:
-#if defined(AMD64_SMP)
-    .skip AMD64_KERNEL_STACK * AMD64_MAX_SMP
-#else
-    .skip AMD64_KERNEL_STACK
-#endif
-kernel_stacks_top:

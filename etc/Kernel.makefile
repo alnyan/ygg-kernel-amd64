@@ -8,7 +8,10 @@ ACPICA_OBJ=$(ACPICA_SRC:%.c=$(O)/%.o)
 KERNEL_USER_HDR=$(shell find include/user -type f -name "*.h")
 
 KERNEL_DEF=
-KERNEL_OBJ=$(O)/arch/amd64/entry.o \
+KERNEL_OBJ=$(O)/arch/amd64/boot/yboot.o \
+		   $(O)/arch/amd64/boot/multiboot.o \
+		   $(O)/arch/amd64/boot/entry.o \
+		   $(O)/arch/amd64/boot/upper.o \
 		   $(O)/arch/amd64/kernel.o \
 		   $(O)/arch/amd64/acpi_osl_mem.o \
 		   $(O)/arch/amd64/acpi_osl_printf.o \
@@ -118,6 +121,7 @@ KERNEL_HDR=$(shell find include -type f -name "*.h")
 DIRS+=$(O)/arch/amd64/hw \
 	  $(O)/arch/amd64/mm \
 	  $(O)/arch/amd64/sys \
+	  $(O)/arch/amd64/boot \
 	  $(O)/drivers/usb \
 	  $(O)/drivers/ata \
 	  $(O)/drivers/pci \
@@ -138,6 +142,10 @@ include etc/KernelOptions.makefile
 KERNEL_GIT_VERSION=$(shell git describe --always --tags)
 KERNEL_CFLAGS=-Iinclude \
 			  -Iinclude/arch/amd64/acpica \
+			  -Iarch/amd64/efi/gnu-efi-3.0.12/inc \
+			  -Iarch/amd64/efi/gnu-efi-3.0.12/inc/protocol \
+			  -Iarch/amd64/efi/gnu-efi-3.0.12/inc/x86_64 \
+			  -fshort-wchar \
 			  -I$(O)/include \
 			  -ffreestanding \
 			  -fPIE \

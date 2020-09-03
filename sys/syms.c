@@ -103,7 +103,6 @@ Elf64_Sym *ksym_lookup(const char *name) {
     }
 
     if (!g_symtab_ptr) {
-        kwarn("no symbol table\n");
         return NULL;
     }
 
@@ -123,7 +122,6 @@ Elf64_Sym *ksym_lookup(const char *name) {
 
 int ksym_find_location(uintptr_t addr, const char **name, uintptr_t *base) {
     if (!g_symtab_ptr) {
-        kwarn("no symbol table\n");
         return -1;
     }
 
