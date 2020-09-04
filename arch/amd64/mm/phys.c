@@ -209,7 +209,7 @@ void mm_phys_free_page(uintptr_t addr) {
     spin_lock_irqsave(&phys_spin, &irq);
 
     struct page *pg = PHYS2PAGE(addr);
-    _assert(!pg->refcount);
+    _assert(pg->refcount == 0);
     _assert(pg->flags & PG_ALLOC);
 
     _assert(_alloc_pages[pg->usage]);
@@ -333,7 +333,7 @@ void amd64_phys_memory_map(const struct mm_phys_memory_map *mmap) {
             for (uintptr_t addr = page_aligned_begin; addr < page_aligned_end; addr += 0x1000) {
                 extern char _kernel_end;
 
-                if (!is_reserved(addr) && addr >= MM_PHYS(&_kernel_end)) {
+                if (!is_reserved(addr) && addr >= (MM_PHYS(&_kernel_end) + 0x1000)) {
                     struct page *pg = PHYS2PAGE(addr);
                     pg->flags &= ~PG_ALLOC;
                     pg->usage = PU_UNKNOWN;
