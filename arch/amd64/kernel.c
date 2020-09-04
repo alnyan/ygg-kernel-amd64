@@ -199,6 +199,11 @@ static void entry_yboot(void) {
         boot_video_info.framebuffer_phys = yboot_data.video_framebuffer;
     }
 
+    if (yboot_data.initrd_base) {
+        initrd_phys_start = yboot_data.initrd_base;
+        initrd_size = yboot_data.initrd_size;
+    }
+
     phys_memory_map.format = MM_PHYS_MMAP_FMT_YBOOT;
     phys_memory_map.address = yboot_data.memory_map_data;
     phys_memory_map.entry_size = yboot_data.memory_map_entsize;
