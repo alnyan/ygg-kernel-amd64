@@ -10,7 +10,6 @@ yboot_data:
     .quad BOOT_KERNEL_MAGIC     // kernel_magic
     .quad 0                     // loader_magic
 
-    .quad 0                     // memory_map_base
     .long 0                     // memory_map_size
     .long 0                     // memory_map_entsize
 
@@ -32,6 +31,7 @@ yboot_data:
     .quad 0                     // rsdp
 
     .skip 256                   // cmdline
+    .skip 3072                  // memory map data
 .size yboot_data, . - yboot_data
 
 .section .text

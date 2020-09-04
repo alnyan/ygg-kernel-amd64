@@ -153,7 +153,6 @@ struct boot_struct {
     uint64_t kernel_magic;          // R
     uint64_t loader_magic;          // W
 
-    uint64_t memory_map_base;       // W
     uint32_t memory_map_size;       // W
     uint32_t memory_map_entsize;    // W
 
@@ -176,15 +175,12 @@ struct boot_struct {
     uint64_t rsdp;                  // W
 
     char cmdline[256];              // W
+    char memory_map_data[3072];     // W
 } __attribute__((packed));
 #endif
 
 static void entry_yboot(void) {
     extern struct boot_struct yboot_data;
-
-    if (yboot_data.memory_map_base == 0) {
-        panic("No memory map available\n");
-    }
 
     if (yboot_data.rsdp == 0) {
         kwarn("Booted from UEFI and no RSDP was provided, will likely result in error\n");
@@ -204,7 +200,7 @@ static void entry_yboot(void) {
     }
 
     phys_memory_map.format = MM_PHYS_MMAP_FMT_YBOOT;
-    phys_memory_map.address = (void *) MM_VIRTUALIZE(yboot_data.memory_map_base);
+    phys_memory_map.address = yboot_data.memory_map_data;
     phys_memory_map.entry_size = yboot_data.memory_map_entsize;
     phys_memory_map.entry_count = yboot_data.memory_map_size / yboot_data.memory_map_entsize;
 }
