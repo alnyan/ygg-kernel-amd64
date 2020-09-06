@@ -9,7 +9,7 @@ _kernel_base = 0xFFFFFF0000000000;
  * This will allow us to have initrds up to 32MiB
  * loaded below
  */
-_kernel_base_phys = 0x400000;
+_kernel_base_phys = 0x200000;
 
 SECTIONS {
 	. = _kernel_base_phys + _kernel_base;

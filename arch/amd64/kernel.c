@@ -1,3 +1,4 @@
+#include "yboot/include/protocol.h"
 #include "arch/amd64/multiboot2.h"
 #include "arch/amd64/hw/rs232.h"
 #include "arch/amd64/hw/vesa.h"
@@ -17,6 +18,7 @@
 #include "sys/mem/phys.h"
 #include "sys/console.h"
 #include "sys/config.h"
+#include "sys/assert.h"
 #include "sys/kernel.h"
 #include "sys/random.h"
 #include "sys/string.h"
@@ -35,6 +37,7 @@ static uintptr_t initrd_phys_start;
 static size_t initrd_size;
 
 static struct boot_video_info boot_video_info = {0};
+char yboot_memory_map_data[32768];
 
 // Descriptors for reserved physical memory regions
 static struct mm_phys_memory_map            phys_memory_map;
@@ -141,46 +144,8 @@ static void entry_multiboot(void) {
         offsetof(struct multiboot_tag_mmap, entries)) / multiboot_tag_mmap->entry_size;
 }
 
-// TODO: move this header
-#define BOOT_KERNEL_MAGIC           0xA197A9B007B007UL
-#define BOOT_LOADER_MAGIC           0x700B700B9A791AUL
-
-#define VIDEO_FORMAT_RGB32          0
-#define VIDEO_FORMAT_BGR32          1
-
-#if !defined(__ASM__)
-struct boot_struct {
-    uint64_t kernel_magic;          // R
-    uint64_t loader_magic;          // W
-
-    uint32_t memory_map_size;       // W
-    uint32_t memory_map_entsize;    // W
-
-    // Video mode settings
-    uint32_t video_width;           // RW
-    uint32_t video_height;          // RW
-    uint32_t video_format;          // RW
-    uint32_t __pad0;                // --
-    uint64_t video_framebuffer;     // W
-    uint64_t video_pitch;           // W
-
-    uint64_t elf_symtab_hdr;        // W
-    uint64_t elf_symtab_data;       // W
-    uint64_t elf_strtab_hdr;        // W
-    uint64_t elf_strtab_data;       // W
-
-    uint64_t initrd_base;           // W
-    uint64_t initrd_size;           // W
-
-    uint64_t rsdp;                  // W
-
-    char cmdline[256];              // W
-    char memory_map_data[3072];     // W
-} __attribute__((packed));
-#endif
-
 static void entry_yboot(void) {
-    extern struct boot_struct yboot_data;
+    extern struct yboot_v1 yboot_data;
 
     if (yboot_data.rsdp == 0) {
         kwarn("Booted from UEFI and no RSDP was provided, will likely result in error\n");
@@ -200,12 +165,14 @@ static void entry_yboot(void) {
     }
 
     if (yboot_data.initrd_base) {
+        kdebug("INITRD BASE: %p, INITRD SIZE: %S\n", yboot_data.initrd_base, yboot_data.initrd_size);
         initrd_phys_start = yboot_data.initrd_base;
         initrd_size = yboot_data.initrd_size;
     }
 
+    _assert(yboot_memory_map_data == (void *) MM_VIRTUALIZE(yboot_data.memory_map_data));
     phys_memory_map.format = MM_PHYS_MMAP_FMT_YBOOT;
-    phys_memory_map.address = yboot_data.memory_map_data;
+    phys_memory_map.address = yboot_memory_map_data;
     phys_memory_map.entry_size = yboot_data.memory_map_entsize;
     phys_memory_map.entry_count = yboot_data.memory_map_size / yboot_data.memory_map_entsize;
 }
@@ -235,12 +202,12 @@ void kernel_early_init(uint64_t entry_method) {
     // Before anything is allocated, reserve:
     // 1. initrd pages
     // 2. multiboot tag pages
-    mm_phys_reserve(&phys_reserve_kernel);
+    mm_phys_reserve("Kernel", &phys_reserve_kernel);
 
     if (initrd_phys_start) {
         phys_reserve_initrd.begin = initrd_phys_start & ~0xFFF;
         phys_reserve_initrd.end = (initrd_phys_start + initrd_size + 0xFFF) & ~0xFFF;
-        mm_phys_reserve(&phys_reserve_initrd);
+        mm_phys_reserve("Initrd", &phys_reserve_initrd);
     }
 
     amd64_phys_memory_map(&phys_memory_map);

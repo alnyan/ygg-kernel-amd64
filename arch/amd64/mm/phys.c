@@ -25,7 +25,8 @@ struct page *mm_pages = NULL;
 static size_t _total_pages, _pages_free;
 static size_t _alloc_pages[_PU_COUNT];
 static spin_t phys_spin = 0;
-static struct mm_phys_reserved phys_reserve_mm_pages;
+static struct mm_phys_reserved phys_reserve_mm_pages,
+                               phys_reserve_mmap;
 static LIST_HEAD(reserved_regions);
 
 static int is_reserved(uintptr_t addr) {
@@ -144,10 +145,10 @@ static int mmap_iter_next(struct mmap_iter *iter,
     return 1;
 }
 
-void mm_phys_reserve(struct mm_phys_reserved *res) {
+void mm_phys_reserve(const char *use, struct mm_phys_reserved *res) {
     list_head_init(&res->link);
     list_add(&res->link, &reserved_regions);
-    kdebug("#### Reserve region: %p .. %p\n", res->begin, res->end);
+    kdebug("#### Reserve region (%s): %p .. %p\n", use, res->begin, res->end);
 }
 
 void mm_phys_stat(struct mm_phys_stat *st) {
@@ -265,8 +266,6 @@ static uintptr_t place_mm_pages(const struct mm_phys_memory_map *mmap, size_t re
         uintptr_t page_aligned_begin = (base + 0xFFF) & ~0xFFF;
         uintptr_t page_aligned_end = (base + size) & ~0xFFF;
 
-        kdebug("Region: %p .. %p\n", page_aligned_begin, page_aligned_end);
-
         if (kind == MMAP_KIND_USABLE && page_aligned_end > page_aligned_begin) {
             // Something like mm_phys_alloc_contiguous does, but
             // we don't yet have it obviously
@@ -300,6 +299,10 @@ void amd64_phys_memory_map(const struct mm_phys_memory_map *mmap) {
     size_t size;
     int kind;
 
+    phys_reserve_mmap.begin = (uintptr_t) MM_PHYS(mmap->address);
+    phys_reserve_mmap.end = phys_reserve_mmap.begin + mmap->entry_count * mmap->entry_size;
+    mm_phys_reserve("Memory map", &phys_reserve_mmap);
+
     // Allocate space for mm_pages array
     size_t mm_pages_req_count = (PHYS_MAX_PAGES * sizeof(struct page) + 0xFFF) >> 12;
     uintptr_t mm_pages_addr = place_mm_pages(mmap, mm_pages_req_count);
@@ -309,15 +312,13 @@ void amd64_phys_memory_map(const struct mm_phys_memory_map *mmap) {
     phys_reserve_mm_pages.begin = mm_pages_addr;
     phys_reserve_mm_pages.end = mm_pages_addr + mm_pages_req_count * MM_PAGE_SIZE;
     // TODO: also reserve memory map itself before screwing with it?
-    mm_phys_reserve(&phys_reserve_mm_pages);
+    mm_phys_reserve("mm_pages", &phys_reserve_mm_pages);
 
     mm_pages = (struct page *) MM_VIRTUALIZE(mm_pages_addr);
     for (size_t i = 0; i < PHYS_MAX_PAGES; ++i) {
         mm_pages[i].flags = PG_ALLOC;
         mm_pages[i].refcount = (size_t) -1L;
     }
-
-    kdebug("Memory map @ %p\n", mmap);
 
     _total_pages = 0;
     mmap_iter_init(mmap, &iter);

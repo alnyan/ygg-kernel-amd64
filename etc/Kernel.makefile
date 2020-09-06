@@ -142,9 +142,7 @@ include etc/KernelOptions.makefile
 KERNEL_GIT_VERSION=$(shell git describe --always --tags)
 KERNEL_CFLAGS=-Iinclude \
 			  -Iinclude/arch/amd64/acpica \
-			  -Iarch/amd64/efi/gnu-efi-3.0.12/inc \
-			  -Iarch/amd64/efi/gnu-efi-3.0.12/inc/protocol \
-			  -Iarch/amd64/efi/gnu-efi-3.0.12/inc/x86_64 \
+			  -Iboot \
 			  -fshort-wchar \
 			  -I$(O)/include \
 			  -ffreestanding \

@@ -24,7 +24,7 @@ _entry_common:
 kernel_pre_entry:
     // Full 64-bit now
     leaq kernel_stacks_bottom(%rip), %rsp
-    addq $AMD64_KERNEL_STACK, %rsp
+    addq $8192, %rsp
 
     movq %rdi, %rbx
     call _init

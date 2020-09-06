@@ -1,0 +1,3 @@
+[submodule "boot/yboot"]
+	path = boot/yboot
+	url = https://git.alnyan.me/yggdrasil/yboot.git

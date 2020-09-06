@@ -46,7 +46,7 @@ struct mm_phys_stat {
     size_t pages_used_cache;
 };
 
-void mm_phys_reserve(struct mm_phys_reserved *res);
+void mm_phys_reserve(const char *use, struct mm_phys_reserved *res);
 void mm_phys_stat(struct mm_phys_stat *st);
 
 /**
