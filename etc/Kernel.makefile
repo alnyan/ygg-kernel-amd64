@@ -9,6 +9,7 @@ KERNEL_USER_HDR=$(shell find include/user -type f -name "*.h")
 
 KERNEL_DEF=
 KERNEL_OBJ=$(O)/arch/amd64/boot/yboot.o \
+		   $(O)/arch/amd64/boot/yboot_data.o \
 		   $(O)/arch/amd64/boot/multiboot.o \
 		   $(O)/arch/amd64/boot/entry.o \
 		   $(O)/arch/amd64/boot/upper.o \

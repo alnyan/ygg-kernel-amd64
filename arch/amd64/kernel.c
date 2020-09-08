@@ -1,5 +1,5 @@
-#include "yboot/include/protocol.h"
 #include "arch/amd64/multiboot2.h"
+#include "arch/amd64/boot/yboot.h"
 #include "arch/amd64/hw/rs232.h"
 #include "arch/amd64/hw/vesa.h"
 #include "arch/amd64/hw/apic.h"
@@ -37,7 +37,6 @@ static uintptr_t initrd_phys_start;
 static size_t initrd_size;
 
 static struct boot_video_info boot_video_info = {0};
-char yboot_memory_map_data[32768];
 
 // Descriptors for reserved physical memory regions
 static struct mm_phys_memory_map            phys_memory_map;
@@ -145,8 +144,6 @@ static void entry_multiboot(void) {
 }
 
 static void entry_yboot(void) {
-    extern struct yboot_v1 yboot_data;
-
     if (yboot_data.rsdp == 0) {
         kwarn("Booted from UEFI and no RSDP was provided, will likely result in error\n");
     } else {
@@ -170,9 +167,8 @@ static void entry_yboot(void) {
         initrd_size = yboot_data.initrd_size;
     }
 
-    _assert(yboot_memory_map_data == (void *) MM_VIRTUALIZE(yboot_data.memory_map_data));
     phys_memory_map.format = MM_PHYS_MMAP_FMT_YBOOT;
-    phys_memory_map.address = yboot_memory_map_data;
+    phys_memory_map.address = (void *) MM_VIRTUALIZE(yboot_data.memory_map_data);
     phys_memory_map.entry_size = yboot_data.memory_map_entsize;
     phys_memory_map.entry_count = yboot_data.memory_map_size / yboot_data.memory_map_entsize;
 }
