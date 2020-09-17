@@ -1,6 +1,6 @@
 #include <config.h>
 // For loader magic
-#include <yboot/include/protocol.h>
+#include <yboot2/include/protocol.h>
 
 .section .text
 .global _entry_yboot
