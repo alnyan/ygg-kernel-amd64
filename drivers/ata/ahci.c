@@ -587,7 +587,9 @@ static void ahci_controller_init(struct ahci_controller *ahci) {
 //// PCI-specific
 
 static void pci_ahci_init(struct pci_device *pci_dev) {
-    // TODO: change pcie -> pci
+    // TODO: AHCI is broken on my Ryzen system:
+    //       stuck reading + invalid size reported
+    return;
     uint32_t abar_phys = pci_config_read_dword(pci_dev, PCI_CONFIG_BAR(5));
     if (abar_phys & 1) {
         kwarn("AHCI controller has ABAR in I/O space\n");
