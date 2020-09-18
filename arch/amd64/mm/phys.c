@@ -328,8 +328,8 @@ void amd64_phys_memory_map(const struct mm_phys_memory_map *mmap) {
         uintptr_t page_aligned_begin = (base + 0xFFF) & ~0xFFF;
         uintptr_t page_aligned_end = (base + size) & ~0xFFF;
 
-        if (kind == MMAP_KIND_USABLE && page_aligned_end > page_aligned_begin) {
-            kdebug("+++ %S @ %p\n", page_aligned_end - page_aligned_begin, page_aligned_begin);
+        if (kind == MMAP_KIND_USABLE && page_aligned_end > page_aligned_begin + 0x1000) {
+            //kdebug("+++ %S @ %p\n", page_aligned_end - page_aligned_begin, page_aligned_begin);
 
             for (uintptr_t addr = page_aligned_begin; addr < page_aligned_end; addr += 0x1000) {
                 extern char _kernel_end;
