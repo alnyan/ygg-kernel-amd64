@@ -37,6 +37,14 @@ struct console_buffer {
     uint16_t data[0];
 };
 
+#define ECON_BUFSIZ         32768
+static int have_early;
+static union {
+    struct console_buffer buf;
+    char _buf[sizeof(struct console_buffer) + ECON_BUFSIZ];
+} early_buffer;
+static struct console early;
+
 static struct console_buffer *console_buffer_create(uint16_t rows, uint16_t cols) {
     struct console_buffer *buf = kmalloc(sizeof(struct console_buffer) + rows * cols * sizeof(uint16_t));
     _assert(buf);
@@ -370,12 +378,45 @@ void console_type(struct console *con, int c) {
 
 void console_default_putc(int c) {
     if (list_empty(&g_consoles)) {
+        if (have_early) {
+            struct console *con = &early;
+            _assert(con->buf_active);
+            _console_putc(con, con->buf_active, c);
+        }
         return;
     }
     struct console *con = list_entry(g_consoles.next, struct console, list);
     if (con->buf_active) {
         _console_putc(con, con->buf_active, c);
     }
+}
+
+void console_init_early(struct display *output) {
+    // TODO: allow selecting fonts per console/display
+    early.tty_active = NULL;
+    early.buf_active = &early_buffer.buf;
+    early.display = output;
+    early.width_chars = output->width_pixels / 8;
+    early.height_chars = output->height_pixels / 16;
+
+    if (early.width_chars * early.height_chars * 2 > ECON_BUFSIZ) {
+        panic("Failed to fit early console\n");
+    }
+
+    struct console_buffer *buf = &early_buffer.buf;
+    memsetw(buf->data, ATTR_DEFAULT, early.width_chars * early.height_chars);
+    buf->y = 0;
+    buf->x = 0;
+    buf->saved_y = 0;
+    buf->saved_x = 0;
+    buf->last_blink_x = 0;
+    buf->last_blink_y = 0;
+    buf->attr = ATTR_DEFAULT;
+    buf->xattrs = 0;
+    buf->esc_mode = 0;
+
+    have_early = 1;
+    console_flush(&early, buf);
 }
 
 void console_init_default(void) {

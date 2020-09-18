@@ -35,4 +35,5 @@ void console_default_putc(int c);
 
 struct console *console_get_default(void);
 
+void console_init_early(struct display *output);
 void console_init_default(void);

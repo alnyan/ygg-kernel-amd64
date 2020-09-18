@@ -188,6 +188,12 @@ void kernel_early_init(uint64_t entry_method) {
         panic("Unknown boot method: something's broken\n");
         break;
     }
+    vesa_early_init(&boot_video_info);
+    struct display *disp = vesa_get_display();
+    if (disp) {
+        kdebug("Initialize early console!\n");
+        console_init_early(disp);
+    }
 
     cpuid_init();
 
@@ -207,13 +213,14 @@ void kernel_early_init(uint64_t entry_method) {
     }
 
     amd64_phys_memory_map(&phys_memory_map);
+    while (1);
 
     amd64_gdt_init();
     amd64_idt_init(0);
 
     amd64_mm_init();
 
-    vesa_init(&boot_video_info);
+    vesa_add_display();
 
     //if (multiboot_tag_sections) {
     //    ksym_set_multiboot2(multiboot_tag_sections);

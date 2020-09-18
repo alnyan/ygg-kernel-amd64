@@ -12,6 +12,7 @@ struct boot_video_info {
 };
 
 struct display *vesa_get_display(void);
-void vesa_init(struct boot_video_info *info);
+void vesa_early_init(struct boot_video_info *info);
+void vesa_add_display(void);
 void vesa_put(uint32_t x, uint32_t y, uint32_t v);
 void vesa_clear(uint32_t color);

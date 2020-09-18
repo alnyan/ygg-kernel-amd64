@@ -15,8 +15,7 @@ struct display *vesa_get_display(void) {
     }
 }
 
-// Initialize early (pre-PCI) framebuffer
-void vesa_init(struct boot_video_info *info) {
+void vesa_early_init(struct boot_video_info *info) {
     if (info->width && info->height) {
         // If these fields are set, framebuffer is available
         display_vesa_fb.flags = DISP_GRAPHIC | DISP_LFB;
@@ -27,7 +26,10 @@ void vesa_init(struct boot_video_info *info) {
         display_vesa_fb.framebuffer = MM_VIRTUALIZE(info->framebuffer_phys);
 
         list_head_init(&display_vesa_fb.list);
-
-        display_add(&display_vesa_fb);
     }
+}
+
+// Initialize early (pre-PCI) framebuffer
+void vesa_add_display(void) {
+    display_add(&display_vesa_fb);
 }
