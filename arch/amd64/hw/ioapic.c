@@ -62,9 +62,10 @@ void amd64_ioapic_int_src_override(uint8_t bus_src, uint8_t irq_src, uint32_t no
 }
 
 void amd64_ioapic_set(uintptr_t addr) {
-    if (amd64_ioapic_base != 0) {
+    if (amd64_ioapic_base != 0 && amd64_ioapic_base != addr) {
         // TODO: panic
-        kdebug("I/O APIC base already set\n");
+        kdebug("I/O APIC base already set to %p, requested %p\n", amd64_ioapic_base, addr);
+        return;
         while (1);
     }
     amd64_ioapic_base = addr;
