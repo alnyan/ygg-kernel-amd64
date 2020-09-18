@@ -213,7 +213,6 @@ void kernel_early_init(uint64_t entry_method) {
     }
 
     amd64_phys_memory_map(&phys_memory_map);
-    while (1);
 
     amd64_gdt_init();
     amd64_idt_init(0);
