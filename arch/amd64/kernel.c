@@ -188,14 +188,14 @@ void kernel_early_init(uint64_t entry_method) {
         panic("Unknown boot method: something's broken\n");
         break;
     }
+    cpuid_init();
+
     vesa_early_init(&boot_video_info);
     struct display *disp = vesa_get_display();
     if (disp) {
         kdebug("Initialize early console!\n");
         console_init_early(disp);
     }
-
-    cpuid_init();
 
     // Reinitialize RS232 properly
     rs232_init(RS232_COM1);

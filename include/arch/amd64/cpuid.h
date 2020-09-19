@@ -7,6 +7,9 @@
 #define CPUID_REQ_SERIAL                0x03
 #define CPUID_REQ_EXT_FEATURES          0x80000001
 
+#define CPUID_EDX_FEATURE_PAT           (1U << 16)
+#define CPUID_EDX_FEATURE_MTRR          (1U << 12)
+
 #define CPUID_EXT_EDX_FEATURE_NX        (1U << 20)
 #define CPUID_EXT_EDX_FEATURE_SYSCALL   (1U << 11)
 
