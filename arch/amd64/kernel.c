@@ -31,8 +31,7 @@
 
 extern char _kernel_start, _kernel_end;
 
-//static struct multiboot_tag_mmap            *multiboot_tag_mmap;
-//static struct multiboot_tag_elf_sections    *multiboot_tag_sections;
+static struct elf_sections elf_sections;
 static uintptr_t initrd_phys_start;
 static size_t initrd_size;
 
@@ -87,9 +86,10 @@ static void entry_multiboot(void) {
         case MULTIBOOT_TAG_TYPE_CMDLINE:
             multiboot_tag_cmdline = (struct multiboot_tag_string *) tag;
             break;
-        //case MULTIBOOT_TAG_TYPE_ELF_SECTIONS:
-        //    multiboot_tag_sections = (struct multiboot_tag_elf_sections *) tag;
-        //    break;
+        case MULTIBOOT_TAG_TYPE_ELF_SECTIONS:
+            elf_sections.kind = KSYM_TABLE_MULTIBOOT2;
+            elf_sections.tables.multiboot2 = (struct multiboot_tag_elf_sections *) tag;
+            break;
         case MULTIBOOT_TAG_TYPE_MMAP:
             multiboot_tag_mmap = (struct multiboot_tag_mmap *) tag;
             break;
@@ -221,9 +221,9 @@ void kernel_early_init(uint64_t entry_method) {
 
     vesa_add_display();
 
-    //if (multiboot_tag_sections) {
-    //    ksym_set_multiboot2(multiboot_tag_sections);
-    //}
+    if (elf_sections.kind != KSYM_TABLE_NONE) {
+        ksym_set(&elf_sections);
+    }
 
     if (rs232_avail & (1 << 0)) {
         rs232_add_tty(0);

@@ -16,7 +16,7 @@ static size_t g_strtab_size = 0;
 static struct hash g_symtab_hash;
 
 // Multiboot2-loaded sections are misaligned for some reason
-void ksym_set_multiboot2(struct multiboot_tag_elf_sections *tag) {
+static void ksym_set_multiboot2(struct multiboot_tag_elf_sections *tag) {
     kinfo("Loading kernel symbols\n");
     kinfo("%u section headers:\n", tag->num);
     size_t string_section_offset = tag->shndx * tag->entsize;
@@ -58,6 +58,16 @@ void ksym_set_multiboot2(struct multiboot_tag_elf_sections *tag) {
                         strtab_ptr,
                         realigned(symtab_shdr, sh_size),
                         realigned(strtab_shdr, sh_size));
+    }
+}
+
+void ksym_set(struct elf_sections *sections) {
+    switch (sections->kind) {
+    case KSYM_TABLE_MULTIBOOT2:
+        ksym_set_multiboot2(sections->tables.multiboot2);
+        break;
+    default:
+        __builtin_unreachable();
     }
 }
 
