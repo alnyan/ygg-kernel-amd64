@@ -76,6 +76,7 @@ KERNEL_OBJ=$(O)/arch/amd64/boot/yboot.o \
 		   $(O)/sys/sys_file.o \
 		   $(O)/sys/sys_sys.o \
 		   $(O)/sys/thread.o \
+		   $(O)/sys/process.o \
 		   $(O)/sys/snprintf.o \
 		   $(O)/sys/random.o \
 		   $(O)/sys/reboot.o \
