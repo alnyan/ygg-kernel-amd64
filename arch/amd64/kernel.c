@@ -153,12 +153,12 @@ static void entry_yboot(void) {
     kinfo("Provided command line: \"%s\"\n", yboot_data.cmdline);
     kernel_set_cmdline(yboot_data.cmdline);
 
-    if (yboot_data.video_framebuffer) {
-        boot_video_info.width = yboot_data.video_width;
-        boot_video_info.height = yboot_data.video_height;
+    if ((yboot_data.flags & YB_FLAG_VIDEO) && yboot_data.video.framebuffer) {
+        boot_video_info.width = yboot_data.video.width;
+        boot_video_info.height = yboot_data.video.height;
         boot_video_info.bpp = 32;
-        boot_video_info.pitch = yboot_data.video_pitch;
-        boot_video_info.framebuffer_phys = yboot_data.video_framebuffer;
+        boot_video_info.pitch = yboot_data.video.pitch;
+        boot_video_info.framebuffer_phys = yboot_data.video.framebuffer;
     }
 
     if (yboot_data.initrd_base) {
@@ -168,9 +168,11 @@ static void entry_yboot(void) {
     }
 
     phys_memory_map.format = MM_PHYS_MMAP_FMT_YBOOT;
-    phys_memory_map.address = (void *) MM_VIRTUALIZE(yboot_data.memory_map_data);
-    phys_memory_map.entry_size = yboot_data.memory_map_entsize;
-    phys_memory_map.entry_count = yboot_data.memory_map_size / yboot_data.memory_map_entsize;
+    phys_memory_map.address = (void *) MM_VIRTUALIZE(yboot_data.memory_map.address);
+    extern char yboot_memory_map_data[];
+    _assert((void *) MM_VIRTUALIZE(yboot_data.memory_map.address) == yboot_memory_map_data);
+    phys_memory_map.entry_size = yboot_data.memory_map.entsize;
+    phys_memory_map.entry_count = yboot_data.memory_map.size / yboot_data.memory_map.entsize;
 }
 
 void kernel_early_init(uint64_t entry_method) {

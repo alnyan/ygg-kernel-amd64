@@ -2,17 +2,26 @@
 
 char yboot_memory_map_data[32768];
 
-struct yboot_v1 yboot_data __attribute__((section(".data.boot, \"aw\", %progbits //"))) = {
-    .header = {
-        .kernel_magic = YB_KERNEL_MAGIC_V1
+struct yb_proto_v1 yboot_data __attribute__((section(".data.boot, \"aw\", %progbits //"))) = {
+    .hdr = {
+        .kernel_magic = YB_KERNEL_MAGIC_V1A
     },
-
+    .flags = 0
 #if defined(VESA_ENABLE)
-    .video_width = VESA_WIDTH,
-    .video_height = VESA_HEIGHT,
-    .video_format = YB_VIDEO_FORMAT_BGR32,
+        | YB_FLAG_VIDEO
 #endif
+        | YB_FLAG_INITRD
+        | YB_FLAG_UPPER,
 
-    .memory_map_data = (uint64_t) yboot_memory_map_data - 0xFFFFFF0000000000,
-    .memory_map_size = sizeof(yboot_memory_map_data)
+    .memory_map = {
+        .address = (uint64_t) yboot_memory_map_data - 0xFFFFFF0000000000,
+        .size = sizeof(yboot_memory_map_data)
+    },
+#if defined(VESA_ENABLE)
+    .video = {
+        .width = VESA_WIDTH,
+        .height = VESA_HEIGHT,
+        .format = YB_LFB_BGR32,
+    },
+#endif
 };

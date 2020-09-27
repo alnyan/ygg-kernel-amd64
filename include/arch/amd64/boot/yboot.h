@@ -1,4 +1,4 @@
 #pragma once
-#include <yboot2/include/protocol.h>
+#include <yboot2-proto/include/protocol.h>
 
-extern struct yboot_v1 yboot_data;
+extern struct yb_proto_v1 yboot_data;
