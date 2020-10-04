@@ -25,6 +25,7 @@ static struct thread threads_idle[AMD64_MAX_SMP] = {0};
 static size_t queue_sizes[AMD64_MAX_SMP] = {0};
 int sched_ncpus = 1;
 int sched_ready = 0;
+static int clk = 0;
 
 static spin_t sched_lock = 0;
 
@@ -90,7 +91,11 @@ void sched_queue(struct thread *thr) {
         }
     }
     spin_release_irqrestore(&sched_lock, &irq);
-    sched_queue_to(thr, min_queue_index);
+    if (min_queue_size == 0) {
+        sched_queue_to(thr, (clk++) % sched_ncpus);
+    } else {
+        sched_queue_to(thr, min_queue_index);
+    }
 #else
     sched_queue_to(thr, 0);
 #endif
@@ -154,6 +159,26 @@ void sched_unqueue(struct thread *thr, enum thread_state new_state) {
         cpu->thread = sched_next;
         context_switch_to(sched_next, thr);
     }
+}
+
+void sched_debug_cycle(uint64_t ms) {
+    uintptr_t irq;
+    spin_lock_irqsave(&sched_lock, &irq);
+
+    for (int cpu = 0; cpu < sched_ncpus; ++cpu) {
+        debugf(DEBUG_DEFAULT, "cpu%d: ", cpu);
+
+        for (struct thread *thr = queue_heads[cpu]; thr; thr = thr->sched_next) {
+            debugf(DEBUG_DEFAULT, "#%d (%s):<%p> ", thr->proc->pid, thr->proc->name, thr);
+            if (thr->sched_next == queue_heads[cpu]) {
+                break;
+            }
+        }
+
+        debugc(DEBUG_DEFAULT, '\n');
+    }
+
+    spin_release_irqrestore(&sched_lock, &irq);
 }
 
 //#if defined(DEBUG_COUNTERS)

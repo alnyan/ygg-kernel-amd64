@@ -72,14 +72,14 @@ static uint32_t timer_tick(void *arg) {
         break;
     }
 
-#if defined(DEBUG_COUNTERS)
+//#if defined(DEBUG_COUNTERS)
     static uint64_t last_debug_cycle = 0;
     uint64_t delta = (system_time - last_debug_cycle) / 1000000ULL;
     if (delta >= 1000) {
         sched_debug_cycle(delta);
         last_debug_cycle = system_time;
     }
-#endif
+//#endif
 
     struct list_head *iter, *b_iter;
     uintptr_t irq;

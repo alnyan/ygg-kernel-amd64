@@ -1,7 +1,7 @@
 #pragma once
 
 #define AMD64_KERNEL_STACK      65536
-#define AMD64_MAX_SMP           1
+//#define AMD64_MAX_SMP           4
 
 //#define SLAB_TRACE_ALLOC        1
 #undef SLAB_TRACE_ALLOC

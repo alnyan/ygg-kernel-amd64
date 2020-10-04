@@ -13,7 +13,7 @@ void panicf(const char *fmt, ...) {
 
     asm volatile ("cli");
     va_list args;
-    kfatal("--- Panic ---\n");
+    kfatal("--- Panic (cpu%d) ---\n", get_cpu()->processor_id);
 
     if (sched_ready) {
         debugs(DEBUG_FATAL, "\033[41m");
@@ -35,7 +35,6 @@ void panicf(const char *fmt, ...) {
 #if defined(AMD64_SMP)
     // Send PANIC IPIs to all other CPUs
     size_t cpu = get_cpu()->processor_id;
-    kfatal("cpu%u initiates panic sequence\n", cpu);
     for (size_t i = 0; i < smp_ncpus; ++i) {
         if (i != cpu) {
             amd64_ipi_send(i, IPI_VECTOR_PANIC);

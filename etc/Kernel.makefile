@@ -51,6 +51,10 @@ KERNEL_OBJ=$(O)/arch/amd64/boot/yboot.o \
 		   $(O)/arch/amd64/syscall_s.o \
 		   $(O)/arch/amd64/syscall.o \
 		   $(O)/arch/amd64/binfmt_elf.o \
+		   $(O)/arch/amd64/smp/smp.o \
+		   $(O)/arch/amd64/smp/ap_code.o \
+		   $(O)/arch/amd64/smp/ipi.o \
+		   $(O)/arch/amd64/smp/irq_ipi_s.o \
 		   $(O)/sys/debug.o \
 		   $(O)/sys/ubsan.o \
 		   $(O)/sys/panic.o \
@@ -127,6 +131,7 @@ DIRS+=$(O)/arch/amd64/hw \
 	  $(O)/drivers/usb \
 	  $(O)/drivers/ata \
 	  $(O)/drivers/pci \
+	  $(O)/arch/amd64/smp \
 	  $(O)/fs \
 	  $(O)/fs/ext2 \
 	  $(O)/sys/block \
@@ -144,6 +149,8 @@ include etc/KernelOptions.makefile
 KERNEL_GIT_VERSION=$(shell git describe --always --tags)
 KERNEL_CFLAGS=-Iinclude \
 			  -Iinclude/arch/amd64/acpica \
+			  -DAMD64_SMP=4 \
+			  -DAMD64_MAX_SMP=4 \
 			  -Iboot \
 			  -fshort-wchar \
 			  -I$(O)/include \
@@ -163,7 +170,8 @@ KERNEL_CFLAGS=-Iinclude \
 			  -Wall \
 			  -Wextra \
 			  -Wno-unused \
-			  -O0 \
+			  -O2 \
+			  -funroll-loops \
 			  -ggdb \
 			  -Werror $(KERNEL_DEF)
 KERNEL_LDFLAGS=-nostdlib \
@@ -202,3 +210,17 @@ $(O)/sys/font/default8x16.psfu.o: etc/default8x16.psfu arch/amd64/incbin.S
 		-DINCBIN_START="_psf_start" \
 		-DINCBIN_END="_psf_end" \
 		-o $@ arch/amd64/incbin.S
+
+$(O)/arch/amd64/smp/ap_code.o: $(O)/arch/amd64/hw/ap_code.bin arch/amd64/incbin.S
+	@echo " RES $@"
+	@$(CC) \
+		-c \
+		-D__ASM__ \
+		-DINCBIN_FILE='"$(O)/arch/amd64/hw/ap_code.bin"' \
+		-DINCBIN_START="amd64_ap_code_start" \
+		-DINCBIN_END="amd64_ap_code_end" \
+		-o $@ arch/amd64/incbin.S
+
+$(O)/arch/amd64/hw/ap_code.bin: arch/amd64/hw/ap_code.nasm
+	@echo "NASM $@"
+	@nasm -fbin -o $@ $<

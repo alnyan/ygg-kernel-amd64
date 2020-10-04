@@ -372,6 +372,8 @@ void sysfs_populate(void) {
     sysfs_add_config_endpoint(dir, "modules", SYSFS_MODE_DEFAULT, 512, NULL, mod_list, NULL);
     sysfs_add_config_endpoint(dir, "debug_serial", SYSFS_MODE_DEFAULT, 32, "serial", debug_config_get, debug_config_set);
     sysfs_add_config_endpoint(dir, "debug_display", SYSFS_MODE_DEFAULT, 32, "display", debug_config_get, debug_config_set);
+    extern size_t sched_ncpus;
+    sysfs_add_config_endpoint(dir, "smp", SYSFS_MODE_DEFAULT, 16, &sched_ncpus, sysfs_config_int64_getter, NULL);
 
     sysfs_add_config_endpoint(NULL, "mem", SYSFS_MODE_DEFAULT, 512, NULL, system_mem_getter, NULL);
 
