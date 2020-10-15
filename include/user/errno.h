@@ -45,6 +45,37 @@
 
 #define ENOTSUP         9926
 
+// Added for libstdc++-v3
+#define EWOULDBLOCK     EAGAIN
+#define EDEADLK         35
+#define ENAMETOOLONG    36
+#define ENOLCK          37
+#define ENOTEMPTY       39
+#define ENOMSG          42
+#define EILSEQ          84
+#define ENOTSOCK        88
+#define EDESTADDRREQ    89
+#define EMSGSIZE        90
+#define EPROTOTYPE      91
+#define ENOPROTOOPT     92
+#define EPROTONOSUPPORT 93
+#define EOPNOTSUPP      95
+#define EAFNOSUPPORT    97
+#define EADDRNOTAVAIL   99
+#define ENETDOWN        100
+#define ENETUNREACH     101
+#define ENETRESET       102
+#define ECONNABORTED    103
+#define ECONNRESET      104
+#define ENOBUFS         105
+#define EISCONN         106
+#define ENOTCONN        107
+#define ETIMEDOUT       110
+#define EHOSTDOWN       112
+#define EHOSTUNREACH    113
+#define EALREADY        114
+#define EINPROGRESS     115
+
 #if defined(__KERNEL__)
 const char *kstrerror(int e);
 #endif
