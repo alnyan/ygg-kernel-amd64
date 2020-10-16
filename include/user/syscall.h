@@ -72,3 +72,4 @@
 #define SYSCALL_NRX_NETCTL          248
 
 #define SYSCALL_NRX_TRACE           249
+#define SYSCALL_NRX_INSTR           250

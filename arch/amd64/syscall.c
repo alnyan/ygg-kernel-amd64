@@ -34,6 +34,31 @@ static void sys_debug_trace(const char *msg, size_t lim) {
     }
 }
 
+static int sys_debug_instr(uint32_t cmd, void *arg0, void *arg1, void *arg2) {
+    struct thread *thr = thread_self;
+    _assert(thr);
+    struct process *proc = thr->proc;
+    _assert(proc);
+
+    asm volatile ("cli");
+
+    switch (cmd) {
+    case 1:     // YGG_INSTR_MAP_GET
+        {
+            uintptr_t res = mm_map_get(proc->space, (uintptr_t) arg0, arg2);
+            if (res == MM_NADDR) {
+                return -ENOENT;
+            }
+            if (arg1) {
+                *((uintptr_t *) arg1) = res;
+            }
+        }
+        return 0;
+    default:
+        panic("Invalid instrumentation syscall: %u\n", cmd);
+    }
+}
+
 void *syscall_table[256] = {
     // I/O
     [SYSCALL_NR_READ] =             sys_read,
@@ -113,6 +138,7 @@ void *syscall_table[256] = {
 
     // Extension
     [SYSCALL_NRX_TRACE] =           sys_debug_trace,
+    [SYSCALL_NRX_INSTR] =           sys_debug_instr,
 };
 
 int syscall_undefined(uint64_t rax) {
