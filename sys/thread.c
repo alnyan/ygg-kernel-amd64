@@ -1,6 +1,7 @@
 #include "arch/amd64/context.h"
 #include "sys/mem/vmalloc.h"
 #include "sys/mem/phys.h"
+#include "user/signal.h"
 #include "user/errno.h"
 #include "sys/string.h"
 #include "sys/thread.h"
