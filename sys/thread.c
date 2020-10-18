@@ -271,6 +271,7 @@ void thread_sigenter(int signum) {
     context_sigenter(thr->signal_entry, signal_rsp3, signum);
 
     thr->data.rsp0_top = old_rsp0_top;
+    get_cpu()->tss->rsp0 = thr->data.rsp0_top;
 }
 
 __attribute__((noreturn)) void sys_exit(int status) {
