@@ -11,7 +11,7 @@ uint32_t ext2_alloc_inode(struct fs *fs, struct ext2_data *data, int is_dir) {
         uint64_t bitmap[data->block_size / sizeof(uint64_t)];
     } buf;
     struct ext2_blkgrp_desc *bgd;
-    uint32_t ino = 0, offset;
+    uint32_t ino = 0, offset = 0;
     uint32_t group = 0;
 
     for (uint32_t i = 0; i < data->bgdt_entry_count; ++i) {
@@ -70,7 +70,7 @@ uint32_t ext2_alloc_block(struct fs *fs, struct ext2_data *data) {
         uint64_t bitmap[data->block_size / sizeof(uint64_t)];
     } buf;
     struct ext2_blkgrp_desc *bgd;
-    uint32_t block = 0, offset;
+    uint32_t block = 0, offset = 0;
     uint32_t group = 0;
 
     for (uint32_t i = 0; i < data->bgdt_entry_count; ++i) {
