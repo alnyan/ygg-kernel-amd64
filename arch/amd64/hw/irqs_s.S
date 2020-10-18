@@ -50,7 +50,7 @@ amd64_idt_load:
 .global amd64_irq_msi0
 amd64_irq_msi0:
     cli
-    swapgs_if_needed
+    iret_swapgs_if_needed
 
     pushq %r11
     pushq %r10
@@ -78,5 +78,5 @@ amd64_irq_msi0:
     popq %r10
     popq %r11
 
-    swapgs_if_needed
+    iret_swapgs_if_needed
     iretq

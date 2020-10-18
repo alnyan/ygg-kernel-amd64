@@ -14,7 +14,7 @@ context_enter:
     popq %r10
     popq %r11
 
-    swapgs_if_needed
+    iret_swapgs_if_needed
     iretq
 
 .global context_exec_enter
@@ -53,7 +53,7 @@ context_exec_enter:
     xorq %r14, %r14
     xorq %r15, %r15
 
-    swapgs_if_needed
+    iret_swapgs_if_needed
     iretq
 
 .global context_switch_first

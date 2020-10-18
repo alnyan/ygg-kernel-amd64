@@ -22,8 +22,8 @@ amd64_exc_generic:
     // 0x10: rip
     // 0x08: error code
     // 0x00: error number
-    cmpq $0x08, 0x18(%rip)
-    jnz 1f
+    cmpq $0x08, 0x18(%rsp)
+    jz 1f
     swapgs
 1:
 
@@ -79,6 +79,7 @@ amd64_exc_generic:
 
     addq $16, %rsp
 
+    iret_swapgs_if_needed
     iretq
 
 amd64_isr_nerr 0

@@ -170,8 +170,7 @@ KERNEL_CFLAGS=-Iinclude \
 			  -Wall \
 			  -Wextra \
 			  -Wno-unused \
-			  -O2 \
-			  -funroll-loops \
+			  -Og \
 			  -ggdb \
 			  -Werror $(KERNEL_DEF)
 KERNEL_LDFLAGS=-nostdlib \

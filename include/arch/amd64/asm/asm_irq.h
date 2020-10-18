@@ -13,7 +13,7 @@
 .global amd64_irq\n
 amd64_irq\n:
     cli
-    swapgs_if_needed
+    iret_swapgs_if_needed
 
     pushq %r11
     pushq %r10
@@ -39,7 +39,7 @@ amd64_irq\n:
     popq %r10
     popq %r11
 
-    swapgs_if_needed
+    iret_swapgs_if_needed
     iretq
 .endm
 

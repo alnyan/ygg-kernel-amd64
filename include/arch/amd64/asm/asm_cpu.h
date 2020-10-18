@@ -11,9 +11,9 @@
     (__amd64_cpu + off)(%rip)
 #endif
 
-// To be used in interrupt handlers
+// To be used in interrupt handlers or anything with iret-like stack layout
 // DIRECTLY AFTER ENTRY without prior stack modification
-.macro swapgs_if_needed
+.macro iret_swapgs_if_needed
     cmpq $0x08, 0x08(%rsp)
     je 1f
     swapgs
