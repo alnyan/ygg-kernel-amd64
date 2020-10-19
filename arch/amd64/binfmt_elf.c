@@ -17,7 +17,7 @@
 // uintptr_t amd64_map_get(const mm_space_t space, uintptr_t vaddr, uint64_t *flags);
 // int amd64_map_single(mm_space_t pml4, uintptr_t virt_addr, uintptr_t phys, uint32_t flags);
 
-static int elf_map_section(mm_space_t space, uintptr_t vma_dst, size_t size) {
+static int elf_map_region(mm_space_t space, uintptr_t vma_dst, size_t size) {
     uintptr_t page_aligned = vma_dst & ~0xFFF;
     uintptr_t page_offset = vma_dst & 0xFFF;
     size_t npages = (size + page_offset + 4095) / 4096;
@@ -141,7 +141,7 @@ int elf_load(struct process *proc, struct vfs_ioctx *ctx, struct ofile *fd, uint
     int res;
     ssize_t bread;
     Elf64_Ehdr ehdr;
-    Elf64_Shdr *shdrs;
+    Elf64_Phdr phdr;
 
     if ((res = elf_read(ctx, fd, 0, &ehdr, sizeof(Elf64_Ehdr))) != 0) {
         kerror("elf: failed to read file header\n");
@@ -159,65 +159,34 @@ int elf_load(struct process *proc, struct vfs_ioctx *ctx, struct ofile *fd, uint
         return -EINVAL;
     }
 
-    shdrs = kmalloc(ehdr.e_shentsize * ehdr.e_shnum);
-    _assert(shdrs);
-
-    // Read all section headers
-    if ((res = elf_read(ctx, fd, ehdr.e_shoff, shdrs, ehdr.e_shentsize * ehdr.e_shnum)) != 0) {
-        kerror("elf: failed to read section headers\n");
-        goto end;
-    }
+    _assert(ehdr.e_phnum);
 
     proc->image_end = 0;
     proc->brk = 0;
-    //const char *shstrtabd = (const char *) (shdrs[ehdr->e_shstrndx].sh_offset + (uintptr_t) from);
 
-    // Load the sections
-    for (size_t i = 0; i < ehdr.e_shnum; ++i) {
-        Elf64_Shdr *shdr = &shdrs[i];
-        //const char *name = &shstrtabd[shdr->sh_name];
+    // Load program segments
+    for (size_t i = 0; i < ehdr.e_phnum; ++i) {
+        size_t off = ehdr.e_phoff + ehdr.e_phentsize * i;
 
-        if (shdr->sh_flags & SHF_ALLOC) {
-            //if (!strncmp(name, ".note", 5)) {
-            //    // Fuck you, gcc
-            //    continue;
-            //}
-            //if (!strncmp(name, ".gnu", 4)) {
-            //    // Fuck you, gcc
-            //    continue;
-            //}
+        if ((res = elf_read(ctx, fd, off, &phdr, ehdr.e_phentsize)) != 0) {
+            kerror("elf: failed to read program header\n");
+        }
 
-            //kdebug("Loading %s\n", name);
+        if (phdr.p_type == PT_LOAD) {
+            uintptr_t start_aligned = phdr.p_vaddr & ~0xFFF;
+            size_t size_aligned = ((phdr.p_vaddr + phdr.p_memsz + 0xFFF) & ~0xFFF) - start_aligned;
 
-            // If the section is below what is allowed
-            if (shdr->sh_addr < ELF_ADDR_MIN) {
-                kerror("elf: section address is below allowed\n");
-                res = -EINVAL;
-                goto end;
+            kdebug("[%2d] vaddr=%p\n", i, phdr.p_vaddr);
+
+            if (elf_map_region(proc->space, start_aligned, size_aligned) != 0) {
+                panic("Failed to map segment\n");
             }
 
-            // Map the pages of this section
-            _assert(elf_map_section(proc->space, shdr->sh_addr, shdr->sh_size) == 0);
-
-            switch (shdr->sh_type) {
-            case SHT_PROGBITS:
-                _assert(elf_load_bytes(proc->space,
-                                       ctx,
-                                       fd,
-                                       shdr->sh_addr,
-                                       shdr->sh_offset,
-                                       shdr->sh_size) == 0);
-                break;
-            case SHT_NOBITS:
-                _assert(elf_bzero(proc->space,
-                                  shdr->sh_addr,
-                                  shdr->sh_size) == 0);
-                break;
+            if (elf_load_bytes(proc->space, ctx, fd, phdr.p_vaddr, phdr.p_offset, phdr.p_filesz) != 0) {
+                panic("Failed to load filesz data\n");
             }
-
-            uintptr_t section_end = shdr->sh_addr + shdr->sh_size;
-            if (section_end > proc->image_end) {
-                proc->image_end = section_end;
+            if (phdr.p_memsz > phdr.p_filesz) {
+                _assert(elf_bzero(proc->space, phdr.p_vaddr + phdr.p_filesz, phdr.p_memsz - phdr.p_filesz) == 0);
             }
         }
     }
@@ -226,10 +195,6 @@ int elf_load(struct process *proc, struct vfs_ioctx *ctx, struct ofile *fd, uint
 
     *entry = ehdr.e_entry;
     res = 0;
-
-end:
-    // Free all the stuff we've allocated
-    kfree(shdrs);
 
     return res;
 }
