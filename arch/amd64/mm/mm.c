@@ -20,9 +20,13 @@ __attribute__((aligned(0x1000))) uint64_t kernel_pd_res[6 * 512];
 extern int _kernel_end;
 
 void userptr_check(const void *ptr) {
-    // TODO: "hardened" check - also check that the address is mapped
+    uintptr_t cr3;
+    asm volatile ("mov %%cr3, %0":"=r"(cr3));
+    mm_space_t space = (mm_space_t) MM_VIRTUALIZE(cr3);
+
     assert(ptr, "invalid userptr: NULL\n");
     assert((uintptr_t) ptr < KERNEL_VIRT_BASE, "invalid userptr: in kernel space (%p)\n", ptr);
+    assert(mm_map_get(space, (uintptr_t) ptr, NULL) != MM_NADDR, "invalid userptr: not mapped (%p)\n", ptr);
 }
 
 void amd64_mm_init(void) {

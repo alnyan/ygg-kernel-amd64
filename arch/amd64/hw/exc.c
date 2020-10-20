@@ -2,6 +2,7 @@
 #include "arch/amd64/smp/ipi.h"
 #include "arch/amd64/smp/smp.h"
 #endif
+#include "arch/amd64/disasm/front.h"
 #include "arch/amd64/cpu.h"
 #include "sys/mem/phys.h"
 #include "sys/thread.h"
@@ -108,6 +109,40 @@ int do_pfault(struct amd64_exception_frame *frame, uintptr_t cr2, uintptr_t cr3)
     }
 }
 
+static int exc_safe_read_byte(mm_space_t space, uintptr_t addr, uint8_t *byte) {
+    uintptr_t page;
+    page = mm_map_get(space, addr & ~0xFFF, NULL);
+    if (page == MM_NADDR) {
+        return -1;
+    }
+    *byte = *(uint8_t *) MM_VIRTUALIZE(page + (addr & 0xFFF));
+    return 0;
+}
+
+static void exc_dump_code(int level, uintptr_t rip) {
+#define DISASM_BYTES    72
+    uintptr_t cr3;
+    mm_space_t space;
+    uint8_t bytes[DISASM_BYTES];
+    size_t count;
+
+    asm volatile ("movq %%cr3, %0":"=r"(cr3));
+    space = (mm_space_t) MM_VIRTUALIZE(cr3);
+
+    count = 0;
+    for (size_t i = 0; i < sizeof(bytes); ++i) {
+        // TODO: overflow check here
+        if (exc_safe_read_byte(space, rip + i, &bytes[i]) != 0) {
+            break;
+        }
+        ++count;
+    }
+
+    dump_segment(bytes, rip, count);
+    debug_dump(level, bytes, count);
+#undef DISASM_BYTES
+}
+
 static void exc_dump(int level, struct amd64_exception_frame *frame) {
     uintptr_t cr2, cr3;
 
@@ -193,6 +228,9 @@ static void exc_dump(int level, struct amd64_exception_frame *frame) {
     } else {
         debugf(level, "%rip is in unknown location\n");
     }
+
+    exc_dump_code(level, frame->rip);
+
     debugs(level, "\033[0m");
 }
 
@@ -231,6 +269,7 @@ void amd64_exception(struct amd64_exception_frame *frame) {
         case X86_EXCEPTION_PF:
             kerror("SIGSEGV in %d\n", thread_self->proc->pid);
             exc_dump(DEBUG_DEFAULT, frame);
+            while (1);
             thread_signal(thread_self, SIGSEGV);
             return;
         }
