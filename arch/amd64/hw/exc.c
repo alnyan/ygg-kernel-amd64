@@ -82,7 +82,7 @@ int do_pfault(struct amd64_exception_frame *frame, uintptr_t cr2, uintptr_t cr3)
                     panic("Write to non-CoW page triggered a page fault\n");
                 }
 
-                if (page->refcount == 2) {
+                if (page->refcount >= 2) {
                     //kdebug("[%d] Cloning page @ %p\n", proc->pid, cr2 & MM_PAGE_MASK);
                     uintptr_t new_phys = mm_phys_alloc_page(PU_PRIVATE);
                     _assert(new_phys != MM_NADDR);
@@ -269,7 +269,6 @@ void amd64_exception(struct amd64_exception_frame *frame) {
         case X86_EXCEPTION_PF:
             kerror("SIGSEGV in %d\n", thread_self->proc->pid);
             exc_dump(DEBUG_DEFAULT, frame);
-            while (1);
             thread_signal(thread_self, SIGSEGV);
             return;
         }
