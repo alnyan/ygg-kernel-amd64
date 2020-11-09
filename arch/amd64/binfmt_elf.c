@@ -176,7 +176,7 @@ int elf_load(struct process *proc, struct vfs_ioctx *ctx, struct ofile *fd, uint
             uintptr_t start_aligned = phdr.p_vaddr & ~0xFFF;
             size_t size_aligned = ((phdr.p_vaddr + phdr.p_memsz + 0xFFF) & ~0xFFF) - start_aligned;
 
-            kdebug("[%2d] vaddr=%p\n", i, phdr.p_vaddr);
+            //kdebug("[%2d] vaddr=%p\n", i, phdr.p_vaddr);
 
             if (elf_map_region(proc->space, start_aligned, size_aligned) != 0) {
                 panic("Failed to map segment\n");

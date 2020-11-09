@@ -289,17 +289,30 @@ int mm_space_fork(struct process *dst, const struct process *src, uint32_t flags
                         struct page *src_page = PHYS2PAGE(src_page_phys);
 
                         _assert(src_page->refcount);
-                        ++src_page->refcount;
 
+#define MM_USE_COW
                         if ((src_pt[pti] & MM_PAGE_WRITE) && src_page->usage == PU_PRIVATE) {
                             // Clone the mapping, use CoW
+#if defined(MM_USE_COW)
                             uint64_t access = src_pt[pti] & (MM_PTE_FLAGS_MASK & ~MM_PAGE_WRITE);
                             dst_pt[pti] = src_page_phys | access;
                             src_pt[pti] &= ~MM_PAGE_WRITE;
                             asm volatile("invlpg (%0)"::"r"(src_page_virt));
+                            ++src_page->refcount;
+#else
+                            uint64_t access = src_pt[pti] & MM_PTE_FLAGS_MASK;
+                            uintptr_t new_page = mm_phys_alloc_page(PU_PRIVATE);
+                            _assert(new_page != MM_NADDR);
+                            memcpy((void *) MM_VIRTUALIZE(new_page),
+                                   (const void *) MM_VIRTUALIZE(src_page_phys),
+                                   0x1000);
+                            dst_pt[pti] = new_page | access;
+                            ++PHYS2PAGE(new_page)->refcount;
+#endif
                         } else {
                             // Just clone the mapping - it's readonly
                             dst_pt[pti] = src_page_phys | (src_pt[pti] & MM_PTE_FLAGS_MASK);
+                            ++src_page->refcount;
                         }
                     }
                 }

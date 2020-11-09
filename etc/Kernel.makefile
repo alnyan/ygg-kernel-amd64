@@ -120,10 +120,7 @@ KERNEL_OBJ=$(O)/arch/amd64/boot/yboot.o \
 		   $(O)/drivers/usb/device.o \
 		   $(O)/drivers/usb/usbkbd.o \
 		   $(O)/drivers/usb/hub.o \
-		   $(O)/arch/amd64/disasm/front.o \
-		   $(O)/arch/amd64/disasm/x86.o \
-		   $(O)/arch/amd64/disasm/x86_op.o \
-		   $(O)/arch/amd64/disasm/x86_arg.o \
+
 
 KERNEL_LDS=arch/amd64/link.ld
 KERNEL_HDR=$(shell find include -type f -name "*.h")

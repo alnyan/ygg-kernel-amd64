@@ -2,7 +2,6 @@
 #include "arch/amd64/smp/ipi.h"
 #include "arch/amd64/smp/smp.h"
 #endif
-#include "arch/amd64/disasm/front.h"
 #include "arch/amd64/cpu.h"
 #include "sys/mem/phys.h"
 #include "sys/thread.h"
@@ -138,7 +137,6 @@ static void exc_dump_code(int level, uintptr_t rip) {
         ++count;
     }
 
-    dump_segment(bytes, rip, count);
     debug_dump(level, bytes, count);
 #undef DISASM_BYTES
 }
