@@ -1,7 +1,11 @@
 Yggdrasil x86-64 kernel
 ======================================
 
-(I still need refactoring, huh.)
+UPD Nov. 20, 2020: this kernel is a live manifestation of my
+extremely poor architecture designing skills. The current
+state of the project is frozen as of yet and I am beginning
+work on a proper redesign and rewrite of the kernel.
+
 
 Yggdrasil is the name for my kernel development project which
 tries to follow the Unix principles (yet another POSIX
