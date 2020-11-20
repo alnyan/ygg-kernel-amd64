@@ -89,7 +89,7 @@ void packet_queue_init(struct packet_queue *pq) {
 
 struct packet *packet_create(size_t size) {
     struct packet *packet;
-    uintptr_t page = mm_phys_alloc_page();
+    uintptr_t page = mm_phys_alloc_page(PU_KERNEL);
     _assert(page != MM_NADDR);
     packet = (struct packet *) MM_VIRTUALIZE(page);
     packet->refcount = 0;
